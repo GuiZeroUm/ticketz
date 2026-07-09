@@ -91,39 +91,127 @@ docker compose logs -t -f
 
 ```
 
-Running from Source code Using Docker
+Running From Source Code Using Docker
 -------------------------------------
 
-For installation, you need to have Docker Community Edition and the Git client installed. It is ideal to find the best way to install these resources on your preferred operating system. [The official Docker installation guide can be found here](https://docs.docker.com/engine/install/).
+For installation, you need Docker Community Edition, Docker Compose and the Git
+client installed. Use the best installation method for your operating system.
+[The official Docker installation guide can be found here](https://docs.docker.com/engine/install/).
 
-In both cases, it is necessary to clone the repository, then open a command terminal:
+Clone the repository and run the commands from the project root:
 
 ```bash
-git clone https://github.com/allgood/ticketz.git
+git clone https://github.com/GuiZeroUm/ticketz.git
 cd ticketz
 ```
 
-## Running Locally
+## Running Locally: Guide for Humans and AI Agents
 
-By default, the configuration is set to run the system only on the local computer. To run it on a local network, you need to edit the `.env-backend-local` and `.env-frontend-local` files and change the backend and frontend addresses from `localhost` to the desired IP, for example, `192.168.0.10`.
+Local environment summary:
 
-To run the system, simply execute the following command:
+- There is no root `package.json`; backend and frontend are separate packages.
+- The simplest path is Docker Compose from the repository root.
+- The frontend is available at `http://localhost:3000/login`.
+- The backend is reached by the frontend through `http://localhost:3000/backend`.
+- The backend direct port defaults to `8080`, but it can be changed without
+  breaking the frontend.
+- The default username is `admin@ticketz.host`, and the default password is
+  `123456`.
+
+### Standard startup
+
+Use this command when ports `3000` and `8080` are free:
 
 ```bash
-docker compose -f docker-compose-local.yaml up -d
+docker compose -f docker-compose-local.yaml up -d --build
 ```
 
-On the first run, the system will initialize the databases and tables, and after a few minutes, Ticketz will be accessible through port 3000.
+On the first run, the system initializes the database and tables. After a few
+minutes, Ticketz is available at:
 
-The default username is `admin@ticketz.host`, and the default password is 123456.
+```text
+http://localhost:3000/login
+```
 
-The application will restart automatically after each server reboot.
+### When port 8080 is already in use
 
-Execution can be stopped with the command:
+If another container or service already uses port `8080`, keep the frontend on
+port `3000` and publish the backend on another port. This is the command used
+in this environment:
 
 ```bash
-docker compose -f docker-compose-local.yaml down
+BACKEND_PORT=18080 docker compose -f docker-compose-local.yaml up -d --build
 ```
+
+The browser still uses `http://localhost:3000/login`. Port `18080` is only for
+direct backend access from the host, when needed.
+
+### Alternative when the backend runtime image is slow
+
+The default `backend/Dockerfile` uses the runtime image
+`ghcr.io/ticketz-oss/ticketz-node-24`. In some environments that image can be
+very slow to download. For local development, this repository includes a small
+override:
+
+- `docker-compose.localruntime.yaml`
+- `backend/Dockerfile.localruntime`
+
+It changes only the local backend runtime to the official `node:24` image while
+keeping Postgres, Redis, frontend, volumes and local compose environment
+variables. Use it like this:
+
+```bash
+BACKEND_PORT=18080 docker compose -f docker-compose-local.yaml -f docker-compose.localruntime.yaml up -d --build
+```
+
+This alternative is meant for local development and quick startup. For internet
+deployment or full runtime validation, use the project's standard compose
+files.
+
+### Verify startup
+
+Check the containers:
+
+```bash
+BACKEND_PORT=18080 docker compose -f docker-compose-local.yaml -f docker-compose.localruntime.yaml ps
+```
+
+Check backend logs and wait for a line showing that the server started:
+
+```bash
+BACKEND_PORT=18080 docker compose -f docker-compose-local.yaml -f docker-compose.localruntime.yaml logs -f backend
+```
+
+Check HTTP:
+
+```bash
+curl -I http://localhost:3000/
+curl -I http://localhost:3000/backend/
+```
+
+Both calls should return `200 OK` when the frontend, proxy and backend are
+ready.
+
+### Stop and clean
+
+Stop while keeping the database and uploads:
+
+```bash
+BACKEND_PORT=18080 docker compose -f docker-compose-local.yaml -f docker-compose.localruntime.yaml down
+```
+
+Remove local volumes, database, Redis and uploaded files as well:
+
+```bash
+BACKEND_PORT=18080 docker compose -f docker-compose-local.yaml -f docker-compose.localruntime.yaml down -v
+```
+
+### Running on a local network
+
+By default, the configuration is set to run the system only on the local
+computer. To run it on a local network, edit `.env-backend-local` and
+`.env-frontend-local` and change the backend and frontend addresses from
+`localhost` to the desired IP, for example, `192.168.0.10`.
 
 ## Running and Serving on the Internet
 
