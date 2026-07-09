@@ -5,7 +5,7 @@ export default {
     await queryInterface.sequelize.query(`
       CREATE OR REPLACE FUNCTION immutable_unaccent(text)
       RETURNS text AS $$
-      SELECT unaccent($1);
+      SELECT public.unaccent($1);
       $$ LANGUAGE sql IMMUTABLE;
     `);
   },
