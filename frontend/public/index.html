@@ -388,6 +388,40 @@
           .then(data => {
             document.title = data || "ticketz";
           });
+
+        // Banner de fundo na tela de carregamento (splash): usa a mesma imagem
+        // configurada para o login da empresa, mantendo a identidade visual
+        // desde o primeiro instante. Prioriza o "conteudo de fundo do login" e,
+        // se nao houver, cai para a "imagem lateral". Apenas imagens sao usadas
+        // aqui; videos sao ignorados para nao pesar o carregamento.
+        const applySplashBanner = filename => {
+          if (!filename || /\.(mp4|webm|ogg)$/i.test(filename)) {
+            return false;
+          }
+          const splashBackground = document.getElementById("splash-background");
+          if (!splashBackground) {
+            return false;
+          }
+          splashBackground.style.backgroundImage =
+            'url("' + backendUrl + "/public/" + filename + '")';
+          splashBackground.style.backgroundSize = "cover";
+          splashBackground.style.backgroundPosition = "center";
+          splashBackground.style.backgroundRepeat = "no-repeat";
+          splashBackground.style.animation = "none";
+          return true;
+        };
+
+        fetch(settingsBaseUrl + "/loginBackgroundContent" + q)
+          .then(response => response.json())
+          .then(filename => {
+            if (applySplashBanner(filename)) {
+              return;
+            }
+            return fetch(settingsBaseUrl + "/loginSidePanelImage" + q)
+              .then(response => response.json())
+              .then(applySplashBanner);
+          })
+          .catch(() => {});
       };
 
       fetch("/config.json").then(async response => {
