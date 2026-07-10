@@ -18,8 +18,8 @@ COPY nginx /etc/nginx
 CMD (echo "{" && while IFS='=' read -r name value; do \
         printf '\t"%s": "%s"\n' "$name" "$value"; \
     done < <(env) | sed '$!s/$/,/' && echo "}")  > /var/www/public/config.json \
-    && if [ -n "$BACKEND_SERVICE" ]; then \
-        BACKEND_IP=$(getent hosts $BACKEND_SERVICE | awk '{ print $1 }') \
-        && echo "$BACKEND_IP backend" >> /etc/hosts; \
-    fi \
-    && nginx -g "daemon off;"
+    ; RESOLVERS="$(awk '/^nameserver/{print $2}' /etc/resolv.conf | tr '\n' ' ')" \
+    ; [ -n "$RESOLVERS" ] || RESOLVERS="127.0.0.11" \
+    ; BACKEND_UPSTREAM="${BACKEND_SERVICE:-backend}:3000" \
+    ; printf 'resolver %s valid=10s ipv6=on;\nmap $host $backend_upstream {\n    default "%s";\n}\n' "$RESOLVERS" "$BACKEND_UPSTREAM" > /etc/nginx/conf.d/00-upstream.conf \
+    ; nginx -g "daemon off;"
