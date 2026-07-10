@@ -15,6 +15,23 @@
       content="minimum-scale=1, initial-scale=1, width=device-width"
     />
 
+    <!--
+      Open Graph / Twitter Card padrao (fallback).
+      A pre-visualizacao personalizada por empresa (logo/nome do tenant a
+      partir do subdominio) e' gerada pelo backend na rota /link-preview e
+      servida aos robos de rede social pelo nginx. Estas tags genericas
+      garantem uma previa minima caso o robo acesse o HTML estatico direto.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Ticketz" />
+    <meta property="og:title" content="Ticketz" />
+    <meta property="og:description" content="Ticketz" />
+    <meta property="og:image" content="%PUBLIC_URL%/icon-1024x1024.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Ticketz" />
+    <meta name="twitter:description" content="Ticketz" />
+    <meta name="twitter:image" content="%PUBLIC_URL%/icon-1024x1024.png" />
+
     <style>
       html,
       body {
