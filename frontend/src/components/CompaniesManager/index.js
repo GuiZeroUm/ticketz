@@ -99,6 +99,7 @@ export function CompanyForm(props) {
     campaignsEnabled: false,
     dueDate: "",
     recurrence: "",
+    slug: "",
     ...initialValue
   });
 
@@ -222,6 +223,25 @@ export function CompanyForm(props) {
                   variant="outlined"
                   className={classes.fullWidth}
                   margin="dense"
+                />
+              </Grid>
+              <Grid xs={12} sm={6} md={4} item>
+                <Field
+                  as={TextField}
+                  label="Subdomínio (slug)"
+                  name="slug"
+                  variant="outlined"
+                  className={classes.fullWidth}
+                  margin="dense"
+                  helperText="Ex.: teste → teste.seudominio.com.br"
+                  onChange={e =>
+                    values.setFieldValue(
+                      "slug",
+                      (e.target.value || "")
+                        .toLowerCase()
+                        .replace(/[^a-z0-9-]/g, "")
+                    )
+                  }
                 />
               </Grid>
               <Grid xs={12} sm={6} md={4} item>
@@ -567,7 +587,8 @@ export default function CompaniesManager() {
     status: true,
     campaignsEnabled: false,
     dueDate: "",
-    recurrence: ""
+    recurrence: "",
+    slug: ""
   });
 
   const { handleImpersonate } = useContext(AuthContext);
@@ -669,7 +690,8 @@ export default function CompaniesManager() {
       status: data.status === false ? false : true,
       campaignsEnabled,
       dueDate: data.dueDate || "",
-      recurrence: data.recurrence || ""
+      recurrence: data.recurrence || "",
+      slug: data.slug || ""
     }));
   };
 

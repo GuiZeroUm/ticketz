@@ -53,8 +53,12 @@ export const publicShow = async (
   res: Response
 ): Promise<Response> => {
   const { settingKey: key } = req.params;
+  const { slug } = req.query;
 
-  const settingValue = await GetPublicSettingService({ key });
+  const settingValue = await GetPublicSettingService({
+    key,
+    slug: typeof slug === "string" ? slug : undefined
+  });
 
   return res.status(200).json(settingValue);
 };

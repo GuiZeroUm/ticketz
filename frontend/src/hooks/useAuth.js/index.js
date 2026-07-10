@@ -12,6 +12,7 @@ import ColorModeContext from "../../layout/themeContext";
 import { clearAllCachedSettings } from "../../helpers/settingsCache";
 import { getStoredToken, setStoredToken } from "../../helpers/token";
 import { loadBranding } from "../../helpers/loadBranding";
+import getCompanySlug from "../../helpers/getCompanySlug";
 import moment from "moment";
 import { decodeToken } from "react-jwt";
 
@@ -33,10 +34,13 @@ const useAuth = () => {
       return data;
     });
 
-  // Reverte para a marca "master" (empresa 1) usada na tela de login.
+  // Reverte para a marca publica da empresa do subdominio atual (ou master).
   const applyPublicBranding = () =>
     loadBranding(colorMode, async key => {
-      const { data } = await openApi.get(`/public-settings/${key}`);
+      const slug = getCompanySlug();
+      const { data } = await openApi.get(`/public-settings/${key}`, {
+        params: slug ? { slug } : undefined
+      });
       return data;
     });
 

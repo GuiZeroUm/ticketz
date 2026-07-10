@@ -64,6 +64,9 @@ class Company extends Model<Company> {
   @Column
   language: string;
 
+  @Column
+  slug: string;
+
   @CreatedAt
   createdAt: Date;
 

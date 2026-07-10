@@ -20,25 +20,38 @@ if (!config) {
 }
 
 export function getBackendURL() {
+  if (config.REACT_APP_BACKEND_URL) {
+    return config.REACT_APP_BACKEND_URL;
+  }
+  // BACKEND_HOST vazio => same-origin: usa o proxy /backend do proprio host.
+  // Essencial para subdominio por empresa (cada subdominio fala com seu proprio
+  // backend via proxy, isolando cookies/branding).
+  if (!config.BACKEND_HOST) {
+    return config.BACKEND_PATH ?? "/backend";
+  }
   return (
-    config.REACT_APP_BACKEND_URL ||
     (config.BACKEND_PROTOCOL ?? "https") +
-      "://" +
-      config.BACKEND_HOST +
-      ":" +
-      (config.BACKEND_PORT ?? 443) +
-      (config.BACKEND_PATH ?? "")
+    "://" +
+    config.BACKEND_HOST +
+    ":" +
+    (config.BACKEND_PORT ?? 443) +
+    (config.BACKEND_PATH ?? "")
   );
 }
 
 export function getBackendSocketURL() {
+  if (config.REACT_APP_BACKEND_URL) {
+    return config.REACT_APP_BACKEND_URL;
+  }
+  if (!config.BACKEND_HOST) {
+    return window.location.origin;
+  }
   return (
-    config.REACT_APP_BACKEND_URL ||
     (config.BACKEND_PROTOCOL ?? "https") +
-      "://" +
-      config.BACKEND_HOST +
-      ":" +
-      (config.BACKEND_PORT ?? 443)
+    "://" +
+    config.BACKEND_HOST +
+    ":" +
+    (config.BACKEND_PORT ?? 443)
   );
 }
 

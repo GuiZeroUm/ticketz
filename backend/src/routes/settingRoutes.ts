@@ -50,13 +50,13 @@ settingRoutes.post(
   SettingController.storePrivateFile
 );
 
-// Public files (login side-panel image / background) affect the shared,
-// pre-login master screen (company 1). Kept super-only on purpose; the
-// controller still scopes writes to the caller's companyId.
+// Public files (login side-panel image / background). Com subdominio por
+// empresa, cada empresa tem sua propria tela de login, entao o admin da
+// empresa pode gerenciar. O controller escopa a escrita por req.user.companyId.
 settingRoutes.post(
   "/settings/publicFile",
   isAuth,
-  isSuper,
+  isAdmin,
   upload.single("file"),
   SettingController.storePublicFile
 );

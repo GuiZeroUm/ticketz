@@ -314,10 +314,40 @@
         const backendUrl = `${protocol}://${hostname}${port}${path}`;
         const settingsBaseUrl = backendUrl + "/public-settings";
 
+        // Deriva o slug (subdominio) da empresa para personalizar o splash.
+        // Mesma logica de src/helpers/getCompanySlug.js, inline (pre-React).
+        const appBaseDomain = (config.APP_BASE_DOMAIN || "").toLowerCase();
+        const currentHost = (window.location.hostname || "").toLowerCase();
+        let slug = "";
+        if (currentHost.endsWith(".localhost")) {
+          slug = currentHost
+            .slice(0, currentHost.length - ".localhost".length)
+            .split(".")[0];
+        } else if (
+          appBaseDomain &&
+          currentHost !== appBaseDomain &&
+          currentHost.endsWith("." + appBaseDomain)
+        ) {
+          slug = currentHost
+            .slice(0, currentHost.length - appBaseDomain.length - 1)
+            .split(".")[0];
+        }
+        if (
+          slug &&
+          (!/^[a-z0-9-]+$/.test(slug) ||
+            ["www", "app", "api", "admin", "backend", "frontend"].indexOf(
+              slug
+            ) !== -1)
+        ) {
+          slug = "";
+        }
+        const q = slug ? "?slug=" + encodeURIComponent(slug) : "";
+
         fetch(
           settingsBaseUrl +
             "/primaryColor" +
-            (theme === "dark" ? "Dark" : "Light")
+            (theme === "dark" ? "Dark" : "Light") +
+            q
         )
           .then(response => response.json())
           .then(data => {
@@ -335,8 +365,8 @@
           });
 
         Promise.all([
-          fetch(settingsBaseUrl + "/appLogoDark"),
-          fetch(settingsBaseUrl + "/appLogoLight")
+          fetch(settingsBaseUrl + "/appLogoDark" + q),
+          fetch(settingsBaseUrl + "/appLogoLight" + q)
         ]).then(async responses => {
           const appLogo = document.getElementById("app-logo");
 
@@ -353,7 +383,7 @@
           appLogoDiv.style.display = "block";
         });
 
-        fetch(settingsBaseUrl + "/appName")
+        fetch(settingsBaseUrl + "/appName" + q)
           .then(response => response.json())
           .then(data => {
             document.title = data || "ticketz";

@@ -32,6 +32,7 @@ type CompanyData = {
   campaignsEnabled?: boolean;
   dueDate?: string;
   recurrence?: string;
+  slug?: string;
 };
 
 type SchedulesData = {

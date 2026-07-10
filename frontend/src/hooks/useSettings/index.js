@@ -1,6 +1,7 @@
 import { useContext, useEffect } from "react";
 import api, { openApi } from "../../services/api";
 import { Mutex } from "async-mutex";
+import getCompanySlug from "../../helpers/getCompanySlug";
 import { SocketContext } from "../../context/Socket/SocketContext";
 import {
   clearAllCachedSettings,
@@ -67,9 +68,11 @@ const useSettings = () => {
   };
 
   const getPublicSetting = async key => {
+    const slug = getCompanySlug();
     const { data } = await openApi.request({
       url: `/public-settings/${key}`,
-      method: "GET"
+      method: "GET",
+      params: slug ? { slug } : undefined
     });
     return data;
   };

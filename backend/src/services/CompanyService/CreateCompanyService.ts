@@ -3,6 +3,7 @@ import AppError from "../../errors/AppError";
 import Company from "../../models/Company";
 import User from "../../models/User";
 import Setting from "../../models/Setting";
+import normalizeSlug from "../../helpers/normalizeSlug";
 
 interface CompanyData {
   name: string;
@@ -15,6 +16,7 @@ interface CompanyData {
   dueDate?: string;
   recurrence?: string;
   language?: string;
+  slug?: string;
 }
 
 const CreateCompanyService = async (
@@ -33,6 +35,8 @@ const CreateCompanyService = async (
     language
   } = companyData;
 
+  const slug = normalizeSlug(companyData.slug);
+
   const companySchema = Yup.object().shape({
     name: Yup.string()
       .min(2, "ERR_COMPANY_INVALID_NAME")
@@ -50,11 +54,25 @@ const CreateCompanyService = async (
           }
           return false;
         }
-      )
+      ),
+    slug: Yup.string().test(
+      "Check-unique-slug",
+      "ERR_COMPANY_SLUG_ALREADY_EXISTS",
+      async value => {
+        if (value) {
+          const companyWithSameSlug = await Company.findOne({
+            where: { slug: value }
+          });
+
+          return !companyWithSameSlug;
+        }
+        return true;
+      }
+    )
   });
 
   try {
-    await companySchema.validate({ name });
+    await companySchema.validate({ name, slug });
   } catch (err: any) {
     throw new AppError(err.message);
   }
@@ -67,7 +85,8 @@ const CreateCompanyService = async (
     planId,
     dueDate,
     recurrence,
-    language
+    language,
+    slug: slug || null
   });
   const [user, created] = await User.findOrCreate({
     where: { name, email },

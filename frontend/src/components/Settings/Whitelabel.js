@@ -46,8 +46,6 @@ import FormControl from "@material-ui/core/FormControl";
 import TextField from "@material-ui/core/TextField";
 import Button from "@material-ui/core/Button";
 import { makeStyles } from "@material-ui/core/styles";
-import OnlyForSuperUser from "../OnlyForSuperUser";
-import { AuthContext } from "../../context/Auth/AuthContext";
 import useSettings from "../../hooks/useSettings";
 
 import { IconButton, InputAdornment, Typography } from "@material-ui/core";
@@ -229,8 +227,6 @@ export default function Whitelabel(props) {
   const classes = useStyles();
   const [settingsLoaded, setSettingsLoaded] = useState({});
   const [loginLinks, setLoginLinks] = useState([createEmptyLink()]);
-
-  const { user: currentUser } = useContext(AuthContext);
 
   const { colorMode } = useContext(ColorModeContext);
   const [primaryColorLightModalOpen, setPrimaryColorLightModalOpen] =
@@ -712,11 +708,7 @@ export default function Whitelabel(props) {
                   />
                 </div>
               </Grid>
-        {/* Tela de login (compartilhada / master): apenas super-admin */}
-        <OnlyForSuperUser
-          user={currentUser}
-          yes={() => (
-            <>
+        {/* Tela de login: cada empresa edita a propria (via subdominio) */}
               <Grid xs={12} item>
                 <Typography
                   className={classes.sectionTitle}
@@ -919,9 +911,6 @@ export default function Whitelabel(props) {
                   )}
                 </div>
               </Grid>
-            </>
-          )}
-        />
       </Grid>
     </>
   );
