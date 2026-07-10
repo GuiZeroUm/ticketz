@@ -1044,6 +1044,10 @@ export default function Options(props) {
           </FormControl>
         </Grid>
 
+        <OnlyForSuperUser
+          user={currentUser}
+          yes={() => (
+            <>
         <Grid item xs={12}>
           <h2 className={classes.groupTitle}>{i18n.t("settings.group.api")}</h2>
         </Grid>
@@ -1160,6 +1164,9 @@ export default function Options(props) {
             </Select>
           </FormControl>
         </Grid>
+            </>
+          )}
+        />
 
         <OnlyForSuperUser
           user={currentUser}

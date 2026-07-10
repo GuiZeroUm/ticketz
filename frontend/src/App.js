@@ -11,7 +11,7 @@ import { PhoneCallProvider } from "./context/PhoneCall/PhoneCallContext";
 import { SocketContext, socketManager } from "./context/Socket/SocketContext";
 import useSettings from "./hooks/useSettings";
 import Favicon from "react-favicon";
-import { getBackendURL } from "./services/config";
+import { loadBranding } from "./helpers/loadBranding";
 
 import Routes from "./routes";
 
@@ -221,56 +221,9 @@ const App = () => {
   }, [mode]);
 
   useEffect(() => {
-    getPublicSetting("primaryColorLight")
-      .then(color => {
-        setPrimaryColorLight(color || "#0000FF");
-      })
-      .catch(error => {
-        console.log("Error reading setting", error);
-      });
-    getPublicSetting("primaryColorDark")
-      .then(color => {
-        setPrimaryColorDark(color || "#39ACE7");
-      })
-      .catch(error => {
-        console.log("Error reading setting", error);
-      });
-    getPublicSetting("appLogoLight")
-      .then(
-        file => {
-          setAppLogoLight(
-            file ? `${getBackendURL()}/public/${file}` : defaultLogoLight
-          );
-        },
-        _ => {}
-      )
-      .catch(error => {
-        console.log("Error reading setting", error);
-      });
-    getPublicSetting("appLogoDark")
-      .then(file => {
-        setAppLogoDark(
-          file ? `${getBackendURL()}/public/${file}` : defaultLogoDark
-        );
-      })
-      .catch(error => {
-        console.log("Error reading setting", error);
-      });
-    getPublicSetting("appLogoFavicon")
-      .then(file => {
-        setAppLogoFavicon(file ? `${getBackendURL()}/public/${file}` : null);
-      })
-      .catch(error => {
-        console.log("Error reading setting", error);
-      });
-    getPublicSetting("appName")
-      .then(name => {
-        setAppName(name || "ticketz");
-      })
-      .catch(error => {
-        console.log("Error reading setting", error);
-        setAppName("whitelabel chat");
-      });
+    // Marca "master" (empresa 1) para a tela de login (pre-autenticacao).
+    // Apos o login, o useAuth reaplica a marca da empresa do usuario.
+    loadBranding(colorMode, getPublicSetting);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

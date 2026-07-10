@@ -15,7 +15,16 @@ export const safeSettingsKeys = {
   groupsTab: "disabled",
   CheckMsgIsGroup: "disabled",
   soundGroupNotifications: "disabled",
-  tagsMode: "ticket"
+  tagsMode: "ticket",
+  // Branding keys: readable by any authenticated user so the per-company
+  // theme (colors, logos, app name) applies to every user of the company,
+  // not only admins. Empty default -> frontend falls back to its own defaults.
+  primaryColorLight: "",
+  primaryColorDark: "",
+  appLogoLight: "",
+  appLogoDark: "",
+  appLogoFavicon: "",
+  appName: ""
 };
 
 export const GetSettingService = async ({

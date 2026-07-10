@@ -5,10 +5,13 @@ import { has, isArray } from "lodash";
 import { toast } from "react-toastify";
 
 import { i18n } from "../../translate/i18n";
-import api from "../../services/api";
+import api, { openApi } from "../../services/api";
 import toastError from "../../errors/toastError";
 import { SocketContext } from "../../context/Socket/SocketContext";
+import ColorModeContext from "../../layout/themeContext";
 import { clearAllCachedSettings } from "../../helpers/settingsCache";
+import { getStoredToken, setStoredToken } from "../../helpers/token";
+import { loadBranding } from "../../helpers/loadBranding";
 import moment from "moment";
 import { decodeToken } from "react-jwt";
 
@@ -21,6 +24,21 @@ const useAuth = () => {
   const [user, setUser] = useState({});
 
   const socketManager = useContext(SocketContext);
+  const { colorMode } = useContext(ColorModeContext);
+
+  // Aplica a identidade visual da empresa do usuario autenticado.
+  const applyCompanyBranding = () =>
+    loadBranding(colorMode, async key => {
+      const { data } = await api.get(`/settings/${key}`);
+      return data;
+    });
+
+  // Reverte para a marca "master" (empresa 1) usada na tela de login.
+  const applyPublicBranding = () =>
+    loadBranding(colorMode, async key => {
+      const { data } = await openApi.get(`/public-settings/${key}`);
+      return data;
+    });
 
   useEffect(() => {
     if (apiInterceptorsRegistered) {
@@ -30,9 +48,9 @@ const useAuth = () => {
 
     api.interceptors.request.use(
       config => {
-        const token = localStorage.getItem("token");
+        const token = getStoredToken();
         if (token) {
-          config.headers["Authorization"] = `Bearer ${JSON.parse(token)}`;
+          config.headers["Authorization"] = `Bearer ${token}`;
           setIsAuth(true);
         }
         return config;
@@ -52,8 +70,8 @@ const useAuth = () => {
           originalRequest._retry = true;
 
           const { data } = await api.post("/auth/refresh_token");
-          if (data) {
-            localStorage.setItem("token", JSON.stringify(data.token));
+          if (data?.token) {
+            setStoredToken(data.token);
             api.defaults.headers.Authorization = `Bearer ${data.token}`;
           }
           return api(originalRequest);
@@ -71,16 +89,19 @@ const useAuth = () => {
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = getStoredToken();
     (async () => {
       if (token) {
         try {
           const { data } = await api.post("/auth/refresh_token");
-          localStorage.setItem("token", JSON.stringify(data.token));
-          api.defaults.headers.Authorization = `Bearer ${data.token}`;
-          socketManager.syncCurrentSocketToken?.(data.token);
-          setIsAuth(true);
-          setUser(data.user);
+          if (data?.token) {
+            setStoredToken(data.token);
+            api.defaults.headers.Authorization = `Bearer ${data.token}`;
+            socketManager.syncCurrentSocketToken?.(data.token);
+            setIsAuth(true);
+            setUser(data.user);
+            applyCompanyBranding();
+          }
         } catch (err) {
           toastError(err);
         }
@@ -136,7 +157,7 @@ const useAuth = () => {
 
     clearAllCachedSettings();
 
-    localStorage.setItem("token", JSON.stringify(token));
+    setStoredToken(token);
     localStorage.setItem("companyId", companyId);
     localStorage.setItem("userId", data.user.id);
     localStorage.setItem("companyDueDate", vencimento);
@@ -144,6 +165,7 @@ const useAuth = () => {
     api.defaults.headers.Authorization = `Bearer ${data.token}`;
     setUser(data.user);
     setIsAuth(true);
+    applyCompanyBranding();
     if (dias < 0) {
       toast.warn(
         `Sua assinatura venceu há ${Math.round(dias) * -1} ${Math.round(dias) * -1 === 1 ? "dia" : "dias"} `
@@ -194,16 +216,12 @@ const useAuth = () => {
 
     try {
       const impersonatedFlag = localStorage.getItem("impersonated") === "true";
-      const token = localStorage.getItem("token");
+      const token = getStoredToken();
       let impersonatedByToken = false;
 
       if (token) {
-        try {
-          const decoded = decodeToken(JSON.parse(token));
-          impersonatedByToken = !!decoded?.impersonated;
-        } catch (_) {
-          impersonatedByToken = false;
-        }
+        const decoded = decodeToken(token);
+        impersonatedByToken = !!decoded?.impersonated;
       }
 
       if (impersonatedFlag || impersonatedByToken) {
@@ -231,6 +249,7 @@ const useAuth = () => {
       localStorage.removeItem("cshow");
       localStorage.removeItem("impersonated");
       api.defaults.headers.Authorization = undefined;
+      applyPublicBranding();
 
       setLoading(false);
       history.push("/login");

@@ -16,7 +16,6 @@ import { makeStyles, useTheme } from "@material-ui/core/styles";
 import Brightness4Icon from "@material-ui/icons/Brightness4";
 import Brightness7Icon from "@material-ui/icons/Brightness7";
 import LanguageIcon from "@material-ui/icons/Translate";
-import Typography from "@material-ui/core/Typography";
 
 import { i18n } from "../../translate/i18n";
 import { messages } from "../../translate/languages";
@@ -25,9 +24,6 @@ import { AuthContext } from "../../context/Auth/AuthContext";
 import useSettings from "../../hooks/useSettings";
 import { getBackendURL } from "../../services/config";
 import ColorModeContext from "../../layout/themeContext";
-import { loadJSON } from "../../helpers/loadJSON";
-
-const gitinfo = loadJSON("/gitinfo.json");
 
 const parseLoginLinks = value => {
   if (!value) {
@@ -198,24 +194,101 @@ const useStyles = makeStyles(theme => ({
       maxWidth: 420
     }
   },
-  mediaPane: {
+  splitContainer: {
+    position: "absolute",
+    inset: 0,
+    zIndex: 1,
+    display: "flex",
+    [theme.breakpoints.down("sm")]: {
+      flexDirection: "column"
+    }
+  },
+  splitImagePane: {
     position: "relative",
-    flex: "0 0 clamp(280px, 34vw, 360px)",
-    alignSelf: "stretch",
-    minHeight: 0,
+    flex: "0 0 50%",
+    maxWidth: "50%",
     overflow: "hidden",
     backgroundColor: theme.palette.background.default,
     [theme.breakpoints.down("sm")]: {
       display: "none"
     }
   },
-  sidePanelImage: {
+  splitImage: {
     position: "absolute",
     inset: 0,
     display: "block",
     width: "100%",
     height: "100%",
     objectFit: "cover"
+  },
+  splitFormPane: {
+    flex: "1 1 50%",
+    minWidth: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    overflowY: "auto",
+    backgroundColor: "#ffffff",
+    color: "#142033",
+    padding: theme.spacing(4),
+    "& .MuiInputBase-input": { color: "#142033" },
+    "& .MuiInputLabel-root": { color: "#5b6b7d" },
+    "& .MuiInputLabel-root.Mui-focused": {
+      color: theme.palette.primary.main
+    },
+    "& .MuiOutlinedInput-notchedOutline": {
+      borderColor: "rgba(20,32,51,0.23)"
+    },
+    "& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline": {
+      borderColor: "rgba(20,32,51,0.5)"
+    },
+    "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
+      borderColor: theme.palette.primary.main
+    },
+    [theme.breakpoints.down("sm")]: {
+      flex: "1 1 auto",
+      padding: theme.spacing(3)
+    }
+  },
+  splitFormInner: {
+    width: "100%",
+    maxWidth: 360,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center"
+  },
+  splitLogoImg: {
+    width: "100%",
+    maxWidth: 220,
+    margin: "0 auto 16px",
+    content: `url("${theme.calculatedLogoLight()}")`
+  },
+  splitLinksContainer: {
+    width: "100%",
+    marginTop: theme.spacing(2),
+    display: "flex",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: theme.spacing(1)
+  },
+  splitFooterLink: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 36,
+    padding: theme.spacing(0.75, 1.5),
+    borderRadius: 999,
+    textDecoration: "none",
+    color: theme.palette.primary.main,
+    fontWeight: 600,
+    fontSize: "0.85rem",
+    border: "1px solid rgba(20,32,51,0.12)",
+    background: "rgba(20,32,51,0.03)",
+    transition: "background-color 160ms ease",
+    "&:hover": {
+      background: "rgba(20,32,51,0.07)",
+      textDecoration: "none"
+    }
   },
   formColumn: {
     flex: "0 0 420px",
@@ -311,25 +384,6 @@ const useStyles = makeStyles(theme => ({
       textDecoration: "none"
     }
   },
-  versionInfo: {
-    position: "absolute",
-    right: theme.spacing(2),
-    bottom: theme.spacing(1.25),
-    zIndex: 2,
-    fontSize: "12px",
-    fontWeight: "bold",
-    textAlign: "right",
-    color: theme.palette.type === "light" ? "#0e1726" : "#ffffff",
-    textShadow:
-      theme.palette.type === "light"
-        ? "1px 0 2px rgba(255,255,255,0.9), -1px 0 2px rgba(255,255,255,0.9), 0 1px 2px rgba(255,255,255,0.9), 0 -1px 2px rgba(255,255,255,0.9), 0 2px 6px rgba(0,0,0,0.35)"
-        : "1px 0 2px rgba(0,0,0,0.9), -1px 0 2px rgba(0,0,0,0.9), 0 1px 2px rgba(0,0,0,0.9), 0 -1px 2px rgba(0,0,0,0.9), 0 2px 6px rgba(0,0,0,0.65)",
-    [theme.breakpoints.down("xs")]: {
-      right: theme.spacing(1),
-      bottom: theme.spacing(0.75),
-      fontSize: "11px"
-    }
-  },
   "@keyframes gradientDrift": {
     "0%": {
       backgroundPosition: "0% 50%"
@@ -411,6 +465,60 @@ const Login = () => {
   const showSidePanelImage = !!sidePanelImageUrl;
   const isLightMode = theme.palette.type === "light";
 
+  const formBody = (
+    <form className={classes.form} noValidate onSubmit={handlSubmit}>
+      <TextField
+        variant="outlined"
+        margin="normal"
+        required
+        fullWidth
+        id="email"
+        label={i18n.t("login.form.email")}
+        name="email"
+        value={user.email}
+        onChange={handleChangeInput}
+        autoComplete="email"
+        autoFocus
+      />
+      <TextField
+        variant="outlined"
+        margin="normal"
+        required
+        fullWidth
+        name="password"
+        label={i18n.t("login.form.password")}
+        type="password"
+        id="password"
+        value={user.password}
+        onChange={handleChangeInput}
+        autoComplete="current-password"
+      />
+      <Button
+        type="submit"
+        fullWidth
+        variant="contained"
+        color="primary"
+        className={classes.submit}
+      >
+        {i18n.t("login.buttons.submit")}
+      </Button>
+      {allowSignup && (
+        <Grid container>
+          <Grid item>
+            <Link
+              href="#"
+              variant="body2"
+              component={RouterLink}
+              to="/signup"
+            >
+              {i18n.t("login.buttons.register")}
+            </Link>
+          </Grid>
+        </Grid>
+      )}
+    </form>
+  );
+
   return (
     <div className={classes.root}>
       <CssBaseline />
@@ -466,134 +574,98 @@ const Login = () => {
       >
         {isLightMode ? <Brightness4Icon /> : <Brightness7Icon />}
       </IconButton>
-      {shouldRenderBackgroundVideo ? (
-        <video
-          className={classes.backgroundVideo}
-          autoPlay
-          loop
-          muted
-          playsInline
-        >
-          <source src={backgroundAssetUrl} />
-        </video>
-      ) : (
-        <div
-          className={`${classes.backgroundLayer}${backgroundAssetUrl ? ` ${classes.backgroundLayerImage}` : ""}`}
-          style={
-            backgroundAssetUrl
-              ? { backgroundImage: `url("${backgroundAssetUrl}")` }
-              : undefined
-          }
-        />
-      )}
-      <div className={classes.content}>
-        <div
-          className={classes.layout}
-          style={!showSidePanelImage ? { maxWidth: 440 } : undefined}
-        >
-          <div
-            className={classes.loginBox}
-            style={!showSidePanelImage ? { maxWidth: 420 } : undefined}
-          >
-            {showSidePanelImage && (
-              <div className={classes.mediaPane}>
-                <img
-                  className={classes.sidePanelImage}
-                  src={sidePanelImageUrl}
-                  alt={i18n.t("login.title")}
-                />
-              </div>
-            )}
-            <div className={classes.formColumn}>
-              <div className={classes.formCardWrap}>
-                <div className={classes.paper}>
-                  <div>
-                    <img
-                      className={classes.logoImg}
-                      alt={i18n.t("login.title")}
-                    />
-                  </div>
-                  <form
-                    className={classes.form}
-                    noValidate
-                    onSubmit={handlSubmit}
-                  >
-                    <TextField
-                      variant="outlined"
-                      margin="normal"
-                      required
-                      fullWidth
-                      id="email"
-                      label={i18n.t("login.form.email")}
-                      name="email"
-                      value={user.email}
-                      onChange={handleChangeInput}
-                      autoComplete="email"
-                      autoFocus
-                    />
-                    <TextField
-                      variant="outlined"
-                      margin="normal"
-                      required
-                      fullWidth
-                      name="password"
-                      label={i18n.t("login.form.password")}
-                      type="password"
-                      id="password"
-                      value={user.password}
-                      onChange={handleChangeInput}
-                      autoComplete="current-password"
-                    />
-                    <Button
-                      type="submit"
-                      fullWidth
-                      variant="contained"
-                      color="primary"
-                      className={classes.submit}
+      {showSidePanelImage ? (
+        <div className={classes.splitContainer}>
+          <div className={classes.splitImagePane}>
+            <img
+              className={classes.splitImage}
+              src={sidePanelImageUrl}
+              alt={i18n.t("login.title")}
+            />
+          </div>
+          <div className={classes.splitFormPane}>
+            <div className={classes.splitFormInner}>
+              <img
+                className={classes.splitLogoImg}
+                alt={i18n.t("login.title")}
+              />
+              {formBody}
+              {loginLinks.length > 0 && (
+                <div className={classes.splitLinksContainer}>
+                  {loginLinks.map((link, index) => (
+                    <a
+                      className={classes.splitFooterLink}
+                      href={link.url}
+                      key={`${link.url}-${index}`}
+                      target="_blank"
+                      rel="noreferrer"
                     >
-                      {i18n.t("login.buttons.submit")}
-                    </Button>
-                    {allowSignup && (
-                      <Grid container>
-                        <Grid item>
-                          <Link
-                            href="#"
-                            variant="body2"
-                            component={RouterLink}
-                            to="/signup"
-                          >
-                            {i18n.t("login.buttons.register")}
-                          </Link>
-                        </Grid>
-                      </Grid>
-                    )}
-                  </form>
+                      {link.title}
+                    </a>
+                  ))}
                 </div>
-              </div>
+              )}
             </div>
           </div>
-          {loginLinks.length > 0 && (
-            <div className={classes.linksContainer}>
-              {loginLinks.map((link, index) => (
-                <a
-                  className={classes.footerLink}
-                  href={link.url}
-                  key={`${link.url}-${index}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {link.title}
-                </a>
-              ))}
-            </div>
-          )}
         </div>
-      </div>
-      <Typography className={classes.versionInfo}>
-        {`${gitinfo.tagName || `${gitinfo.branchName || "N/A"} ${gitinfo.commitHash || "N/A"}`}`}
-        {" / "}
-        {`${gitinfo.buildTimestamp || "N/A"}`}
-      </Typography>
+      ) : (
+        <>
+          {shouldRenderBackgroundVideo ? (
+            <video
+              className={classes.backgroundVideo}
+              autoPlay
+              loop
+              muted
+              playsInline
+            >
+              <source src={backgroundAssetUrl} />
+            </video>
+          ) : (
+            <div
+              className={`${classes.backgroundLayer}${backgroundAssetUrl ? ` ${classes.backgroundLayerImage}` : ""}`}
+              style={
+                backgroundAssetUrl
+                  ? { backgroundImage: `url("${backgroundAssetUrl}")` }
+                  : undefined
+              }
+            />
+          )}
+          <div className={classes.content}>
+            <div className={classes.layout} style={{ maxWidth: 440 }}>
+              <div className={classes.loginBox} style={{ maxWidth: 420 }}>
+                <div className={classes.formColumn}>
+                  <div className={classes.formCardWrap}>
+                    <div className={classes.paper}>
+                      <div>
+                        <img
+                          className={classes.logoImg}
+                          alt={i18n.t("login.title")}
+                        />
+                      </div>
+                      {formBody}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {loginLinks.length > 0 && (
+                <div className={classes.linksContainer}>
+                  {loginLinks.map((link, index) => (
+                    <a
+                      className={classes.footerLink}
+                      href={link.url}
+                      key={`${link.url}-${index}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {link.title}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

@@ -440,10 +440,7 @@ export default function Whitelabel(props) {
   return (
     <>
       <Grid spacing={3} container>
-        <OnlyForSuperUser
-          user={currentUser}
-          yes={() => (
-            <>
+        {/* Branding in-app (cores, nome, logos): editavel por admins de cada empresa */}
               <Grid xs={12} sm={6} md={4} item>
                 <FormControl className={classes.selectContainer}>
                   <TextField
@@ -715,6 +712,11 @@ export default function Whitelabel(props) {
                   />
                 </div>
               </Grid>
+        {/* Tela de login (compartilhada / master): apenas super-admin */}
+        <OnlyForSuperUser
+          user={currentUser}
+          yes={() => (
+            <>
               <Grid xs={12} item>
                 <Typography
                   className={classes.sectionTitle}

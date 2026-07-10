@@ -32,10 +32,12 @@ settingRoutes.put(
 const upload = multer(uploadConfig);
 const uploadPrivate = multer(uploadPrivateConfig);
 
+// Logo per-company: admins can customize their own company's branding.
+// The upload is scoped to req.user.companyId in storeLogo.
 settingRoutes.post(
   "/settings/logo",
   isAuth,
-  isSuper,
+  isAdmin,
   upload.single("file"),
   SettingController.storeLogo
 );
@@ -48,6 +50,9 @@ settingRoutes.post(
   SettingController.storePrivateFile
 );
 
+// Public files (login side-panel image / background) affect the shared,
+// pre-login master screen (company 1). Kept super-only on purpose; the
+// controller still scopes writes to the caller's companyId.
 settingRoutes.post(
   "/settings/publicFile",
   isAuth,

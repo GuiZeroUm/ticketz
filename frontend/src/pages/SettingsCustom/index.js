@@ -158,6 +158,10 @@ const SettingsCustom = () => {
     return currentUser.super;
   };
 
+  const isAdmin = () => {
+    return currentUser.profile === "admin";
+  };
+
   return (
     <MainContainer className={classes.root}>
       <MainHeader>
@@ -192,7 +196,7 @@ const SettingsCustom = () => {
           {isSuper() ? (
             <Tab label={i18n.t("settings.Help.title")} value={"helps"} />
           ) : null}
-          {isSuper() ? (
+          {isAdmin() ? (
             <Tab
               label={i18n.t("settings.Whitelabel.title")}
               value={"whitelabel"}
@@ -260,17 +264,17 @@ const SettingsCustom = () => {
               </>
             )}
           </TabPanel>
+          <TabPanel
+            className={classes.container}
+            value={tab}
+            name={"whitelabel"}
+          >
+            <Whitelabel settings={settings} />
+          </TabPanel>
           <OnlyForSuperUser
             user={currentUser}
             yes={() => (
               <>
-                <TabPanel
-                  className={classes.container}
-                  value={tab}
-                  name={"whitelabel"}
-                >
-                  <Whitelabel settings={settings} />
-                </TabPanel>
                 <TabPanel
                   className={classes.container}
                   value={tab}
