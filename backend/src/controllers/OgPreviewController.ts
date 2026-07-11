@@ -17,9 +17,11 @@ const esc = (value: string): string =>
 // titulo (appName) e descricao (linkPreviewDescription).
 export const show = async (req: Request, res: Response): Promise<Response> => {
   const host = String(req.headers.host || "");
-  const proto = String(req.headers["x-forwarded-proto"] || "https").split(
-    ","
-  )[0];
+  // Em producao (Railway) o TLS termina no edge e o container recebe http, por
+  // isso nao da' pra confiar no $scheme repassado. Os dominios de tenant sao
+  // sempre https; so' localhost usa http.
+  const isLocal = host.startsWith("localhost") || host.startsWith("127.");
+  const proto = isLocal ? "http" : "https";
   const originalUri = String(req.headers["x-original-uri"] || "/");
   const base = `${proto}://${host}`;
   const slug = getSlugFromHost(host);
