@@ -69,8 +69,15 @@ interface FeeRule {
 // Configuração / cliente HTTP
 // ---------------------------------------------------------------------------
 
+// A chave da API pode vir do ambiente (ABACATEPAY_TOKEN) ou das configurações
+// no banco (_abacatePayToken). O ambiente tem prioridade: assim a produção usa
+// a chave definida no env e, para voltar a testar com a chave de
+// desenvolvimento, basta remover a variável de ambiente que o valor salvo nas
+// configurações volta a valer.
 const getAbacateToken = async (): Promise<string> => {
-  const token = await GetSuperSettingService({ key: "_abacatePayToken" });
+  const token =
+    process.env.ABACATEPAY_TOKEN ||
+    (await GetSuperSettingService({ key: "_abacatePayToken" }));
   if (!token) {
     throw new AppError("AbacatePay: API key não configurada", 400);
   }
@@ -484,9 +491,11 @@ export const abacateWebhook = async (
   res: Response
 ): Promise<Response> => {
   try {
-    const expectedSecret = await GetSuperSettingService({
-      key: "_abacatePayWebhookSecret"
-    });
+    // Mesmo esquema do token: env (ABACATEPAY_WEBHOOK_SECRET) tem prioridade
+    // sobre o valor salvo nas configurações (_abacatePayWebhookSecret).
+    const expectedSecret =
+      process.env.ABACATEPAY_WEBHOOK_SECRET ||
+      (await GetSuperSettingService({ key: "_abacatePayWebhookSecret" }));
 
     if (expectedSecret && req.query.webhookSecret !== expectedSecret) {
       logger.warn("abacateWebhook: webhookSecret inválido");
