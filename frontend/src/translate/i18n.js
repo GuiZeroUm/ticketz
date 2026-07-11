@@ -6,12 +6,14 @@ import { messages } from "./languages";
 i18n.use(LanguageDetector).init({
   debug: false,
   detection: {
-    order: ["localStorage", "navigator"],
+    // Só respeita a escolha salva pelo usuário. Sem escolha (cache limpo),
+    // cai no fallback (português) em vez do idioma do navegador.
+    order: ["localStorage"],
     lookupLocalStorage: "language",
     caches: ["localStorage"]
   },
   defaultNS: ["translations"],
-  fallbackLng: "en",
+  fallbackLng: "pt",
   ns: ["translations"],
   resources: messages
 });
