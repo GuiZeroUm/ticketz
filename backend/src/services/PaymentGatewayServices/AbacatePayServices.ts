@@ -223,35 +223,6 @@ const buildCustomer = (company?: Company, taxId?: string) => {
 
 const toCents = (value: number): number => Math.round(value * 100);
 
-// PIX transparente: QR Code exibido dentro do próprio sistema.
-const createPixCharge = async (
-  client: AxiosInstance,
-  invoice: Invoices,
-  amount: number,
-  company?: Company
-) => {
-  const body = {
-    method: "PIX",
-    data: {
-      amount: toCents(amount),
-      expiresIn: 3600,
-      description: `Fatura #${invoice.id} - ${invoice.detail || "Assinatura"}`,
-      customer: buildCustomer(company),
-      metadata: { invoiceId: String(invoice.id) }
-    }
-  };
-
-  const response = await client.post("/transparents/create", body);
-  const data = unwrap(response.data);
-
-  return {
-    id: data.id,
-    brCode: data.brCode,
-    brCodeBase64: data.brCodeBase64,
-    raw: data
-  };
-};
-
 // Boleto transparente: retorna URL para visualização/impressão do boleto.
 const createBoletoCharge = async (
   client: AxiosInstance,
@@ -281,13 +252,16 @@ const createBoletoCharge = async (
   };
 };
 
-// Cartão: cria um produto com o valor (já com gross-up) e um checkout
-// hospedado restrito ao cartão; retorna a URL do checkout para redirect.
-const createCardCheckout = async (
+// Checkout hospedado (PIX e/ou cartão): cria um produto com o valor (já com
+// gross-up) e um checkout restrito aos métodos informados; retorna a URL do
+// checkout para redirect. O cliente paga na página da AbacatePay e volta pela
+// completionUrl; a confirmação chega pelo webhook checkout.completed.
+const createHostedCheckout = async (
   client: AxiosInstance,
   invoice: Invoices,
   amount: number,
-  installments: number
+  methods: string[],
+  installments = 1
 ) => {
   const frontend = process.env.FRONTEND_URL || "";
 
@@ -304,14 +278,14 @@ const createCardCheckout = async (
 
   const checkoutBody: Record<string, any> = {
     items: [{ id: product.id, quantity: 1 }],
-    methods: ["CARD"],
+    methods,
     externalId: `invoice-${invoice.id}`,
     returnUrl: `${frontend}/financeiro`,
     completionUrl: `${frontend}/financeiro`,
     metadata: { invoiceId: String(invoice.id) }
   };
 
-  if (installments > 1) {
+  if (methods.includes("CARD") && installments > 1) {
     checkoutBody.card = { maxInstallments: installments };
   }
 
@@ -361,22 +335,23 @@ export const abacateCreateSubscription = async (
     const client = await abacateClient();
 
     if (method === "pix") {
-      const pix = await createPixCharge(
+      const checkout = await createHostedCheckout(
         client,
         invoice,
         grossed,
-        invoice.company
+        ["PIX"]
       );
 
       await invoice.update({
-        txId: pix.id,
+        txId: checkout.id,
         payGw: "abacatepay",
         payGwData: JSON.stringify({
           method,
           baseValue,
           chargedValue: grossed,
-          id: pix.id,
-          data: pix.raw
+          id: checkout.id,
+          productId: checkout.productId,
+          data: checkout.raw
         })
       });
       await invoice.reload();
@@ -385,8 +360,7 @@ export const abacateCreateSubscription = async (
 
       return res.json({
         method: "pix",
-        qrcode: { qrcode: pix.brCode },
-        brCodeBase64: pix.brCodeBase64,
+        redirectUrl: checkout.url,
         valor: { original: grossed }
       });
     }
@@ -422,10 +396,11 @@ export const abacateCreateSubscription = async (
     }
 
     // cartão -> checkout hospedado
-    const checkout = await createCardCheckout(
+    const checkout = await createHostedCheckout(
       client,
       invoice,
       grossed,
+      ["CARD"],
       installments
     );
 
@@ -557,25 +532,20 @@ export const abacateCheckStatus = async (
 
     let status = "";
 
-    if (parsed.method === "card") {
-      // Não há GET /checkouts/{id}; consultamos a lista e casamos pelo id.
-      const response = await client.get("/checkouts/list");
-      const list = unwrap(response.data);
-      const found = Array.isArray(list)
-        ? list.find((b: any) => b.id === invoice.txId)
-        : null;
-      status = found?.status || "";
-    } else if (parsed.method === "boleto") {
-      // Boleto não tem endpoint de consulta confiável (transparents/check só
-      // atende PIX). A confirmação vem pelo webhook transparent.completed.
+    if (parsed.method === "boleto") {
+      // Boleto (transparente) não tem endpoint de consulta confiável; a
+      // confirmação vem pelo webhook transparent.completed.
       return false;
-    } else {
-      // pix
-      const response = await client.get("/transparents/check", {
-        params: { id: invoice.txId }
-      });
-      status = unwrap(response.data)?.status || "";
     }
+
+    // pix e cartão usam checkout hospedado (id bill_...). Não há
+    // GET /checkouts/{id}; consultamos a lista e casamos pelo id.
+    const response = await client.get("/checkouts/list");
+    const list = unwrap(response.data);
+    const found = Array.isArray(list)
+      ? list.find((b: any) => b.id === invoice.txId)
+      : null;
+    status = found?.status || "";
 
     if (PAID_STATUSES.includes(String(status).toUpperCase())) {
       await processInvoicePaid(invoice);
