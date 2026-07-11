@@ -64,6 +64,8 @@ const defaultLogoFavicon = "/vector/favicon.svg";
 const LOGIN_LINKS_KEY = "loginPageLinks";
 const LOGIN_SIDE_PANEL_IMAGE_KEY = "loginSidePanelImage";
 const LOGIN_BACKGROUND_CONTENT_KEY = "loginBackgroundContent";
+const LINK_PREVIEW_IMAGE_KEY = "linkPreviewImage";
+const LINK_PREVIEW_DESCRIPTION_KEY = "linkPreviewDescription";
 
 const createEmptyLink = () => ({ title: "", url: "" });
 
@@ -239,7 +241,9 @@ export default function Whitelabel(props) {
   const logoFaviconInput = useRef(null);
   const loginSidePanelImageInput = useRef(null);
   const loginBackgroundContentInput = useRef(null);
+  const linkPreviewImageInput = useRef(null);
   const [appName, setAppName] = useState("");
+  const [linkPreviewDescription, setLinkPreviewDescription] = useState("");
 
   const { update } = useSettings();
 
@@ -275,8 +279,15 @@ export default function Whitelabel(props) {
     const loginBackgroundContent = settings.find(
       setting => setting.key === LOGIN_BACKGROUND_CONTENT_KEY
     )?.value;
+    const linkPreviewImage = settings.find(
+      setting => setting.key === LINK_PREVIEW_IMAGE_KEY
+    )?.value;
+    const loadedLinkPreviewDescription = settings.find(
+      setting => setting.key === LINK_PREVIEW_DESCRIPTION_KEY
+    )?.value;
 
     setAppName(loadedAppName || "");
+    setLinkPreviewDescription(loadedLinkPreviewDescription || "");
     setLoginLinks(parseLinksSetting(loadedLoginLinks));
     setSettingsLoaded({
       primaryColorLight,
@@ -287,7 +298,9 @@ export default function Whitelabel(props) {
       appName: loadedAppName,
       loginPageLinks: loadedLoginLinks,
       loginSidePanelImage,
-      loginBackgroundContent
+      loginBackgroundContent,
+      linkPreviewImage,
+      linkPreviewDescription: loadedLinkPreviewDescription
     });
   }, [settings]);
 
@@ -909,6 +922,95 @@ export default function Whitelabel(props) {
                     settingsLoaded.loginBackgroundContent,
                     "cover"
                   )}
+                </div>
+              </Grid>
+        {/* Prévia do link (Open Graph): banner exibido ao compartilhar o link
+            do sistema. Cada empresa tem o seu, via subdomínio. */}
+              <Grid xs={12} item>
+                <Typography
+                  className={classes.sectionTitle}
+                  variant="subtitle1"
+                >
+                  {i18n.t("whitelabel.linkPreview")}
+                </Typography>
+              </Grid>
+              <Grid xs={12} md={6} item>
+                <FormControl className={classes.selectContainer}>
+                  <TextField
+                    id="link-preview-image-upload-field"
+                    label={i18n.t("whitelabel.linkPreviewImage")}
+                    variant="standard"
+                    value={settingsLoaded.linkPreviewImage || ""}
+                    InputProps={{
+                      endAdornment: (
+                        <>
+                          {settingsLoaded.linkPreviewImage && (
+                            <IconButton
+                              size="small"
+                              color="default"
+                              onClick={() =>
+                                handleSaveSetting(LINK_PREVIEW_IMAGE_KEY, "")
+                              }
+                            >
+                              <Delete />
+                            </IconButton>
+                          )}
+                          <input
+                            type="file"
+                            id="upload-link-preview-image-button"
+                            ref={linkPreviewImageInput}
+                            className={classes.uploadInput}
+                            accept="image/*"
+                            onChange={event =>
+                              uploadPublicFile(event, LINK_PREVIEW_IMAGE_KEY)
+                            }
+                          />
+                          <label htmlFor="upload-link-preview-image-button">
+                            <IconButton
+                              size="small"
+                              color="default"
+                              onClick={() => {
+                                linkPreviewImageInput.current.click();
+                              }}
+                            >
+                              <AttachFile />
+                            </IconButton>
+                          </label>
+                        </>
+                      )
+                    }}
+                  />
+                </FormControl>
+                <Typography className={classes.helperText}>
+                  {i18n.t("whitelabel.linkPreviewImageHint")}
+                </Typography>
+              </Grid>
+              <Grid xs={12} md={6} item>
+                <FormControl className={classes.selectContainer}>
+                  <TextField
+                    id="link-preview-description-field"
+                    label={i18n.t("whitelabel.linkPreviewDescription")}
+                    variant="standard"
+                    multiline
+                    value={linkPreviewDescription}
+                    onChange={event =>
+                      setLinkPreviewDescription(event.target.value)
+                    }
+                    onBlur={() =>
+                      handleSaveSetting(
+                        LINK_PREVIEW_DESCRIPTION_KEY,
+                        linkPreviewDescription
+                      )
+                    }
+                  />
+                </FormControl>
+                <Typography className={classes.helperText}>
+                  {i18n.t("whitelabel.linkPreviewDescriptionHint")}
+                </Typography>
+              </Grid>
+              <Grid xs={12} md={6} item>
+                <div className={classes.previewBox}>
+                  {renderMediaPreview(settingsLoaded.linkPreviewImage, "cover")}
                 </div>
               </Grid>
       </Grid>

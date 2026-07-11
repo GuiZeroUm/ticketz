@@ -18,6 +18,8 @@ const publicSettingsKeys = [
   "loginPageLinks",
   "loginSidePanelImage",
   "loginBackgroundContent",
+  "linkPreviewImage",
+  "linkPreviewDescription",
   "vapidPublicKey",
   "extensionDownloadUrl"
 ];

@@ -21,7 +21,8 @@ const PREFIX_BY_KEY: Record<string, string> = {
   appLogoDark: "logo_dark",
   appLogoFavicon: "favicon",
   loginSidePanelImage: "login_side",
-  loginBackgroundContent: "login_background"
+  loginBackgroundContent: "login_background",
+  linkPreviewImage: "link_preview"
 };
 
 export const isBrandingKey = (key: string): boolean => key in PREFIX_BY_KEY;

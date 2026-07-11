@@ -886,6 +886,13 @@ const messages = {
         backgroundContent: "Conteúdo de fundo do login",
         backgroundContentHint:
           "Aceita imagens, arquivos SVG e vídeos MP4 para o fundo da tela de login.",
+        linkPreview: "Prévia do link (compartilhamento)",
+        linkPreviewImage: "Banner do link",
+        linkPreviewImageHint:
+          "Imagem exibida quando o link do sistema é compartilhado (WhatsApp, Telegram, etc.). Prefira 1200x630.",
+        linkPreviewDescription: "Descrição do link",
+        linkPreviewDescriptionHint:
+          "Texto exibido abaixo do título na prévia do link compartilhado.",
         noFileSelected: "Nenhum arquivo selecionado ainda.",
         buildExtension: "Construir extensão WA Session Capture",
         buildingExtension: "Construindo extensão…",

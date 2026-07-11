@@ -20,7 +20,8 @@ type PrivateFileRequest = {
 const publicFileValidators: Record<string, (mimetype: string) => boolean> = {
   loginSidePanelImage: (mimetype: string) => mimetype.startsWith("image/"),
   loginBackgroundContent: (mimetype: string) =>
-    mimetype.startsWith("image/") || mimetype.startsWith("video/")
+    mimetype.startsWith("image/") || mimetype.startsWith("video/"),
+  linkPreviewImage: (mimetype: string) => mimetype.startsWith("image/")
 };
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
