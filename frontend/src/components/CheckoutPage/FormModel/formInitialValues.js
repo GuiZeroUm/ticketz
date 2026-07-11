@@ -28,5 +28,8 @@ export default {
   [nameOnCard.name]: "",
   [cardNumber.name]: "",
   [invoiceId.name]: "",
-  [cvv.name]: ""
+  [cvv.name]: "",
+  method: "pix",
+  installments: 1,
+  taxId: ""
 };

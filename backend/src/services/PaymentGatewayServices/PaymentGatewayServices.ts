@@ -45,28 +45,17 @@ import moment from "moment";
 import AppError from "../../errors/AppError";
 import GetSuperSettingService from "../SettingServices/GetSuperSettingService";
 import {
-  efiCheckStatus,
-  efiCreateSubscription,
-  efiInitialize,
-  efiWebhook
-} from "./EfiServices";
-import {
-  owenCheckStatus,
-  owenCreateSubscription,
-  owenWebhook
-} from "./OwenServices";
+  abacateCheckStatus,
+  abacateCreateSubscription,
+  abacateWebhook
+} from "./AbacatePayServices";
 import Invoices from "../../models/Invoices";
 import { getIO } from "../../libs/socket";
 import Company from "../../models/Company";
 
 export const payGatewayInitialize = async () => {
-  const paymentGateway = await GetSuperSettingService({
-    key: "_paymentGateway"
-  });
-
-  if (paymentGateway === "efi") {
-    return efiInitialize();
-  }
+  // AbacatePay não requer inicialização de webhook via API (configurado no
+  // painel). Mantido para compatibilidade com o boot do servidor.
   return null;
 };
 
@@ -79,11 +68,8 @@ export const payGatewayCreateSubscription = async (
   });
 
   switch (paymentGateway) {
-    case "efi": {
-      return efiCreateSubscription(req, res);
-    }
-    case "pixTicketz": {
-      return owenCreateSubscription(req, res);
+    case "abacatepay": {
+      return abacateCreateSubscription(req, res);
     }
     default: {
       throw new AppError("Unsupported payment gateway", 400);
@@ -100,11 +86,8 @@ export const payGatewayReceiveWebhook = async (
   });
 
   switch (paymentGateway) {
-    case "efi": {
-      return efiWebhook(req, res);
-    }
-    case "pixTicketz": {
-      return owenWebhook(req, res);
+    case "abacatepay": {
+      return abacateWebhook(req, res);
     }
     default: {
       throw new AppError("Unsupported payment gateway", 400);
@@ -179,10 +162,8 @@ export const processInvoiceExpired = async (invoice: Invoices) => {
 };
 
 export const checkInvoicePayment = async (invoice: Invoices) => {
-  if (invoice.payGw === "efi") {
-    efiCheckStatus(invoice);
-  } else if (invoice.payGw === "owen") {
-    owenCheckStatus(invoice);
+  if (invoice.payGw === "abacatepay") {
+    abacateCheckStatus(invoice);
   }
 };
 

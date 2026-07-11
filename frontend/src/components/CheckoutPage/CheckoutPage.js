@@ -60,7 +60,7 @@ export default function CheckoutPage(props) {
           />
         );
       case 2:
-        return <ReviewOrder />;
+        return <ReviewOrder invoiceId={invoiceId} />;
       default:
         return <div>Not Found</div>;
     }
@@ -85,7 +85,10 @@ export default function CheckoutPage(props) {
         price: plan.price,
         users: plan.users,
         connections: plan.connections,
-        invoiceId: invoiceId
+        invoiceId: invoiceId,
+        method: values.method || "pix",
+        installments: values.installments || 1,
+        taxId: values.taxId || ""
       };
 
       const { data } = await api.post("/subscription", newValues);
@@ -93,7 +96,7 @@ export default function CheckoutPage(props) {
       actions.setSubmitting(true);
       setActiveStep(activeStep + 1);
       toast.success(
-        "Assinatura realizada com sucesso!, aguardando a realização do pagamento"
+        "Cobrança gerada com sucesso! Aguardando a realização do pagamento."
       );
     } catch (err) {
       actions.setSubmitting(false);
