@@ -165,46 +165,30 @@ const grossUp = (base: number, rule: FeeRule): number => {
   return Math.round(value * 100) / 100;
 };
 
+// Faixa de taxa aplicada ao cartão. Como o parcelamento é escolhido dentro do
+// AbacatePay (a conta permite até 3x), aplicamos a taxa da faixa "2x-6x", que
+// cobre com folga qualquer parcelamento permitido — o lojista nunca recebe a
+// menos, independente de o cliente pagar em 1x, 2x ou 3x.
+const CARD_FEE_INSTALLMENTS = 3;
+
 // Cotação (usada pelo endpoint de quote e na criação da cobrança).
 export const abacateQuote = async (baseValue: number) => {
   const base = Number(baseValue) || 0;
 
   const pixRule = await getFeeRule("pix");
   const boletoRule = await getFeeRule("boleto");
+  const cardRule = await getFeeRule("card", CARD_FEE_INSTALLMENTS);
 
-  const card: Array<{
-    installments: number;
-    total: number;
-    fee: number;
-    installmentValue: number;
-  }> = [];
-
-  for (let n = 1; n <= 12; n += 1) {
-    // eslint-disable-next-line no-await-in-loop
-    const rule = await getFeeRule("card", n);
-    const total = grossUp(base, rule);
-    card.push({
-      installments: n,
-      total,
-      fee: Math.round((total - base) * 100) / 100,
-      installmentValue: Math.round((total / n) * 100) / 100
-    });
-  }
-
+  const feeOf = (total: number) => Math.round((total - base) * 100) / 100;
   const pixTotal = grossUp(base, pixRule);
   const boletoTotal = grossUp(base, boletoRule);
+  const cardTotal = grossUp(base, cardRule);
 
   return {
     base,
-    pix: {
-      total: pixTotal,
-      fee: Math.round((pixTotal - base) * 100) / 100
-    },
-    boleto: {
-      total: boletoTotal,
-      fee: Math.round((boletoTotal - base) * 100) / 100
-    },
-    card
+    pix: { total: pixTotal, fee: feeOf(pixTotal) },
+    boleto: { total: boletoTotal, fee: feeOf(boletoTotal) },
+    card: { total: cardTotal, fee: feeOf(cardTotal) }
   };
 };
 
@@ -222,6 +206,35 @@ const buildCustomer = (company?: Company, taxId?: string) => {
 };
 
 const toCents = (value: number): number => Math.round(value * 100);
+
+// PIX transparente: QR Code (copia-e-cola + imagem) exibido no próprio app.
+// Não enviamos `customer`: a API exige o objeto completo (com CPF válido) ou
+// nenhum — como a empresa não tem CPF, omitimos para não exigir isso no PIX.
+const createPixCharge = async (
+  client: AxiosInstance,
+  invoice: Invoices,
+  amount: number
+) => {
+  const body = {
+    method: "PIX",
+    data: {
+      amount: toCents(amount),
+      expiresIn: 3600,
+      description: `Fatura #${invoice.id} - ${invoice.detail || "Assinatura"}`,
+      metadata: { invoiceId: String(invoice.id) }
+    }
+  };
+
+  const response = await client.post("/transparents/create", body);
+  const data = unwrap(response.data);
+
+  return {
+    id: data.id,
+    brCode: data.brCode,
+    brCodeBase64: data.brCodeBase64,
+    raw: data
+  };
+};
 
 // Boleto transparente: retorna URL para visualização/impressão do boleto.
 const createBoletoCharge = async (
@@ -260,8 +273,7 @@ const createHostedCheckout = async (
   client: AxiosInstance,
   invoice: Invoices,
   amount: number,
-  methods: string[],
-  installments = 1
+  methods: string[]
 ) => {
   const frontend = process.env.FRONTEND_URL || "";
 
@@ -276,6 +288,8 @@ const createHostedCheckout = async (
   const productResp = await client.post("/products/create", productBody);
   const product = unwrap(productResp.data);
 
+  // Não enviamos card.maxInstallments: o parcelamento é definido pela conta
+  // AbacatePay (atualmente até 3x) e escolhido pelo cliente na página deles.
   const checkoutBody: Record<string, any> = {
     items: [{ id: product.id, quantity: 1 }],
     methods,
@@ -284,10 +298,6 @@ const createHostedCheckout = async (
     completionUrl: `${frontend}/financeiro`,
     metadata: { invoiceId: String(invoice.id) }
   };
-
-  if (methods.includes("CARD") && installments > 1) {
-    checkoutBody.card = { maxInstallments: installments };
-  }
 
   const checkoutResp = await client.post("/checkouts/create", checkoutBody);
   const checkout = unwrap(checkoutResp.data);
@@ -304,12 +314,10 @@ export const abacateCreateSubscription = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  const { invoiceId, taxId } = req.body;
+  const { invoiceId } = req.body;
   const method: PaymentMethod = (req.body.method || "pix") as PaymentMethod;
-  const installments = Math.min(
-    Math.max(parseInt(req.body.installments, 10) || 1, 1),
-    12
-  );
+  // aceita CPF/CNPJ com máscara; envia só dígitos pro gateway
+  const taxId = String(req.body.taxId || "").replace(/\D/g, "");
 
   if (!["pix", "card", "boleto"].includes(method)) {
     throw new AppError("Método de pagamento inválido", 400);
@@ -328,30 +336,28 @@ export const abacateCreateSubscription = async (
     }
 
     // O valor base é sempre o da fatura no servidor (não confia no cliente).
+    // Cartão usa a faixa de taxa que cobre o parcelamento máximo (até 3x).
     const baseValue = Number(invoice.value) || 0;
-    const rule = await getFeeRule(method, installments);
+    const rule = await getFeeRule(
+      method,
+      method === "card" ? CARD_FEE_INSTALLMENTS : 1
+    );
     const grossed = grossUp(baseValue, rule);
 
     const client = await abacateClient();
 
     if (method === "pix") {
-      const checkout = await createHostedCheckout(
-        client,
-        invoice,
-        grossed,
-        ["PIX"]
-      );
+      const pix = await createPixCharge(client, invoice, grossed);
 
       await invoice.update({
-        txId: checkout.id,
+        txId: pix.id,
         payGw: "abacatepay",
         payGwData: JSON.stringify({
           method,
           baseValue,
           chargedValue: grossed,
-          id: checkout.id,
-          productId: checkout.productId,
-          data: checkout.raw
+          id: pix.id,
+          data: pix.raw
         })
       });
       await invoice.reload();
@@ -360,7 +366,8 @@ export const abacateCreateSubscription = async (
 
       return res.json({
         method: "pix",
-        redirectUrl: checkout.url,
+        qrcode: { qrcode: pix.brCode },
+        brCodeBase64: pix.brCodeBase64,
         valor: { original: grossed }
       });
     }
@@ -395,13 +402,12 @@ export const abacateCreateSubscription = async (
       });
     }
 
-    // cartão -> checkout hospedado
+    // cartão -> checkout hospedado (parcelamento definido no AbacatePay)
     const checkout = await createHostedCheckout(
       client,
       invoice,
       grossed,
-      ["CARD"],
-      installments
+      ["CARD"]
     );
 
     await invoice.update({
@@ -409,7 +415,6 @@ export const abacateCreateSubscription = async (
       payGw: "abacatepay",
       payGwData: JSON.stringify({
         method,
-        installments,
         baseValue,
         chargedValue: grossed,
         id: checkout.id,
@@ -421,7 +426,6 @@ export const abacateCreateSubscription = async (
 
     return res.json({
       method: "card",
-      installments,
       redirectUrl: checkout.url,
       valor: { original: grossed }
     });
@@ -538,14 +542,22 @@ export const abacateCheckStatus = async (
       return false;
     }
 
-    // pix e cartão usam checkout hospedado (id bill_...). Não há
-    // GET /checkouts/{id}; consultamos a lista e casamos pelo id.
-    const response = await client.get("/checkouts/list");
-    const list = unwrap(response.data);
-    const found = Array.isArray(list)
-      ? list.find((b: any) => b.id === invoice.txId)
-      : null;
-    status = found?.status || "";
+    if (parsed.method === "card") {
+      // Cartão usa checkout hospedado (id bill_...). Não há GET /checkouts/{id};
+      // consultamos a lista e casamos pelo id.
+      const response = await client.get("/checkouts/list");
+      const list = unwrap(response.data);
+      const found = Array.isArray(list)
+        ? list.find((b: any) => b.id === invoice.txId)
+        : null;
+      status = found?.status || "";
+    } else {
+      // pix (transparente)
+      const response = await client.get("/transparents/check", {
+        params: { id: invoice.txId }
+      });
+      status = unwrap(response.data)?.status || "";
+    }
 
     if (PAID_STATUSES.includes(String(status).toUpperCase())) {
       await processInvoicePaid(invoice);

@@ -6,14 +6,11 @@ import {
   Card,
   CardContent,
   Radio,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
   TextField,
   CircularProgress
 } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
+import InputMask from "react-input-mask";
 import PixIcon from "@material-ui/icons/AccountBalanceWallet";
 import CreditCardIcon from "@material-ui/icons/CreditCard";
 import ReceiptIcon from "@material-ui/icons/Receipt";
@@ -45,10 +42,6 @@ const useStyles = makeStyles(theme => ({
   },
   fee: {
     color: theme.palette.text.secondary
-  },
-  installments: {
-    marginTop: theme.spacing(2),
-    minWidth: 220
   }
 }));
 
@@ -64,7 +57,6 @@ export default function PaymentMethod({ invoiceId }) {
   const [loading, setLoading] = useState(true);
 
   const method = values.method || "pix";
-  const installments = values.installments || 1;
 
   useEffect(() => {
     let mounted = true;
@@ -92,9 +84,6 @@ export default function PaymentMethod({ invoiceId }) {
     );
   }
 
-  const cardOption =
-    quote.card.find(c => c.installments === installments) || quote.card[0];
-
   const options = [
     {
       key: "pix",
@@ -107,8 +96,8 @@ export default function PaymentMethod({ invoiceId }) {
       key: "card",
       label: "Cartão de crédito",
       icon: <CreditCardIcon className={classes.icon} />,
-      total: cardOption.total,
-      fee: cardOption.fee
+      total: quote.card.total,
+      fee: quote.card.fee
     },
     {
       key: "boleto",
@@ -119,12 +108,13 @@ export default function PaymentMethod({ invoiceId }) {
     }
   ];
 
-  const selectMethod = m => {
-    setFieldValue("method", m);
-    if (m !== "card") {
-      setFieldValue("installments", 1);
-    }
-  };
+  const selectMethod = m => setFieldValue("method", m);
+
+  const selected = options.find(o => o.key === method) || options[0];
+
+  const taxId = values.taxId || "";
+  const digits = taxId.replace(/\D/g, "");
+  const taxMask = digits.length > 11 ? "99.999.999/9999-99" : "999.999.999-99";
 
   return (
     <Grid item xs={12}>
@@ -162,45 +152,39 @@ export default function PaymentMethod({ invoiceId }) {
         ))}
       </Grid>
 
-      {method === "boleto" && (
-        <TextField
-          label="CPF/CNPJ do pagador"
-          required
-          fullWidth
-          margin="normal"
-          value={values.taxId || ""}
-          onChange={e => setFieldValue("taxId", e.target.value)}
-          helperText="Obrigatório para emissão do boleto"
-        />
+      {method === "card" && (
+        <Typography
+          variant="body2"
+          className={classes.fee}
+          style={{ marginTop: 12 }}
+        >
+          O parcelamento (à vista ou em até 3x) é escolhido na página de
+          pagamento.
+        </Typography>
       )}
 
-      {method === "card" && (
-        <FormControl className={classes.installments}>
-          <InputLabel id="installments-label">Parcelas</InputLabel>
-          <Select
-            labelId="installments-label"
-            value={installments}
-            onChange={e => setFieldValue("installments", e.target.value)}
-          >
-            {quote.card.map(c => (
-              <MenuItem key={c.installments} value={c.installments}>
-                {c.installments}x de {money(c.installmentValue)} (Total{" "}
-                {money(c.total)})
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+      {method === "boleto" && (
+        <InputMask
+          mask={taxMask}
+          maskChar={null}
+          value={taxId}
+          onChange={e => setFieldValue("taxId", e.target.value)}
+        >
+          {inputProps => (
+            <TextField
+              {...inputProps}
+              label="CPF/CNPJ do pagador"
+              required
+              fullWidth
+              margin="normal"
+              helperText="Obrigatório para emissão do boleto"
+            />
+          )}
+        </InputMask>
       )}
 
       <Typography variant="h6" style={{ marginTop: 16 }}>
-        Total a pagar:{" "}
-        {money(
-          method === "card"
-            ? cardOption.total
-            : method === "boleto"
-              ? quote.boleto.total
-              : quote.pix.total
-        )}
+        Total a pagar: {money(selected.total)}
       </Typography>
     </Grid>
   );
