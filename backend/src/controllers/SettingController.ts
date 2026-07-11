@@ -6,6 +6,8 @@ import UpdateSettingService from "../services/SettingServices/UpdateSettingServi
 import ListSettingsService from "../services/SettingServices/ListSettingsService";
 import GetPublicSettingService from "../services/SettingServices/GetPublicSettingService";
 import { GetSettingService } from "../services/SettingServices/GetSettingService";
+import Setting from "../models/Setting";
+import storeBrandingFile from "../helpers/brandingFiles";
 
 type LogoRequest = {
   mode: string;
@@ -85,9 +87,13 @@ export const storeLogo = async (
   }
 
   if (file && file.mimetype.startsWith("image/")) {
+    const key = `appLogo${mode}`;
+    const previous = await Setting.findOne({ where: { key, companyId } });
+    const value = await storeBrandingFile(companyId, key, file, previous?.value);
+
     const setting = await UpdateSettingService({
-      key: `appLogo${mode}`,
-      value: file.filename,
+      key,
+      value,
       companyId
     });
 
@@ -136,9 +142,19 @@ export const storePublicFile = async (
     throw new AppError("ERR_INVALID_UPLOAD", 406);
   }
 
+  const previous = await Setting.findOne({
+    where: { key: settingKey, companyId }
+  });
+  const value = await storeBrandingFile(
+    companyId,
+    settingKey,
+    file,
+    previous?.value
+  );
+
   const setting = await UpdateSettingService({
     key: settingKey,
-    value: file.filename,
+    value,
     companyId
   });
 

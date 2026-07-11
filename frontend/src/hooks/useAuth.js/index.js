@@ -27,13 +27,6 @@ const useAuth = () => {
   const socketManager = useContext(SocketContext);
   const { colorMode } = useContext(ColorModeContext);
 
-  // Aplica a identidade visual da empresa do usuario autenticado.
-  const applyCompanyBranding = () =>
-    loadBranding(colorMode, async key => {
-      const { data } = await api.get(`/settings/${key}`);
-      return data;
-    });
-
   // Reverte para a marca publica da empresa do subdominio atual (ou master).
   const applyPublicBranding = () =>
     loadBranding(colorMode, async key => {
@@ -43,6 +36,23 @@ const useAuth = () => {
       });
       return data;
     });
+
+  // Identidade visual in-app.
+  //
+  // O tema deve refletir o TENANT DO SUBDOMINIO, nao a empresa do usuario
+  // logado. Assim espacosingular.* sempre tem a cara do Espaco Singular,
+  // independente de quem esteja logado. Quando ha subdominio, usa a marca
+  // publica daquele slug; sem subdominio (apex / URL raw do Railway) cai na
+  // marca da propria empresa do usuario autenticado.
+  const applyCompanyBranding = () => {
+    if (getCompanySlug()) {
+      return applyPublicBranding();
+    }
+    return loadBranding(colorMode, async key => {
+      const { data } = await api.get(`/settings/${key}`);
+      return data;
+    });
+  };
 
   useEffect(() => {
     if (apiInterceptorsRegistered) {
@@ -192,7 +202,12 @@ const useAuth = () => {
     setLoading(true);
 
     try {
-      const { data } = await api.post("/auth/login", userData);
+      // Envia o slug do subdominio para escopar o login ao tenant atual.
+      const slug = getCompanySlug();
+      const { data } = await api.post("/auth/login", {
+        ...userData,
+        ...(slug ? { slug } : {})
+      });
       posLogin(data);
       setLoading(false);
     } catch (err) {

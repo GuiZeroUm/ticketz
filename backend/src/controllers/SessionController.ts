@@ -15,7 +15,7 @@ import Translation from "../models/Translation";
 import { decodeRefreshToken } from "../helpers/DecodeRefreshToken";
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
-  const { email, password } = req.body;
+  const { email, password, slug } = req.body;
 
   const langs = await Translation.findAll({
     attributes: ["language"],
@@ -32,7 +32,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   const { token, serializedUser, refreshToken } = await AuthUserService({
     email,
     password,
-    language
+    language,
+    slug: typeof slug === "string" ? slug : undefined
   });
 
   SendRefreshToken(res, refreshToken);
