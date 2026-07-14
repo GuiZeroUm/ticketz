@@ -1,10 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom";
-import CssBaseline from "@material-ui/core/CssBaseline";
-import App from "./App";
 import { loadJSON } from "./helpers/loadJSON";
 import { i18n } from "./translate/i18n";
-import axios from "axios";
+import getCompanySlug from "./helpers/getCompanySlug";
 
 const BACKEND_RETRY_INTERVAL_SECONDS = 30;
 const BACKEND_PROBE_TIMEOUT_MS = 10000;
@@ -51,8 +49,13 @@ function showRetryProgress(message, onRetry) {
   }, BACKEND_RETRY_INTERVAL_SECONDS * 1000);
 }
 
-function renderApp() {
+async function renderApp() {
   clearBackendRetryTimers();
+  const [{ default: CssBaseline }, { default: App }] = await Promise.all([
+    import("@material-ui/core/CssBaseline"),
+    import("./App")
+  ]);
+
   ReactDOM.render(
     // <React.StrictMode>
     <CssBaseline>
@@ -66,7 +69,15 @@ function renderApp() {
   );
 }
 
-function probeBackendAndRender(config, attempt = 1) {
+async function renderPublicLanding() {
+  document.getElementById("splash-background")?.remove();
+  document.documentElement.style.backgroundColor = "#080d1c";
+  const { default: LandingPage } = await import("./pages/LandingPage");
+  ReactDOM.render(<LandingPage />, document.getElementById("root"));
+}
+
+async function probeBackendAndRender(config, attempt = 1) {
+  const { default: axios } = await import("axios");
   const backendUrl = `${getBackendProbeUrl(config)}?cb=${Date.now()}`;
 
   axios
@@ -97,9 +108,12 @@ function probeBackendAndRender(config, attempt = 1) {
 }
 
 const config = loadJSON("/config.json");
+const isPublicLanding = window.location.pathname === "/" && !getCompanySlug();
 
 if (!config) {
   window.renderError(i18n.t("frontendErrors.ERR_CONFIG_ERROR"));
+} else if (isPublicLanding) {
+  renderPublicLanding();
 } else {
   probeBackendAndRender(config);
 }

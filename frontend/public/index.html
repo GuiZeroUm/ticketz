@@ -1,10 +1,6 @@
 <!doctype html>
 <html translate="no">
   <head>
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap"
-    />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/favicon.ico" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
     <link rel="shortcut icon" href="%PUBLIC_URL%/favicon.ico" />
@@ -301,21 +297,8 @@
         );
       };
 
-      const configureSplash = async config => {
-        const protocol = config.BACKEND_PROTOCOL || "https";
-        const hostname = config.BACKEND_HOST || window.location.hostname;
-        const port = config.BACKEND_PORT ? `:${config.BACKEND_PORT}` : "";
-        const path =
-          config.BACKEND_PATH ||
-          (hostname === "localhost" || hostname !== window.location.hostname
-            ? ""
-            : "/backend");
-
-        const backendUrl = `${protocol}://${hostname}${port}${path}`;
-        const settingsBaseUrl = backendUrl + "/public-settings";
-
-        // Deriva o slug (subdominio) da empresa para personalizar o splash.
-        // Mesma logica de src/helpers/getCompanySlug.js, inline (pre-React).
+      // Mesma regra de src/helpers/getCompanySlug.js, disponível antes do React.
+      const getSplashCompanySlug = config => {
         const appBaseDomain = (config.APP_BASE_DOMAIN || "").toLowerCase();
         const currentHost = (window.location.hostname || "").toLowerCase();
         let slug = "";
@@ -341,6 +324,23 @@
         ) {
           slug = "";
         }
+
+        return slug;
+      };
+
+      const configureSplash = async config => {
+        const protocol = config.BACKEND_PROTOCOL || "https";
+        const hostname = config.BACKEND_HOST || window.location.hostname;
+        const port = config.BACKEND_PORT ? `:${config.BACKEND_PORT}` : "";
+        const path =
+          config.BACKEND_PATH ||
+          (hostname === "localhost" || hostname !== window.location.hostname
+            ? ""
+            : "/backend");
+
+        const backendUrl = `${protocol}://${hostname}${port}${path}`;
+        const settingsBaseUrl = backendUrl + "/public-settings";
+        const slug = getSplashCompanySlug(config);
         const q = slug ? "?slug=" + encodeURIComponent(slug) : "";
 
         fetch(
@@ -390,9 +390,31 @@
           });
       };
 
+      const loadSystemAssets = () => {
+        const font = document.createElement("link");
+        font.rel = "stylesheet";
+        font.href =
+          "https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap";
+        document.head.appendChild(font);
+
+        const script = document.createElement("script");
+        script.src = "/notificame-gateway.js";
+        document.body.appendChild(script);
+      };
+
       fetch("/config.json").then(async response => {
         response.json().then(config => {
+          const isPublicLanding =
+            window.location.pathname === "/" && !getSplashCompanySlug(config);
+
+          if (isPublicLanding) {
+            document.getElementById("splash-background")?.remove();
+            progress = 100;
+            return;
+          }
+
           configureSplash(config);
+          loadSystemAssets();
         });
       });
 
@@ -411,7 +433,7 @@
           clearInterval(interval);
           setTimeout(() => {
             const splashScreen = document.getElementById("splash-background");
-            splashScreen.remove();
+            splashScreen?.remove();
           }, 500);
         }
       }, 1000);
@@ -419,6 +441,5 @@
         progress = 100;
       };
     </script>
-    <script src="/notificame-gateway.js"></script>
   </body>
 </html>

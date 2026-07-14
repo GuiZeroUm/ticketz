@@ -1,6 +1,599 @@
 const messages = {
   pt: {
     translations: {
+      landing: {
+        meta: {
+          title: "EspaçoWhats — Atendimento profissional pelo WhatsApp",
+          description:
+            "Centralize atendimento, CRM, automações, campanhas e indicadores em uma única plataforma."
+        },
+        nav: {
+          home: "Ir para o início",
+          menu: "Abrir menu de navegação",
+          howItWorks: "Como funciona",
+          features: "Recursos",
+          integrations: "Integrações",
+          team: "Para sua equipe",
+          contact: "Contato"
+        },
+        actions: {
+          scheduleDemo: "Agendar demonstração",
+          seeHow: "Ver como funciona",
+          talkWhatsApp: "Falar pelo WhatsApp"
+        },
+        hero: {
+          eyebrow: "Atendimento, CRM e automação em um único lugar",
+          titleBefore: "Transforme o WhatsApp em uma",
+          titleHighlight: "operação profissional",
+          titleAfter: "de atendimento.",
+          description:
+            "Centralize números, atendentes, clientes, automações e indicadores em uma única plataforma. Sua equipe ganha organização e cada conversa mantém todo o contexto necessário.",
+          proofs: [
+            "Implantação assistida",
+            "Múltiplos atendentes",
+            "Gestão em tempo real"
+          ],
+          queueLabel: "Direcionado automaticamente",
+          queueValue: "Fila Comercial",
+          productivity: "produtividade"
+        },
+        problem: {
+          eyebrow: "Do improviso ao controle",
+          title:
+            "Seu atendimento cresceu. O improviso não precisa crescer junto.",
+          description:
+            "Quando as conversas ficam espalhadas entre celulares, números e pessoas, a empresa perde contexto, agilidade e controle sobre a experiência do cliente.",
+          central: "Central organizada",
+          items: [
+            "Clientes esperando sem saber quem irá responder.",
+            "Conversas importantes esquecidas.",
+            "Informações espalhadas entre atendentes.",
+            "Dificuldade para acompanhar o histórico.",
+            "Falta de indicadores sobre a operação.",
+            "Dependência de celulares individuais."
+          ]
+        },
+        transformation: {
+          eyebrow: "A transformação",
+          title: "Uma única central para acompanhar toda a jornada do cliente.",
+          items: [
+            {
+              title: "Atenda com contexto",
+              description:
+                "Histórico, dados, tags, observações e agendamentos permanecem junto da conversa."
+            },
+            {
+              title: "Organize sua equipe",
+              description:
+                "Distribua atendimentos entre setores, filas e profissionais com responsabilidades claras."
+            },
+            {
+              title: "Gerencie com segurança",
+              description:
+                "Acompanhe volume, tempo de espera e desempenho da operação em tempo real."
+            }
+          ]
+        },
+        tour: {
+          eyebrow: "Tour pelo produto",
+          title: "Veja o EspaçoWhats funcionando.",
+          description:
+            "Explore os principais fluxos da plataforma e descubra como cada área trabalha em conjunto.",
+          ariaLabel: "Áreas do produto",
+          scrollHint: "Continue rolando para avançar pelo sistema",
+          items: [
+            {
+              title: "Atendimento",
+              short: "Conversas em uma única central",
+              description:
+                "Visualize conversas pendentes, em andamento e concluídas por atendente, fila ou tag.",
+              highlight: "Todo o atendimento em uma única tela"
+            },
+            {
+              title: "Contatos e CRM",
+              short: "Contexto sempre disponível",
+              description:
+                "Consulte dados, histórico, observações, tags e informações adicionais durante a conversa.",
+              highlight: "Histórico completo junto do contato"
+            },
+            {
+              title: "Filas e conexões",
+              short: "Números, setores e equipes",
+              description:
+                "Administre diferentes números, departamentos e equipes dentro da mesma operação.",
+              highlight: "Distribuição clara entre equipes"
+            },
+            {
+              title: "Campanhas",
+              short: "Envios planejados e mensuráveis",
+              description:
+                "Importe contatos, programe mensagens, alterne conteúdos e acompanhe cada envio.",
+              highlight: "Campanhas acompanhadas em tempo real"
+            },
+            {
+              title: "Dashboard",
+              short: "Indicadores para decidir melhor",
+              description:
+                "Acompanhe atendimentos, usuários online, tempos médios, contatos e desempenho.",
+              highlight: "Gestão baseada em dados"
+            },
+            {
+              title: "White-label",
+              short: "A plataforma com a sua marca",
+              description:
+                "Personalize nome, cores, logos, tela de login e toda a identidade visual.",
+              highlight: "Sua identidade em toda a experiência"
+            }
+          ]
+        },
+        productDemo: {
+          admin: "Administrador",
+          company: "Empresa demonstração",
+          tickets: {
+            open: "Abertas",
+            resolved: "Resolvidos",
+            search: "Busca",
+            newTicket: "Novo",
+            all: "Todos",
+            queues: "Filas",
+            serving: "Atendendo",
+            waiting: "Aguardando",
+            queueName: "Comercial",
+            today: "HOJE",
+            typeMessage: "Digite uma mensagem...",
+            customerMessage:
+              "Olá! Gostaria de conhecer os planos para a minha equipe.",
+            agentMessage:
+              "Olá, Luiza! Posso te ajudar. Quantas pessoas atendem pelo WhatsApp hoje?",
+            contacts: [
+              {
+                initials: "LM",
+                name: "Luiza Martins",
+                message: "Gostaria de conhecer os planos...",
+                time: "10:32"
+              },
+              {
+                initials: "RC",
+                name: "Rafael Costa",
+                message: "Podemos agendar para amanhã?",
+                time: "10:18"
+              },
+              {
+                initials: "BA",
+                name: "Bianca Alves",
+                message: "Obrigada pelo atendimento!",
+                time: "09:54"
+              },
+              {
+                initials: "JP",
+                name: "João Pereira",
+                message: "O financeiro já recebeu?",
+                time: "09:31"
+              }
+            ]
+          },
+          contacts: {
+            title: "Contatos",
+            search: "Pesquisar",
+            import: "Importar contatos",
+            add: "Adicionar contato",
+            headers: ["Nome", "WhatsApp", "Email", "Ações"],
+            rows: [
+              {
+                initials: "LM",
+                name: "Luiza Martins",
+                whatsapp: "+55 11 90000-1001",
+                email: "luiza@empresa.demo"
+              },
+              {
+                initials: "RC",
+                name: "Rafael Costa",
+                whatsapp: "+55 21 90000-1002",
+                email: "rafael@empresa.demo"
+              },
+              {
+                initials: "BA",
+                name: "Bianca Alves",
+                whatsapp: "+55 31 90000-1003",
+                email: "bianca@empresa.demo"
+              },
+              {
+                initials: "JP",
+                name: "João Pereira",
+                whatsapp: "+55 41 90000-1004",
+                email: "joao@empresa.demo"
+              }
+            ]
+          },
+          connections: {
+            title: "Conexões",
+            add: "Adicionar WhatsApp",
+            headers: [
+              "Nome",
+              "Status",
+              "Sessão",
+              "Última atualização",
+              "Padrão",
+              "Ações"
+            ],
+            rows: [
+              [
+                "Comercial",
+                "Conectado",
+                "Pronta",
+                "14/07/2026 10:42",
+                "Sim",
+                ""
+              ],
+              ["Suporte", "Conectado", "Pronta", "14/07/2026 10:38", "Não", ""]
+            ],
+            queueTitle: "Fila Comercial",
+            queueDescription: "4 atendentes vinculados",
+            queueGreeting: "Olá! Como podemos ajudar?"
+          },
+          campaigns: {
+            title: "Campanhas",
+            search: "Pesquisar campanha",
+            add: "Nova campanha",
+            summary: [
+              { label: "Programadas", value: "03" },
+              { label: "Em andamento", value: "01" },
+              { label: "Concluídas", value: "18" }
+            ],
+            headers: [
+              "Nome",
+              "Lista",
+              "Data inicial",
+              "Status",
+              "Enviadas",
+              "Ações"
+            ],
+            rows: [
+              [
+                "Novidades de julho",
+                "Clientes ativos",
+                "15/07/2026 09:00",
+                "Programada",
+                "0 / 428",
+                ""
+              ],
+              [
+                "Pesquisa de satisfação",
+                "Pós-atendimento",
+                "12/07/2026 14:00",
+                "Concluída",
+                "312 / 312",
+                ""
+              ]
+            ]
+          },
+          dashboard: {
+            primary: [
+              { label: "Usuários online", value: "8/12" },
+              { label: "Atendimentos aguardando", value: "10" },
+              { label: "Atendimentos abertos", value: "24" }
+            ],
+            filters: [
+              { label: "Período", value: "Personalizado" },
+              { label: "Data inicial", value: "01/07/2026, 00:00" },
+              { label: "Data final", value: "14/07/2026, 11:59" }
+            ],
+            secondary: [
+              { label: "Atendimentos resolvidos", value: "186" },
+              { label: "Novos contatos", value: "42" },
+              { label: "Tempo médio de atendimento", value: "0h 8m" },
+              { label: "Tempo médio de espera", value: "0h 4m" }
+            ],
+            chartTitle: "Atendimentos no período"
+          },
+          whiteLabel: {
+            title: "Configurações",
+            activeTab: "WHITELABEL",
+            tabs: [
+              "OPÇÕES",
+              "EMPRESAS",
+              "PLANOS",
+              "AJUDA",
+              "WHITELABEL",
+              "TRADUÇÕES"
+            ],
+            fields: [
+              { label: "Cor primária clara", value: "#7457FF" },
+              { label: "Cor primária escura", value: "#039AAD" },
+              { label: "Nome do app", value: "EspaçoWhats" },
+              { label: "Logo do app claro", value: "logo-claro.svg" },
+              { label: "Logo do app escuro", value: "logo-escuro.svg" },
+              { label: "Favicon do app", value: "favicon.png" }
+            ],
+            logoCaption: "ATENDIMENTO PROFISSIONAL",
+            loginLinks: "Links do login",
+            loginDescription:
+              "Adicione pares de título e URL para exibir abaixo da caixa de login.",
+            linkTitle: "Título do link",
+            linkUrl: "URL do link",
+            save: "Salvar"
+          }
+        },
+        steps: {
+          eyebrow: "Como funciona",
+          title: "Comece de forma simples. Cresça sem perder o controle.",
+          items: [
+            {
+              title: "Conecte seus números",
+              description:
+                "Adicione e gerencie as conexões de WhatsApp utilizadas pela sua empresa."
+            },
+            {
+              title: "Organize a operação",
+              description:
+                "Crie usuários, setores, filas, permissões e regras de atendimento."
+            },
+            {
+              title: "Atenda e acompanhe",
+              description:
+                "Sua equipe trabalha enquanto os gestores acompanham toda a operação."
+            }
+          ]
+        },
+        features: {
+          eyebrow: "Recursos principais",
+          title: "Tudo o que sua equipe precisa para atender melhor.",
+          description:
+            "Uma plataforma completa, construída para transformar conversas em processos claros e relacionamentos duradouros.",
+          items: [
+            {
+              title: "Atendimento centralizado",
+              description: "Todas as conversas em uma única central organizada."
+            },
+            {
+              title: "Vários atendentes",
+              description: "Colaboração simultânea sem perder o controle."
+            },
+            {
+              title: "Múltiplos números",
+              description: "Gerencie diferentes conexões na mesma operação."
+            },
+            {
+              title: "Contatos e CRM",
+              description: "Informações e histórico sempre disponíveis."
+            },
+            {
+              title: "Tags e campos",
+              description: "Classifique contatos conforme o seu processo."
+            },
+            {
+              title: "Respostas rápidas",
+              description: "Agilidade sem abrir mão da personalização."
+            },
+            {
+              title: "Agendamentos",
+              description: "Programe mensagens e acompanhamentos."
+            },
+            {
+              title: "Filas e chatbot",
+              description: "Direcione cada contato para o lugar certo."
+            },
+            {
+              title: "Chat interno",
+              description: "Aproxime a comunicação entre colaboradores."
+            },
+            {
+              title: "Campanhas",
+              description: "Planeje, envie e acompanhe ações em escala."
+            },
+            {
+              title: "IA e transcrição",
+              description: "Automatize tarefas e transforme áudios em texto."
+            },
+            {
+              title: "Relatórios e dashboard",
+              description: "Enxergue a operação e identifique oportunidades."
+            }
+          ]
+        },
+        routing: {
+          eyebrow: "Organização da equipe",
+          title: "Cada mensagem chega a quem pode resolver.",
+          description:
+            "Encaminhe o cliente para recepção, comercial, financeiro, suporte ou qualquer outro setor. Transfira, conclua ou reabra sem perder o histórico.",
+          items: [
+            "Permissões por perfil",
+            "Filas por usuário",
+            "Transferência entre profissionais",
+            "Observações internas",
+            "Histórico completo",
+            "Chat entre colaboradores"
+          ],
+          newMessage: "Nova mensagem",
+          customer: "Cliente no WhatsApp",
+          flow: ["Recepção", "Setor responsável", "Concluído"]
+        },
+        automation: {
+          eyebrow: "Escala com proximidade",
+          title: "Automatize o repetitivo. Preserve o atendimento humano.",
+          description:
+            "Use automações onde elas geram agilidade e mantenha sua equipe presente nos momentos que exigem conversa.",
+          automationTitle: "Automação",
+          automationDescription:
+            "Configure saudações, horários, chatbot, mensagens fora do expediente, transferências, timeouts e avaliações.",
+          campaignTitle: "Campanhas",
+          campaignDescription:
+            "Crie listas, importe contatos, programe envios, alterne mensagens e acompanhe resultados.",
+          greeting: "Saudação",
+          menu: "Menu inteligente",
+          team: "Equipe",
+          sent: "enviadas",
+          delivered: "entregues",
+          replies: "respostas"
+        },
+        metrics: {
+          eyebrow: "Gestão e indicadores",
+          title: "Decisões melhores começam com uma operação visível.",
+          description:
+            "O dashboard reúne os principais indicadores para você entender o que está acontecendo e onde sua equipe pode melhorar.",
+          items: [
+            { label: "Usuários online", value: "18", delta: "+3 hoje" },
+            { label: "Aguardando", value: "07", delta: "-12%" },
+            { label: "Em atendimento", value: "42", delta: "+8%" },
+            { label: "Concluídos", value: "186", delta: "+21%" },
+            { label: "Novos contatos", value: "64", delta: "+15%" },
+            { label: "Tempo médio", value: "04:12", delta: "-18%" }
+          ]
+        },
+        whiteLabel: {
+          eyebrow: "White-label",
+          title: "A tecnologia do EspaçoWhats com a identidade da sua empresa.",
+          description:
+            "Personalize a experiência para que clientes e colaboradores reconheçam sua marca em cada detalhe.",
+          items: [
+            "Nome e logos",
+            "Cores e favicon",
+            "Tela de login",
+            "Links e conteúdos"
+          ]
+        },
+        integrations: {
+          eyebrow: "Tecnologia e evolução",
+          title: "Uma plataforma pronta para acompanhar sua operação.",
+          description:
+            "Recursos que ampliam as possibilidades sem complicar a rotina da equipe.",
+          items: [
+            {
+              title: "Inteligência artificial",
+              description: "Use OpenAI ou Groq em fluxos inteligentes."
+            },
+            {
+              title: "Vários idiomas",
+              description: "Atenda equipes e operações internacionais."
+            },
+            {
+              title: "Atualizações em tempo real",
+              description: "Acompanhe cada mudança assim que ela acontece."
+            },
+            {
+              title: "Múltiplas empresas",
+              description: "Escale usuários, conexões e operações."
+            }
+          ]
+        },
+        contact: {
+          eyebrow: "Vamos conversar",
+          title:
+            "Seus clientes já usam o WhatsApp. Agora sua equipe pode usá-lo de forma profissional.",
+          description:
+            "Chame nossa equipe pelo WhatsApp e descubra como o EspaçoWhats pode organizar seu atendimento.",
+          responseTitle: "Conversa rápida e sem compromisso",
+          responseDescription:
+            "Vamos entender seu cenário diretamente no chat.",
+          whatsappMessage:
+            "Olá! Quero conhecer o EspaçoWhats e agendar uma demonstração."
+        },
+        faq: {
+          eyebrow: "Perguntas frequentes",
+          title: "Ficou alguma dúvida?",
+          items: [
+            {
+              question: "Posso utilizar mais de um número de WhatsApp?",
+              answer:
+                "Sim. O EspaçoWhats permite administrar diferentes conexões dentro da mesma operação."
+            },
+            {
+              question: "Vários atendentes podem trabalhar simultaneamente?",
+              answer:
+                "Sim. Cada colaborador possui seu próprio acesso e pode receber permissões e filas específicas."
+            },
+            {
+              question: "Posso separar o atendimento por setores?",
+              answer:
+                "Sim. Você pode criar filas para recepção, comercial, financeiro, suporte ou qualquer outro departamento."
+            },
+            {
+              question:
+                "A plataforma pode utilizar a identidade da minha empresa?",
+              answer:
+                "Sim. Nome, cores, logos, tela de login e outros elementos podem ser personalizados."
+            },
+            {
+              question:
+                "O EspaçoWhats possui recursos de inteligência artificial?",
+              answer:
+                "Sim. A plataforma oferece recursos de IA e transcrição para apoiar a rotina da equipe."
+            },
+            {
+              question: "Como posso conhecer o sistema?",
+              answer:
+                "Solicite uma demonstração para entendermos sua operação e apresentarmos os recursos mais importantes para sua equipe."
+            }
+          ]
+        },
+        mock: {
+          workspace: "Central de atendimento",
+          inbox: "Atendimentos",
+          waiting: "Aguardando",
+          open: "Em atendimento",
+          done: "Concluídos",
+          salesQueue: "Comercial • Ana Souza",
+          online: "online",
+          today: "HOJE",
+          customerMessage:
+            "Olá! Gostaria de entender qual plano funciona melhor para minha equipe.",
+          agentMessage:
+            "Claro, Marina! Vou te ajudar. Quantas pessoas atendem hoje pelo WhatsApp?",
+          typeMessage: "Digite uma mensagem...",
+          customer: "Informações do cliente",
+          company: "Ateliê Aurora",
+          hotLead: "Lead quente",
+          returning: "Retorno",
+          history: "12 atendimentos anteriores",
+          followUp: "Retorno agendado para amanhã",
+          overview: "Visão geral",
+          dashboard: "Dashboard de atendimento",
+          lastDays: "Últimos 7 dias",
+          serviceVolume: "Volume de atendimentos",
+          week: "Esta semana",
+          team: "Equipe online",
+          weekdays: ["SEG", "TER", "QUA", "QUI", "SEX", "SÁB"],
+          contacts: [
+            {
+              initials: "MC",
+              name: "Marina Costa",
+              message: "Gostaria de conhecer os planos...",
+              time: "10:32",
+              unread: 2
+            },
+            {
+              initials: "RL",
+              name: "Rafael Lima",
+              message: "Obrigado pelo atendimento!",
+              time: "10:18"
+            },
+            {
+              initials: "BC",
+              name: "Bianca Castro",
+              message: "Podemos agendar para amanhã?",
+              time: "09:54",
+              unread: 1
+            },
+            {
+              initials: "JS",
+              name: "João Silva",
+              message: "O financeiro já recebeu?",
+              time: "09:31"
+            }
+          ],
+          teamMembers: [
+            { initials: "AS", name: "Ana Souza", role: "Comercial" },
+            { initials: "PM", name: "Paulo Melo", role: "Suporte" },
+            { initials: "CL", name: "Carla Luz", role: "Financeiro" },
+            { initials: "RM", name: "Rita Moraes", role: "Recepção" }
+          ]
+        },
+        footer: {
+          description:
+            "Atendimento, CRM e automação para transformar o WhatsApp em uma operação profissional.",
+          rights: "Todos os direitos reservados."
+        }
+      },
       date: {
         yesterday: "Ontem"
       },
