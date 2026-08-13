@@ -18,7 +18,6 @@ export interface WhatsappData {
   transferMessage?: string;
   queueIds?: number[];
   companyId?: number;
-  token?: string;
   language?: string;
 }
 
@@ -55,7 +54,6 @@ const UpdateWhatsAppService = async ({
     ratingMessage,
     transferMessage,
     queueIds,
-    token,
     language
   } = whatsappData;
 
@@ -100,7 +98,6 @@ const UpdateWhatsAppService = async ({
     ratingMessage,
     isDefault,
     companyId,
-    token,
     transferMessage,
     language
   });

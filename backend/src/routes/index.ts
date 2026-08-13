@@ -34,9 +34,15 @@ import ticketzOSSRoutes from "./ticketzOSSRoutes";
 import i18nRoutes from "./i18nRoutes";
 import wavoipRoutes from "./wavoipRoutes";
 import ogRoutes from "./ogRoutes";
+import oauthRoutes from "./oauthRoutes";
+import mcpRoutes from "./mcpRoutes";
+import chatGptRoutes from "./chatGptRoutes";
 
 const routes = Router();
 
+routes.use(oauthRoutes);
+routes.use(mcpRoutes);
+routes.use(chatGptRoutes);
 routes.use(userRoutes);
 routes.use("/auth", authRoutes);
 routes.use(settingRoutes);
@@ -44,7 +50,6 @@ routes.use(contactRoutes);
 routes.use(ticketRoutes);
 routes.use(buildCaptureExtensionRoutes);
 routes.use(whatsappRoutes);
-routes.use(messageRoutes);
 routes.use(messageRoutes);
 routes.use(whatsappSessionRoutes);
 routes.use(queueRoutes);

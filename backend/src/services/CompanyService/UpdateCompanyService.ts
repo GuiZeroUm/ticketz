@@ -4,6 +4,7 @@ import Company from "../../models/Company";
 import Invoices from "../../models/Invoices";
 import Setting from "../../models/Setting";
 import normalizeSlug from "../../helpers/normalizeSlug";
+import { revokeCompanyMcpGrants } from "../McpServices/RevokeMcpGrantsService";
 
 interface CompanyData {
   name: string;
@@ -40,6 +41,8 @@ const UpdateCompanyService = async (
   }
 
   const previousPlanId = company.planId;
+  const wasActive = company.status;
+  const previousDueDate = company.dueDate;
 
   const hasSlug = companyData.slug !== undefined;
   const slug = hasSlug ? normalizeSlug(companyData.slug) : undefined;
@@ -65,6 +68,13 @@ const UpdateCompanyService = async (
     language,
     ...(hasSlug ? { slug: slug || null } : {})
   });
+
+  if (
+    (wasActive !== false && status === false) ||
+    (dueDate !== undefined && dueDate !== previousDueDate)
+  ) {
+    await revokeCompanyMcpGrants(company.id);
+  }
 
   if (companyData.campaignsEnabled !== undefined) {
     const [setting, created] = await Setting.findOrCreate({

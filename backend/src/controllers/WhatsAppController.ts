@@ -26,7 +26,6 @@ interface WhatsappData {
   transferMessage?: string;
   status?: string;
   isDefault?: boolean;
-  token?: string;
 }
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
@@ -51,8 +50,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     outOfHoursMessage,
     ratingMessage,
     transferMessage,
-    queueIds,
-    token
+    queueIds
   }: WhatsappData = req.body;
   const { companyId } = req.user;
 
@@ -66,8 +64,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     ratingMessage,
     transferMessage,
     queueIds,
-    companyId,
-    token
+    companyId
   });
 
   sendWhatsappUpdate(whatsapp);

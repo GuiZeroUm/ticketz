@@ -4,7 +4,7 @@ import moment from "moment";
 import { Op, WhereOptions } from "sequelize";
 import { CronJob } from "cron";
 import { subDays, subMinutes } from "date-fns";
-import { MessageData, SendMessage } from "./helpers/SendMessage";
+import { SendMessage } from "./helpers/SendMessage";
 import Whatsapp from "./models/Whatsapp";
 import { logger } from "./utils/logger";
 import Schedule from "./models/Schedule";
@@ -32,42 +32,13 @@ import { _t } from "./services/TranslationServices/i18nService";
 import { makeRandomId } from "./helpers/MakeRandomId";
 
 const connection = process.env.REDIS_URI || "";
-const limiterMax = process.env.REDIS_OPT_LIMITER_MAX || 1;
-const limiterDuration = process.env.REDIS_OPT_LIMITER_DURATION || 3000;
-
 export const userMonitor = new Queue("UserMonitor", connection);
-
-export const messageQueue = new Queue("MessageQueue", connection, {
-  limiter: {
-    max: limiterMax as number,
-    duration: limiterDuration as number
-  }
-});
 
 export const scheduleMonitor = new Queue("ScheduleMonitor", connection);
 export const sendScheduledMessages = new Queue(
   "SendSacheduledMessages",
   connection
 );
-
-async function handleSendMessage(job) {
-  try {
-    const { data } = job;
-
-    const whatsapp = await Whatsapp.findByPk(data.whatsappId);
-
-    if (whatsapp == null) {
-      throw Error("Unidentified WhatsApp");
-    }
-
-    const messageData: MessageData = data.data;
-
-    await SendMessage(whatsapp, messageData);
-  } catch (e) {
-    logger.error({ message: e?.message }, "MessageQueue -> SendMessage: error");
-    throw e;
-  }
-}
 
 async function handleVerifySchedules() {
   try {
@@ -330,6 +301,7 @@ async function handleNoQueueTimeout(
       "handleNoQueueTimeout -> UpdateTicketService"
     );
     const userId = status === "pending" ? null : ticket.userId;
+
     // eslint-disable-next-line no-await-in-loop
     await UpdateTicketService({
       ticketId: ticket.id,
@@ -424,6 +396,7 @@ async function handleChatbotTicketTimeout(
       { ...ticketData },
       "handleChatbotTicketTimeout -> UpdateTicketService"
     );
+
     // eslint-disable-next-line no-await-in-loop
     await UpdateTicketService({
       ticketId: ticket.id,
@@ -496,6 +469,7 @@ async function handleTicketTimeouts() {
         // eslint-disable-next-line no-await-in-loop
         await GetCompanySetting(company.id, "noQueueTimeoutAction", "0")
       );
+
       // eslint-disable-next-line no-await-in-loop
       await handleNoQueueTimeout(
         company,
@@ -514,6 +488,7 @@ async function handleTicketTimeouts() {
         "openTicketTimeoutAction",
         "pending"
       );
+
       // eslint-disable-next-line no-await-in-loop
       await handleOpenTicketTimeout(
         company,
@@ -531,6 +506,7 @@ async function handleTicketTimeouts() {
           // eslint-disable-next-line no-await-in-loop
           await GetCompanySetting(company.id, "chatbotTicketTimeoutAction", "0")
         ) || 0;
+
       // eslint-disable-next-line no-await-in-loop
       await handleChatbotTicketTimeout(
         company,
@@ -615,8 +591,6 @@ export async function startQueueProcess() {
   startCampaignQueues().then(() => {
     logger.info("Campaign processing functions started");
   });
-
-  messageQueue.process("SendMessage", handleSendMessage);
 
   scheduleMonitor.process("Verify", handleVerifySchedules);
 

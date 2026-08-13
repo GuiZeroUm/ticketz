@@ -17,7 +17,7 @@ import AccountTreeOutlinedIcon from "@material-ui/icons/AccountTreeOutlined";
 import FlashOnIcon from "@material-ui/icons/FlashOn";
 import CalendarToday from "@material-ui/icons/CalendarToday";
 import HelpOutlineIcon from "@material-ui/icons/HelpOutline";
-import CodeRoundedIcon from "@material-ui/icons/CodeRounded";
+import ChatOutlinedIcon from "@material-ui/icons/ChatOutlined";
 import EventIcon from "@material-ui/icons/Event";
 import InfoIcon from "@material-ui/icons/Info";
 import DarkMode from "../components/DarkMode";
@@ -442,11 +442,11 @@ const MainListItems = props => {
               primary={i18n.t("mainDrawer.listItems.users")}
               icon={<PeopleAltOutlinedIcon />}
             />
-            {user.super && (
+            {user.profile === "admin" && (
               <ListItemLink
-                to="/messages-api"
-                primary={i18n.t("mainDrawer.listItems.messagesAPI")}
-                icon={<CodeRoundedIcon />}
+                to="/chatgpt"
+                primary={i18n.t("mainDrawer.listItems.chatgpt")}
+                icon={<ChatOutlinedIcon />}
               />
             )}
             <ListItemLink

@@ -14,7 +14,7 @@ import Users from "../pages/Users";
 import Contacts from "../pages/Contacts/";
 import Queues from "../pages/Queues/";
 import Tags from "../pages/Tags/";
-import MessagesAPI from "../pages/MessagesAPI/";
+import ChatGPT from "../pages/ChatGPT/";
 import Helps from "../pages/Helps/";
 import ContactLists from "../pages/ContactLists/";
 import ContactListItems from "../pages/ContactListItems/";
@@ -83,12 +83,7 @@ const Routes = () => {
                 <Route exact path="/contacts" component={Contacts} isPrivate />
                 <Route exact path="/helps" component={Helps} isPrivate />
                 <Route exact path="/users" component={Users} isPrivate />
-                <Route
-                  exact
-                  path="/messages-api"
-                  component={MessagesAPI}
-                  isPrivate
-                />
+                <Route exact path="/chatgpt" component={ChatGPT} isPrivate />
                 <Route
                   exact
                   path="/settings"

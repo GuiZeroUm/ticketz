@@ -4,6 +4,7 @@ import AppError from "../../errors/AppError";
 import ShowUserService from "./ShowUserService";
 import Company from "../../models/Company";
 import User from "../../models/User";
+import { revokeUserMcpGrants } from "../McpServices/RevokeMcpGrantsService";
 
 interface UserData {
   email?: string;
@@ -53,6 +54,8 @@ const UpdateUserService = async ({
   });
 
   const { email, password, profile, name, queueIds = [] } = userData;
+  const securityIdentityChanged =
+    Boolean(password) || (profile !== undefined && profile !== user.profile);
 
   try {
     await schema.validate({ email, password, profile, name });
@@ -77,6 +80,10 @@ const UpdateUserService = async ({
   }
 
   await user.reload();
+
+  if (securityIdentityChanged) {
+    await revokeUserMcpGrants(user.id);
+  }
 
   const company = await Company.findByPk(user.companyId);
 

@@ -471,7 +471,7 @@ const messages = {
           users: "Utilizadores",
           settings: "Configurações",
           helps: "Ajuda",
-          messagesAPI: "API",
+          chatgpt: "ChatGPT",
           schedules: "Agendamentos",
           campaigns: "Campanhas",
           annoucements: "Informativos",
@@ -498,19 +498,43 @@ const messages = {
           }
         }
       },
-      messagesAPI: {
-        title: "API",
-        textMessage: {
-          number: "Número",
-          body: "Mensagem",
-          token: "Token registado"
+      chatgpt: {
+        title: "ChatGPT",
+        enabled: "Piloto ativado",
+        disabled: "Piloto desativado",
+        warningTitle: "Dados pessoais e clínicos",
+        warning:
+          "Ao ligar, conversas identificáveis e possíveis dados clínicos poderão ser enviados ao ChatGPT conforme as suas perguntas. Utilize apenas após aprovação jurídica e administrativa.",
+        copy: "Copiar URL",
+        connection: {
+          title: "URL do servidor MCP",
+          description:
+            "O Ticketz não utiliza uma chave OpenAI. A inteligência e os limites pertencem ao plano ChatGPT do utilizador."
         },
-        mediaMessage: {
-          number: "Número",
-          body: "Nome do ficheiro",
-          media: "Ficheiro",
-          token: "Token registado"
-        }
+        steps: {
+          title: "Como ligar",
+          open: "Abra o Developer Mode do ChatGPT",
+          create: "Crie uma integração MCP Draft",
+          url: "Cole o URL MCP",
+          oauth: "Escolha OAuth",
+          login: "Entre com tenant, e-mail e palavra-passe de administrador"
+        },
+        connections: {
+          title: "Ligações ativas",
+          empty: "Nenhum ChatGPT ligado.",
+          client: "Cliente",
+          admin: "Administrador",
+          created: "Criada em",
+          lastUse: "Última utilização",
+          revoke: "Revogar",
+          revokeAll: "Revogar todas"
+        },
+        revoke: {
+          title: "Revogar ligação",
+          one: "Esta ligação perderá o acesso imediatamente.",
+          all: "Todas as ligações deste tenant perderão o acesso imediatamente."
+        },
+        toasts: { copied: "URL MCP copiado.", revoked: "Ligação revogada." }
       },
       notifications: {
         noTickets: "Nenhuma notificação."

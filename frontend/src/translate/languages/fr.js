@@ -436,7 +436,7 @@ const messages = {
           users: "Utilisateurs",
           settings: "Paramètres",
           helps: "Aide",
-          messagesAPI: "API",
+          chatgpt: "ChatGPT",
           schedules: "Planifications",
           campaigns: "Campagnes",
           annoucements: "Annonces",
@@ -463,19 +463,44 @@ const messages = {
           }
         }
       },
-      messagesAPI: {
-        title: "API",
-        textMessage: {
-          number: "Numéro",
-          body: "Message",
-          token: "Jeton enregistré"
+      chatgpt: {
+        title: "ChatGPT",
+        enabled: "Pilote activé",
+        disabled: "Pilote désactivé",
+        warningTitle: "Données personnelles et cliniques",
+        warning:
+          "Une fois connecté, des conversations identifiables et d'éventuelles données cliniques peuvent être transmises à ChatGPT selon vos questions. À utiliser uniquement après validation juridique et administrative.",
+        copy: "Copier l'URL",
+        connection: {
+          title: "URL du serveur MCP",
+          description:
+            "Ticketz n'utilise pas de clé OpenAI. L'intelligence et les limites dépendent de l'abonnement ChatGPT de l'utilisateur."
         },
-        mediaMessage: {
-          number: "Numéro",
-          body: "Nom du fichier",
-          media: "Fichier",
-          token: "Jeton enregistré"
-        }
+        steps: {
+          title: "Comment se connecter",
+          open: "Ouvrez le Developer Mode de ChatGPT",
+          create: "Créez une intégration MCP Draft",
+          url: "Collez l'URL MCP",
+          oauth: "Choisissez OAuth",
+          login:
+            "Connectez-vous avec le tenant, l'e-mail et le mot de passe administrateur"
+        },
+        connections: {
+          title: "Connexions actives",
+          empty: "Aucune connexion ChatGPT.",
+          client: "Client",
+          admin: "Administrateur",
+          created: "Créée",
+          lastUse: "Dernière utilisation",
+          revoke: "Révoquer",
+          revokeAll: "Tout révoquer"
+        },
+        revoke: {
+          title: "Révoquer la connexion",
+          one: "Cette connexion perdra immédiatement l'accès.",
+          all: "Toutes les connexions de ce tenant perdront immédiatement l'accès."
+        },
+        toasts: { copied: "URL MCP copiée.", revoked: "Connexion révoquée." }
       },
       notifications: {
         noTickets: "Aucune notification."

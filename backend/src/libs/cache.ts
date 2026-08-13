@@ -63,6 +63,14 @@ export function del(key: string) {
   return delPromisefy(key);
 }
 
+export async function consume(key: string): Promise<string | null> {
+  return redis.eval(
+    "local value = redis.call('GET', KEYS[1]); if value then redis.call('DEL', KEYS[1]); end; return value",
+    1,
+    key
+  ) as Promise<string | null>;
+}
+
 export async function delFromPattern(pattern: string) {
   const all = await getKeys(pattern);
   for (let item of all) {
@@ -77,6 +85,7 @@ export const cacheLayer = {
   getFromParams,
   getKeys,
   del,
+  consume,
   delFromParams,
   delFromPattern
 };

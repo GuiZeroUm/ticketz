@@ -438,7 +438,7 @@ const messages = {
           users: "Benutzer",
           settings: "Einstellungen",
           helps: "Hilfe",
-          messagesAPI: "API",
+          chatgpt: "ChatGPT",
           schedules: "Planungen",
           campaigns: "Kampagnen",
           annoucements: "Ankündigungen",
@@ -465,18 +465,45 @@ const messages = {
           }
         }
       },
-      messagesAPI: {
-        title: "API",
-        textMessage: {
-          number: "Nummer",
-          body: "Nachricht",
-          token: "Registrierter Token"
+      chatgpt: {
+        title: "ChatGPT",
+        enabled: "Pilot aktiviert",
+        disabled: "Pilot deaktiviert",
+        warningTitle: "Personenbezogene und klinische Daten",
+        warning:
+          "Nach der Verbindung können identifizierbare Gespräche und mögliche klinische Daten entsprechend Ihren Fragen an ChatGPT übertragen werden. Nur nach rechtlicher und administrativer Freigabe verwenden.",
+        copy: "URL kopieren",
+        connection: {
+          title: "MCP-Server-URL",
+          description:
+            "Ticketz verwendet keinen OpenAI-Schlüssel. Intelligenz und Limits gehören zum ChatGPT-Plan des Benutzers."
         },
-        mediaMessage: {
-          number: "Nummer",
-          body: "Dateiname",
-          media: "Datei",
-          token: "Registrierter Token"
+        steps: {
+          title: "Verbindung herstellen",
+          open: "ChatGPT Developer Mode öffnen",
+          create: "Eine Draft-MCP-Integration erstellen",
+          url: "MCP-URL einfügen",
+          oauth: "OAuth auswählen",
+          login: "Mit Tenant, Admin-E-Mail und Passwort anmelden"
+        },
+        connections: {
+          title: "Aktive Verbindungen",
+          empty: "Keine ChatGPT-Verbindung.",
+          client: "Client",
+          admin: "Administrator",
+          created: "Erstellt",
+          lastUse: "Letzte Nutzung",
+          revoke: "Widerrufen",
+          revokeAll: "Alle widerrufen"
+        },
+        revoke: {
+          title: "Verbindung widerrufen",
+          one: "Diese Verbindung verliert sofort den Zugriff.",
+          all: "Alle Verbindungen dieses Tenants verlieren sofort den Zugriff."
+        },
+        toasts: {
+          copied: "MCP-URL kopiert.",
+          revoked: "Verbindung widerrufen."
         }
       },
       notifications: {

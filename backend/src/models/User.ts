@@ -90,6 +90,9 @@ class User extends Model<User> {
   static hashPassword = async (instance: User): Promise<void> => {
     if (instance.password) {
       instance.passwordHash = await hash(instance.password, 8);
+      if (!instance.isNewRecord) {
+        instance.tokenVersion = (instance.tokenVersion || 0) + 1;
+      }
     }
   };
 

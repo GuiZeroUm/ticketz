@@ -41,8 +41,11 @@ import UserSocketSession from "../models/UserSocketSession";
 import OutOfTicketMessage from "../models/OutOfTicketMessages";
 import Translation from "../models/Translation";
 import Wavoip from "../models/Wavoip";
+import OAuthClient from "../models/OAuthClient";
+import OAuthGrant from "../models/OAuthGrant";
+import OAuthRefreshToken from "../models/OAuthRefreshToken";
+import McpAudit from "../models/McpAudit";
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const dbConfig = require("../config/database");
 
 const sequelize = new Sequelize(dbConfig);
@@ -89,7 +92,11 @@ const models = [
   OutOfTicketMessage,
   Subscriptions,
   Translation,
-  Wavoip
+  Wavoip,
+  OAuthClient,
+  OAuthGrant,
+  OAuthRefreshToken,
+  McpAudit
 ];
 
 sequelize.addModels(models);

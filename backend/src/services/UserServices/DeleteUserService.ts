@@ -2,6 +2,7 @@ import User from "../../models/User";
 import AppError from "../../errors/AppError";
 import Ticket from "../../models/Ticket";
 import UpdateDeletedUserOpenTicketsStatus from "../../helpers/UpdateDeletedUserOpenTicketsStatus";
+import { revokeUserMcpGrants } from "../McpServices/RevokeMcpGrantsService";
 
 const DeleteUserService = async (
   id: string | number,
@@ -29,6 +30,7 @@ const DeleteUserService = async (
     UpdateDeletedUserOpenTicketsStatus(userOpenTickets, user.companyId);
   }
 
+  await revokeUserMcpGrants(user.id);
   await user.destroy();
 };
 

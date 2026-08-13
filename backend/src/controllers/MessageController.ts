@@ -13,10 +13,8 @@ import ShowTicketService from "../services/TicketServices/ShowTicketService";
 import DeleteWhatsAppMessage from "../services/WbotServices/DeleteWhatsAppMessage";
 import SendWhatsAppMedia from "../services/WbotServices/SendWhatsAppMedia";
 import SendWhatsAppMessage from "../services/WbotServices/SendWhatsAppMessage";
-import CheckContactNumber from "../services/WbotServices/CheckNumber";
 import EditWhatsAppMessage from "../services/WbotServices/EditWhatsAppMessage";
 
-import { logger } from "../utils/logger";
 import { MessageData } from "../helpers/SendMessage";
 import Message from "../models/Message";
 import Contact from "../models/Contact";
@@ -313,86 +311,4 @@ export const forward = async (
   await ForwardMessageService(user, message, contact, queue);
 
   return res.send();
-};
-
-export const send = async (req: Request, res: Response): Promise<Response> => {
-  const { whatsappId } = req.params;
-  const messageData: MessageData = req.body;
-  const medias = req.files as Express.Multer.File[];
-
-  if (messageData.number === undefined) {
-    throw new AppError("ERR_SYNTAX", 400);
-  }
-  const whatsapp = await Whatsapp.findByPk(whatsappId);
-
-  if (!whatsapp) {
-    throw new AppError("ERR_WHATSAPP_NOT_FOUND", 404);
-  }
-
-  try {
-    let { number } = messageData;
-    const { body, linkPreview } = messageData;
-    const saveOnTicket = !!messageData.saveOnTicket;
-
-    if (!number.includes("@")) {
-      const numberToTest = messageData.number;
-
-      const { companyId } = whatsapp;
-
-      const CheckValidNumber = await CheckContactNumber(
-        numberToTest,
-        companyId,
-        whatsapp
-      );
-      number = CheckValidNumber.jid.replace(/\D/g, "");
-    }
-
-    if (medias) {
-      await Promise.all(
-        medias.map(async (media: Express.Multer.File) => {
-          await req.app.get("queues").messageQueue.add(
-            "SendMessage",
-            {
-              whatsappId,
-              data: {
-                number,
-                body: media.originalname,
-                mediaPath: media.path,
-                saveOnTicket
-              }
-            },
-            { removeOnComplete: true, attempts: 3 }
-          );
-        })
-      );
-    } else {
-      req.app.get("queues").messageQueue.add(
-        "SendMessage",
-        {
-          whatsappId,
-          data: {
-            number,
-            body,
-            linkPreview,
-            saveOnTicket
-          }
-        },
-
-        { removeOnComplete: false, attempts: 3 }
-      );
-    }
-
-    return res.send({ mensagem: "Message added to queue" });
-  } catch (err) {
-    const error = { errType: typeof err, serialized: JSON.stringify(err), err };
-    if (err?.message) {
-      console.error(error, `MessageController.send: ${err.message}`);
-    } else {
-      logger.error(
-        error,
-        "MessageController.send: Failed to put message on queue"
-      );
-    }
-    throw new AppError("ERR_INTERNAL_ERROR", 500);
-  }
 };

@@ -17,7 +17,6 @@ interface Request {
   transferMessage?: string;
   status?: string;
   isDefault?: boolean;
-  token?: string;
   provider?: string;
   facebookUserId?: string;
   facebookUserToken?: string;
@@ -43,7 +42,6 @@ const CreateWhatsAppService = async ({
   transferMessage,
   isDefault = false,
   companyId,
-  token = "",
   provider = "beta",
   facebookUserId,
   facebookUserToken,
@@ -117,31 +115,6 @@ const CreateWhatsAppService = async ({
     throw new AppError("ERR_WAPP_GREETING_REQUIRED");
   }
 
-  if (token !== null && token !== "") {
-    const tokenSchema = Yup.object().shape({
-      token: Yup.string()
-        .required()
-        .min(2)
-        .test(
-          "Check-token",
-          "This whatsapp token is already used.",
-          async value => {
-            if (!value) return false;
-            const tokenExists = await Whatsapp.findOne({
-              where: { token: value, channel }
-            });
-            return !tokenExists;
-          }
-        )
-    });
-
-    try {
-      await tokenSchema.validate({ token });
-    } catch (err: unknown) {
-      throw new AppError((err as Error).message);
-    }
-  }
-
   const whatsapp = await Whatsapp.create(
     {
       name,
@@ -153,7 +126,6 @@ const CreateWhatsAppService = async ({
       transferMessage,
       isDefault,
       companyId,
-      token,
       provider,
       channel,
       facebookUserId,

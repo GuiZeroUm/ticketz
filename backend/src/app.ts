@@ -12,7 +12,7 @@ import uploadConfig from "./config/upload";
 import AppError from "./errors/AppError";
 import routes from "./routes";
 import { logger } from "./utils/logger";
-import { messageQueue, sendScheduledMessages } from "./queues";
+import { sendScheduledMessages } from "./queues";
 import { corsOrigin } from "./helpers/corsOrigin";
 
 class SystemError extends Error {
@@ -22,9 +22,9 @@ class SystemError extends Error {
 Sentry.init({ dsn: process.env.SENTRY_DSN });
 
 const app = express();
+app.set("trust proxy", 1);
 
 app.set("queues", {
-  messageQueue,
   sendScheduledMessages
 });
 
@@ -37,7 +37,8 @@ app.use(
       "X-Content-Range",
       "Date",
       "Accept-Ranges",
-      "Content-Length"
+      "Content-Length",
+      "WWW-Authenticate"
     ]
   })
 );
@@ -87,10 +88,22 @@ app.get("/public/*", (req, res) => {
 });
 
 app.use((req, _res, next) => {
-  const { method, url, query, body, headers } = req;
+  const { method, path: requestPath, query, body, headers } = req;
+  const safeHeaders = { ...headers };
+  delete safeHeaders.authorization;
+  delete safeHeaders.cookie;
   logger.trace(
-    { method, url, query, body, headers },
-    `Incoming request: ${req.method} ${req.url}`
+    {
+      method,
+      path: requestPath,
+      queryKeys: Object.keys(query || {}),
+      bodyKeys:
+        body && typeof body === "object" && !Array.isArray(body)
+          ? Object.keys(body)
+          : [],
+      headers: safeHeaders
+    },
+    `Incoming request: ${req.method} ${req.path}`
   );
   next();
 });

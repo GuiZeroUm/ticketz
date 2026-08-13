@@ -109,9 +109,6 @@ class Whatsapp extends Model<Whatsapp> {
   @BelongsTo(() => Company)
   company: Company;
 
-  @Column
-  token: string;
-
   @Column(DataType.TEXT)
   facebookUserId: string;
 

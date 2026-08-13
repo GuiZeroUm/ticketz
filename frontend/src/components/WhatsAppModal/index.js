@@ -77,7 +77,6 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
     ratingMessage: "",
     transferMessage: "",
     isDefault: false,
-    token: "",
     provider: "beta",
     language: localStorage.getItem("language") || ""
   };
@@ -285,17 +284,6 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
                       touched.ratingMessage && Boolean(errors.ratingMessage)
                     }
                     helperText={touched.ratingMessage && errors.ratingMessage}
-                    variant="outlined"
-                    margin="dense"
-                  />
-                </div>
-                <div>
-                  <Field
-                    as={TextField}
-                    label={i18n.t("queueModal.form.token")}
-                    type="token"
-                    fullWidth
-                    name="token"
                     variant="outlined"
                     margin="dense"
                   />

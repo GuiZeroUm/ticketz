@@ -452,7 +452,7 @@ const messages = {
           users: "Pengguna",
           settings: "Pengaturan",
           helps: "Bantuan",
-          messagesAPI: "API",
+          chatgpt: "ChatGPT",
           schedules: "Penjadwalan",
           campaigns: "Kampanye",
           annoucements: "Pengumuman",
@@ -479,19 +479,43 @@ const messages = {
           }
         }
       },
-      messagesAPI: {
-        title: "API",
-        textMessage: {
-          number: "Nomor",
-          body: "Pesan",
-          token: "Token Terdaftar"
+      chatgpt: {
+        title: "ChatGPT",
+        enabled: "Pilot aktif",
+        disabled: "Pilot nonaktif",
+        warningTitle: "Data pribadi dan klinis",
+        warning:
+          "Setelah terhubung, percakapan yang dapat diidentifikasi dan kemungkinan data klinis dapat dikirim ke ChatGPT sesuai pertanyaan Anda. Gunakan hanya setelah persetujuan hukum dan administratif.",
+        copy: "Salin URL",
+        connection: {
+          title: "URL server MCP",
+          description:
+            "Ticketz tidak menggunakan kunci OpenAI. Kecerdasan dan batas penggunaan mengikuti paket ChatGPT pengguna."
         },
-        mediaMessage: {
-          number: "Nomor",
-          body: "Nama File",
-          media: "File",
-          token: "Token Terdaftar"
-        }
+        steps: {
+          title: "Cara menghubungkan",
+          open: "Buka Developer Mode ChatGPT",
+          create: "Buat integrasi MCP Draft",
+          url: "Tempel URL MCP",
+          oauth: "Pilih OAuth",
+          login: "Masuk dengan tenant, email admin, dan kata sandi"
+        },
+        connections: {
+          title: "Koneksi aktif",
+          empty: "Belum ada koneksi ChatGPT.",
+          client: "Klien",
+          admin: "Administrator",
+          created: "Dibuat",
+          lastUse: "Terakhir digunakan",
+          revoke: "Cabut",
+          revokeAll: "Cabut semua"
+        },
+        revoke: {
+          title: "Cabut koneksi",
+          one: "Koneksi ini akan segera kehilangan akses.",
+          all: "Semua koneksi tenant ini akan segera kehilangan akses."
+        },
+        toasts: { copied: "URL MCP disalin.", revoked: "Koneksi dicabut." }
       },
       notifications: {
         noTickets: "Tidak ada notifikasi."
