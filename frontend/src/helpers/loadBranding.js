@@ -8,8 +8,8 @@ import { getBackendURL } from "../services/config";
 // setAppLogoLight, ...); `fetchSetting(key)` retorna o valor de cada chave
 // (via public-settings ou via settings autenticado, conforme o chamador).
 
-const defaultLogoLight = "/vector/logo.svg";
-const defaultLogoDark = "/vector/logo-dark.svg";
+const defaultLogoLight = "/branding/logo-light.png";
+const defaultLogoDark = "/branding/logo-dark.png";
 
 const toPublicUrl = file => `${getBackendURL()}/public/${file}`;
 
@@ -46,6 +46,8 @@ export const loadBranding = async (setters, fetchSetting) => {
   setters.setAppLogoDark(
     appLogoDark ? toPublicUrl(appLogoDark) : defaultLogoDark
   );
-  setters.setAppLogoFavicon(appLogoFavicon ? toPublicUrl(appLogoFavicon) : null);
-  setters.setAppName(appName || "ticketz");
+  setters.setAppLogoFavicon(
+    appLogoFavicon ? toPublicUrl(appLogoFavicon) : null
+  );
+  setters.setAppName(appName || "Espaço Whats");
 };

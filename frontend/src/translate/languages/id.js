@@ -74,7 +74,7 @@ const messages = {
           }
         },
         blog: {
-          title: "Blog Ticketz",
+          title: "Blog Espaço Whats",
           loading: "Memuat postingan...",
           error: "Postingan blog tidak dapat dimuat.",
           empty: "Tidak ada postingan blog.",
@@ -490,7 +490,7 @@ const messages = {
         connection: {
           title: "URL server MCP",
           description:
-            "Ticketz tidak menggunakan kunci OpenAI. Kecerdasan dan batas penggunaan mengikuti paket ChatGPT pengguna."
+            "Espaço Whats tidak menggunakan kunci OpenAI. Kecerdasan dan batas penggunaan mengikuti paket ChatGPT pengguna."
         },
         steps: {
           title: "Cara menghubungkan",
@@ -777,20 +777,20 @@ const messages = {
       },
       about: {
         aboutthe: "Tentang",
-        copyright: "� 2024 - Didukung oleh ticketz",
+        copyright: "� 2024 - Didukung oleh Espaço Whats",
         buttonclose: "Tutup",
-        title: "Tentang ticketz",
+        title: "Tentang Espaço Whats",
         abouttitle: "Asal dan peningkatan",
         aboutdetail:
-          "ticketz berasal secara tidak langsung dari proyek Whaticket dengan peningkatan yang dibagikan oleh para pengembang sistem EquipeChat melalui saluran VemFazer di YouTube, kemudian ditingkatkan oleh Claudemir Todo Bom",
+          "Espaço Whats berasal secara tidak langsung dari proyek Whaticket dengan peningkatan yang dibagikan oleh para pengembang sistem EquipeChat melalui saluran VemFazer di YouTube, kemudian ditingkatkan oleh Claudemir Todo Bom",
         aboutauthorsite: "Situs penulis",
         aboutwhaticketsite: "Situs Komunitas Whaticket di Github",
         aboutvemfazersite: "Situs saluran Vem Fazer di Github",
         licenseheading: "Lisensi Sumber Terbuka",
         licensedetail:
-          "ticketz dilisensikan di bawah GNU Affero General Public License versi 3, yang berarti bahwa setiap pengguna yang memiliki akses ke aplikasi ini berhak untuk mendapatkan akses ke kode sumbernya. Informasi lebih lanjut di tautan berikut:",
+          "Espaço Whats dilisensikan di bawah GNU Affero General Public License versi 3, yang berarti bahwa setiap pengguna yang memiliki akses ke aplikasi ini berhak untuk mendapatkan akses ke kode sumbernya. Informasi lebih lanjut di tautan berikut:",
         licensefulltext: "Teks lengkap lisensi",
-        licensesourcecode: "Kode sumber Ticketz"
+        licensesourcecode: "Kode sumber Espaço Whats"
       },
       schedules: {
         title: "Jadwal",
@@ -1179,17 +1179,17 @@ const messages = {
       },
       ticketz: {
         registration: {
-          header: "Daftar di basis pengguna Ticketz",
+          header: "Daftar di basis pengguna Espaço Whats",
           description:
-            "Isi kolom di bawah ini untuk mendaftar di basis pengguna Ticketz dan menerima berita tentang proyek.",
+            "Isi kolom di bawah ini untuk mendaftar di basis pengguna Espaço Whats dan menerima berita tentang proyek.",
           name: "Nama",
           country: "Negara",
           phoneNumber: "Nomor Telepon",
           submit: "Daftar"
         },
         proAd: {
-          imageAlt: "Tangkapan layar Ticketz PRO",
-          title: "Ticketz PRO",
+          imageAlt: "Tangkapan layar Espaço Whats PRO",
+          title: "Espaço Whats PRO",
           features: {
             officialChannels:
               "WhatsApp resmi - Instagram - Messenger dan lainnya",
@@ -1206,15 +1206,15 @@ const messages = {
             stepIntro:
               "Jika Anda menginstal image yang disediakan proyek di server atau VPS menggunakan instruksi sederhana, Anda hanya perlu mengakses server dan menjalankan perintah di bawah ini:",
             stepInstall:
-              'Dalam beberapa saat Ticketz PRO akan terpasang dengan semua data Anda; setelah itu buka menu pengguna, klik "Langganan Ticketz PRO", lalu selesaikan langganan Anda.',
+              'Dalam beberapa saat Espaço Whats PRO akan terpasang dengan semua data Anda; setelah itu buka menu pengguna, klik "Langganan Espaço Whats PRO", lalu selesaikan langganan Anda.',
             helpPrefix:
-              "Jika instalasi Anda berbeda atau Anda merasa perlu bantuan untuk memasang Ticketz PRO, ",
+              "Jika instalasi Anda berbeda atau Anda merasa perlu bantuan untuk memasang Espaço Whats PRO, ",
             helpLink: "hubungi kami",
             helpSuffix: " dan kami akan membantu!"
           }
         },
         support: {
-          title: "Dukung proyek Ticketz",
+          title: "Dukung proyek Espaço Whats",
           mercadopagotitle: "Kartu Kredit",
           recurringbrl: "Donasi berulang dalam BRL",
           paypaltitle: "Kartu Kredit",

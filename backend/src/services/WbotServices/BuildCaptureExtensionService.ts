@@ -237,7 +237,7 @@ async function getBuildVersion(upstreamVersion: string): Promise<string> {
 
 async function build(companyId: number, frontendUrl?: string): Promise<void> {
   const appName =
-    (await GetPublicSettingService({ key: "appName" })) || "ticketz";
+    (await GetPublicSettingService({ key: "appName" })) || "Espaço Whats";
   const favicon = await GetPublicSettingService({ key: "appLogoFavicon" });
   const title = `${appName} WA Session Capture`;
 

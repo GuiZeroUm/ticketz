@@ -74,7 +74,7 @@ const messages = {
           }
         },
         blog: {
-          title: "Ticketz-Blog",
+          title: "Espaço Whats-Blog",
           loading: "Lade Blogbeitraege...",
           error: "Blogbeitraege konnten nicht geladen werden.",
           empty: "Keine Blogbeitraege gefunden.",
@@ -476,7 +476,7 @@ const messages = {
         connection: {
           title: "MCP-Server-URL",
           description:
-            "Ticketz verwendet keinen OpenAI-Schlüssel. Intelligenz und Limits gehören zum ChatGPT-Plan des Benutzers."
+            "Espaço Whats verwendet keinen OpenAI-Schlüssel. Intelligenz und Limits gehören zum ChatGPT-Plan des Benutzers."
         },
         steps: {
           title: "Verbindung herstellen",
@@ -769,20 +769,20 @@ const messages = {
       },
       about: {
         aboutthe: "Über",
-        copyright: "© 2024 - Betrieben mit ticketz",
+        copyright: "© 2024 - Betrieben mit Espaço Whats",
         buttonclose: "Schließen",
-        title: "Über ticketz",
+        title: "Über Espaço Whats",
         abouttitle: "Ursprung und Verbesserungen",
         aboutdetail:
-          "Ticketz ist indirekt vom Whaticket-Projekt abgeleitet, mit Verbesserungen, die von den Entwicklern des EquipeChat-Systems über den YouTube-Kanal VemFazer geteilt wurden, und später von Claudemir Todo Bom verbessert wurden",
+          "Espaço Whats ist indirekt vom Whaticket-Projekt abgeleitet, mit Verbesserungen, die von den Entwicklern des EquipeChat-Systems über den YouTube-Kanal VemFazer geteilt wurden, und später von Claudemir Todo Bom verbessert wurden",
         aboutauthorsite: "Website des Autors",
         aboutwhaticketsite: "Website der Whaticket-Community auf Github",
         aboutvemfazersite: "Website des Vem Fazer-Kanals auf Github",
         licenseheading: "Open-Source-Lizenz",
         licensedetail:
-          "Ticketz ist unter der GNU Affero General Public License Version 3 lizenziert, was bedeutet, dass jeder Benutzer, der Zugriff auf diese Anwendung hat, das Recht hat, auf den Quellcode zuzugreifen. Weitere Informationen finden Sie in den folgenden Links:",
+          "Espaço Whats ist unter der GNU Affero General Public License Version 3 lizenziert, was bedeutet, dass jeder Benutzer, der Zugriff auf diese Anwendung hat, das Recht hat, auf den Quellcode zuzugreifen. Weitere Informationen finden Sie in den folgenden Links:",
         licensefulltext: "Vollständiger Lizenztext",
-        licensesourcecode: "Quellcode von ticketz"
+        licensesourcecode: "Quellcode von Espaço Whats"
       },
       schedules: {
         title: "Planungen",
@@ -1170,17 +1170,17 @@ const messages = {
       },
       ticketz: {
         registration: {
-          header: "Registrieren Sie sich in der Ticketz-Benutzerdatenbank",
+          header: "Registrieren Sie sich in der Espaço Whats-Benutzerdatenbank",
           description:
-            "Füllen Sie die folgenden Felder aus, um sich in der Ticketz-Benutzerdatenbank zu registrieren und Neuigkeiten über das Projekt zu erhalten.",
+            "Füllen Sie die folgenden Felder aus, um sich in der Espaço Whats-Benutzerdatenbank zu registrieren und Neuigkeiten über das Projekt zu erhalten.",
           name: "Name",
           country: "Land",
           phoneNumber: "WhatsApp-Nummer",
           submit: "Registrieren"
         },
         proAd: {
-          imageAlt: "Ticketz PRO Screenshot",
-          title: "Ticketz PRO",
+          imageAlt: "Espaço Whats PRO Screenshot",
+          title: "Espaço Whats PRO",
           features: {
             officialChannels:
               "Offizielles WhatsApp - Instagram - Messenger und mehr",
@@ -1197,15 +1197,15 @@ const messages = {
             stepIntro:
               "Wenn Sie die vom Projekt bereitgestellten Images auf einem Server oder VPS mit den vereinfachten Anweisungen installiert haben, müssen Sie nur auf Ihren Server zugreifen und den folgenden Befehl ausführen:",
             stepInstall:
-              'In wenigen Augenblicken wird Ticketz PRO mit all Ihren Daten installiert; gehen Sie dann ins Benutzermenü, klicken Sie auf "Ticketz PRO-Abonnement" und schließen Sie Ihr Abonnement ab.',
+              'In wenigen Augenblicken wird Espaço Whats PRO mit all Ihren Daten installiert; gehen Sie dann ins Benutzermenü, klicken Sie auf "Espaço Whats PRO-Abonnement" und schließen Sie Ihr Abonnement ab.',
             helpPrefix:
-              "Wenn Ihre Installation anders ist oder Sie Hilfe bei der Installation von Ticketz PRO benötigen, ",
+              "Wenn Ihre Installation anders ist oder Sie Hilfe bei der Installation von Espaço Whats PRO benötigen, ",
             helpLink: "kontaktieren Sie uns",
             helpSuffix: " und wir helfen Ihnen!"
           }
         },
         support: {
-          title: "Unterstützen Sie das Ticketz Open Source-Projekt",
+          title: "Unterstützen Sie das Espaço Whats Open Source-Projekt",
           mercadopagotitle: "Kreditkarte",
           recurringbrl: "Wiederkehrende Spende in R$",
           paypaltitle: "Kreditkarte",

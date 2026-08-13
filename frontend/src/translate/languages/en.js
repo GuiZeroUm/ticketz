@@ -132,7 +132,7 @@ const messages = {
           closed: "Closed"
         },
         blog: {
-          title: "Ticketz Blog",
+          title: "Espaço Whats Blog",
           loading: "Loading posts...",
           error: "Could not load blog posts right now.",
           empty: "No blog posts found.",
@@ -537,7 +537,7 @@ const messages = {
         connection: {
           title: "MCP server URL",
           description:
-            "Ticketz does not use an OpenAI key. Intelligence and limits belong to the user's ChatGPT plan."
+            "Espaço Whats does not use an OpenAI key. Intelligence and limits belong to the user's ChatGPT plan."
         },
         steps: {
           title: "How to connect",
@@ -832,20 +832,20 @@ const messages = {
       },
       about: {
         aboutthe: "About the",
-        copyright: "© 2024 - Powered by ticketz",
+        copyright: "© 2024 - Powered by Espaço Whats",
         buttonclose: "Close",
-        title: "About ticketz",
+        title: "About Espaço Whats",
         abouttitle: "Origin and improvements",
         aboutdetail:
-          "ticketz is indirectly derived from the Whaticket project with improvements shared by the developers of the EquipeChat system through the VemFazer channel on YouTube, later improved by Claudemir Todo Bom",
+          "Espaço Whats is indirectly derived from the Whaticket project with improvements shared by the developers of the EquipeChat system through the VemFazer channel on YouTube, later improved by Claudemir Todo Bom",
         aboutauthorsite: "Author's site",
         aboutwhaticketsite: "Whaticket Community site on Github",
         aboutvemfazersite: "Vem Fazer channel site on Github",
         licenseheading: "Open Source License",
         licensedetail:
-          "ticketz is licensed under the GNU Affero General Public License version 3, which means that any user who has access to this application has the right to obtain access to the source code. More information at the links below:",
+          "Espaço Whats is licensed under the GNU Affero General Public License version 3, which means that any user who has access to this application has the right to obtain access to the source code. More information at the links below:",
         licensefulltext: "Full text of the license",
-        licensesourcecode: "Ticketz source code"
+        licensesourcecode: "Espaço Whats source code"
       },
       schedules: {
         title: "Schedules",
@@ -1289,8 +1289,7 @@ const messages = {
         title: "Enter your Wavoip connection token",
         instructions:
           "By accessing the address below you can create an account with 50 free calls for testing",
-        coupon:
-          "When hiring the service use the coupon TICKETZ to get a discount!"
+        coupon: "Check the available discount terms when subscribing."
       },
       openHours: {
         title: "Business Hours",
@@ -1348,17 +1347,17 @@ const messages = {
       },
       ticketz: {
         registration: {
-          header: "Register in the Ticketz user base",
+          header: "Register in the Espaço Whats user base",
           description:
-            "Fill in the fields below to register in the Ticketz user base and receive news about the project.",
+            "Fill in the fields below to register in the Espaço Whats user base and receive news about the project.",
           name: "Name",
           country: "Country",
           phoneNumber: "Whatsapp Number",
           submit: "Register"
         },
         proAd: {
-          imageAlt: "Ticketz PRO screenshot",
-          title: "Ticketz PRO",
+          imageAlt: "Espaço Whats PRO screenshot",
+          title: "Espaço Whats PRO",
           features: {
             officialChannels:
               "Official WhatsApp - Instagram - Messenger and more",
@@ -1375,15 +1374,15 @@ const messages = {
             stepIntro:
               "If you installed the images provided by the project on a server or VPS using the simplified instructions, all you need to do is access your server and run the command below:",
             stepInstall:
-              'In a few moments Ticketz PRO will be installed with all your data; then go to the user menu, click "Ticketz PRO Subscription", and complete your subscription.',
+              'In a few moments Espaço Whats PRO will be installed with all your data; then go to the user menu, click "Espaço Whats PRO Subscription", and complete your subscription.',
             helpPrefix:
-              "If your installation is different or you believe you need help installing Ticketz PRO, ",
+              "If your installation is different or you believe you need help installing Espaço Whats PRO, ",
             helpLink: "contact us",
             helpSuffix: " and we will help you!"
           }
         },
         support: {
-          title: "Support Ticketz project",
+          title: "Support Espaço Whats project",
           mercadopagotitle: "Credit Card",
           recurringbrl: "Recurring donations in BRL",
           paypaltitle: "Credit Card",

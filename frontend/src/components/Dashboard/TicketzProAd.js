@@ -32,7 +32,7 @@ const TicketzProAd = ({
           <div>
             <img
               className={classes.ticketzProScreen}
-              src="https://pro.ticke.tz/images/0/7/3/0/b/0730b234af7b4b0dac72d09828863bb7cb9193ea-ticketz-computador.png"
+              src="/branding/logo-light.png"
               alt={i18n.t("ticketz.proAd.imageAlt")}
             />
           </div>

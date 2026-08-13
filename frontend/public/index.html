@@ -375,7 +375,10 @@
             (await (theme === "dark" ? responses[1] : responses[0]).json());
 
           if (!logoSrc) {
-            appLogo.src = `/vector/logo${theme === "dark" ? "-dark" : ""}.svg`;
+            appLogo.src =
+              theme === "dark"
+                ? "/branding/logo-dark.png"
+                : "/branding/logo-light.png";
           } else {
             appLogo.src = backendUrl + "/public/" + (logoSrc || logoAltSrc);
           }
@@ -386,7 +389,7 @@
         fetch(settingsBaseUrl + "/appName" + q)
           .then(response => response.json())
           .then(data => {
-            document.title = data || "ticketz";
+            document.title = data || "Espaço Whats";
           });
       };
 
