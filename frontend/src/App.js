@@ -16,9 +16,9 @@ import { loadBranding } from "./helpers/loadBranding";
 import Routes from "./routes";
 
 const queryClient = new QueryClient();
-const defaultLogoLight = "/vector/logo.svg";
-const defaultLogoDark = "/vector/logo-dark.svg";
-const defaultLogoFavicon = "/vector/favicon.svg";
+const defaultLogoLight = "/branding/logo-light.png";
+const defaultLogoDark = "/branding/logo-dark.png";
+const defaultLogoFavicon = "/branding/icon.png";
 
 function useViewportHeight() {
   useEffect(() => {

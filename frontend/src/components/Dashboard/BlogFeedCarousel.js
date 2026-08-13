@@ -7,7 +7,7 @@ import NavigateBeforeIcon from "@material-ui/icons/NavigateBefore";
 import NavigateNextIcon from "@material-ui/icons/NavigateNext";
 import { i18n } from "../../translate/i18n";
 
-const DEFAULT_TICKETZ_LOGO = "/vector/favicon.svg";
+const DEFAULT_TICKETZ_LOGO = "/branding/icon.png";
 const SUPPORTED_BLOG_LANGUAGES = ["en", "pt", "es"];
 
 function resolveBlogLanguage(language) {

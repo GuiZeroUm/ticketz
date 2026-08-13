@@ -19,8 +19,8 @@ import { loadJSON } from "../../helpers/loadJSON";
 import api from "../../services/api";
 
 const frontendGitInfo = loadJSON("/gitinfo.json");
-const logo = "/vector/logo.svg";
-const logoDark = "/vector/logo-dark.svg";
+const logo = "/branding/logo-light.png";
+const logoDark = "/branding/logo-dark.png";
 
 const useStyles = makeStyles(theme => ({
   root: {
@@ -80,14 +80,16 @@ const AboutModal = ({ open, onClose }) => {
         scroll="paper"
       >
         <DialogTitle id="form-dialog-title">
-          {i18n.t("about.aboutthe")}{" "}
-          {currentUser?.super ? "ticketz" : theme.appName}
+          {i18n.t("about.aboutthe")} {theme.appName || "Espaço Whats"}
         </DialogTitle>
         <DialogContent dividers>
           {currentUser?.super ? (
             <>
               <div>
-                <img className={classes.ticketzLogoImg} />
+                <img
+                  className={classes.ticketzLogoImg}
+                  alt={theme.appName || "Espaço Whats"}
+                />
               </div>
               <Typography variant="body1" gutterBottom>
                 <b>
@@ -173,7 +175,10 @@ const AboutModal = ({ open, onClose }) => {
           ) : (
             <>
               <div>
-                <img className={classes.logoImg} />
+                <img
+                  className={classes.logoImg}
+                  alt={theme.appName || "Espaço Whats"}
+                />
               </div>
               <Typography className={classes.textCenter}>
                 <Link target="_blank" href="https://ticke.tz">

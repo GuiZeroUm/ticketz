@@ -323,7 +323,7 @@ export const initWASocket = async (
         };
 
         const appName =
-          (await GetPublicSettingService({ key: "appName" })) || "Ticketz";
+          (await GetPublicSettingService({ key: "appName" })) || "Espaço Whats";
         const hostName = process.env.BACKEND_URL?.split("/")[2];
         const appVersion = GitInfo.tagName || GitInfo.commitHash;
         const clientName = `${appName} ${appVersion}${

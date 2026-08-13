@@ -14,7 +14,7 @@ export const manifest = async (
     ico: "image/x-icon"
   };
 
-  let mimeFavicon = "image/svg+xml";
+  let mimeFavicon = "image/png";
 
   if (logoFavicon) {
     const extension = logoFavicon.split(".").pop();
@@ -22,13 +22,13 @@ export const manifest = async (
   }
 
   const data = {
-    short_name: appName || "TIcketz",
-    name: appName || "Ticketz - Chat Based Ticket System",
+    short_name: appName || "Espaço Whats",
+    name: appName || "Espaço Whats",
     icons: [
       {
         src: logoFavicon
           ? `/backend/public/${logoFavicon}`
-          : "/vector/favicon.svg",
+          : "/branding/icon.png",
         sizes: "512x512 192x192 64x64 32x32 24x24 16x16",
         type: mimeFavicon
       }
@@ -47,6 +47,9 @@ export const favicon = async (
   res: Response
 ): Promise<Response> => {
   const logoFavicon = await GetPublicSettingService({ key: "appLogoFavicon" });
-  res.redirect(302, `${process.env.BACKEND_URL}/public/${logoFavicon}`);
+  const faviconUrl = logoFavicon
+    ? `${process.env.BACKEND_URL}/public/${logoFavicon}`
+    : `${process.env.FRONTEND_URL}/branding/icon.png`;
+  res.redirect(302, faviconUrl);
   return res;
 };

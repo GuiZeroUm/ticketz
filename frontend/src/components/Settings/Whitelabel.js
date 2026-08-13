@@ -58,9 +58,9 @@ import { getBackendURL } from "../../services/config";
 import { i18nToast } from "../../helpers/i18nToast";
 import { i18n } from "../../translate/i18n.js";
 
-const defaultLogoLight = "/vector/logo.svg";
-const defaultLogoDark = "/vector/logo-dark.svg";
-const defaultLogoFavicon = "/vector/favicon.svg";
+const defaultLogoLight = "/branding/logo-light.png";
+const defaultLogoDark = "/branding/logo-dark.png";
+const defaultLogoFavicon = "/branding/icon.png";
 const LOGIN_LINKS_KEY = "loginPageLinks";
 const LOGIN_SIDE_PANEL_IMAGE_KEY = "loginSidePanelImage";
 const LOGIN_BACKGROUND_CONTENT_KEY = "loginBackgroundContent";
@@ -220,7 +220,7 @@ const useStyles = makeStyles(theme => ({
   appLogoFaviconPreviewImg: {
     width: "100%",
     maxHeight: 72,
-    content: `url("${theme.appLogoFavicon ? theme.appLogoFavicon : "/vector/favicon.svg"}")`
+    content: `url("${theme.appLogoFavicon ? theme.appLogoFavicon : "/branding/icon.png"}")`
   }
 }));
 
@@ -545,7 +545,7 @@ export default function Whitelabel(props) {
                     }}
                     onBlur={async () => {
                       await handleSaveSetting("appName", appName);
-                      colorMode.setAppName(appName || "ticketz");
+                      colorMode.setAppName(appName || "Espaço Whats");
                     }}
                   />
                 </FormControl>

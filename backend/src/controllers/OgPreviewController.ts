@@ -46,7 +46,7 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
       read("appLogoLight")
     ]);
 
-  const title = appName || "ticketz";
+  const title = appName || "Espaço Whats";
   const description = previewDescription || appName || "";
   const imageFile = previewImage || logoLight || "";
   const imageUrl = imageFile

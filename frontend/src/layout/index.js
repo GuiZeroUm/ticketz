@@ -297,7 +297,7 @@ const useStyles = makeStyles(theme => ({
     height: "40px",
     logo: theme.logo,
     margin: "auto",
-    content: `url("${theme.appLogoFavicon ? theme.appLogoFavicon : "/vector/favicon.svg"}")`
+    content: `url("${theme.appLogoFavicon ? theme.appLogoFavicon : "/branding/icon.png"}")`
   },
   hideLogo: {
     display: "none"
@@ -750,8 +750,7 @@ const LoggedInLayout = ({ children, themeToggle }) => {
                 ))}
               </NestedMenuItem>
               <MenuItem onClick={handleOpenAboutModal}>
-                {i18n.t("about.aboutthe")}{" "}
-                {currentUser?.super ? "ticketz" : theme.appName}
+                {i18n.t("about.aboutthe")} {theme.appName || "Espaço Whats"}
               </MenuItem>
               <MenuItem onClick={handleClickLogout}>
                 {i18n.t("mainDrawer.appBar.user.logout")}

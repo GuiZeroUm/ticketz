@@ -1,11 +1,11 @@
 {
-  "short_name": "Ticketz",
-  "name": "Ticketz - Chat Based Ticket System",
+  "short_name": "Espaço Whats",
+  "name": "Espaço Whats",
   "icons": [
     {
-      "src": "vector/favicon.ico",
-      "sizes": "512x512 192x192 64x64 32x32 24x24 16x16",
-      "type": "image/svg+xml"
+      "src": "branding/icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
     },
     {
       "src": "favicon.ico",

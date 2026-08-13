@@ -23,7 +23,7 @@ import { SocketContext } from "../../context/Socket/SocketContext";
 import Favicon from "react-favicon";
 import useSettings from "../../hooks/useSettings";
 
-const defaultLogoFavicon = "/vector/favicon.svg";
+const defaultLogoFavicon = "/branding/icon.png";
 
 const useStyles = makeStyles(theme => ({
   tabContainer: {
