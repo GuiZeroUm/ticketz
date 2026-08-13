@@ -22,7 +22,7 @@ import QueueModel from "./models/Queue";
 import UpdateTicketService from "./services/TicketServices/UpdateTicketService";
 import { handleMessage } from "./services/WbotServices/wbotMessageListener";
 import Invoices from "./models/Invoices";
-import formatBody, { mustacheFormat } from "./helpers/Mustache";
+import formatBody from "./helpers/Mustache";
 import Setting from "./models/Setting";
 import { parseToMilliseconds } from "./helpers/parseToMilliseconds";
 import { startCampaignQueues } from "./queues/campaign";
@@ -31,6 +31,23 @@ import { getJidOf } from "./services/WbotServices/getJidOf";
 import { _t } from "./services/TranslationServices/i18nService";
 import { makeRandomId } from "./helpers/MakeRandomId";
 import McpAudit from "./models/McpAudit";
+import ScheduleDelivery from "./models/ScheduleDelivery";
+import ScheduleAudienceContact from "./models/ScheduleAudienceContact";
+import CommemorativeDate from "./models/CommemorativeDate";
+import ContactCustomField from "./models/ContactCustomField";
+import { DateTime } from "luxon";
+import path from "path";
+import {
+  birthdayMatches,
+  nextBirthdayScan,
+  nextCommemorativeOccurrence
+} from "./services/ScheduleServices/recurrence";
+import { renderScheduleMessage } from "./services/ScheduleServices/variables";
+import { getIO } from "./libs/socket";
+import {
+  getScheduleCadence,
+  nextCadenceDelay
+} from "./services/ScheduleServices/cadence";
 
 const connection = process.env.REDIS_URI || "";
 export const userMonitor = new Queue("UserMonitor", connection);
@@ -42,6 +59,27 @@ export const sendScheduledMessages = new Queue(
 );
 
 let lastMcpAuditCleanupDate: string | null = null;
+
+const recoverQueuedScheduleDeliveries = async (): Promise<void> => {
+  const queued = await ScheduleDelivery.findAll({
+    where: { status: "QUEUED" },
+    attributes: ["id"],
+    limit: 1000,
+    order: [["queuedAt", "ASC"]]
+  });
+  await Promise.all(
+    queued.map(delivery =>
+      sendScheduledMessages.add(
+        "SendMessage",
+        { deliveryId: delivery.id },
+        {
+          jobId: `schedule-delivery-${delivery.id}`,
+          removeOnComplete: true
+        }
+      )
+    )
+  );
+};
 
 async function handleMcpAuditRetention(): Promise<void> {
   const today = new Date().toISOString().slice(0, 10);
@@ -63,29 +101,146 @@ async function handleMcpAuditRetention(): Promise<void> {
 
 async function handleVerifySchedules() {
   try {
-    const { count, rows: schedules } = await Schedule.findAndCountAll({
+    await recoverQueuedScheduleDeliveries();
+    const schedules = await Schedule.findAll({
       where: {
-        status: "PENDENTE",
-        sentAt: null,
-        sendAt: {
-          [Op.gte]: moment().format("YYYY-MM-DD HH:mm:ss"),
-          [Op.lte]: moment().add("30", "seconds").format("YYYY-MM-DD HH:mm:ss")
-        }
+        active: true,
+        nextRunAt: { [Op.lte]: new Date() }
       },
-      include: [{ model: Contact, as: "contact" }]
+      include: [
+        { model: CommemorativeDate, as: "commemorativeDate" },
+        {
+          model: ScheduleAudienceContact,
+          as: "audienceContacts",
+          include: [{ model: Contact, as: "contact", include: ["extraInfo"] }]
+        }
+      ]
     });
-    if (count > 0) {
-      schedules.map(async schedule => {
+
+    // eslint-disable-next-line no-restricted-syntax
+    for (const schedule of schedules) {
+      const timezone = schedule.timezone || "UTC";
+      const localOccurrence = DateTime.fromJSDate(schedule.nextRunAt).setZone(
+        timezone
+      );
+      const localNow = DateTime.now().setZone(timezone);
+      const missedRecurringDay =
+        schedule.kind !== "ONCE" && !localOccurrence.hasSame(localNow, "day");
+
+      let contacts: Contact[] = [];
+      if (!missedRecurringDay) {
+        if (schedule.audienceMode === "SELECTED") {
+          contacts = schedule.audienceContacts
+            .map(item => item.contact)
+            .filter(Boolean);
+        } else {
+          contacts = await Contact.findAll({
+            where: {
+              companyId: schedule.companyId,
+              channel: "whatsapp",
+              isGroup: false,
+              number: { [Op.regexp]: "^[0-9]{8,20}$" }
+            },
+            include: [{ model: ContactCustomField, as: "extraInfo" }]
+          });
+        }
+        if (schedule.kind === "BIRTHDAY") {
+          contacts = contacts.filter(contact =>
+            birthdayMatches(
+              contact.birthdayDay,
+              contact.birthdayMonth,
+              localOccurrence
+            )
+          );
+        }
+      }
+
+      const occurrenceKey =
+        schedule.kind === "ONCE"
+          ? `once-${schedule.id}`
+          : localOccurrence.toFormat("yyyy-LL-dd");
+      if (schedule.kind !== "ONCE") {
+        // eslint-disable-next-line no-restricted-syntax
+        for (const contact of contacts) {
+          await ScheduleDelivery.findOrCreate({
+            where: {
+              scheduleId: schedule.id,
+              contactId: contact.id,
+              occurrenceKey
+            },
+            defaults: {
+              scheduleId: schedule.id,
+              contactId: contact.id,
+              occurrenceKey,
+              scheduledAt: schedule.nextRunAt,
+              status: "PENDING",
+              contactName: contact.name,
+              contactNumber: contact.number
+            }
+          });
+        }
         await schedule.update({
-          status: "AGENDADA"
+          totalRecipients: contacts.length,
+          sentCount: 0,
+          errorCount: 0,
+          status: missedRecurringDay ? "IGNORADA" : "ATIVA"
         });
-        sendScheduledMessages.add(
-          "SendMessage",
-          { schedule },
-          { delay: 40000 }
-        );
-        logger.info(`Delivery scheduled for: ${schedule.contact.name}`);
+      }
+
+      const pending = await ScheduleDelivery.findAll({
+        where: {
+          scheduleId: schedule.id,
+          occurrenceKey,
+          status: { [Op.in]: ["PENDING", "QUEUED"] }
+        },
+        order: [["id", "ASC"]]
       });
+      const cadence = await getScheduleCadence(schedule.companyId);
+      let delaySeconds = 0;
+
+      // eslint-disable-next-line no-restricted-syntax
+      for (const [index, delivery] of pending.entries()) {
+        if (delivery.status === "PENDING") {
+          await delivery.update({ status: "QUEUED", queuedAt: new Date() });
+        }
+        await sendScheduledMessages.add(
+          "SendMessage",
+          { deliveryId: delivery.id },
+          {
+            delay: Math.max(0, delaySeconds * 1000),
+            jobId: `schedule-delivery-${delivery.id}`,
+            removeOnComplete: true
+          }
+        );
+        delaySeconds = nextCadenceDelay(delaySeconds, index + 1, cadence);
+      }
+
+      if (schedule.kind === "ONCE") {
+        await schedule.update({ status: "AGENDADA", nextRunAt: null });
+      } else if (schedule.kind === "BIRTHDAY") {
+        await schedule.update({
+          nextRunAt: nextBirthdayScan(
+            schedule.sendTime,
+            timezone,
+            (missedRecurringDay ? localNow : localOccurrence).plus({
+              minutes: 1
+            })
+          ),
+          lastRunAt: new Date()
+        });
+      } else if (schedule.commemorativeDate?.active) {
+        await schedule.update({
+          nextRunAt: nextCommemorativeOccurrence(
+            schedule.commemorativeDate,
+            schedule.sendTime,
+            timezone,
+            localOccurrence.plus({ minutes: 1 })
+          ),
+          lastRunAt: new Date()
+        });
+      } else {
+        await schedule.update({ active: false, nextRunAt: null });
+      }
     }
   } catch (e) {
     logger.error(
@@ -106,61 +261,133 @@ async function handleExpireOutOfTicketMessages() {
   });
 }
 
+const updateScheduleProgress = async (
+  schedule: Schedule,
+  occurrenceKey: string
+): Promise<void> => {
+  const [sentCount, failedCount, pendingCount] = await Promise.all([
+    ScheduleDelivery.count({
+      where: { scheduleId: schedule.id, occurrenceKey, status: "SENT" }
+    }),
+    ScheduleDelivery.count({
+      where: {
+        scheduleId: schedule.id,
+        occurrenceKey,
+        status: { [Op.in]: ["ERROR", "SKIPPED"] }
+      }
+    }),
+    ScheduleDelivery.count({
+      where: {
+        scheduleId: schedule.id,
+        occurrenceKey,
+        status: { [Op.in]: ["PENDING", "QUEUED"] }
+      }
+    })
+  ]);
+  const changes: Record<string, unknown> = {
+    sentCount,
+    errorCount: failedCount
+  };
+  if (schedule.kind === "ONCE" && pendingCount === 0) {
+    changes.sentAt = new Date();
+    changes.active = false;
+    changes.status = failedCount ? (sentCount ? "PARCIAL" : "ERRO") : "ENVIADA";
+  }
+  const updated = await schedule.update(changes);
+  getIO()
+    .to(`company-${schedule.companyId}-mainchannel`)
+    .emit(`company-${schedule.companyId}-schedule`, {
+      action: "update",
+      schedule: updated
+    });
+};
+
 async function handleSendScheduledMessage(job) {
   handleExpireOutOfTicketMessages();
-  const {
-    data: { schedule }
-  } = job;
-  let scheduleRecord: Schedule | null = null;
-
-  try {
-    scheduleRecord = await Schedule.findByPk(schedule.id, {
-      include: [
-        { model: Contact, as: "contact" },
-        { model: User, as: "user" }
-      ]
+  const delivery = await ScheduleDelivery.findByPk(job.data.deliveryId, {
+    include: [
+      { model: Contact, as: "contact", include: ["extraInfo"] },
+      {
+        model: Schedule,
+        as: "schedule",
+        include: [
+          { model: User, as: "user" },
+          { model: CommemorativeDate, as: "commemorativeDate" }
+        ]
+      }
+    ]
+  });
+  if (!delivery || delivery.status === "SENT") return;
+  const schedule = delivery.schedule;
+  if (!delivery.contact) {
+    await delivery.update({
+      status: "SKIPPED",
+      errorMessage: "CONTACT_REMOVED"
     });
-  } catch (e) {
-    Sentry.captureException(e);
-    logger.info(`Erro ao tentar consultar agendamento: ${schedule.id}`);
+    await updateScheduleProgress(schedule, delivery.occurrenceKey);
+    return;
   }
 
   try {
     const whatsapp = await GetDefaultWhatsApp(schedule.companyId);
-
-    const message = await SendMessage(whatsapp, {
-      number: schedule.contact.number,
-      body: mustacheFormat({
-        body: schedule.body,
-        contact: schedule.contact,
-        currentUser: schedule.user
-      })
+    const body = renderScheduleMessage(schedule.body, {
+      contact: delivery.contact,
+      currentUser: schedule.user,
+      commemorativeDate: schedule.commemorativeDate,
+      occurrence: delivery.scheduledAt,
+      timezone: schedule.timezone
     });
-
-    if (schedule.saveMessage) {
-      handleMessage(
-        message,
-        await GetWhatsappWbot(whatsapp),
-        schedule.companyId
+    const mediaPath = schedule.mediaPath
+      ? path.resolve("public", schedule.mediaPath)
+      : null;
+    const messages: Awaited<ReturnType<typeof SendMessage>>[] = [];
+    if (mediaPath && schedule.mediaDeliveryMode === "SEPARATE") {
+      messages.push(
+        await SendMessage(whatsapp, { number: delivery.contact.number, body })
+      );
+      messages.push(
+        await SendMessage(whatsapp, {
+          number: delivery.contact.number,
+          body: "",
+          mediaPath,
+          mediaName: schedule.mediaName
+        })
+      );
+    } else {
+      messages.push(
+        await SendMessage(whatsapp, {
+          number: delivery.contact.number,
+          body,
+          mediaPath: mediaPath || undefined,
+          mediaName: schedule.mediaName
+        })
       );
     }
-
-    await scheduleRecord?.update({
+    if (schedule.saveMessage) {
+      // eslint-disable-next-line no-restricted-syntax
+      for (const message of messages) {
+        await handleMessage(
+          message,
+          await GetWhatsappWbot(whatsapp),
+          schedule.companyId
+        );
+      }
+    }
+    await delivery.update({
       sentAt: new Date(),
-      status: "ENVIADA"
+      status: "SENT",
+      errorMessage: null
     });
-
-    logger.info(`Scheduled message sent to: ${schedule.contact.name}`);
-    sendScheduledMessages.clean(15000, "completed");
+    logger.info(`Scheduled message sent to: ${delivery.contact.name}`);
   } catch (e) {
-    await scheduleRecord?.update({
-      status: "ERRO"
-    });
+    Sentry.captureException(e);
+    await delivery.update({ status: "ERROR", errorMessage: e?.message });
     logger.error(
       { message: e?.message },
       "SendScheduledMessage -> SendMessage: error"
     );
-    throw e;
+  } finally {
+    await updateScheduleProgress(schedule, delivery.occurrenceKey);
   }
 }
 
@@ -323,7 +550,6 @@ async function handleNoQueueTimeout(
     );
     const userId = status === "pending" ? null : ticket.userId;
 
-    // eslint-disable-next-line no-await-in-loop
     await UpdateTicketService({
       ticketId: ticket.id,
       ticketData: { status, userId, queueId },
@@ -418,7 +644,6 @@ async function handleChatbotTicketTimeout(
       "handleChatbotTicketTimeout -> UpdateTicketService"
     );
 
-    // eslint-disable-next-line no-await-in-loop
     await UpdateTicketService({
       ticketId: ticket.id,
       ticketData,
@@ -461,7 +686,6 @@ async function handleOpenTicketTimeout(
 
   // eslint-disable-next-line no-restricted-syntax
   for (const ticket of tickets) {
-    // eslint-disable-next-line no-await-in-loop
     await UpdateTicketService({
       ticketId: ticket.id,
       ticketData: {
@@ -482,16 +706,13 @@ async function handleTicketTimeouts() {
   for (const company of companies) {
     logger.trace({ companyId: company?.id }, "handleTicketTimeouts -> company");
     const noQueueTimeout = Number(
-      // eslint-disable-next-line no-await-in-loop
       await GetCompanySetting(company.id, "noQueueTimeout", "0")
     );
     if (noQueueTimeout) {
       const noQueueTimeoutAction = Number(
-        // eslint-disable-next-line no-await-in-loop
         await GetCompanySetting(company.id, "noQueueTimeoutAction", "0")
       );
 
-      // eslint-disable-next-line no-await-in-loop
       await handleNoQueueTimeout(
         company,
         noQueueTimeout,
@@ -499,18 +720,15 @@ async function handleTicketTimeouts() {
       );
     }
     const openTicketTimeout = Number(
-      // eslint-disable-next-line no-await-in-loop
       await GetCompanySetting(company.id, "openTicketTimeout", "0")
     );
     if (openTicketTimeout) {
-      // eslint-disable-next-line no-await-in-loop
       const openTicketTimeoutAction = await GetCompanySetting(
         company.id,
         "openTicketTimeoutAction",
         "pending"
       );
 
-      // eslint-disable-next-line no-await-in-loop
       await handleOpenTicketTimeout(
         company,
         openTicketTimeout,
@@ -518,17 +736,14 @@ async function handleTicketTimeouts() {
       );
     }
     const chatbotTicketTimeout = Number(
-      // eslint-disable-next-line no-await-in-loop
       await GetCompanySetting(company.id, "chatbotTicketTimeout", "0")
     );
     if (chatbotTicketTimeout) {
       const chatbotTicketTimeoutAction =
         Number(
-          // eslint-disable-next-line no-await-in-loop
           await GetCompanySetting(company.id, "chatbotTicketTimeoutAction", "0")
         ) || 0;
 
-      // eslint-disable-next-line no-await-in-loop
       await handleChatbotTicketTimeout(
         company,
         chatbotTicketTimeout,

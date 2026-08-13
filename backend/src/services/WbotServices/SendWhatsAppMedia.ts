@@ -37,7 +37,13 @@ const publicFolder = __dirname.endsWith("/dist")
   ? path.resolve(__dirname, "..", "public")
   : path.resolve(__dirname, "..", "..", "..", "public");
 
-const supportedImages = ["image/png", "image/jpg", "image/jpeg", "image/webp"];
+const supportedImages = [
+  "image/png",
+  "image/jpg",
+  "image/jpeg",
+  "image/webp",
+  "image/gif"
+];
 
 const processRecordedAudio = async (audio: string): Promise<Readable> => {
   const outputAudio = `${publicFolder}/${new Date().getTime()}.ogg`;

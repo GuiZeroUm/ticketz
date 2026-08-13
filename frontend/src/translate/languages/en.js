@@ -68,6 +68,9 @@ const messages = {
         },
         form: {
           name: "Name",
+          nickname: "Nickname",
+          birthdayDay: "Day",
+          birthdayMonth: "Month",
           email: "Email",
           password: "Password"
         },
@@ -373,17 +376,52 @@ const messages = {
           add: "New Schedule",
           edit: "Edit Schedule"
         },
+        subtitle:
+          "Define the audience and occasion, then personalize every delivery.",
+        sections: {
+          audience: "Audience",
+          when: "When",
+          message: "Message and variables",
+          media: "Media",
+          review: "Review"
+        },
         form: {
           body: "Message",
           contact: "Contact",
+          contacts: "Contacts",
+          allContacts: "All eligible contacts",
+          kind: "Schedule type",
           sendAt: "Scheduled Date",
+          sendTime: "Annual time",
+          timezone: "Time zone",
+          commemorativeDate: "Commemorative date",
           sentAt: "Sent Date",
-          saveMessage: "Save Message in Ticket"
+          saveMessage: "Save message in ticket",
+          mediaMode: "Media delivery",
+          noMedia: "No media selected"
+        },
+        kinds: {
+          once: "One-time date",
+          birthday: "Birthday",
+          commemorative: "Commemorative date"
+        },
+        mediaModes: {
+          caption: "Message as caption",
+          separate: "Separate message and media"
+        },
+        review: {
+          recipients: "recipients",
+          missingData: "Some data is missing",
+          hint: "Preview the message with a real contact before saving."
         },
         buttons: {
           okAdd: "Add",
           okEdit: "Save",
-          cancel: "Cancel"
+          cancel: "Cancel",
+          save: "Save schedule",
+          preview: "Generate preview",
+          attach: "Add media",
+          removeMedia: "Remove"
         },
         success: "Schedule saved successfully."
       },
@@ -859,13 +897,47 @@ const messages = {
           sendAt: "Scheduling Date",
           sentAt: "Sending Date",
           status: "Status",
-          actions: "Actions"
+          actions: "Actions",
+          occasion: "Occasion",
+          nextRun: "Next occurrence",
+          audience: "Audience",
+          progress: "Deliveries"
         },
+        tabs: { schedules: "Schedules", dates: "Commemorative dates" },
+        filters: { kind: "Type", status: "Status" },
+        empty: "No schedules found.",
+        emptyDeliveries: "Deliveries will appear here after the occurrence.",
         buttons: {
           add: "New Schedule"
         },
         toasts: {
           deleted: "Schedule deleted successfully."
+        }
+      },
+      commemorativeDates: {
+        add: "New commemorative date",
+        edit: "Edit commemorative date",
+        success: "Commemorative date saved successfully.",
+        empty: "No commemorative dates have been added.",
+        last: "Last",
+        form: {
+          name: "Name",
+          ruleType: "Annual pattern",
+          month: "Month",
+          day: "Day",
+          weekday: "Weekday",
+          ordinal: "Occurrence",
+          active: "Active"
+        },
+        rules: { fixed: "Fixed day and month", nthWeekday: "Weekday in month" },
+        weekdays: {
+          0: "Sunday",
+          1: "Monday",
+          2: "Tuesday",
+          3: "Wednesday",
+          4: "Thursday",
+          5: "Friday",
+          6: "Saturday"
         }
       },
       tags: {

@@ -1,6 +1,7 @@
 import AppError from "../../errors/AppError";
 import { getIO } from "../../libs/socket";
 import Contact from "../../models/Contact";
+import { isValidBirthday } from "../ScheduleServices/recurrence";
 import ContactCustomField from "../../models/ContactCustomField";
 
 interface ExtraInfo {
@@ -15,6 +16,9 @@ interface ContactData {
   extraInfo?: ExtraInfo[];
   disableBot?: boolean;
   language?: string;
+  nickname?: string;
+  birthdayDay?: number | null;
+  birthdayMonth?: number | null;
 }
 
 interface Request {
@@ -47,7 +51,22 @@ const UpdateContactService = async ({
   contactId,
   companyId
 }: Request): Promise<Contact> => {
-  const { email, name, number, extraInfo, disableBot, language } = contactData;
+  const {
+    email,
+    name,
+    number,
+    extraInfo,
+    disableBot,
+    language,
+    nickname,
+    birthdayDay,
+    birthdayMonth
+  } = contactData;
+  const normalizedBirthdayDay = birthdayDay ? Number(birthdayDay) : null;
+  const normalizedBirthdayMonth = birthdayMonth ? Number(birthdayMonth) : null;
+  if (!isValidBirthday(normalizedBirthdayDay, normalizedBirthdayMonth)) {
+    throw new AppError("ERR_INVALID_BIRTHDAY", 400);
+  }
 
   const contact = await Contact.findOne({
     where: { id: contactId },
@@ -58,7 +77,10 @@ const UpdateContactService = async ({
       "email",
       "companyId",
       "profilePicUrl",
-      "language"
+      "language",
+      "nickname",
+      "birthdayDay",
+      "birthdayMonth"
     ],
     include: ["tags", "extraInfo"]
   });
@@ -95,7 +117,10 @@ const UpdateContactService = async ({
       number,
       email,
       disableBot,
-      language
+      language,
+      nickname,
+      birthdayDay: normalizedBirthdayDay,
+      birthdayMonth: normalizedBirthdayMonth
     });
   } catch (e) {
     if (e.original?.constraint === "number_companyid_unique") {
@@ -105,7 +130,17 @@ const UpdateContactService = async ({
   }
 
   await contact.reload({
-    attributes: ["id", "name", "number", "email", "profilePicUrl", "language"],
+    attributes: [
+      "id",
+      "name",
+      "number",
+      "email",
+      "profilePicUrl",
+      "language",
+      "nickname",
+      "birthdayDay",
+      "birthdayMonth"
+    ],
     include: ["tags", "extraInfo"]
   });
 

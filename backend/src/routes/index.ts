@@ -37,12 +37,14 @@ import ogRoutes from "./ogRoutes";
 import oauthRoutes from "./oauthRoutes";
 import mcpRoutes from "./mcpRoutes";
 import chatGptRoutes from "./chatGptRoutes";
+import commemorativeDateRoutes from "./commemorativeDateRoutes";
 
 const routes = Router();
 
 routes.use(oauthRoutes);
 routes.use(mcpRoutes);
 routes.use(chatGptRoutes);
+routes.use(commemorativeDateRoutes);
 routes.use(userRoutes);
 routes.use("/auth", authRoutes);
 routes.use(settingRoutes);

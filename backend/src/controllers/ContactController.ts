@@ -1,5 +1,6 @@
 import * as Yup from "yup";
 import { Request, Response } from "express";
+import { Op } from "sequelize";
 import { parse as csvParser, stringify } from "csv";
 import fs from "fs";
 import { getIO } from "../libs/socket";
@@ -50,6 +51,9 @@ interface ContactData {
   email?: string;
   isGroup?: boolean;
   extraInfo?: ExtraInfo[];
+  nickname?: string;
+  birthdayDay?: number | null;
+  birthdayMonth?: number | null;
 }
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
@@ -63,6 +67,54 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
   });
 
   return res.json({ contacts, count, hasMore });
+};
+
+export const selection = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { companyId } = req.user;
+  const searchParam = String(req.query.searchParam || "").trim();
+  const pageNumber = Number(req.query.pageNumber || 1);
+  const ids = String(req.query.ids || "")
+    .split(",")
+    .map(Number)
+    .filter(Boolean);
+  const limit = 25;
+  const where: any = {
+    companyId,
+    channel: "whatsapp",
+    isGroup: false,
+    number: { [Op.regexp]: "^[0-9]{8,20}$" }
+  };
+  if (ids.length) where.id = { [Op.in]: ids };
+  else if (searchParam) {
+    where[Op.or] = [
+      { name: { [Op.iLike]: `%${searchParam}%` } },
+      { nickname: { [Op.iLike]: `%${searchParam}%` } },
+      { number: { [Op.like]: `%${searchParam}%` } }
+    ];
+  }
+  const { count, rows } = await Contact.findAndCountAll({
+    where,
+    attributes: [
+      "id",
+      "name",
+      "nickname",
+      "number",
+      "email",
+      "birthdayDay",
+      "birthdayMonth"
+    ],
+    limit: ids.length ? undefined : limit,
+    offset: ids.length ? undefined : (pageNumber - 1) * limit,
+    order: [["name", "ASC"]]
+  });
+  return res.json({
+    contacts: rows,
+    count,
+    hasMore: ids.length ? false : count > pageNumber * limit
+  });
 };
 
 export const findOrInsertContact = async (
@@ -302,8 +354,27 @@ export const importCsv = async (
         name: record.name || record.Name,
         number: record.number || record.Number,
         email: record.email || record.Email,
+        nickname:
+          record.nickname ||
+          record.Nickname ||
+          record.apelido ||
+          record.Apelido ||
+          "",
+        birthdayDay: null as number | null,
+        birthdayMonth: null as number | null,
         extraInfo
       };
+
+      const birthday =
+        record.birthday ||
+        record.Birthday ||
+        record.aniversario ||
+        record.Aniversario;
+      const birthdayMatch = /^(\d{1,2})\/(\d{1,2})$/.exec(birthday || "");
+      if (birthdayMatch) {
+        contact.birthdayDay = Number(birthdayMatch[1]);
+        contact.birthdayMonth = Number(birthdayMatch[2]);
+      }
 
       Object.keys(record).forEach((key: string) => {
         if (
@@ -313,6 +384,14 @@ export const importCsv = async (
           key !== "Name" &&
           key !== "Number" &&
           key !== "Email" &&
+          key !== "nickname" &&
+          key !== "Nickname" &&
+          key !== "apelido" &&
+          key !== "Apelido" &&
+          key !== "birthday" &&
+          key !== "Birthday" &&
+          key !== "aniversario" &&
+          key !== "Aniversario" &&
           key !== "ExtraInfo" &&
           record[key]
         ) {
@@ -381,6 +460,13 @@ export const exportCsv = async (
       Name: contact.name,
       Number: contact.number,
       Email: contact.email || "",
+      Nickname: contact.nickname || "",
+      Birthday:
+        contact.birthdayDay && contact.birthdayMonth
+          ? `${String(contact.birthdayDay).padStart(2, "0")}/${String(
+              contact.birthdayMonth
+            ).padStart(2, "0")}`
+          : "",
       ExtraInfo: JSON.stringify(extraInfo)
     };
   });

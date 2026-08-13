@@ -36,6 +36,13 @@ contactRoutes.get(
 contactRoutes.get("/contacts", apiTokenAuth, isAuth, ContactController.index);
 
 contactRoutes.get(
+  "/contacts/selection",
+  apiTokenAuth,
+  isAuth,
+  ContactController.selection
+);
+
+contactRoutes.get(
   "/contacts/list",
   apiTokenAuth,
   isAuth,

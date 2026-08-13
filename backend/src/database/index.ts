@@ -45,6 +45,9 @@ import OAuthClient from "../models/OAuthClient";
 import OAuthGrant from "../models/OAuthGrant";
 import OAuthRefreshToken from "../models/OAuthRefreshToken";
 import McpAudit from "../models/McpAudit";
+import CommemorativeDate from "../models/CommemorativeDate";
+import ScheduleAudienceContact from "../models/ScheduleAudienceContact";
+import ScheduleDelivery from "../models/ScheduleDelivery";
 
 const dbConfig = require("../config/database");
 
@@ -75,6 +78,9 @@ const models = [
   UserRating,
   QueueOption,
   Schedule,
+  CommemorativeDate,
+  ScheduleAudienceContact,
+  ScheduleDelivery,
   Tag,
   TicketTag,
   ContactList,

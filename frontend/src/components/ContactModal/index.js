@@ -18,6 +18,7 @@ import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
 import CircularProgress from "@material-ui/core/CircularProgress";
 import FormControlLabel from "@material-ui/core/FormControlLabel";
 import Switch from "@material-ui/core/Switch";
+import Grid from "@material-ui/core/Grid";
 
 import { i18n } from "../../translate/i18n";
 
@@ -59,14 +60,39 @@ const useStyles = makeStyles(theme => ({
   }
 }));
 
-const ContactSchema = Yup.object().shape({
-  name: Yup.string()
-    .min(2, "Too Short!")
-    .max(50, "Too Long!")
-    .required("Required"),
-  number: Yup.string().min(8, "Too Short!").max(50, "Too Long!"),
-  email: Yup.string().email("Invalid email")
-});
+const ContactSchema = Yup.object()
+  .shape({
+    name: Yup.string()
+      .min(2, "Too Short!")
+      .max(50, "Too Long!")
+      .required("Required"),
+    number: Yup.string().min(8, "Too Short!").max(50, "Too Long!"),
+    email: Yup.string().email("Invalid email"),
+    birthdayDay: Yup.number()
+      .transform((value, original) => (original === "" ? null : value))
+      .nullable()
+      .min(1)
+      .max(31),
+    birthdayMonth: Yup.number()
+      .transform((value, original) => (original === "" ? null : value))
+      .nullable()
+      .min(1)
+      .max(12)
+  })
+  .test(
+    "birthday",
+    i18n.t("contactModal.validation.invalidBirthday"),
+    values => {
+      if (!values) return true;
+      const { birthdayDay, birthdayMonth } = values;
+      if (!birthdayDay && !birthdayMonth) return true;
+      if (!birthdayDay || !birthdayMonth) return false;
+      const date = new Date(2000, birthdayMonth - 1, birthdayDay);
+      return (
+        date.getMonth() === birthdayMonth - 1 && date.getDate() === birthdayDay
+      );
+    }
+  );
 
 const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
   const classes = useStyles();
@@ -74,8 +100,11 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
 
   const initialState = {
     name: "",
+    nickname: "",
     number: "",
     email: "",
+    birthdayDay: "",
+    birthdayMonth: "",
     language: localStorage.getItem("language") || "",
     disableBot: false
   };
@@ -156,28 +185,68 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
                 <Typography variant="subtitle1" gutterBottom>
                   {i18n.t("contactModal.form.mainInfo")}
                 </Typography>
-                <Field
-                  as={TextField}
-                  label={i18n.t("contactModal.form.name")}
-                  name="name"
-                  autoFocus
-                  error={touched.name && Boolean(errors.name)}
-                  helperText={touched.name && errors.name}
-                  variant="outlined"
-                  margin="dense"
-                  className={classes.textField}
-                />
-                <div>
-                  <Field
-                    as={PhoneNumberInput}
-                    label={i18n.t("contactModal.form.number")}
-                    name="number"
-                    error={touched.number && Boolean(errors.number)}
-                    helperText={touched.number && errors.number}
-                    variant="outlined"
-                    margin="dense"
-                  />
-                </div>
+                <Grid container spacing={1}>
+                  <Grid item xs={12} sm={8}>
+                    <Field
+                      as={TextField}
+                      label={i18n.t("contactModal.form.name")}
+                      name="name"
+                      autoFocus
+                      error={touched.name && Boolean(errors.name)}
+                      helperText={touched.name && errors.name}
+                      variant="outlined"
+                      margin="dense"
+                      fullWidth
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <Field
+                      as={TextField}
+                      label={i18n.t("contactModal.form.nickname")}
+                      name="nickname"
+                      variant="outlined"
+                      margin="dense"
+                      fullWidth
+                    />
+                  </Grid>
+                </Grid>
+                <Grid container spacing={1} alignItems="center">
+                  <Grid item xs={12} sm={8}>
+                    <Field
+                      as={PhoneNumberInput}
+                      label={i18n.t("contactModal.form.number")}
+                      name="number"
+                      error={touched.number && Boolean(errors.number)}
+                      helperText={touched.number && errors.number}
+                      variant="outlined"
+                      margin="dense"
+                    />
+                  </Grid>
+                  <Grid item xs={6} sm={2}>
+                    <Field
+                      as={TextField}
+                      label={i18n.t("contactModal.form.birthdayDay")}
+                      name="birthdayDay"
+                      type="number"
+                      inputProps={{ min: 1, max: 31 }}
+                      variant="outlined"
+                      margin="dense"
+                      fullWidth
+                    />
+                  </Grid>
+                  <Grid item xs={6} sm={2}>
+                    <Field
+                      as={TextField}
+                      label={i18n.t("contactModal.form.birthdayMonth")}
+                      name="birthdayMonth"
+                      type="number"
+                      inputProps={{ min: 1, max: 12 }}
+                      variant="outlined"
+                      margin="dense"
+                      fullWidth
+                    />
+                  </Grid>
+                </Grid>
                 <div>
                   <Field
                     as={TextField}

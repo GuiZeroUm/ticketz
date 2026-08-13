@@ -162,6 +162,49 @@ export async function convertAudioToMp4(
   return convertMedia(media, "mp4", "-vn -c:a aac -b:a 128k", "audio/mp4");
 }
 
+/** Converts GIFs and non-MP4 videos into a broadly compatible WhatsApp MP4. */
+export async function normalizeVisualMedia(
+  media: Express.Multer.File
+): Promise<Express.Multer.File> {
+  const needsConversion =
+    media.mimetype === "image/gif" ||
+    (media.mimetype.startsWith("video/") && media.mimetype !== "video/mp4");
+  if (!needsConversion) return media;
+
+  const outputFile = `${temporaryFilename()}.mp4`;
+  const args = [
+    "-y",
+    "-i",
+    media.path,
+    "-movflags",
+    "+faststart",
+    "-pix_fmt",
+    "yuv420p",
+    "-vf",
+    "scale=trunc(iw/2)*2:trunc(ih/2)*2",
+    outputFile
+  ];
+
+  await new Promise<void>((resolve, reject) => {
+    const ffmpeg = spawn(ffmpegPath.path, args);
+    ffmpeg.on("error", reject);
+    ffmpeg.on("close", code => {
+      if (code === 0) resolve();
+      else reject(new Error(`FFmpeg exited with code ${code}`));
+    });
+  });
+  await fs.promises.unlink(media.path).catch(() => undefined);
+  const filename = path.basename(outputFile);
+  return {
+    ...media,
+    path: outputFile,
+    filename,
+    mimetype: "video/mp4",
+    originalname: replaceFileExtension(media.originalname, "mp4"),
+    size: (await fs.promises.stat(outputFile)).size
+  };
+}
+
 /**
  * Converts a media file to ogg/opus format.
  *

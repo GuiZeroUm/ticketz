@@ -68,6 +68,9 @@ const messages = {
         },
         form: {
           name: "Nome",
+          nickname: "Apelido",
+          birthdayDay: "Dia",
+          birthdayMonth: "Mês",
           email: "Email",
           password: "Senha"
         },
@@ -373,17 +376,51 @@ const messages = {
           add: "Novo Agendamento",
           edit: "Editar Agendamento"
         },
+        subtitle: "Defina o público, a ocasião e personalize cada entrega.",
+        sections: {
+          audience: "Público",
+          when: "Quando",
+          message: "Mensagem e variáveis",
+          media: "Mídia",
+          review: "Conferência"
+        },
         form: {
           body: "Mensagem",
           contact: "Contato",
+          contacts: "Contatos",
+          allContacts: "Todos os contatos elegíveis",
+          kind: "Tipo de agendamento",
           sendAt: "Data de Agendamento",
+          sendTime: "Horário anual",
+          timezone: "Fuso horário",
+          commemorativeDate: "Data comemorativa",
           sentAt: "Data de Envio",
-          saveMessage: "Salvar Mensagem no Ticket"
+          saveMessage: "Salvar mensagem no ticket",
+          mediaMode: "Forma de envio da mídia",
+          noMedia: "Nenhuma mídia selecionada"
+        },
+        kinds: {
+          once: "Data única",
+          birthday: "Aniversário",
+          commemorative: "Data comemorativa"
+        },
+        mediaModes: {
+          caption: "Mensagem como legenda",
+          separate: "Mensagem e mídia separadas"
+        },
+        review: {
+          recipients: "destinatários",
+          missingData: "Há dados ausentes",
+          hint: "Confira a mensagem com um contato real antes de salvar."
         },
         buttons: {
           okAdd: "Adicionar",
           okEdit: "Salvar",
-          cancel: "Cancelar"
+          cancel: "Cancelar",
+          save: "Salvar agendamento",
+          preview: "Gerar prévia",
+          attach: "Adicionar mídia",
+          removeMedia: "Remover"
         },
         success: "Agendamento salvo com sucesso."
       },
@@ -858,13 +895,50 @@ const messages = {
           sendAt: "Data de Agendamento",
           sentAt: "Data de Envio",
           status: "Status",
-          actions: "Ações"
+          actions: "Ações",
+          occasion: "Ocasião",
+          nextRun: "Próxima ocorrência",
+          audience: "Público",
+          progress: "Entregas"
         },
+        tabs: {
+          schedules: "Agendamentos",
+          dates: "Datas comemorativas"
+        },
+        filters: { kind: "Tipo", status: "Status" },
+        empty: "Nenhum agendamento encontrado.",
+        emptyDeliveries: "As entregas aparecerão aqui após a ocorrência.",
         buttons: {
           add: "Novo Agendamento"
         },
         toasts: {
           deleted: "Agendamento excluído com sucesso."
+        }
+      },
+      commemorativeDates: {
+        add: "Nova data comemorativa",
+        edit: "Editar data comemorativa",
+        success: "Data comemorativa salva com sucesso.",
+        empty: "Nenhuma data comemorativa cadastrada.",
+        last: "Último",
+        form: {
+          name: "Nome",
+          ruleType: "Padrão anual",
+          month: "Mês",
+          day: "Dia",
+          weekday: "Dia da semana",
+          ordinal: "Ocorrência",
+          active: "Ativa"
+        },
+        rules: { fixed: "Dia e mês fixos", nthWeekday: "Dia da semana no mês" },
+        weekdays: {
+          0: "Domingo",
+          1: "Segunda-feira",
+          2: "Terça-feira",
+          3: "Quarta-feira",
+          4: "Quinta-feira",
+          5: "Sexta-feira",
+          6: "Sábado"
         }
       },
       tags: {

@@ -34,6 +34,20 @@ const ListContactsService = async ({
           }
         )
       },
+      {
+        nickname: Sequelize.where(
+          Sequelize.fn(
+            "LOWER",
+            Sequelize.fn("UNACCENT", Sequelize.col("Contact.nickname"))
+          ),
+          {
+            [Op.like]: Sequelize.literal(
+              `'%' || UNACCENT('${normalizedSearchParam}') || '%'`
+            )
+          }
+        )
+      },
+      { email: { [Op.iLike]: `%${normalizedSearchParam}%` } },
       { number: { [Op.like]: `%${normalizedSearchParam}%` } }
     ],
     companyId: {

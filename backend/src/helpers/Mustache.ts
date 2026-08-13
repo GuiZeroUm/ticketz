@@ -24,7 +24,7 @@ export const genGreeting = (
     _t("Good evening", lngSource)
   ];
   const h = new Date().getHours();
-  // eslint-disable-next-line no-bitwise
+
   return greetings[(h / 6) >> 0];
 };
 
@@ -46,6 +46,7 @@ export function mustacheValues(
   const queue = ticket?.queue?.name || "{{queue}}";
   const user = currentUser?.name || ticket?.user?.name || "{{user}}";
   const email = contact?.email || "{{email}}";
+  const number = contact?.number || "{{number}}";
   const now = new Date();
   const protocol =
     (ticket &&
@@ -69,6 +70,7 @@ export function mustacheValues(
     name,
     firstname,
     email,
+    number,
     greeting,
     queue,
     protocol,

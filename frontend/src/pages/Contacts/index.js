@@ -423,6 +423,12 @@ const Contacts = () => {
                 {i18n.t("contacts.table.whatsapp")}
               </TableCell>
               <TableCell align="center">
+                {i18n.t("contacts.table.nickname")}
+              </TableCell>
+              <TableCell align="center">
+                {i18n.t("contacts.table.birthday")}
+              </TableCell>
+              <TableCell align="center">
                 {i18n.t("contacts.table.email")}
               </TableCell>
               <TableCell align="center">
@@ -467,6 +473,16 @@ const Contacts = () => {
                     </div>
                   </TableCell>
                   <TableCell align="center">{contact.number}</TableCell>
+                  <TableCell align="center">
+                    {contact.nickname || "—"}
+                  </TableCell>
+                  <TableCell align="center">
+                    {contact.birthdayDay && contact.birthdayMonth
+                      ? `${String(contact.birthdayDay).padStart(2, "0")}/${String(
+                          contact.birthdayMonth
+                        ).padStart(2, "0")}`
+                      : "—"}
+                  </TableCell>
                   <TableCell align="center">{contact.email}</TableCell>
                   <TableCell align="center">
                     {!contact.isGroup && (
@@ -507,7 +523,7 @@ const Contacts = () => {
                   </TableCell>
                 </TableRow>
               ))}
-              {loading && <TableRowSkeleton avatar columns={3} />}
+              {loading && <TableRowSkeleton avatar columns={5} />}
             </>
           </TableBody>
         </Table>

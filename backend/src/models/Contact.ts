@@ -33,6 +33,16 @@ class Contact extends Model {
   @Column
   name: string;
 
+  @Default("")
+  @Column
+  nickname: string;
+
+  @Column
+  birthdayDay: number;
+
+  @Column
+  birthdayMonth: number;
+
   @AllowNull(false)
   @Unique
   @Column

@@ -1,6 +1,7 @@
 import { Op, WhereOptions } from "sequelize";
 import AppError from "../../errors/AppError";
 import Contact from "../../models/Contact";
+import { isValidBirthday } from "../ScheduleServices/recurrence";
 import ContactCustomField from "../../models/ContactCustomField";
 
 interface ExtraInfo extends ContactCustomField {
@@ -17,6 +18,9 @@ interface Request {
   extraInfo?: ExtraInfo[];
   disableBot?: boolean;
   language?: string;
+  nickname?: string;
+  birthdayDay?: number | null;
+  birthdayMonth?: number | null;
 }
 
 const CreateContactService = async ({
@@ -26,8 +30,16 @@ const CreateContactService = async ({
   companyId,
   extraInfo = [],
   disableBot = false,
-  language
+  language,
+  nickname = "",
+  birthdayDay,
+  birthdayMonth
 }: Request): Promise<Contact> => {
+  const normalizedBirthdayDay = birthdayDay ? Number(birthdayDay) : null;
+  const normalizedBirthdayMonth = birthdayMonth ? Number(birthdayMonth) : null;
+  if (!isValidBirthday(normalizedBirthdayDay, normalizedBirthdayMonth)) {
+    throw new AppError("ERR_INVALID_BIRTHDAY", 400);
+  }
   const where: WhereOptions = { number, companyId };
 
   if (number.startsWith("55") && number.length === 13 && number[4] === "9") {
@@ -58,7 +70,10 @@ const CreateContactService = async ({
       extraInfo,
       companyId,
       disableBot,
-      language
+      language,
+      nickname,
+      birthdayDay: normalizedBirthdayDay,
+      birthdayMonth: normalizedBirthdayMonth
     },
     {
       include: ["extraInfo"]

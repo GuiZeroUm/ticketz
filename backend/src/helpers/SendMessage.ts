@@ -2,6 +2,7 @@ import { AnyMessageContent, proto } from "libzapitu-rf";
 import fs from "fs";
 import mime from "mime-types";
 import iconv from "iconv-lite";
+import path from "path";
 import Whatsapp from "../models/Whatsapp";
 import GetWhatsappWbot from "./GetWhatsappWbot";
 import { getMessageFileOptions } from "../services/WbotServices/SendWhatsAppMedia";
@@ -16,6 +17,7 @@ export type MessageData = {
   number: string;
   body: string;
   mediaPath?: string;
+  mediaName?: string;
   internal?: boolean;
   ptt?: boolean;
   quickMessageMediaId?: number;
@@ -78,7 +80,13 @@ export const SendMessage = async (
           text: `${body}\n\n📎 *${originalFilename}*\n\n🔗 ${fileUrl}`
         };
       } else {
-        options = await getMessageFileOptions(body, messageData.mediaPath);
+        options = await getMessageFileOptions(
+          messageData.mediaName || body || path.basename(messageData.mediaPath),
+          messageData.mediaPath
+        );
+        if (options && body && ("image" in options || "video" in options)) {
+          options = { ...options, caption: body };
+        }
       }
       if (options) {
         message = await wbot.sendMessage(chatId, {

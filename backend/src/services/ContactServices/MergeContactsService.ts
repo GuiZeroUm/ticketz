@@ -6,6 +6,8 @@ import ContactCustomField from "../../models/ContactCustomField";
 import ContactTag from "../../models/ContactTag";
 import Message from "../../models/Message";
 import Schedule from "../../models/Schedule";
+import ScheduleAudienceContact from "../../models/ScheduleAudienceContact";
+import ScheduleDelivery from "../../models/ScheduleDelivery";
 import Ticket from "../../models/Ticket";
 import TicketNote from "../../models/TicketNote";
 import WhatsappLidMap from "../../models/WhatsappLidMap";
@@ -276,6 +278,35 @@ const mergeContactsInTransaction = async (
         silent: true,
         transaction
       }
+    );
+    await sequelize.query(
+      `DELETE FROM "ScheduleAudienceContacts" loser
+       WHERE loser."contactId" = :loserId
+         AND EXISTS (
+           SELECT 1 FROM "ScheduleAudienceContacts" winner
+           WHERE winner."scheduleId" = loser."scheduleId"
+             AND winner."contactId" = :winnerId
+         )`,
+      { replacements: { loserId: loser.id, winnerId: winner.id }, transaction }
+    );
+    await ScheduleAudienceContact.update(
+      { contactId: winner.id },
+      { where: { contactId: loser.id }, transaction }
+    );
+    await sequelize.query(
+      `DELETE FROM "ScheduleDeliveries" loser
+       WHERE loser."contactId" = :loserId
+         AND EXISTS (
+           SELECT 1 FROM "ScheduleDeliveries" winner
+           WHERE winner."scheduleId" = loser."scheduleId"
+             AND winner."occurrenceKey" = loser."occurrenceKey"
+             AND winner."contactId" = :winnerId
+         )`,
+      { replacements: { loserId: loser.id, winnerId: winner.id }, transaction }
+    );
+    await ScheduleDelivery.update(
+      { contactId: winner.id },
+      { where: { contactId: loser.id }, transaction }
     );
 
     await CampaignShipping.update(
