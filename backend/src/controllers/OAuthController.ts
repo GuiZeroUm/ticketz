@@ -1,28 +1,74 @@
+import { randomBytes } from "crypto";
 import { Request, Response } from "express";
 import mcpConfig from "../config/mcp";
 import AppError from "../errors/AppError";
 import {
   approveAuthorization,
-  authenticateAdmin,
+  authenticateAuthorizationPassword,
+  consumeAuthorizationSelection,
   createAuthorizationRequest,
   exchangeAuthorizationCode,
+  loadAuthorizationSession,
   loadAuthorizationRequest,
   registerClient,
+  restartAuthorization,
   revokeToken,
-  rotateRefreshToken
+  rotateRefreshToken,
+  submitAuthorizationEmail,
+  AuthorizationSession
 } from "../services/McpServices/OAuthService";
+import {
+  renderAuthorizationPage,
+  renderExpiredAuthorizationPage
+} from "../views/OAuthAuthorizationView";
 
-const escapeHtml = (value: string): string =>
-  value.replace(/[&<>'"]/g, char => {
-    const entities = {
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      "'": "&#39;",
-      '"': "&quot;"
-    };
-    return entities[char];
-  });
+const authorizationNonce = (): string => randomBytes(18).toString("base64url");
+
+const setAuthorizationPageHeaders = (res: Response, nonce: string): void => {
+  res.setHeader(
+    "Content-Security-Policy",
+    `default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'`
+  );
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Pragma", "no-cache");
+};
+
+const sendAuthorizationPage = (
+  res: Response,
+  handle: string,
+  session: AuthorizationSession,
+  error?: string
+): Response => {
+  const nonce = authorizationNonce();
+  setAuthorizationPageHeaders(res, nonce);
+  return res.type("html").send(
+    renderAuthorizationPage({
+      nonce,
+      issuer: mcpConfig.issuer,
+      handle,
+      request: session.request,
+      step: session.step,
+      email: session.email,
+      memberships: session.memberships,
+      error
+    })
+  );
+};
+
+const sendExpiredAuthorizationPage = (res: Response): Response => {
+  const nonce = authorizationNonce();
+  setAuthorizationPageHeaders(res, nonce);
+  return res
+    .status(400)
+    .type("html")
+    .send(renderExpiredAuthorizationPage(nonce));
+};
+
+const isExpiredAuthorization = (error: unknown): boolean =>
+  error instanceof AppError &&
+  ["authorization_request_expired", "authorization_flow_invalid"].includes(
+    error.message
+  );
 
 const redirectWithOAuthError = (
   res: Response,
@@ -108,33 +154,109 @@ export const authorize = async (
     code_challenge_method: String(req.query.code_challenge_method || ""),
     resource: String(req.query.resource || "")
   });
-  const request = await loadAuthorizationRequest(handle);
-  const scopes = request.scopes
-    .map(scope => `<li>${escapeHtml(scope)}</li>`)
-    .join("");
-  res.setHeader(
-    "Content-Security-Policy",
-    "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'"
-  );
-  res.setHeader("Cache-Control", "no-store");
-  return res
-    .type("html")
-    .send(
-      `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Autorizar ChatGPT</title><style>body{font-family:system-ui;background:#f4f5f7;margin:0;color:#1f2937}.card{max-width:520px;margin:6vh auto;background:white;padding:32px;border-radius:16px;box-shadow:0 8px 30px #0001}h1{margin-top:0}.warning{background:#fff7ed;border:1px solid #fdba74;padding:14px;border-radius:8px}label{display:block;margin-top:16px;font-weight:600}input[type=text],input[type=email],input[type=password]{width:100%;box-sizing:border-box;padding:12px;margin-top:6px;border:1px solid #bbb;border-radius:7px}.consent{display:flex;gap:10px;font-weight:400}.actions{display:flex;gap:12px;margin-top:24px}button{padding:11px 18px;border:0;border-radius:7px;cursor:pointer}.approve{background:#163cff;color:white}.cancel{background:#e5e7eb}</style></head><body><main class="card"><h1>Conectar Ticketz ao ChatGPT</h1><p>Entre como administrador do tenant e confirme os acessos solicitados:</p><ul>${scopes}</ul><p class="warning"><strong>Atenção:</strong> conversas identificáveis e possíveis dados clínicos poderão ser transmitidos ao ChatGPT conforme suas solicitações.</p><form method="post" action="${escapeHtml(mcpConfig.issuer)}/oauth/authorize/approve"><input type="hidden" name="handle" value="${escapeHtml(handle)}"><label>Tenant<input type="text" name="slug" required autocomplete="organization"></label><label>E-mail<input type="email" name="email" required autocomplete="username"></label><label>Senha<input type="password" name="password" required autocomplete="current-password"></label><label class="consent"><input type="checkbox" name="consent" value="yes" required>Compreendo e autorizo o compartilhamento dos dados dentro dos escopos acima.</label><div class="actions"><button class="approve" type="submit">Autorizar</button><button class="cancel" type="submit" formaction="${escapeHtml(mcpConfig.issuer)}/oauth/authorize/cancel" formnovalidate>Cancelar</button></div></form></main></body></html>`
+  const session = await loadAuthorizationSession(handle);
+  return sendAuthorizationPage(res, handle, session);
+};
+
+export const submitEmail = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const handle = String(req.body.handle || "");
+  try {
+    const session = await submitAuthorizationEmail(
+      handle,
+      String(req.body.email || "")
     );
+    return sendAuthorizationPage(res, handle, session);
+  } catch (error) {
+    if (isExpiredAuthorization(error)) return sendExpiredAuthorizationPage(res);
+    if (error instanceof AppError && error.message === "invalid_email") {
+      const session = await loadAuthorizationSession(handle);
+      return sendAuthorizationPage(
+        res,
+        handle,
+        session,
+        "Digite um e-mail válido."
+      );
+    }
+    throw error;
+  }
+};
+
+export const submitPassword = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const handle = String(req.body.handle || "");
+  try {
+    const session = await authenticateAuthorizationPassword(
+      handle,
+      String(req.body.email || ""),
+      String(req.body.password || "")
+    );
+    return sendAuthorizationPage(res, handle, session);
+  } catch (error) {
+    if (isExpiredAuthorization(error)) return sendExpiredAuthorizationPage(res);
+    if (
+      error instanceof AppError &&
+      ["invalid_credentials", "no_eligible_company"].includes(error.message)
+    ) {
+      const session = await loadAuthorizationSession(handle);
+      const message =
+        error.message === "invalid_credentials"
+          ? "E-mail ou senha inválidos."
+          : "Nenhuma empresa disponível para esta conexão.";
+      return sendAuthorizationPage(res, handle, session, message);
+    }
+    throw error;
+  }
+};
+
+export const restart = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const handle = String(req.body.handle || "");
+  try {
+    const session = await restartAuthorization(handle);
+    return sendAuthorizationPage(res, handle, session);
+  } catch (error) {
+    if (isExpiredAuthorization(error)) return sendExpiredAuthorizationPage(res);
+    throw error;
+  }
 };
 
 export const approve = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  if (req.body.consent !== "yes") throw new AppError("consent_required", 400);
-  const request = await loadAuthorizationRequest(req.body.handle, true);
+  const handle = String(req.body.handle || "");
   try {
-    const { user, company } = await authenticateAdmin(
-      String(req.body.slug || ""),
-      String(req.body.email || ""),
-      String(req.body.password || "")
+    const session = await loadAuthorizationSession(handle);
+    if (session.step !== "company") {
+      return sendExpiredAuthorizationPage(res);
+    }
+    if (req.body.consent !== "yes") {
+      return sendAuthorizationPage(
+        res,
+        handle,
+        session,
+        "Confirme a autorização para continuar."
+      );
+    }
+    const companyId = Number(req.body.companyId);
+    if (!Number.isSafeInteger(companyId) || companyId <= 0) {
+      return sendAuthorizationPage(
+        res,
+        handle,
+        session,
+        "Selecione uma empresa válida."
+      );
+    }
+    const { request, user, company } = await consumeAuthorizationSelection(
+      handle,
+      companyId
     );
     const code = await approveAuthorization(request, user, company);
     const url = new URL(request.redirectUri);
@@ -143,7 +265,22 @@ export const approve = async (
     res.redirect(303, url.toString());
     return res;
   } catch (error) {
+    if (isExpiredAuthorization(error)) return sendExpiredAuthorizationPage(res);
+    if (
+      error instanceof AppError &&
+      error.message === "invalid_company_selection"
+    ) {
+      const session = await loadAuthorizationSession(handle);
+      return sendAuthorizationPage(
+        res,
+        handle,
+        session,
+        "Selecione uma empresa válida."
+      );
+    }
     if (error instanceof AppError && [401, 403].includes(error.statusCode)) {
+      const request = await loadAuthorizationRequest(handle).catch(() => null);
+      if (!request) return sendExpiredAuthorizationPage(res);
       return redirectWithOAuthError(
         res,
         request.redirectUri,
@@ -159,13 +296,21 @@ export const cancel = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  const request = await loadAuthorizationRequest(req.body.handle, true);
-  return redirectWithOAuthError(
-    res,
-    request.redirectUri,
-    request.state,
-    "access_denied"
-  );
+  try {
+    const request = await loadAuthorizationRequest(
+      String(req.body.handle || ""),
+      true
+    );
+    return redirectWithOAuthError(
+      res,
+      request.redirectUri,
+      request.state,
+      "access_denied"
+    );
+  } catch (error) {
+    if (isExpiredAuthorization(error)) return sendExpiredAuthorizationPage(res);
+    throw error;
+  }
 };
 
 export const token = async (req: Request, res: Response): Promise<Response> => {

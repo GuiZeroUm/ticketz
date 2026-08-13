@@ -517,7 +517,7 @@ const messages = {
           create: "Crie uma integração MCP Draft",
           url: "Cole o URL MCP",
           oauth: "Escolha OAuth",
-          login: "Entre com tenant, e-mail e palavra-passe de administrador"
+          login: "Entre com e-mail e palavra-passe e selecione a sua empresa"
         },
         connections: {
           title: "Ligações ativas",
@@ -532,7 +532,7 @@ const messages = {
         revoke: {
           title: "Revogar ligação",
           one: "Esta ligação perderá o acesso imediatamente.",
-          all: "Todas as ligações deste tenant perderão o acesso imediatamente."
+          all: "Todas as ligações desta empresa perderão o acesso imediatamente."
         },
         toasts: { copied: "URL MCP copiado.", revoked: "Ligação revogada." }
       },
