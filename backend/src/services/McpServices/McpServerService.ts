@@ -131,7 +131,7 @@ const registerTool = <T extends Record<string, unknown>>(
   );
 };
 
-const createServer = (auth: McpAuthContext): McpServer => {
+export const createServer = (auth: McpAuthContext): McpServer => {
   const server = new McpServer(
     { name: "ticketz", version: "1.0.0" },
     {
@@ -145,7 +145,7 @@ const createServer = (auth: McpAuthContext): McpServer => {
     auth,
     "get_ticketz_context",
     "Get Ticketz context",
-    "Get tenant context, stable IDs, limits, and capabilities before querying data.",
+    "Get company context, stable IDs, limits, and capabilities before querying data.",
     "conversations:read",
     {},
     async () => getTicketzContext(auth)
@@ -225,6 +225,24 @@ export const handleMcpRequest = async (
   res: Response,
   auth: McpAuthContext
 ): Promise<void> => {
+  const started = Date.now();
+  const method =
+    req.body && !Array.isArray(req.body) && typeof req.body.method === "string"
+      ? req.body.method
+      : undefined;
+  const auditedMethods = ["initialize", "tools/list", "tools/call"];
+  const auditProtocolRequest = async (status: string): Promise<void> => {
+    if (!method || !auditedMethods.includes(method)) return;
+    await McpAudit.create({
+      correlationId: randomUUID(),
+      grantId: auth.grantId,
+      userId: auth.userId,
+      companyId: auth.companyId,
+      event: method,
+      durationMs: Date.now() - started,
+      status
+    }).catch(() => undefined);
+  };
   const server = createServer(auth);
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
@@ -234,6 +252,16 @@ export const handleMcpRequest = async (
     transport.close().catch(() => undefined);
     server.close().catch(() => undefined);
   });
-  await server.connect(transport);
-  await transport.handleRequest(req, res, req.body);
+  try {
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
+    await auditProtocolRequest(
+      res.statusCode >= 400 ? `error_${res.statusCode}` : "success"
+    );
+  } catch (error) {
+    await auditProtocolRequest(
+      error instanceof AppError ? `error_${error.statusCode}` : "error_500"
+    );
+    throw error;
+  }
 };

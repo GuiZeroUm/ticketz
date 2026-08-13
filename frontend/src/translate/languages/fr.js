@@ -483,7 +483,7 @@ const messages = {
           url: "Collez l'URL MCP",
           oauth: "Choisissez OAuth",
           login:
-            "Connectez-vous avec le tenant, l'e-mail et le mot de passe administrateur"
+            "Connectez-vous avec votre e-mail et votre mot de passe, puis sélectionnez votre entreprise"
         },
         connections: {
           title: "Connexions actives",
@@ -498,7 +498,7 @@ const messages = {
         revoke: {
           title: "Révoquer la connexion",
           one: "Cette connexion perdra immédiatement l'accès.",
-          all: "Toutes les connexions de ce tenant perdront immédiatement l'accès."
+          all: "Toutes les connexions de cette entreprise perdront immédiatement l'accès."
         },
         toasts: { copied: "URL MCP copiée.", revoked: "Connexion révoquée." }
       },

@@ -498,7 +498,7 @@ const messages = {
           create: "Buat integrasi MCP Draft",
           url: "Tempel URL MCP",
           oauth: "Pilih OAuth",
-          login: "Masuk dengan tenant, email admin, dan kata sandi"
+          login: "Masuk dengan email dan kata sandi, lalu pilih perusahaan"
         },
         connections: {
           title: "Koneksi aktif",
@@ -513,7 +513,7 @@ const messages = {
         revoke: {
           title: "Cabut koneksi",
           one: "Koneksi ini akan segera kehilangan akses.",
-          all: "Semua koneksi tenant ini akan segera kehilangan akses."
+          all: "Semua koneksi perusahaan ini akan segera kehilangan akses."
         },
         toasts: { copied: "URL MCP disalin.", revoked: "Koneksi dicabut." }
       },

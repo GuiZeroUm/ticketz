@@ -1,4 +1,5 @@
 import { createHash, randomBytes, randomUUID } from "crypto";
+import { compare } from "bcryptjs";
 import { Op, Transaction } from "sequelize";
 import { sign, verify } from "jsonwebtoken";
 import sequelize from "../../database";
@@ -11,7 +12,6 @@ import OAuthRefreshToken from "../../models/OAuthRefreshToken";
 import Setting from "../../models/Setting";
 import User from "../../models/User";
 import AppError from "../../errors/AppError";
-import normalizeSlug from "../../helpers/normalizeSlug";
 import { cacheLayer } from "../../libs/cache";
 
 export type McpAuthContext = {
@@ -32,6 +32,21 @@ export type AuthorizationRequest = {
   scopes: string[];
 };
 
+export type AuthorizationMembership = {
+  userId: number;
+  companyId: number;
+  companyName: string;
+  tokenVersion: number;
+};
+
+export type AuthorizationSession = {
+  request: AuthorizationRequest;
+  step: "email" | "password" | "company";
+  expiresAt: number;
+  email?: string;
+  memberships?: AuthorizationMembership[];
+};
+
 type AuthorizationCode = AuthorizationRequest & {
   grantId: string;
 };
@@ -43,8 +58,14 @@ const base64UrlSha256 = (value: string): string =>
 const opaqueToken = (): string => randomBytes(48).toString("base64url");
 const validPkceValue = (value: string): boolean =>
   /^[A-Za-z0-9._~-]{43,128}$/.test(value);
+const AUTHORIZATION_TTL_SECONDS = 600;
+const DUMMY_PASSWORD_HASH =
+  "$2a$08$7EqJtq98hPqEX7fNZaFWoO5hP6O8jLZd31QKJjV2VnPqM5LQyHf4K";
 
-const auditOAuth = async (
+const authorizationKey = (handle: string): string =>
+  `mcp:authorize:${sha256(handle || "")}`;
+
+export const auditOAuth = async (
   event: string,
   status: string,
   context: {
@@ -61,6 +82,22 @@ const auditOAuth = async (
     event,
     status
   });
+};
+
+const saveAuthorizationSession = async (
+  handle: string,
+  session: AuthorizationSession
+): Promise<void> => {
+  const remainingTtl = Math.ceil((session.expiresAt - Date.now()) / 1000);
+  if (remainingTtl <= 0) {
+    throw new AppError("authorization_request_expired", 400);
+  }
+  await cacheLayer.set(
+    authorizationKey(handle),
+    JSON.stringify(session),
+    "EX",
+    remainingTtl
+  );
 };
 
 export const validateScopes = (scope?: string): string[] => {
@@ -187,55 +224,164 @@ export const createAuthorizationRequest = async (
     resource: input.resource,
     scopes: validateScopes(input.scope)
   };
-  await cacheLayer.set(
-    `mcp:authorize:${sha256(handle)}`,
-    JSON.stringify(request),
-    "EX",
-    600
-  );
+  await saveAuthorizationSession(handle, {
+    request,
+    step: "email",
+    expiresAt: Date.now() + AUTHORIZATION_TTL_SECONDS * 1000
+  });
+  await auditOAuth("oauth_authorization_started", "success");
   return handle;
+};
+
+export const loadAuthorizationSession = async (
+  handle: string,
+  consume = false
+): Promise<AuthorizationSession> => {
+  const key = authorizationKey(handle);
+  const raw = consume
+    ? await cacheLayer.consume(key)
+    : await cacheLayer.get(key);
+  if (!raw) throw new AppError("authorization_request_expired", 400);
+  const parsed = JSON.parse(raw) as AuthorizationSession;
+  if (
+    !parsed.request ||
+    !parsed.step ||
+    !parsed.expiresAt ||
+    parsed.expiresAt <= Date.now()
+  ) {
+    throw new AppError("authorization_flow_invalid", 400);
+  }
+  return parsed;
 };
 
 export const loadAuthorizationRequest = async (
   handle: string,
   consume = false
-): Promise<AuthorizationRequest> => {
-  const key = `mcp:authorize:${sha256(handle || "")}`;
-  const raw = consume
-    ? await cacheLayer.consume(key)
-    : await cacheLayer.get(key);
-  if (!raw) throw new AppError("authorization_request_expired", 400);
-  return JSON.parse(raw) as AuthorizationRequest;
+): Promise<AuthorizationRequest> =>
+  (await loadAuthorizationSession(handle, consume)).request;
+
+export const submitAuthorizationEmail = async (
+  handle: string,
+  email: string
+): Promise<AuthorizationSession> => {
+  const normalizedEmail = email.trim().toLowerCase();
+  if (
+    normalizedEmail.length > 254 ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
+  ) {
+    throw new AppError("invalid_email", 400);
+  }
+
+  const session = await loadAuthorizationSession(handle);
+  if (session.step !== "email") {
+    throw new AppError("authorization_flow_invalid", 400);
+  }
+  const updated: AuthorizationSession = {
+    request: session.request,
+    step: "password",
+    expiresAt: session.expiresAt,
+    email: normalizedEmail
+  };
+  await saveAuthorizationSession(handle, updated);
+  await auditOAuth("oauth_email_submitted", "success");
+  return updated;
 };
 
-export const authenticateAdmin = async (
-  slug: string,
+export const restartAuthorization = async (
+  handle: string
+): Promise<AuthorizationSession> => {
+  const session = await loadAuthorizationSession(handle);
+  const restarted: AuthorizationSession = {
+    request: session.request,
+    step: "email",
+    expiresAt: session.expiresAt,
+    email: session.email
+  };
+  await saveAuthorizationSession(handle, restarted);
+  return restarted;
+};
+
+export const authenticateAuthorizationPassword = async (
+  handle: string,
   email: string,
   password: string
-): Promise<{ user: User; company: Company }> => {
-  let normalizedSlug: string;
-  try {
-    normalizedSlug = normalizeSlug(slug);
-  } catch {
-    throw new AppError("invalid_credentials", 401);
+): Promise<AuthorizationSession> => {
+  const session = await loadAuthorizationSession(handle);
+  if (session.step !== "password" || !session.email) {
+    throw new AppError("authorization_flow_invalid", 400);
   }
-  const company = await Company.findOne({ where: { slug: normalizedSlug } });
-  if (!company) throw new AppError("invalid_credentials", 401);
-  const user = await User.findOne({
+  if (session.email !== email.trim().toLowerCase()) {
+    throw new AppError("authorization_flow_invalid", 400);
+  }
+
+  const users = await User.findAll({
     where: {
-      companyId: company.id,
+      profile: "admin",
       [Op.and]: sequelize.where(
-        sequelize.fn("LOWER", sequelize.col("email")),
-        email.toLowerCase()
+        sequelize.fn("LOWER", sequelize.col("User.email")),
+        session.email
       )
-    }
+    },
+    include: [Company],
+    order: [["companyId", "ASC"]]
   });
-  if (!user || !(await user.checkPassword(password))) {
+
+  if (users.length === 0) {
+    await compare(password || "", DUMMY_PASSWORD_HASH);
+  }
+  const passwordResults = await Promise.all(
+    users.map(async user => ({
+      user,
+      matches: await user.checkPassword(password || "")
+    }))
+  );
+  const matchingUsers = passwordResults
+    .filter(result => result.matches)
+    .map(result => result.user);
+
+  if (matchingUsers.length === 0) {
+    await auditOAuth("oauth_login", "invalid_credentials");
     throw new AppError("invalid_credentials", 401);
   }
-  if (user.profile !== "admin") throw new AppError("admin_required", 403);
-  await assertCompanyEligible(company);
-  return { user, company };
+
+  const memberships = (
+    await Promise.all(
+      matchingUsers.map(async user => {
+        if (!user.company) return null;
+        try {
+          await assertCompanyEligible(user.company);
+          return {
+            userId: user.id,
+            companyId: user.companyId,
+            companyName: user.company.name,
+            tokenVersion: user.tokenVersion
+          } as AuthorizationMembership;
+        } catch (error) {
+          if (error instanceof AppError && error.statusCode === 403)
+            return null;
+          throw error;
+        }
+      })
+    )
+  ).filter(
+    (membership): membership is AuthorizationMembership => membership !== null
+  );
+
+  if (memberships.length === 0) {
+    await auditOAuth("oauth_login", "no_eligible_company");
+    throw new AppError("no_eligible_company", 403);
+  }
+
+  const authenticated: AuthorizationSession = {
+    request: session.request,
+    step: "company",
+    expiresAt: session.expiresAt,
+    email: session.email,
+    memberships
+  };
+  await saveAuthorizationSession(handle, authenticated);
+  await auditOAuth("oauth_login", "success");
+  return authenticated;
 };
 
 const pilotEnabled = async (companyId: number): Promise<boolean> => {
@@ -245,7 +391,9 @@ const pilotEnabled = async (companyId: number): Promise<boolean> => {
   return setting?.value === "enabled" || setting?.value === "true";
 };
 
-const assertCompanyEligible = async (company: Company): Promise<void> => {
+export const assertCompanyEligible = async (
+  company: Company
+): Promise<void> => {
   if (company.status === false) throw new AppError("company_inactive", 403);
   if (company.id !== 1 && company.dueDate) {
     const due = new Date(`${company.dueDate}T23:59:59.999`);
@@ -260,6 +408,44 @@ const assertCompanyEligible = async (company: Company): Promise<void> => {
   if (!(await pilotEnabled(company.id))) {
     throw new AppError("mcp_pilot_disabled", 403);
   }
+};
+
+export const consumeAuthorizationSelection = async (
+  handle: string,
+  companyId: number
+): Promise<{
+  request: AuthorizationRequest;
+  user: User;
+  company: Company;
+}> => {
+  const pending = await loadAuthorizationSession(handle);
+  const pendingMembership = pending.memberships?.find(
+    membership => membership.companyId === companyId
+  );
+  if (pending.step !== "company" || !pendingMembership) {
+    throw new AppError("invalid_company_selection", 400);
+  }
+
+  const claimed = await loadAuthorizationSession(handle, true);
+  const membership = claimed.memberships?.find(
+    item => item.companyId === companyId
+  );
+  if (claimed.step !== "company" || !membership) {
+    throw new AppError("authorization_flow_invalid", 400);
+  }
+
+  const user = await User.findOne({
+    where: {
+      id: membership.userId,
+      companyId: membership.companyId,
+      profile: "admin",
+      tokenVersion: membership.tokenVersion
+    },
+    include: [Company]
+  });
+  if (!user?.company) throw new AppError("access_denied", 403);
+  await assertCompanyEligible(user.company);
+  return { request: claimed.request, user, company: user.company };
 };
 
 export const approveAuthorization = async (

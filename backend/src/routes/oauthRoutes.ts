@@ -27,8 +27,26 @@ routes.get(
   OAuthController.authorize
 );
 routes.post(
-  "/oauth/authorize/approve",
+  "/oauth/authorize/email",
+  oauthAuthorizeLimiter,
+  formParser,
+  OAuthController.submitEmail
+);
+routes.post(
+  "/oauth/authorize/password",
   oauthLoginLimiter,
+  formParser,
+  OAuthController.submitPassword
+);
+routes.post(
+  "/oauth/authorize/restart",
+  oauthAuthorizeLimiter,
+  formParser,
+  OAuthController.restart
+);
+routes.post(
+  "/oauth/authorize/approve",
+  oauthAuthorizeLimiter,
   formParser,
   OAuthController.approve
 );
