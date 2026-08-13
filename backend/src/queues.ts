@@ -30,6 +30,7 @@ import OutOfTicketMessage from "./models/OutOfTicketMessages";
 import { getJidOf } from "./services/WbotServices/getJidOf";
 import { _t } from "./services/TranslationServices/i18nService";
 import { makeRandomId } from "./helpers/MakeRandomId";
+import McpAudit from "./models/McpAudit";
 
 const connection = process.env.REDIS_URI || "";
 export const userMonitor = new Queue("UserMonitor", connection);
@@ -39,6 +40,26 @@ export const sendScheduledMessages = new Queue(
   "SendSacheduledMessages",
   connection
 );
+
+let lastMcpAuditCleanupDate: string | null = null;
+
+async function handleMcpAuditRetention(): Promise<void> {
+  const today = new Date().toISOString().slice(0, 10);
+
+  if (lastMcpAuditCleanupDate === today) {
+    return;
+  }
+
+  await McpAudit.destroy({
+    where: {
+      createdAt: {
+        [Op.lt]: subDays(new Date(), 90)
+      }
+    }
+  });
+
+  lastMcpAuditCleanupDate = today;
+}
 
 async function handleVerifySchedules() {
   try {
@@ -532,6 +553,7 @@ async function handleEveryMinute(job: Job) {
   const executionId = makeRandomId(10);
   logger.trace(`handleEveryMinute: entering - executionId: ${executionId}`);
   try {
+    await handleMcpAuditRetention();
     await handleRatingsTimeout();
     await handleTicketTimeouts();
     logger.trace(`handleEveryMinute: exiting - executionId: ${executionId}`);
