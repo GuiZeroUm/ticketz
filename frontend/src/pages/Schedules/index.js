@@ -20,6 +20,7 @@ import {
   TableRow,
   Tabs,
   TextField,
+  Tooltip,
   Typography
 } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
@@ -29,6 +30,7 @@ import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
 import ExpandMoreIcon from "@material-ui/icons/ExpandMore";
 import ExpandLessIcon from "@material-ui/icons/ExpandLess";
 import ImageIcon from "@material-ui/icons/Image";
+import SendIcon from "@material-ui/icons/Send";
 import moment from "moment";
 import { toast } from "react-toastify";
 import MainContainer from "../../components/MainContainer";
@@ -122,6 +124,7 @@ const Schedules = () => {
   const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [deleting, setDeleting] = useState(null);
+  const [sendingNow, setSendingNow] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const [deliveries, setDeliveries] = useState({});
   const [contactId, setContactId] = useState(urlContactId());
@@ -247,6 +250,20 @@ const Schedules = () => {
     }
   };
 
+  const sendNow = async () => {
+    const scheduleId = sendingNow?.id;
+    if (!scheduleId) return;
+    try {
+      await api.post(`/schedules/${scheduleId}/send-now`);
+      toast.success(i18n.t("schedules.toasts.sentNow"));
+      await fetchSchedules();
+    } catch (error) {
+      toastError(error);
+    } finally {
+      setSendingNow(null);
+    }
+  };
+
   const ruleText = date => {
     if (date.ruleType === "FIXED_DATE") {
       return `${String(date.day).padStart(2, "0")}/${String(date.month).padStart(2, "0")}`;
@@ -269,6 +286,14 @@ const Schedules = () => {
         onConfirm={remove}
       >
         {i18n.t("schedules.confirmationModal.deleteMessage")}
+      </ConfirmationModal>
+      <ConfirmationModal
+        title={i18n.t("schedules.confirmationModal.sendNowTitle")}
+        open={Boolean(sendingNow)}
+        onClose={() => setSendingNow(null)}
+        onConfirm={sendNow}
+      >
+        {i18n.t("schedules.confirmationModal.sendNowMessage")}
       </ConfirmationModal>
       <ScheduleModal
         open={scheduleModalOpen}
@@ -488,6 +513,23 @@ const Schedules = () => {
                             />
                           </TableCell>
                           <TableCell align="right">
+                            {schedule.kind === "ONCE" &&
+                              schedule.active &&
+                              schedule.status === "PENDENTE" && (
+                                <Tooltip
+                                  title={i18n.t("schedules.actions.sendNow")}
+                                >
+                                  <IconButton
+                                    size="small"
+                                    aria-label={i18n.t(
+                                      "schedules.actions.sendNow"
+                                    )}
+                                    onClick={() => setSendingNow(schedule)}
+                                  >
+                                    <SendIcon />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
                             <IconButton
                               size="small"
                               onClick={() => {

@@ -1,4 +1,3 @@
-import { DateTime } from "luxon";
 import sequelize from "../../database";
 import AppError from "../../errors/AppError";
 import CommemorativeDate from "../../models/CommemorativeDate";
@@ -14,6 +13,7 @@ import {
 import {
   nextBirthdayScan,
   nextCommemorativeOccurrence,
+  parseOneTimeSchedule,
   validateTimezone
 } from "./recurrence";
 import { validateScheduleVariables } from "./variables";
@@ -60,12 +60,7 @@ export const calculateNextRun = async (
   const timezone = validateTimezone(payload.timezone);
   if (payload.kind === "ONCE") {
     if (!payload.sendAt) throw new AppError("ERR_SCHEDULE_DATE_REQUIRED", 400);
-    const raw = String(payload.sendAt);
-    const parsed = /(?:Z|[+-]\d{2}:?\d{2})$/.test(raw)
-      ? DateTime.fromISO(raw)
-      : DateTime.fromISO(raw, { zone: timezone });
-    if (!parsed.isValid) throw new AppError("ERR_SCHEDULE_INVALID_DATE", 400);
-    return parsed.toUTC().toJSDate();
+    return parseOneTimeSchedule(payload.sendAt, timezone);
   }
   if (!payload.sendTime) throw new AppError("ERR_SCHEDULE_TIME_REQUIRED", 400);
   if (payload.kind === "BIRTHDAY") {

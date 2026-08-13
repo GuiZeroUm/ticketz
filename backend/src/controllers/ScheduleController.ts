@@ -33,6 +33,7 @@ import {
 } from "../services/ScheduleServices/audience";
 import CheckSettings from "../helpers/CheckSettings";
 import { normalizeVisualMedia } from "../helpers/mediaConversion";
+import SendNowService from "../services/ScheduleServices/SendNowService";
 
 const prepareMedia = async (
   file?: Express.Multer.File
@@ -214,6 +215,23 @@ export const remove = async (
       scheduleId: req.params.scheduleId
     });
   return res.status(204).send();
+};
+
+export const sendNow = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const schedule = await SendNowService(
+    req.params.scheduleId,
+    req.user.companyId
+  );
+  getIO()
+    .to(`company-${req.user.companyId}-mainchannel`)
+    .emit(`company-${req.user.companyId}-schedule`, {
+      action: "update",
+      schedule
+    });
+  return res.json(schedule);
 };
 
 export const variables = async (

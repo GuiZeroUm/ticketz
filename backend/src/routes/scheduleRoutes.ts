@@ -22,6 +22,11 @@ scheduleRoutes.get(
   isAuth,
   ScheduleController.deliveries
 );
+scheduleRoutes.post(
+  "/schedules/:scheduleId/send-now",
+  isAuth,
+  ScheduleController.sendNow
+);
 
 scheduleRoutes.post(
   "/schedules",

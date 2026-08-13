@@ -29,6 +29,19 @@ export const validateTimezone = (timezone: string): string => {
   return value;
 };
 
+export const parseOneTimeSchedule = (
+  sendAt: Date | string,
+  timezone: string
+): Date => {
+  const raw = String(sendAt);
+  const zone = validateTimezone(timezone);
+  const parsed = /(?:Z|[+-]\d{2}:?\d{2})$/.test(raw)
+    ? DateTime.fromISO(raw)
+    : DateTime.fromISO(raw, { zone });
+  if (!parsed.isValid) throw new AppError("ERR_SCHEDULE_INVALID_DATE", 400);
+  return parsed.toUTC().toJSDate();
+};
+
 const fixedOccurrence = (
   year: number,
   month: number,

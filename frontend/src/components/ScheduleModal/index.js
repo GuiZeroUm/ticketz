@@ -25,6 +25,7 @@ import Autocomplete from "@material-ui/lab/Autocomplete";
 import AttachFileIcon from "@material-ui/icons/AttachFile";
 import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
 import moment from "moment";
+import InputMask from "react-input-mask";
 import { toast } from "react-toastify";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
@@ -64,19 +65,52 @@ const useStyles = makeStyles(theme => ({
   hiddenInput: { display: "none" }
 }));
 
-const initialValues = contactId => ({
-  body: "",
-  kind: "ONCE",
-  audienceMode: "SELECTED",
-  contactIds: contactId ? [Number(contactId)] : [],
-  sendAt: moment().add(1, "hour").format("YYYY-MM-DDTHH:mm"),
-  sendTime: "09:00",
-  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-  commemorativeDateId: "",
-  mediaDeliveryMode: "CAPTION",
-  saveMessage: false,
-  removeMedia: false
-});
+const browserTimezone =
+  Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+
+const dateTimeParts = (value, timezone = browserTimezone) => {
+  if (!value) return { date: "", time: "" };
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23"
+    })
+      .formatToParts(new Date(value))
+      .reduce((result, part) => ({ ...result, [part.type]: part.value }), {});
+    return {
+      date: `${parts.year}-${parts.month}-${parts.day}`,
+      time: `${parts.hour}:${parts.minute}`
+    };
+  } catch (_error) {
+    return {
+      date: moment(value).format("YYYY-MM-DD"),
+      time: moment(value).format("HH:mm")
+    };
+  }
+};
+
+const initialValues = contactId => {
+  const initialDate = moment().add(1, "hour");
+  return {
+    body: "",
+    kind: "ONCE",
+    audienceMode: "SELECTED",
+    contactIds: contactId ? [Number(contactId)] : [],
+    sendDate: initialDate.format("YYYY-MM-DD"),
+    sendClock: initialDate.format("HH:mm"),
+    sendTime: "09:00",
+    timezone: browserTimezone,
+    commemorativeDateId: "",
+    mediaDeliveryMode: "CAPTION",
+    saveMessage: false,
+    removeMedia: false
+  };
+};
 
 const ScheduleModal = ({
   open,
@@ -187,6 +221,10 @@ const ScheduleModal = ({
     api
       .get(`/schedules/${scheduleId}`)
       .then(({ data }) => {
+        const scheduledParts = dateTimeParts(
+          data.sendAt,
+          data.timezone || browserTimezone
+        );
         const audienceContacts = (data.audienceContacts || [])
           .map(item => item.contact)
           .filter(Boolean);
@@ -195,9 +233,8 @@ const ScheduleModal = ({
           ...initialValues(),
           ...data,
           contactIds: audienceContacts.map(contact => contact.id),
-          sendAt: data.sendAt
-            ? moment(data.sendAt).format("YYYY-MM-DDTHH:mm")
-            : "",
+          sendDate: scheduledParts.date,
+          sendClock: scheduledParts.time,
           commemorativeDateId: data.commemorativeDateId || "",
           removeMedia: false
         });
@@ -210,7 +247,10 @@ const ScheduleModal = ({
     ...values,
     contactIds: selectedContacts.map(contact => contact.id),
     contactId: undefined,
-    sendAt: values.kind === "ONCE" ? values.sendAt : undefined,
+    sendAt:
+      values.kind === "ONCE"
+        ? `${values.sendDate}T${values.sendClock}`
+        : undefined,
     sendTime: values.kind === "ONCE" ? undefined : values.sendTime,
     commemorativeDateId:
       values.kind === "COMMEMORATIVE"
@@ -224,9 +264,10 @@ const ScheduleModal = ({
     if (values.audienceMode === "SELECTED" && !selectedContacts.length) {
       return i18n.t("scheduleModal.validation.selectContact");
     }
-    if (values.kind === "ONCE" && !values.sendAt)
+    if (values.kind === "ONCE" && !values.sendDate)
       return i18n.t("scheduleModal.validation.dateRequired");
-    if (values.kind !== "ONCE" && !values.sendTime)
+    const time = values.kind === "ONCE" ? values.sendClock : values.sendTime;
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time || ""))
       return i18n.t("scheduleModal.validation.timeRequired");
     if (values.kind === "COMMEMORATIVE" && !values.commemorativeDateId) {
       return i18n.t("scheduleModal.validation.selectDate");
@@ -378,7 +419,7 @@ const ScheduleModal = ({
                 {i18n.t("scheduleModal.sections.when")}
               </Typography>
               <Grid container spacing={1}>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={values.kind === "ONCE" ? 4 : 6}>
                   <FormControl variant="outlined" margin="dense" fullWidth>
                     <InputLabel>{i18n.t("scheduleModal.form.kind")}</InputLabel>
                     <Select
@@ -398,32 +439,54 @@ const ScheduleModal = ({
                     </Select>
                   </FormControl>
                 </Grid>
-                <Grid item xs={12} sm={6}>
-                  {values.kind === "ONCE" ? (
+                {values.kind === "ONCE" && (
+                  <Grid item xs={12} sm={4}>
                     <TextField
-                      type="datetime-local"
-                      label={i18n.t("scheduleModal.form.sendAt")}
-                      value={values.sendAt}
-                      onChange={event => setValue("sendAt", event.target.value)}
-                      InputLabelProps={{ shrink: true }}
-                      variant="outlined"
-                      margin="dense"
-                      fullWidth
-                    />
-                  ) : (
-                    <TextField
-                      type="time"
-                      label={i18n.t("scheduleModal.form.sendTime")}
-                      value={values.sendTime}
+                      type="date"
+                      label={i18n.t("scheduleModal.form.sendDate")}
+                      value={values.sendDate}
                       onChange={event =>
-                        setValue("sendTime", event.target.value)
+                        setValue("sendDate", event.target.value)
                       }
                       InputLabelProps={{ shrink: true }}
                       variant="outlined"
                       margin="dense"
                       fullWidth
                     />
-                  )}
+                  </Grid>
+                )}
+                <Grid item xs={12} sm={values.kind === "ONCE" ? 4 : 6}>
+                  <InputMask
+                    mask="99:99"
+                    maskChar={null}
+                    value={
+                      values.kind === "ONCE"
+                        ? values.sendClock
+                        : values.sendTime
+                    }
+                    onChange={event =>
+                      setValue(
+                        values.kind === "ONCE" ? "sendClock" : "sendTime",
+                        event.target.value
+                      )
+                    }
+                  >
+                    {inputProps => (
+                      <TextField
+                        {...inputProps}
+                        label={i18n.t("scheduleModal.form.sendTime24h")}
+                        placeholder="HH:mm"
+                        InputLabelProps={{ shrink: true }}
+                        inputProps={{
+                          ...inputProps.inputProps,
+                          inputMode: "numeric"
+                        }}
+                        variant="outlined"
+                        margin="dense"
+                        fullWidth
+                      />
+                    )}
+                  </InputMask>
                 </Grid>
                 {values.kind === "COMMEMORATIVE" && (
                   <Grid item xs={12}>

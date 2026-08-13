@@ -198,6 +198,17 @@ async function handleVerifySchedules() {
       const cadence = await getScheduleCadence(schedule.companyId);
       let delaySeconds = 0;
 
+      logger.info(
+        {
+          scheduleId: schedule.id,
+          kind: schedule.kind,
+          plannedAt: schedule.nextRunAt,
+          timezone,
+          deliveries: pending.length
+        },
+        "Schedule occurrence queued"
+      );
+
       // eslint-disable-next-line no-restricted-syntax
       for (const [index, delivery] of pending.entries()) {
         if (delivery.status === "PENDING") {

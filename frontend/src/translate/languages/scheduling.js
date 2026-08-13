@@ -25,6 +25,8 @@ const schedulingEnglish = {
     ERR_SCHEDULE_MEDIA_CONVERSION: "The media could not be converted.",
     ERR_SCHEDULE_NO_ELIGIBLE_RECIPIENTS:
       "No eligible WhatsApp contacts were found.",
+    ERR_SCHEDULE_SEND_NOW_UNAVAILABLE:
+      "This schedule can no longer be sent immediately.",
     ERR_SCHEDULE_RECIPIENT_REQUIRED: "Select at least one contact.",
     ERR_SCHEDULE_TIME_REQUIRED: "Choose an annual delivery time.",
     ERR_SCHEDULE_UNKNOWN_VARIABLE: "The message contains an unknown variable."
@@ -55,6 +57,8 @@ const schedulingEnglish = {
       contacts: "Contacts",
       allContacts: "All eligible contacts",
       kind: "Schedule type",
+      sendDate: "Date",
+      sendTime24h: "Time (24h)",
       sendTime: "Annual time",
       timezone: "Time zone",
       commemorativeDate: "Commemorative date",
@@ -93,7 +97,14 @@ const schedulingEnglish = {
       progress: "Deliveries"
     },
     empty: "No schedules found.",
-    emptyDeliveries: "Deliveries will appear here after the occurrence."
+    emptyDeliveries: "Deliveries will appear here after the occurrence.",
+    actions: { sendNow: "Send now" },
+    confirmationModal: {
+      sendNowTitle: "Send this schedule now?",
+      sendNowMessage:
+        "The scheduled time will be replaced and delivery will start immediately."
+    },
+    toasts: { sentNow: "Schedule queued for immediate delivery." }
   },
   commemorativeDates: {
     add: "New commemorative date",
@@ -151,6 +162,8 @@ const schedulingPortuguese = {
     ERR_SCHEDULE_MEDIA_CONVERSION: "Não foi possível converter a mídia.",
     ERR_SCHEDULE_NO_ELIGIBLE_RECIPIENTS:
       "Nenhum contato de WhatsApp elegível foi encontrado.",
+    ERR_SCHEDULE_SEND_NOW_UNAVAILABLE:
+      "Este agendamento não pode mais ser enviado imediatamente.",
     ERR_SCHEDULE_RECIPIENT_REQUIRED: "Selecione ao menos um contato.",
     ERR_SCHEDULE_TIME_REQUIRED: "Informe o horário do envio anual.",
     ERR_SCHEDULE_UNKNOWN_VARIABLE:
@@ -181,6 +194,8 @@ const schedulingPortuguese = {
       contacts: "Contatos",
       allContacts: "Todos os contatos elegíveis",
       kind: "Tipo de agendamento",
+      sendDate: "Data",
+      sendTime24h: "Horário (24h)",
       sendTime: "Horário anual",
       timezone: "Fuso horário",
       commemorativeDate: "Data comemorativa",
@@ -219,7 +234,14 @@ const schedulingPortuguese = {
       progress: "Entregas"
     },
     empty: "Nenhum agendamento encontrado.",
-    emptyDeliveries: "As entregas aparecerão aqui após a ocorrência."
+    emptyDeliveries: "As entregas aparecerão aqui após a ocorrência.",
+    actions: { sendNow: "Enviar agora" },
+    confirmationModal: {
+      sendNowTitle: "Enviar este agendamento agora?",
+      sendNowMessage:
+        "O horário agendado será substituído e o envio começará imediatamente."
+    },
+    toasts: { sentNow: "Agendamento colocado na fila para envio imediato." }
   },
   commemorativeDates: {
     add: "Nova data comemorativa",
