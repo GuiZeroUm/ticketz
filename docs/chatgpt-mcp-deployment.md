@@ -64,6 +64,27 @@ Content-Type: application/json
 
 Use a URL exibida em **Administração → ChatGPT** para criar uma integração Draft no Developer Mode. Valide discovery, OAuth e ferramentas primeiro no MCP Inspector e depois no ChatGPT.
 
+## Dados expostos ao ChatGPT
+
+As ferramentas continuam somente de leitura e usam os dois escopos já
+concedidos (`conversations:read` e `reports:read`), portanto conexões existentes
+não precisam ser revogadas nem reconectadas:
+
+| Ferramenta | Escopo | Conteúdo |
+| --- | --- | --- |
+| `get_espaco_whats_context` | `conversations:read` | Tenant, atendentes, filas, tags, datas comemorativas, variáveis de agendamento, limites e capacidades |
+| `get_conversation_stats` | `reports:read` | Agregados determinísticos de conversas e mensagens |
+| `get_attendant_metrics` | `reports:read` | Volume, avaliação, espera e atendimento por atendente |
+| `list_conversations` | `conversations:read` | Metadados das conversas, incluindo apelido, aniversário e idioma do contato |
+| `list_contacts` | `conversations:read` | Diretório de contatos com apelido, aniversário (dia/mês), idioma, tags e campos personalizados |
+| `list_schedules` | `conversations:read` | Agendamentos únicos, de aniversário e de data comemorativa, com público, próxima ocorrência, modelo de mensagem e contadores de entrega |
+| `read_conversation` / `read_conversations` | `conversations:read` | Texto das mensagens, notas internas e dados do contato |
+
+O aniversário do contato guarda apenas dia e mês, então as respostas nunca
+permitem inferir idade ou ano. A auditoria não registra o texto livre dos
+filtros `contact` e `search`, mantendo nome, telefone e e-mail fora dos
+registros.
+
 ## Retenção de auditoria
 
 Agende diariamente no Postgres:

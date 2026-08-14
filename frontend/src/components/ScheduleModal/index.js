@@ -419,10 +419,13 @@ const ScheduleModal = ({
                 {i18n.t("scheduleModal.sections.when")}
               </Typography>
               <Grid container spacing={1}>
-                <Grid item xs={12} sm={values.kind === "ONCE" ? 4 : 6}>
+                <Grid item xs={12}>
                   <FormControl variant="outlined" margin="dense" fullWidth>
-                    <InputLabel>{i18n.t("scheduleModal.form.kind")}</InputLabel>
+                    <InputLabel id="schedule-kind-label">
+                      {i18n.t("scheduleModal.form.kind")}
+                    </InputLabel>
                     <Select
+                      labelId="schedule-kind-label"
                       value={values.kind}
                       onChange={event => setValue("kind", event.target.value)}
                       label={i18n.t("scheduleModal.form.kind")}
@@ -440,7 +443,7 @@ const ScheduleModal = ({
                   </FormControl>
                 </Grid>
                 {values.kind === "ONCE" && (
-                  <Grid item xs={12} sm={4}>
+                  <Grid item xs={12} sm={6}>
                     <TextField
                       type="date"
                       label={i18n.t("scheduleModal.form.sendDate")}
@@ -455,7 +458,7 @@ const ScheduleModal = ({
                     />
                   </Grid>
                 )}
-                <Grid item xs={12} sm={values.kind === "ONCE" ? 4 : 6}>
+                <Grid item xs={12} sm={values.kind === "ONCE" ? 6 : 12}>
                   <InputMask
                     mask="99:99"
                     maskChar={null}

@@ -12,6 +12,7 @@ import { SocketContext, socketManager } from "./context/Socket/SocketContext";
 import useSettings from "./hooks/useSettings";
 import Favicon from "react-favicon";
 import { loadBranding } from "./helpers/loadBranding";
+import themeOverrides from "./theme/overrides";
 
 import Routes from "./routes";
 
@@ -174,6 +175,7 @@ const App = () => {
             campaigntab: mode === "light" ? "#ededed" : "#666",
             ticketzproad: { main: "#39ACE7", contrastText: "white" }
           },
+          overrides: themeOverrides,
           mode,
           appLogoLight,
           appLogoDark,
