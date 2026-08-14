@@ -14,6 +14,7 @@ import {
 import Contact from "./Contact";
 import Message from "./Message";
 
+import Partner from "./Partner";
 import Plan from "./Plan";
 import Queue from "./Queue";
 import Setting from "./Setting";
@@ -66,6 +67,18 @@ class Company extends Model<Company> {
 
   @Column
   slug: string;
+
+  // Parceiro que revendeu esta empresa. Nulo em vendas diretas.
+  @ForeignKey(() => Partner)
+  @Column
+  partnerId: number;
+
+  @BelongsTo(() => Partner)
+  partner: Partner;
+
+  // Preco negociado pelo parceiro. Quando nulo, a fatura usa o valor do plano.
+  @Column(DataType.FLOAT)
+  saleValue: number;
 
   @CreatedAt
   createdAt: Date;

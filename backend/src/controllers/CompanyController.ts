@@ -33,6 +33,8 @@ type CompanyData = {
   dueDate?: string;
   recurrence?: string;
   slug?: string;
+  partnerId?: number | null;
+  saleValue?: number | null;
 };
 
 type SchedulesData = {

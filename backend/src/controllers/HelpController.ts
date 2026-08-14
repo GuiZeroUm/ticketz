@@ -23,6 +23,7 @@ type StoreData = {
   description: string;
   video?: string;
   link?: string;
+  audience?: string;
 };
 
 export const index = async (req: Request, res: Response): Promise<Response> => {

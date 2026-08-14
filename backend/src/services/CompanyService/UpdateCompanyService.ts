@@ -18,6 +18,8 @@ interface CompanyData {
   recurrence?: string;
   language?: string;
   slug?: string;
+  partnerId?: number | null;
+  saleValue?: number | null;
 }
 
 const UpdateCompanyService = async (
@@ -43,6 +45,10 @@ const UpdateCompanyService = async (
   const previousPlanId = company.planId;
   const wasActive = company.status;
   const previousDueDate = company.dueDate;
+  const previousSaleValue = company.saleValue;
+
+  const hasPartnerId = companyData.partnerId !== undefined;
+  const hasSaleValue = companyData.saleValue !== undefined;
 
   const hasSlug = companyData.slug !== undefined;
   const slug = hasSlug ? normalizeSlug(companyData.slug) : undefined;
@@ -66,7 +72,9 @@ const UpdateCompanyService = async (
     dueDate,
     recurrence,
     language,
-    ...(hasSlug ? { slug: slug || null } : {})
+    ...(hasSlug ? { slug: slug || null } : {}),
+    ...(hasPartnerId ? { partnerId: companyData.partnerId || null } : {}),
+    ...(hasSaleValue ? { saleValue: companyData.saleValue ?? null } : {})
   });
 
   if (
@@ -101,6 +109,17 @@ const UpdateCompanyService = async (
         dueDate: {
           [Op.lte]: dueDate
         }
+      }
+    });
+  }
+
+  // Sem isso a mudanca de preco so valeria no ciclo seguinte: a fatura em
+  // aberto ja teria nascido com o valor antigo.
+  if (hasSaleValue && (companyData.saleValue ?? null) !== previousSaleValue) {
+    await Invoices.destroy({
+      where: {
+        companyId: company.id,
+        status: "open"
       }
     });
   }

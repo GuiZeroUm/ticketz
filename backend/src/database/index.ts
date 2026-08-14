@@ -51,12 +51,15 @@ import McpAudit from "../models/McpAudit";
 import CommemorativeDate from "../models/CommemorativeDate";
 import ScheduleAudienceContact from "../models/ScheduleAudienceContact";
 import ScheduleDelivery from "../models/ScheduleDelivery";
+import Partner from "../models/Partner";
+import PartnerPayout from "../models/PartnerPayout";
 
 const dbConfig = require("../config/database");
 
 const sequelize = new Sequelize(dbConfig);
 
 const models = [
+  Partner,
   Company,
   User,
   UserSocketSession,
@@ -108,7 +111,8 @@ const models = [
   OAuthClient,
   OAuthGrant,
   OAuthRefreshToken,
-  McpAudit
+  McpAudit,
+  PartnerPayout
 ];
 
 sequelize.addModels(models);

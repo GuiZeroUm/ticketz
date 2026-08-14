@@ -48,6 +48,8 @@ import {
   getScheduleCadence,
   nextCadenceDelay
 } from "./services/ScheduleServices/cadence";
+import SendPartnerPayoutsService from "./services/PartnerServices/SendPartnerPayoutsService";
+import ReconcilePartnerPayoutsService from "./services/PartnerServices/ReconcilePartnerPayoutsService";
 
 const connection = process.env.REDIS_URI || "";
 export const userMonitor = new Queue("UserMonitor", connection);
@@ -57,6 +59,10 @@ export const sendScheduledMessages = new Queue(
   "SendSacheduledMessages",
   connection
 );
+
+// Repasses dos parceiros. Fila Bull (e nao CronJob) porque o lock do Redis
+// garante que so uma replica envia o PIX.
+export const partnerPayouts = new Queue("PartnerPayouts", connection);
 
 let lastMcpAuditCleanupDate: string | null = null;
 
@@ -791,6 +797,25 @@ async function handleEveryMinute(job: Job) {
   }
 }
 
+/**
+ * Ciclo dos repasses: envia o que esta pronto (incluindo o fechamento dos
+ * parceiros agendados, que o proprio service filtra pelo dia do mes) e depois
+ * reconcilia as transferencias que ainda estao em transito.
+ */
+async function handlePartnerPayouts(): Promise<void> {
+  try {
+    await SendPartnerPayoutsService();
+  } catch (error) {
+    logger.error(`[partnerPayouts] erro no envio: ${error?.message}`);
+  }
+
+  try {
+    await ReconcilePartnerPayoutsService();
+  } catch (error) {
+    logger.error(`[partnerPayouts] erro na reconciliacao: ${error?.message}`);
+  }
+}
+
 const createInvoices = new CronJob("0 * * * * *", async () => {
   const companies = await Company.findAll();
   companies.map(async c => {
@@ -821,7 +846,8 @@ const createInvoices = new CronJob("0 * * * * *", async () => {
         await Invoices.create({
           detail: plan.name,
           status: "open",
-          value: plan.value,
+          // Empresa vendida por parceiro cobra o preco negociado por ele.
+          value: c.saleValue ?? plan.value,
           currency: plan.currency || "",
           dueDate: dueDate.toISOString().split("T")[0],
           companyId: c.id
@@ -846,6 +872,9 @@ export async function startQueueProcess() {
 
   userMonitor.process("EveryMinute", handleEveryMinute);
 
+  // Concorrencia 1: os envios sao espacados por causa do rate limit da API.
+  partnerPayouts.process("Process", 1, handlePartnerPayouts);
+
   scheduleMonitor.add(
     "Verify",
     {},
@@ -860,6 +889,15 @@ export async function startQueueProcess() {
     {},
     {
       repeat: { cron: "* * * * *" },
+      removeOnComplete: true
+    }
+  );
+
+  partnerPayouts.add(
+    "Process",
+    {},
+    {
+      repeat: { cron: "*/5 * * * *" },
       removeOnComplete: true
     }
   );

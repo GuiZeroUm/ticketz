@@ -7,6 +7,7 @@ interface Data {
   description?: string;
   video?: string;
   link?: string;
+  audience?: string;
 }
 
 const UpdateService = async (data: Data): Promise<Help> => {

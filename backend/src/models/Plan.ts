@@ -35,6 +35,10 @@ class Plan extends Model<Plan> {
   @Column
   value: number;
 
+  // Piso de venda para revenda por parceiros.
+  @Column
+  minValue: number;
+
   @Column
   currency: string;
 

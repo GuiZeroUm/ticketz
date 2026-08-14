@@ -86,6 +86,7 @@ export function CompanyForm(props) {
     props;
   const classes = useStyles();
   const [plans, setPlans] = useState([]);
+  const [partners, setPartners] = useState([]);
   const [modalUser, setModalUser] = useState(false);
   const [firstUser, setFirstUser] = useState({});
 
@@ -100,6 +101,8 @@ export function CompanyForm(props) {
     dueDate: "",
     recurrence: "",
     slug: "",
+    partnerId: "",
+    saleValue: "",
     ...initialValue
   });
 
@@ -112,6 +115,13 @@ export function CompanyForm(props) {
     }
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    api
+      .get("/partners", { params: { pageNumber: 1 } })
+      .then(({ data }) => setPartners(data.partners || []))
+      .catch(() => setPartners([]));
   }, []);
 
   useEffect(() => {
@@ -132,6 +142,12 @@ export function CompanyForm(props) {
     if (data.dueDate === "" || moment(data.dueDate).isValid() === false) {
       data.dueDate = null;
     }
+    // Venda direta: sem parceiro o preco volta a ser o do plano.
+    data.partnerId = data.partnerId === "" ? null : Number(data.partnerId);
+    data.saleValue =
+      data.saleValue === "" || data.saleValue === null
+        ? null
+        : Number(data.saleValue);
     onSubmit(data);
     setRecord({ ...initialValue, dueDate: "" });
   };
@@ -363,6 +379,40 @@ export function CompanyForm(props) {
                   </Field>
                 </FormControl>
               </Grid>
+              <Grid xs={12} sm={6} md={2} item>
+                <FormControl margin="dense" variant="outlined" fullWidth>
+                  <InputLabel htmlFor="partner-selection">
+                    Vendido por
+                  </InputLabel>
+                  <Field
+                    as={Select}
+                    id="partner-selection"
+                    label="Vendido por"
+                    labelId="partner-selection-label"
+                    name="partnerId"
+                    margin="dense"
+                  >
+                    <MenuItem value="">Venda direta</MenuItem>
+                    {partners.map(partner => (
+                      <MenuItem key={partner.id} value={partner.id}>
+                        {partner.name} ({partner.commissionPct}%)
+                      </MenuItem>
+                    ))}
+                  </Field>
+                </FormControl>
+              </Grid>
+              <Grid xs={12} sm={6} md={2} item>
+                <Field
+                  as={TextField}
+                  label="Preço de venda"
+                  name="saleValue"
+                  type="number"
+                  variant="outlined"
+                  className={classes.fullWidth}
+                  margin="dense"
+                  helperText="Vazio = valor do plano"
+                />
+              </Grid>
               <Grid xs={12} item>
                 <Grid justifyContent="flex-end" spacing={1} container>
                   <Grid xs={4} md={1} item>
@@ -588,7 +638,9 @@ export default function CompaniesManager() {
     campaignsEnabled: false,
     dueDate: "",
     recurrence: "",
-    slug: ""
+    slug: "",
+    partnerId: "",
+    saleValue: ""
   });
 
   const { handleImpersonate } = useContext(AuthContext);
@@ -664,7 +716,9 @@ export default function CompaniesManager() {
       status: true,
       campaignsEnabled: false,
       dueDate: "",
-      recurrence: ""
+      recurrence: "",
+      partnerId: "",
+      saleValue: ""
     }));
   };
 
@@ -691,7 +745,9 @@ export default function CompaniesManager() {
       campaignsEnabled,
       dueDate: data.dueDate || "",
       recurrence: data.recurrence || "",
-      slug: data.slug || ""
+      slug: data.slug || "",
+      partnerId: data.partnerId || "",
+      saleValue: data.saleValue ?? ""
     }));
   };
 

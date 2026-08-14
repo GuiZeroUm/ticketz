@@ -5,7 +5,8 @@ import {
   UpdatedAt,
   Model,
   PrimaryKey,
-  AutoIncrement
+  AutoIncrement,
+  Default
 } from "sequelize-typescript";
 
 @Table({
@@ -28,6 +29,11 @@ class Help extends Model<Help> {
 
   @Column
   link: string;
+
+  // "company" (tutoriais do tenant) ou "partner" (tutoriais de revenda).
+  @Default("company")
+  @Column
+  audience: string;
 
   @CreatedAt
   createdAt: Date;

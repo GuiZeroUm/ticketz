@@ -52,6 +52,9 @@ import {
 import Invoices from "../../models/Invoices";
 import { getIO } from "../../libs/socket";
 import Company from "../../models/Company";
+import AccrualPartnerPayoutService from "../PartnerServices/AccrualPartnerPayoutService";
+import SendPartnerPayoutsService from "../PartnerServices/SendPartnerPayoutsService";
+import { logger } from "../../utils/logger";
 
 export const payGatewayInitialize = async () => {
   // AbacatePay não requer inicialização de webhook via API (configurado no
@@ -129,6 +132,24 @@ export const processInvoicePaid = async (invoice: Invoices) => {
       status: "paid"
     });
     await company.reload();
+
+    if (company.partnerId) {
+      // O accrual e idempotente (invoiceId unico), entao um replay do webhook
+      // nao gera segunda comissao.
+      const payout = await AccrualPartnerPayoutService(invoice);
+
+      if (payout?.mode === "immediate" && payout.status === "pending") {
+        // Dispara sem await: a fila a cada 5 min e a rede de seguranca.
+        SendPartnerPayoutsService({ partnerId: payout.partnerId }).catch(
+          error => {
+            logger.error(
+              `[partnerPayouts] envio imediato falhou para o parceiro ${payout.partnerId}: ${error?.message}`
+            );
+          }
+        );
+      }
+    }
+
     const io = getIO();
 
     io.to(`company-${invoice.companyId}-mainchannel`)

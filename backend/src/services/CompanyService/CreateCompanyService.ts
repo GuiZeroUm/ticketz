@@ -18,6 +18,8 @@ interface CompanyData {
   recurrence?: string;
   language?: string;
   slug?: string;
+  partnerId?: number | null;
+  saleValue?: number | null;
 }
 
 const CreateCompanyService = async (
@@ -87,7 +89,9 @@ const CreateCompanyService = async (
     dueDate,
     recurrence,
     language,
-    slug: slug || null
+    slug: slug || null,
+    partnerId: companyData.partnerId || null,
+    saleValue: companyData.saleValue ?? null
   });
   const [user, created] = await User.findOrCreate({
     where: { name, email },

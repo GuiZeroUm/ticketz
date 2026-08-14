@@ -10,6 +10,7 @@ import SchedulesForm from "../../components/SchedulesForm";
 import CompaniesManager from "../../components/CompaniesManager";
 import PlansManager from "../../components/PlansManager";
 import HelpsManager from "../../components/HelpsManager";
+import PartnersManager from "../../components/PartnersManager";
 import Options from "../../components/Settings/Options";
 import Whitelabel from "../../components/Settings/Whitelabel";
 import PaymentGateway from "../../components/Settings/PaymentGateway";
@@ -196,6 +197,7 @@ const SettingsCustom = () => {
           {isSuper() ? (
             <Tab label={i18n.t("settings.Help.title")} value={"helps"} />
           ) : null}
+          {isSuper() ? <Tab label="Parceiros" value={"partners"} /> : null}
           {isAdmin() ? (
             <Tab
               label={i18n.t("settings.Whitelabel.title")}
@@ -309,6 +311,13 @@ const SettingsCustom = () => {
                   name={"helps"}
                 >
                   <HelpsManager />
+                </TabPanel>
+                <TabPanel
+                  className={classes.container}
+                  value={tab}
+                  name={"partners"}
+                >
+                  <PartnersManager />
                 </TabPanel>
               </>
             )}

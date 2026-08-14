@@ -9,7 +9,11 @@ import {
   TableBody,
   TableCell,
   TableRow,
-  IconButton
+  IconButton,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select
 } from "@material-ui/core";
 import { Formik, Form, Field } from "formik";
 import ButtonWithSpinner from "../ButtonWithSpinner";
@@ -106,7 +110,23 @@ export function HelpManagerForm(props) {
                 margin="dense"
               />
             </Grid>
-            <Grid xs={12} sm={12} md={6} item>
+            <Grid xs={12} sm={6} md={2} item>
+              <FormControl margin="dense" variant="outlined" fullWidth>
+                <InputLabel htmlFor="audience-selection">Público</InputLabel>
+                <Field
+                  as={Select}
+                  id="audience-selection"
+                  label="Público"
+                  labelId="audience-selection-label"
+                  name="audience"
+                  margin="dense"
+                >
+                  <MenuItem value="company">Clientes</MenuItem>
+                  <MenuItem value="partner">Parceiros</MenuItem>
+                </Field>
+              </FormControl>
+            </Grid>
+            <Grid xs={12} sm={12} md={4} item>
               <Field
                 as={TextField}
                 label="Descrição"
@@ -174,6 +194,7 @@ export function HelpsManagerGrid(props) {
               #
             </TableCell>
             <TableCell align="left">Título</TableCell>
+            <TableCell align="left">Público</TableCell>
             <TableCell align="left">Descrição</TableCell>
             <TableCell align="left">Vídeo</TableCell>
           </TableRow>
@@ -187,6 +208,9 @@ export function HelpsManagerGrid(props) {
                 </IconButton>
               </TableCell>
               <TableCell align="left">{row.title || "-"}</TableCell>
+              <TableCell align="left">
+                {row.audience === "partner" ? "Parceiros" : "Clientes"}
+              </TableCell>
               <TableCell align="left">{row.description || "-"}</TableCell>
               <TableCell align="left">{row.video || "-"}</TableCell>
             </TableRow>
@@ -207,7 +231,8 @@ export default function HelpsManager() {
   const [record, setRecord] = useState({
     title: "",
     description: "",
-    video: ""
+    video: "",
+    audience: "company"
   });
 
   useEffect(() => {
@@ -278,7 +303,8 @@ export default function HelpsManager() {
       id: data.id,
       title: data.title || "",
       description: data.description || "",
-      video: data.video || ""
+      video: data.video || "",
+      audience: data.audience || "company"
     });
   };
 

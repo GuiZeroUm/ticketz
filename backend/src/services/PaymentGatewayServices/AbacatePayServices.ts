@@ -50,6 +50,9 @@ import {
   processInvoiceExpired,
   processInvoicePaid
 } from "./PaymentGatewayServices";
+import SettlePartnerPayoutBatchService, {
+  batchIdFromExternalId
+} from "../PartnerServices/SettlePartnerPayoutBatchService";
 
 // Base da API AbacatePay (v2 — Checkout, Transparente e recursos
 // compartilhados). A mesma URL atende dev e produção; o ambiente é definido
@@ -163,6 +166,11 @@ const getFeeRule = async (
   const fixed = await readNumberSetting(fixKey, fixDefault);
   return { percent, fixed };
 };
+
+// Tarifa cobrada pela AbacatePay em cada transferência PIX para terceiros.
+// Usada pelo motor de repasse de parceiros. Editável em `_partnerPixFee`.
+export const getPartnerPixFee = async (): Promise<number> =>
+  readNumberSetting("_partnerPixFee", 1.3);
 
 // Gross-up exato: cobra o valor tal que, após a taxa, o lojista recebe
 // exatamente `base`. valorCobrado = (base + fixo) / (1 - percentual)
@@ -505,6 +513,34 @@ export const abacateWebhook = async (
     const event: string = req.body?.event || "";
     const data = req.body?.data || req.body || {};
 
+    // Transferências PIX de repasse a parceiros (transfer.* / payout.*).
+    // A documentação lista os eventos mas não publica o formato do `data`,
+    // então casamos pelo nosso `externalId` e tratamos o webhook apenas como
+    // acelerador — a verdade é a reconciliação por polling.
+    if (/^(transfer|payout|pix)\./i.test(event)) {
+      const batchId = batchIdFromExternalId(
+        data.externalId || data.pix?.externalId || data.transaction?.externalId
+      );
+
+      if (batchId) {
+        const transferStatus =
+          data.status ||
+          data.pix?.status ||
+          data.transaction?.status ||
+          (/failed|cancel/i.test(event) ? "CANCELLED" : "COMPLETE");
+
+        await SettlePartnerPayoutBatchService({
+          batchId,
+          status: transferStatus,
+          txId: data.id || data.pix?.id || data.transaction?.id,
+          receiptUrl: data.receiptUrl || data.pix?.receiptUrl,
+          failReason: `webhook ${event}`
+        });
+      }
+
+      return res.json({ ok: true });
+    }
+
     const status: string =
       data.status || data.billing?.status || data.checkout?.status || "";
 
@@ -641,4 +677,106 @@ export const abacateSimulatePayment = async (
   }
 
   return abacateCheckStatus(invoice);
+};
+
+// ---------------------------------------------------------------------------
+// Transferências PIX para terceiros (repasse de parceiros)
+// ---------------------------------------------------------------------------
+
+export type PixKeyType =
+  | "CPF"
+  | "CNPJ"
+  | "PHONE"
+  | "EMAIL"
+  | "RANDOM"
+  | "BR_CODE";
+
+export const PIX_KEY_TYPES: PixKeyType[] = [
+  "CPF",
+  "CNPJ",
+  "PHONE",
+  "EMAIL",
+  "RANDOM",
+  "BR_CODE"
+];
+
+// Valor mínimo aceito pela API em uma transferência.
+export const PIX_MIN_AMOUNT = 1.0;
+
+export interface PixTransaction {
+  id: string;
+  // PENDING | EXPIRED | CANCELLED | COMPLETE | REFUNDED
+  status: string;
+  devMode: boolean;
+  receiptUrl: string;
+  // em centavos
+  amount: number;
+  platformFee: number;
+  externalId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface SendPixParams {
+  amount: number;
+  externalId: string;
+  description?: string;
+  pixKey: string;
+  pixKeyType: string;
+}
+
+/**
+ * Envia um PIX para terceiro.
+ *
+ * Usa `POST /pix/send` — e **não** `/payouts/create`, que só saca para chave
+ * de titularidade da própria conta. A chave vai aninhada em `pix: { key, type }`
+ * porque o schema declara `additionalProperties: false`; o exemplo em prosa da
+ * documentação, com `pixKey`/`pixKeyType` no topo, seria rejeitado.
+ *
+ * `externalId` é a chave de idempotência do nosso lado: permite reconciliar
+ * pelo lote mesmo se a resposta se perder.
+ */
+export const abacateSendPix = async ({
+  amount,
+  externalId,
+  description,
+  pixKey,
+  pixKeyType
+}: SendPixParams): Promise<PixTransaction> => {
+  const client = await abacateClient();
+
+  const body: Record<string, any> = {
+    amount: toCents(amount),
+    externalId,
+    pix: { key: pixKey, type: pixKeyType }
+  };
+
+  if (description) {
+    body.description = description;
+  }
+
+  const response = await client.post("/pix/send", body);
+  return unwrap(response.data) as PixTransaction;
+};
+
+/**
+ * Consulta uma transferência por id ou pelo nosso externalId. Retorna null
+ * quando a AbacatePay não conhece a transação (404) — o chamador decide se
+ * isso significa "nunca saiu" ou "ainda propagando".
+ */
+export const abacateGetPix = async (params: {
+  id?: string;
+  externalId?: string;
+}): Promise<PixTransaction | null> => {
+  const client = await abacateClient();
+
+  try {
+    const response = await client.get("/pix/get", { params });
+    return unwrap(response.data) as PixTransaction;
+  } catch (error) {
+    if (error?.response?.status === 404) {
+      return null;
+    }
+    throw error;
+  }
 };
