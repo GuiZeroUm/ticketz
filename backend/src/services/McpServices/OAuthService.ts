@@ -401,7 +401,10 @@ export const rotateRefreshToken = async (input: {
       where: { tokenHash: sha256(input.refreshToken || "") },
       include: [{ model: OAuthGrant, include: [OAuthClient] }],
       transaction,
-      lock: transaction.LOCK.UPDATE
+      // O include gera LEFT OUTER JOIN e o Postgres recusa FOR UPDATE sobre o
+      // lado nulável de um outer join. A trava precisa ser só da linha do
+      // refresh token, que é o que serializa a detecção de reuso.
+      lock: { level: transaction.LOCK.UPDATE, of: OAuthRefreshToken }
     });
     if (!current) throw new AppError("invalid_grant", 400);
     if (current.usedAt || current.revokedAt) {
