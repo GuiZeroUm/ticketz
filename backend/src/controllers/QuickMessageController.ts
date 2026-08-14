@@ -99,6 +99,7 @@ export const update = async (
 
   const record = await UpdateService({
     ...data,
+    companyId,
     userId: Number.parseInt(req.user.id, 10),
     id: Number.parseInt(id, 10)
   });

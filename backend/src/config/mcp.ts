@@ -40,7 +40,12 @@ const mcpConfig = {
   publicKey,
   keyId: process.env.MCP_KEY_ID || "ticketz-mcp-1",
   publicJwk,
-  scopes: ["conversations:read", "reports:read"],
+  scopes: [
+    "conversations:read",
+    "reports:read",
+    "quick_messages:read",
+    "quick_messages:write"
+  ],
   timezone: process.env.MCP_TIMEZONE || "America/Rio_Branco",
   frontendUrl: normalizeBaseUrl(
     process.env.FRONTEND_URL ||

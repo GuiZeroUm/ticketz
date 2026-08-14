@@ -66,9 +66,9 @@ Use a URL exibida em **Administração → ChatGPT** para criar uma integração
 
 ## Dados expostos ao ChatGPT
 
-As ferramentas continuam somente de leitura e usam os dois escopos já
-concedidos (`conversations:read` e `reports:read`), portanto conexões existentes
-não precisam ser revogadas nem reconectadas:
+As ferramentas de leitura continuam nos dois escopos já concedidos
+(`conversations:read` e `reports:read`). As respostas rápidas estreiam a escrita
+em dois escopos novos, `quick_messages:read` e `quick_messages:write`:
 
 | Ferramenta | Escopo | Conteúdo |
 | --- | --- | --- |
@@ -79,11 +79,45 @@ não precisam ser revogadas nem reconectadas:
 | `list_contacts` | `conversations:read` | Diretório de contatos com apelido, aniversário (dia/mês), idioma, tags e campos personalizados |
 | `list_schedules` | `conversations:read` | Agendamentos únicos, de aniversário e de data comemorativa, com público, próxima ocorrência, modelo de mensagem e contadores de entrega |
 | `read_conversation` / `read_conversations` | `conversations:read` | Texto das mensagens, notas internas e dados do contato |
+| `list_quick_messages` | `quick_messages:read` | Respostas rápidas visíveis ao usuário conectado, com atalho, texto e dono |
+| `create_quick_message` | `quick_messages:write` | **Escrita.** Cria uma resposta rápida em nome do usuário conectado |
+| `update_quick_message` | `quick_messages:write` | **Escrita.** Edita o atalho e/ou o texto de uma resposta rápida existente |
 
 O aniversário do contato guarda apenas dia e mês, então as respostas nunca
 permitem inferir idade ou ano. A auditoria não registra o texto livre dos
-filtros `contact` e `search`, mantendo nome, telefone e e-mail fora dos
-registros.
+filtros `contact` e `search` nem o campo `message` das respostas rápidas,
+mantendo nome, telefone, e-mail e conteúdo fora dos registros.
+
+## Escrita de respostas rápidas
+
+Uma resposta rápida é um modelo de texto que o atendente dispara depois pelo
+atalho `/` no chat: criá-la **não envia mensagem para ninguém**. Não existe
+ferramenta de exclusão — remover continua sendo ação do usuário na tela.
+
+Limites da escrita, todos herdados do que já valia na interface:
+
+- só administradores conectam o ChatGPT (`validateAccessToken` exige
+  `profile === "admin"`), então só administradores escrevem;
+- a escrita alcança exatamente o que `list_quick_messages` enxerga, que é o
+  mesmo `FindService` da tela — com a configuração `quickMessages` em
+  `individual` (padrão), apenas as respostas do próprio usuário;
+- `update_quick_message` preserva o dono original do registro;
+- atalho é normalizado (sem a `/` inicial), não aceita espaços e não pode
+  repetir um atalho já visível, porque a tabela não tem índice único;
+- o registro nasce com `companyId` e `userId` vindos do grant, nunca do payload.
+
+### Reconexão obrigatória
+
+Escopo novo não é concedido retroativamente: os grants existentes guardam
+apenas os escopos aprovados na hora do consentimento. Uma conexão criada antes
+desta versão continua funcionando normalmente para leitura e **não precisa ser
+revogada**, mas as três ferramentas de resposta rápida nem sequer aparecem no
+`tools/list` dela — o registro é filtrado pelos escopos do grant, para não
+oferecer ao modelo uma ferramenta que sempre falharia.
+
+Para liberar a escrita, reautorize o conector em **ChatGPT → Configurações →
+Conectores → Espaço Whats**, refazendo o login (slug do tenant, e-mail e senha)
+na tela de consentimento. Nenhuma variável de ambiente muda nesta versão.
 
 ## Retenção de auditoria
 

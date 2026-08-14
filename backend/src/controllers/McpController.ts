@@ -2,7 +2,10 @@ import { NextFunction, Request, Response } from "express";
 import mcpConfig from "../config/mcp";
 import AppError from "../errors/AppError";
 import { validateAccessToken } from "../services/McpServices/OAuthService";
-import { handleMcpRequest } from "../services/McpServices/McpServerService";
+import {
+  TOOL_SCOPES,
+  handleMcpRequest
+} from "../services/McpServices/McpServerService";
 
 export const authenticate = async (
   req: Request,
@@ -19,12 +22,10 @@ export const authenticate = async (
   try {
     req.mcpAuth = await validateAccessToken(authorization.slice(7));
     const tool = req.body?.params?.name;
+    // Mesmo mapa que o registro das ferramentas usa, para o middleware nunca
+    // liberar uma chamada que o handler recusaria (ou vice-versa).
     const requiredScope =
-      tool === "get_conversation_stats" || tool === "get_attendant_metrics"
-        ? "reports:read"
-        : typeof tool === "string"
-          ? "conversations:read"
-          : undefined;
+      typeof tool === "string" ? TOOL_SCOPES[tool] : undefined;
     if (requiredScope && !req.mcpAuth.scopes.includes(requiredScope)) {
       res.setHeader(
         "WWW-Authenticate",

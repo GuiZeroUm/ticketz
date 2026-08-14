@@ -10,6 +10,7 @@ import Tag from "../../models/Tag";
 import User from "../../models/User";
 import AppError from "../../errors/AppError";
 import { BUILT_IN_SCHEDULE_VARIABLES } from "../ScheduleServices/variables";
+import { QUICK_MESSAGE_LIMITS } from "./McpQuickMessageService";
 import { McpAuthContext } from "./OAuthService";
 
 type Filters = {
@@ -279,7 +280,9 @@ export const getTicketzContext = async (auth: McpAuthContext) => {
       messagesPerBatch: 500,
       responseBytes: 204800,
       listContacts: 200,
-      listSchedules: 100
+      listSchedules: 100,
+      quickMessageShortcodeLength: QUICK_MESSAGE_LIMITS.shortcodeMaxLength,
+      quickMessageLength: QUICK_MESSAGE_LIMITS.messageMaxLength
     },
     capabilities: {
       deterministicStats: true,
@@ -288,7 +291,13 @@ export const getTicketzContext = async (auth: McpAuthContext) => {
       contactBirthdays: true,
       scheduleReads: true,
       mediaFiles: false,
-      writeActions: false
+      // Respostas rápidas são o único registro gravável: são modelos de texto
+      // que um atendente dispara depois, então criá-las não envia mensagem.
+      writeActions: true,
+      quickMessageWrites: true,
+      sendMessages: false,
+      scheduleWrites: false,
+      contactWrites: false
     },
     scopes: auth.scopes
   };
