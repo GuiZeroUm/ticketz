@@ -43,7 +43,7 @@ const useStyles = makeStyles(theme => ({
 function AnnouncementDialog({ announcement, open, handleClose }) {
   const classes = useStyles();
   const getMediaPath = filename => {
-    return `${getBackendURL()}}/public/${filename}`;
+    return `${getBackendURL()}/public/${filename}`;
   };
   return (
     <Dialog
@@ -164,27 +164,25 @@ export default function AnnouncementsPopover() {
     const companyId = localStorage.getItem("companyId");
     const socket = socketManager.GetSocket(companyId);
 
-    const onCompanyAnnouncement = data => {
-      if (data.action === "update" || data.action === "create") {
-        dispatch({ type: "UPDATE_ANNOUNCEMENTS", payload: data.record });
-        setInvisible(false);
-      }
-      if (data.action === "delete") {
-        dispatch({ type: "DELETE_ANNOUNCEMENT", payload: +data.id });
-      }
+    const onCompanyAnnouncement = () => {
+      dispatch({ type: "RESET" });
+      setPageNumber(1);
+      setInvisible(false);
+      fetchAnnouncements();
     };
 
     socket.on(`company-announcement`, onCompanyAnnouncement);
 
     return () => {
-      socket.disconnect();
+      socket.off(`company-announcement`, onCompanyAnnouncement);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socketManager]);
 
   const fetchAnnouncements = async () => {
     try {
-      const { data } = await api.get("/announcements/", {
-        params: { searchParam, pageNumber }
+      const { data } = await api.get("/announcements/feed", {
+        params: { pageNumber }
       });
       dispatch({ type: "LOAD_ANNOUNCEMENTS", payload: data.records });
       setHasMore(data.hasMore);

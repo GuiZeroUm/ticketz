@@ -7,6 +7,7 @@ import { messages as germanMessages } from "./de";
 import { messages as italianMessages } from "./it";
 import { messages as indonesianMessages } from "./id";
 import { schedulingMessages } from "./scheduling";
+import { announcementsMessages } from "./announcements";
 
 const mergeTranslations = (base, extra) => {
   const result = { ...base };
@@ -30,11 +31,13 @@ const messages = {
   ...indonesianMessages
 };
 
-Object.entries(schedulingMessages).forEach(([language, extra]) => {
-  messages[language].translations = mergeTranslations(
-    messages[language].translations,
-    extra
-  );
+[schedulingMessages, announcementsMessages].forEach(overlay => {
+  Object.entries(overlay).forEach(([language, extra]) => {
+    messages[language].translations = mergeTranslations(
+      messages[language].translations,
+      extra
+    );
+  });
 });
 
 export { messages };

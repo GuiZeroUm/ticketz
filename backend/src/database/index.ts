@@ -31,6 +31,9 @@ import CampaignSetting from "../models/CampaignSetting";
 import BaileysContact from "../models/BaileysContact";
 import CampaignShipping from "../models/CampaignShipping";
 import Announcement from "../models/Announcement";
+import AnnouncementUser from "../models/AnnouncementUser";
+import AnnouncementQueue from "../models/AnnouncementQueue";
+import AnnouncementWhatsapp from "../models/AnnouncementWhatsapp";
 import Chat from "../models/Chat";
 import ChatUser from "../models/ChatUser";
 import ChatMessage from "../models/ChatMessage";
@@ -91,6 +94,9 @@ const models = [
   BaileysKeys,
   CampaignShipping,
   Announcement,
+  AnnouncementUser,
+  AnnouncementQueue,
+  AnnouncementWhatsapp,
   Chat,
   ChatUser,
   ChatMessage,

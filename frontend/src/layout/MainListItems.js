@@ -416,13 +416,11 @@ const MainListItems = props => {
                 </Collapse>
               </>
             )}
-            {user.super && (
-              <ListItemLink
-                to="/announcements"
-                primary={i18n.t("mainDrawer.listItems.annoucements")}
-                icon={<AnnouncementIcon />}
-              />
-            )}
+            <ListItemLink
+              to="/announcements"
+              primary={i18n.t("mainDrawer.listItems.annoucements")}
+              icon={<AnnouncementIcon />}
+            />
             <ListItemLink
               to="/connections"
               primary={i18n.t("mainDrawer.listItems.connections")}
