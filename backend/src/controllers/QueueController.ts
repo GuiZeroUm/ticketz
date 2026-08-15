@@ -5,6 +5,7 @@ import DeleteQueueService from "../services/QueueService/DeleteQueueService";
 import ListQueuesService from "../services/QueueService/ListQueuesService";
 import ShowQueueService from "../services/QueueService/ShowQueueService";
 import UpdateQueueService from "../services/QueueService/UpdateQueueService";
+import ReorderQueuesService from "../services/QueueService/ReorderQueuesService";
 import { isNil, head } from "lodash";
 import Queue from "../models/Queue";
 import fs from "fs";
@@ -78,6 +79,24 @@ export const update = async (
   });
 
   return res.status(201).json(queue);
+};
+
+export const reorder = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { companyId } = req.user;
+  const { items } = req.body;
+
+  const queues = await ReorderQueuesService({ companyId, items });
+
+  const io = getIO();
+  io.emit(`company-${companyId}-queue`, {
+    action: "reorder",
+    queues
+  });
+
+  return res.status(200).json(queues);
 };
 
 export const remove = async (

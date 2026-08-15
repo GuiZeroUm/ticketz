@@ -24,7 +24,6 @@ import { Op } from "sequelize";
 import moment from "moment";
 import { Transform } from "stream";
 import { Throttle } from "stream-throttle";
-import { Sequelize } from "sequelize-typescript";
 import Contact from "../../models/Contact";
 import Ticket from "../../models/Ticket";
 import Message, { MessageErrorPayload } from "../../models/Message";
@@ -1188,11 +1187,11 @@ export const startQueue = async (
         {
           model: QueueOption,
           as: "options",
-          where: { parentId: null },
+          where: { parentId: null, isActive: true },
           required: false
         }
       ],
-      order: [["options", "option", "ASC"]]
+      order: [["options", "order", "ASC"]]
     });
   }
 
@@ -1421,10 +1420,10 @@ const handleChartbot = async (
       {
         model: QueueOption,
         as: "options",
-        where: { parentId: null }
+        where: { parentId: null, isActive: true }
       }
     ],
-    order: [["options", "option", "ASC"]]
+    order: [["options", "order", "ASC"]]
   });
 
   const messageBody = await getBodyMessage(msg?.message);
@@ -1448,18 +1447,19 @@ const handleChartbot = async (
     // escolheu uma opção
   } else if (!isNil(queue) && !isNil(ticket.queueOptionId)) {
     const count = await QueueOption.count({
-      where: { parentId: ticket.queueOptionId }
+      where: { parentId: ticket.queueOptionId, isActive: true }
     });
     let option: QueueOption = null;
     if (count === 1) {
       option = await QueueOption.findOne({
-        where: { parentId: ticket.queueOptionId }
+        where: { parentId: ticket.queueOptionId, isActive: true }
       });
     } else {
       option = await QueueOption.findOne({
         where: {
           option: messageBody || "",
-          parentId: ticket.queueOptionId
+          parentId: ticket.queueOptionId,
+          isActive: true
         }
       });
     }
@@ -1520,7 +1520,7 @@ const handleChartbot = async (
             {
               model: QueueOption,
               as: "options",
-              where: { parentId: null },
+              where: { parentId: null, isActive: true },
               required: false
             }
           ]
@@ -1528,18 +1528,15 @@ const handleChartbot = async (
         {
           model: QueueOption,
           as: "options",
+          where: { isActive: true },
           required: false
         }
       ],
+      // Ordena pela coluna "order" (posicao definida no arrastar e soltar).
+      // O cast do "option" para inteiro deixou de ser necessario.
       order: [
-        [
-          Sequelize.cast(
-            Sequelize.col("forwardQueue.options.option"),
-            "INTEGER"
-          ),
-          "ASC"
-        ],
-        [Sequelize.cast(Sequelize.col("options.option"), "INTEGER"), "ASC"]
+        ["forwardQueue", "options", "order", "ASC"],
+        ["options", "order", "ASC"]
       ]
     });
 

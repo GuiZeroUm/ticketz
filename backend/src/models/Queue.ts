@@ -55,6 +55,11 @@ class Queue extends Model {
   })
   schedules: OpenHoursData;
 
+  // Ordem da fila no menu inicial do chatbot.
+  @Default(0)
+  @Column
+  order: number;
+
   @CreatedAt
   createdAt: Date;
 

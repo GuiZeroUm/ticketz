@@ -13,6 +13,9 @@ queueRoutes.get("/queue", isAuth, QueueController.index);
 
 queueRoutes.post("/queue", isAuth, isAdmin, QueueController.store);
 
+// Antes de "/queue/:queueId" para o Express nao tratar "reorder" como id.
+queueRoutes.put("/queue/reorder", isAuth, isAdmin, QueueController.reorder);
+
 queueRoutes.get("/queue/:queueId", isAuth, QueueController.show);
 
 queueRoutes.put("/queue/:queueId", isAuth, isAdmin, QueueController.update);

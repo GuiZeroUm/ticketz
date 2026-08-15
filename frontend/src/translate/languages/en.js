@@ -325,8 +325,21 @@ const messages = {
           transferMessage: "Transfer Message",
           token: "Token"
         },
+        tabs: {
+          label: "Queue sections",
+          data: "Queue Data",
+          chatbot: "Chatbot",
+          chatbotHint: "Save the queue before building the chatbot",
+          schedules: "Business Hours"
+        },
         toasts: {
-          saved: "Queue saved successfully"
+          saved: "Queue saved successfully",
+          deleted: "Attachment removed successfully"
+        },
+        confirmationModal: {
+          deleteTitle: "Remove attachment",
+          deleteMessage:
+            "Are you sure you want to remove this queue's attachment? This action cannot be undone."
         },
         buttons: {
           okAdd: "Add",
@@ -824,6 +837,13 @@ const messages = {
       },
       queues: {
         title: "Queues & Chatbot",
+        dragHint:
+          "Drag queues by the handle to set the order they appear in the WhatsApp main menu.",
+        empty: "No queues created yet.",
+        noGreeting: "No greeting message",
+        optionsCountHint: "Options in the chatbot main menu",
+        moveHandle: "Move queue {{name}}",
+        moved: "{{name}} moved to position {{position}} of {{total}}",
         table: {
           name: "Name",
           color: "Color",
@@ -840,6 +860,62 @@ const messages = {
           deleteTitle: "Delete",
           deleteMessage:
             "Are you sure? This action cannot be undone! The tickets from this queue will still exist but will no longer be assigned to any queue."
+        }
+      },
+      chatbotFlow: {
+        title: "Automated journey",
+        subtitle: "This is how the customer sees the menu on WhatsApp",
+        activeCount: "{{active}}/{{total}} active",
+        path: "Chatbot path",
+        root: "Main menu",
+        footer:
+          "Drag by the handle to reorder. The key the customer types is always 1, 2, 3… among the active options — deactivating one renumbers the rest automatically.",
+        noTitle: "Untitled",
+        noMessage: "No message",
+        inactive: "Inactive — not shown in the menu",
+        exitsChatbot: "Ends the chatbot and calls an agent",
+        forwardsTo: "Forwards to {{queue}}",
+        activeKey: "The customer types {{key}}",
+        answers: "{{total}} answers",
+        createAnswers: "Create answers",
+        moveHandle: "Move option {{title}}",
+        activate: "Activate {{title}}",
+        deactivate: "Deactivate {{title}}",
+        moved: "{{title}} moved to position {{position}} of {{total}}",
+        emptyRoot:
+          "No options yet. Create the first one and it becomes item 1 of the menu.",
+        emptyBranch:
+          "No answers for this option yet. The customer only gets its message.",
+        addOption: "Add option",
+        addAnswer: "Add answer",
+        toasts: {
+          saved: "Option saved successfully",
+          deleted: "Option removed successfully"
+        },
+        confirmDelete: {
+          title: "Delete option",
+          message:
+            "Are you sure? The answers inside it will also be deleted, and the following options will be renumbered."
+        },
+        editor: {
+          addTitle: "New option",
+          editTitle: "Edit option",
+          title: "Title",
+          titleHelp:
+            "Shown next to the number in the menu sent to the customer.",
+          message: "Message",
+          messageHelp:
+            "Sent when the customer picks this option. Leave blank to send only the following answers.",
+          attach: "Attach file",
+          removeAttachment: "Remove attachment",
+          exitChatbot: "End the chatbot and call an agent",
+          forwardQueue: "Forward to another queue",
+          noForwardQueue: "Do not forward",
+          forwardQueueHelp:
+            "When this option is picked, the ticket moves to the selected queue and its menu is sent.",
+          delete: "Delete",
+          cancel: "Cancel",
+          save: "Save"
         }
       },
       queueSelect: {

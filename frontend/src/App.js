@@ -173,7 +173,33 @@ const App = () => {
             barraSuperior: mode === "light" ? primaryColorLight : "#666",
             boxticket: mode === "light" ? "#EEE" : "#666",
             campaigntab: mode === "light" ? "#ededed" : "#666",
-            ticketzproad: { main: "#39ACE7", contrastText: "white" }
+            ticketzproad: { main: "#39ACE7", contrastText: "white" },
+            // Paleta do editor de chatbot, que simula uma conversa do WhatsApp.
+            whatsapp: {
+              canvas: mode === "light" ? "#efeae2" : "#0b141a",
+              toolbar: mode === "light" ? "#f0f2f5" : "#202c33",
+              bubble: mode === "light" ? "#d9fdd3" : "#005c4b",
+              bubbleMuted: mode === "light" ? "#ffffff" : "#202c33",
+              ink: mode === "light" ? "#111b21" : "#e9edef",
+              copy: mode === "light" ? "#3b4a54" : "#d1d7db",
+              muted: mode === "light" ? "#667781" : "#8696a0",
+              line:
+                mode === "light"
+                  ? "rgba(17,27,33,.1)"
+                  : "rgba(233,237,239,.12)",
+              hover:
+                mode === "light"
+                  ? "rgba(17,27,33,.06)"
+                  : "rgba(233,237,239,.08)",
+              badge: mode === "light" ? "#e1f5df" : "#025144",
+              status: mode === "light" ? "#008069" : "#00a884",
+              switch: "#00a884",
+              focus: mode === "light" ? "#0b84ff" : "#53bdeb",
+              background:
+                mode === "light"
+                  ? "/whatsapp/chat-background.png"
+                  : "/whatsapp/chat-background-dark.png"
+            }
           },
           overrides: themeOverrides,
           mode,

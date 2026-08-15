@@ -24,6 +24,15 @@ queueOptionRoutes.post(
   QueueOptionController.store
 );
 
+// Precisa vir antes de "/queue-options/:queueOptionId", senao o Express
+// interpreta "reorder" como um id.
+queueOptionRoutes.put(
+  "/queue-options/reorder",
+  isAuth,
+  isAdmin,
+  QueueOptionController.reorder
+);
+
 queueOptionRoutes.get(
   "/queue-options/:queueOptionId",
   isAuth,

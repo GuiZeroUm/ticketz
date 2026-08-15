@@ -1,5 +1,4 @@
 import { FindOptions } from "sequelize/types";
-import { Sequelize } from "sequelize-typescript";
 import Whatsapp from "../../models/Whatsapp";
 import Queue from "../../models/Queue";
 import QueueOption from "../../models/QueueOption";
@@ -25,14 +24,15 @@ const ShowWhatsAppService = async (
           "greetingMessage",
           "outOfHoursMessage",
           "mediaPath",
-          "mediaName"
+          "mediaName",
+          "order"
         ],
         include: [
           {
             model: QueueOption,
             as: "options",
             required: false,
-            where: { parentId: null }
+            where: { parentId: null, isActive: true }
           }
         ]
       },
@@ -42,9 +42,12 @@ const ShowWhatsAppService = async (
         attributes: ["id", "name", "language"]
       }
     ],
+    // A ordem do menu vem das colunas "order" (arrastar e soltar no admin).
+    // Antes era o nome da fila e um cast do campo "option" para inteiro.
     order: [
+      ["queues", "order", "ASC"],
       ["queues", "name", "ASC"],
-      [Sequelize.cast(Sequelize.col("queues.options.option"), "INTEGER"), "ASC"]
+      ["queues", "options", "order", "ASC"]
     ]
   };
 

@@ -5,6 +5,7 @@ import ListService from "../services/QueueOptionService/ListService";
 import UpdateService from "../services/QueueOptionService/UpdateService";
 import ShowService from "../services/QueueOptionService/ShowService";
 import DeleteService from "../services/QueueOptionService/DeleteService";
+import ReorderService from "../services/QueueOptionService/ReorderService";
 
 import { head } from "lodash";
 import fs from "fs";
@@ -62,6 +63,18 @@ export const update = async (
   const queueOption = await UpdateService(queueOptionId, queueOptionData);
 
   return res.status(200).json(queueOption);
+};
+
+export const reorder = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { companyId } = req.user;
+  const { items } = req.body;
+
+  const queueOptions = await ReorderService({ companyId: +companyId, items });
+
+  return res.status(200).json(queueOptions);
 };
 
 export const remove = async (

@@ -919,8 +919,21 @@ const messages = {
           transferMessage: "Mensagem de Transferência",
           token: "Token"
         },
+        tabs: {
+          label: "Seções da fila",
+          data: "Dados da Fila",
+          chatbot: "Chatbot",
+          chatbotHint: "Salve a fila antes de montar o chatbot",
+          schedules: "Horários de Atendimento"
+        },
         toasts: {
-          saved: "Fila salva com sucesso"
+          saved: "Fila salva com sucesso",
+          deleted: "Anexo removido com sucesso"
+        },
+        confirmationModal: {
+          deleteTitle: "Remover anexo",
+          deleteMessage:
+            "Tem certeza que deseja remover o anexo desta fila? Essa ação não pode ser desfeita."
         },
         buttons: {
           okAdd: "Adicionar",
@@ -1416,6 +1429,13 @@ const messages = {
       },
       queues: {
         title: "Filas & Chatbot",
+        dragHint:
+          "Arraste as filas pela alça para definir a ordem em que aparecem no menu inicial do WhatsApp.",
+        empty: "Nenhuma fila criada ainda.",
+        noGreeting: "Sem mensagem de saudação",
+        optionsCountHint: "Opções no menu inicial do chatbot",
+        moveHandle: "Mover a fila {{name}}",
+        moved: "{{name}} movida para a posição {{position}} de {{total}}",
         table: {
           name: "Nome",
           color: "Cor",
@@ -1432,6 +1452,61 @@ const messages = {
           deleteTitle: "Excluir",
           deleteMessage:
             "Você tem certeza? Essa ação não pode ser revertida! Os atendimentos dessa fila continuarão existindo, mas não terão mais nenhuma fila atribuída."
+        }
+      },
+      chatbotFlow: {
+        title: "Jornada automática",
+        subtitle: "É assim que o cliente vê o menu no WhatsApp",
+        activeCount: "{{active}}/{{total}} ativas",
+        path: "Caminho no chatbot",
+        root: "Menu principal",
+        footer:
+          "Arraste pela alça para reordenar. A tecla que o cliente digita é sempre 1, 2, 3… entre as opções ativas — desativar uma opção renumera as demais automaticamente.",
+        noTitle: "Sem título",
+        noMessage: "Sem mensagem",
+        inactive: "Desativada — não aparece no menu",
+        exitsChatbot: "Encerra o chatbot e chama um atendente",
+        forwardsTo: "Transfere para {{queue}}",
+        activeKey: "O cliente digita {{key}}",
+        answers: "{{total}} respostas",
+        createAnswers: "Criar respostas",
+        moveHandle: "Mover a opção {{title}}",
+        activate: "Ativar {{title}}",
+        deactivate: "Desativar {{title}}",
+        moved: "{{title}} movida para a posição {{position}} de {{total}}",
+        emptyRoot:
+          "Nenhuma opção ainda. Crie a primeira e ela virará o item 1 do menu.",
+        emptyBranch:
+          "Nenhuma resposta ainda para esta opção. O cliente recebe só a mensagem dela.",
+        addOption: "Adicionar opção",
+        addAnswer: "Adicionar resposta",
+        toasts: {
+          saved: "Opção salva com sucesso",
+          deleted: "Opção removida com sucesso"
+        },
+        confirmDelete: {
+          title: "Excluir opção",
+          message:
+            "Tem certeza? As respostas dentro dela também serão excluídas, e as opções seguintes serão renumeradas."
+        },
+        editor: {
+          addTitle: "Nova opção",
+          editTitle: "Editar opção",
+          title: "Título",
+          titleHelp: "Aparece ao lado do número no menu enviado ao cliente.",
+          message: "Mensagem",
+          messageHelp:
+            "Enviada quando o cliente escolhe esta opção. Deixe em branco para enviar só as respostas seguintes.",
+          attach: "Anexar arquivo",
+          removeAttachment: "Remover anexo",
+          exitChatbot: "Encerrar o chatbot e chamar um atendente",
+          forwardQueue: "Transferir para outra fila",
+          noForwardQueue: "Não transferir",
+          forwardQueueHelp:
+            "Ao escolher esta opção, o atendimento passa para a fila selecionada e o menu dela é enviado.",
+          delete: "Excluir",
+          cancel: "Cancelar",
+          save: "Salvar"
         }
       },
       queueSelect: {

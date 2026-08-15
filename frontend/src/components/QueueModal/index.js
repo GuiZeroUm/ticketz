@@ -29,7 +29,7 @@ import {
   Tabs
 } from "@material-ui/core";
 import { AttachFile, Colorize, DeleteOutline } from "@material-ui/icons";
-import { QueueOptions } from "../QueueOptions";
+import ChatbotFlow from "../ChatbotFlow";
 import SchedulesForm from "../SchedulesForm";
 import OpenHoursEditor from "../../components/OpenHoursEditor";
 import ConfirmationModal from "../ConfirmationModal";
@@ -144,6 +144,9 @@ const QueueModal = ({ open, onClose, queueId }) => {
   const handleClose = () => {
     onClose();
     setQueue(initialState);
+    // O diálogo não desmonta entre aberturas: sem isto, abrir "nova fila"
+    // depois de editar o chatbot cairia numa aba desabilitada e vazia.
+    setTab(0);
   };
 
   const handleAttachmentFile = e => {
@@ -168,20 +171,21 @@ const QueueModal = ({ open, onClose, queueId }) => {
 
   const handleSaveQueue = async values => {
     try {
+      let savedId = queueId;
+
       if (queueId) {
         await api.put(`/queue/${queueId}`, { ...values, schedules });
-        if (attachment != null) {
-          const formData = new FormData();
-          formData.append("file", attachment);
-          await api.post(`/queue/${queueId}/media-upload`, formData);
-        }
       } else {
-        await api.post("/queue", { ...values, schedules });
-        if (attachment != null) {
-          const formData = new FormData();
-          formData.append("file", attachment);
-          await api.post(`/queue/${queueId}/media-upload`, formData);
-        }
+        // O id só existe depois do POST: usar "queueId" aqui perdia o anexo
+        // silenciosamente ao criar uma fila.
+        const { data } = await api.post("/queue", { ...values, schedules });
+        savedId = data.id;
+      }
+
+      if (attachment != null) {
+        const formData = new FormData();
+        formData.append("file", attachment);
+        await api.post(`/queue/${savedId}/media-upload`, formData);
       }
       toast.success(i18n.t("queueModal.toasts.saved"));
       handleClose();
@@ -230,10 +234,17 @@ const QueueModal = ({ open, onClose, queueId }) => {
           indicatorColor="primary"
           textColor="primary"
           onChange={(_, v) => setTab(v)}
-          aria-label="disabled tabs example"
+          aria-label={i18n.t("queueModal.tabs.label")}
         >
-          <Tab label="Dados da Fila" />
-          {schedulesEnabled && <Tab label="Horários de Atendimento" />}
+          <Tab label={i18n.t("queueModal.tabs.data")} />
+          <Tab
+            label={i18n.t("queueModal.tabs.chatbot")}
+            disabled={!queueId}
+            title={queueId ? undefined : i18n.t("queueModal.tabs.chatbotHint")}
+          />
+          {schedulesEnabled && (
+            <Tab label={i18n.t("queueModal.tabs.schedules")} />
+          )}
         </Tabs>
         {tab === 0 && (
           <Paper>
@@ -298,6 +309,7 @@ const QueueModal = ({ open, onClose, queueId }) => {
                     />
                     <ColorPicker
                       open={colorPickerModalOpen}
+                      currentColor={values.color}
                       handleClose={() => setColorPickerModalOpen(false)}
                       onChange={color => {
                         values.color = color;
@@ -351,7 +363,6 @@ const QueueModal = ({ open, onClose, queueId }) => {
                         />
                       )}
                     </div>
-                    <QueueOptions queueId={queueId} />
                     {(queue.mediaPath || attachment) && (
                       <Grid xs={12} item>
                         <Button startIcon={<AttachFile />}>
@@ -413,6 +424,14 @@ const QueueModal = ({ open, onClose, queueId }) => {
           </Paper>
         )}
         {tab === 1 && (
+          <Paper style={{ padding: 20 }}>
+            <ChatbotFlow
+              queueId={queueId}
+              greetingMessage={queue.greetingMessage}
+            />
+          </Paper>
+        )}
+        {tab === 2 && (
           <Paper style={{ padding: 20 }}>
             {isOpenHoursFormat(schedules) ? (
               <>

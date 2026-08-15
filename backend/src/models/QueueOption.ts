@@ -11,6 +11,7 @@ import {
   AllowNull,
   HasMany,
   DataType,
+  Default,
   AfterFind
 } from "sequelize-typescript";
 import { FindOptions, QueryTypes } from "sequelize";
@@ -55,9 +56,21 @@ class QueueOption extends Model<QueueOption> {
   @Column
   message: string;
 
+  // Tecla que o cliente digita no WhatsApp. E derivada: o backend recalcula
+  // como 1..N entre os irmaos ativos (RenumberSiblingsService). Inativas ficam
+  // com null. Nunca deve ser escrita diretamente pelo frontend.
   @AllowNull
   @Column
   option: string;
+
+  // Posicao entre os irmaos (0..N-1). Fonte da verdade da ordem.
+  @Default(0)
+  @Column
+  order: number;
+
+  @Default(true)
+  @Column
+  isActive: boolean;
 
   @ForeignKey(() => Queue)
   @Column
