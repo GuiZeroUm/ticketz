@@ -14,12 +14,7 @@ WORKDIR /usr/share/nginx/html
 COPY --from=build-deps /usr/src/app/build /var/www/public
 COPY --from=build-deps /usr/src/app/node_modules/@socket.io/admin-ui/ui/dist /var/www/public/socket-admin
 COPY nginx /etc/nginx
+COPY docker-entrypoint.sh /usr/local/bin/ticketz-entrypoint.sh
+RUN chmod +x /usr/local/bin/ticketz-entrypoint.sh
 
-CMD (echo "{" && while IFS='=' read -r name value; do \
-        printf '\t"%s": "%s"\n' "$name" "$value"; \
-    done < <(env) | sed '$!s/$/,/' && echo "}")  > /var/www/public/config.json \
-    ; RESOLVERS="$(awk '/^nameserver/{ ip=$2; if (index(ip, ":")) printf "[%s] ", ip; else printf "%s ", ip }' /etc/resolv.conf)" \
-    ; [ -n "$RESOLVERS" ] || RESOLVERS="127.0.0.11" \
-    ; BACKEND_UPSTREAM="${BACKEND_SERVICE:-backend}:3000" \
-    ; printf 'resolver %s valid=10s ipv6=on;\nmap $host $backend_upstream {\n    default "%s";\n}\n' "$RESOLVERS" "$BACKEND_UPSTREAM" > /etc/nginx/conf.d/00-upstream.conf \
-    ; nginx -g "daemon off;"
+CMD ["/usr/local/bin/ticketz-entrypoint.sh"]
