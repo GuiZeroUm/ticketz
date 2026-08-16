@@ -5,6 +5,7 @@ import AppError from "../../errors/AppError";
 interface Request {
   groupId: string | number;
   audience: string;
+  companyId?: number;
 }
 
 export interface PublicHelpGroupDetail {
@@ -12,6 +13,7 @@ export interface PublicHelpGroupDetail {
   title: string;
   subtitle: string;
   icon: string;
+  isGlobal: boolean;
   videos: Help[];
   articles: Help[];
 }
@@ -19,16 +21,24 @@ export interface PublicHelpGroupDetail {
 /**
  * Conteudo de um card para o cliente ou para o parceiro.
  *
- * Um grupo de outro publico responde 404: e a fronteira que impede um cliente
- * de ler material de parceiro chutando o id na URL.
+ * Fronteira de leitura: um grupo de outro publico ou de outra empresa responde
+ * 404, e o que impede um usuario de ler material de parceiro ou do tenant
+ * vizinho chutando o id na URL.
  */
 const ShowPublicService = async ({
   groupId,
-  audience
+  audience,
+  companyId
 }: Request): Promise<PublicHelpGroupDetail> => {
   const group = await HelpGroup.findByPk(groupId);
 
-  if (!group || !group.isActive || group.audience !== audience) {
+  const visible =
+    group &&
+    group.isActive &&
+    group.audience === audience &&
+    (group.isGlobal || group.companyId === companyId);
+
+  if (!visible) {
     throw new AppError("ERR_NO_HELP_GROUP_FOUND", 404);
   }
 
@@ -45,6 +55,7 @@ const ShowPublicService = async ({
     title: group.title,
     subtitle: group.subtitle,
     icon: group.icon,
+    isGlobal: group.isGlobal,
     videos: contents.filter(content => content.type !== "article"),
     articles: contents.filter(content => content.type === "article")
   };

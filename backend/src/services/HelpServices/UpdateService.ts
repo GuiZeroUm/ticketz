@@ -8,8 +8,8 @@ interface Data {
   title?: string;
   description?: string;
   type?: string;
-  video?: string;
-  content?: string;
+  video?: string | null;
+  content?: string | null;
   duration?: string;
   link?: string;
   isActive?: boolean;

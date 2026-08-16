@@ -8,6 +8,7 @@ export interface PublicHelpGroup {
   subtitle: string;
   icon: string;
   order: number;
+  isGlobal: boolean;
   articleCount: number;
   videoCount: number;
 }
@@ -17,13 +18,24 @@ export interface PublicHelpGroup {
  *
  * Traz so os grupos ativos do publico pedido, com a contagem de conteudos
  * ativos que alimenta o "8 artigos - 3 videos" do card.
+ *
+ * O tenant enxerga o material da plataforma mais o da propria empresa; o portal
+ * do parceiro autentica por um JWT sem companyId, entao so ve os globais.
  */
 const FindPublicService = async (
-  audience: string
+  audience: string,
+  companyId?: number
 ): Promise<PublicHelpGroup[]> => {
   const groups = await HelpGroup.findAll({
-    where: { audience, isActive: true },
+    where: {
+      audience,
+      isActive: true,
+      ...(companyId
+        ? { [Op.or]: [{ isGlobal: true }, { companyId }] }
+        : { isGlobal: true })
+    },
     order: [
+      ["isGlobal", "DESC"],
       ["order", "ASC"],
       ["id", "ASC"]
     ]
@@ -66,6 +78,7 @@ const FindPublicService = async (
       subtitle: group.subtitle,
       icon: group.icon,
       order: group.order,
+      isGlobal: group.isGlobal,
       articleCount: entry.article,
       videoCount: entry.video
     };

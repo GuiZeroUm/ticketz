@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useContext, useEffect, useState } from "react";
 import { useHistory, useParams } from "react-router-dom";
 
 import { makeStyles, Paper } from "@material-ui/core";
@@ -13,6 +13,7 @@ import ArticleView from "../../components/HelpCenter/ArticleView";
 import { i18n } from "../../translate/i18n";
 import useHelpGroups from "../../hooks/useHelpGroups";
 import toastError from "../../errors/toastError";
+import { AuthContext } from "../../context/Auth/AuthContext";
 
 const useStyles = makeStyles(theme => ({
   mainPaper: {
@@ -28,6 +29,7 @@ const Helps = () => {
   const history = useHistory();
   const { groupId, contentId } = useParams();
   const { listPublic, showPublic } = useHelpGroups();
+  const { user } = useContext(AuthContext);
 
   const [groups, setGroups] = useState([]);
   const [group, setGroup] = useState(null);
@@ -60,9 +62,42 @@ const Helps = () => {
       ? group.articles.find(item => String(item.id) === String(contentId))
       : null;
 
+  // Material da plataforma (feito pelo dono da aplicacao) e material da propria
+  // empresa vivem em secoes distintas: sao autores e assuntos diferentes.
+  const renderCategories = () => {
+    const platform = groups.filter(item => item.isGlobal);
+    const company = groups.filter(item => !item.isGlobal);
+
+    if (!groups.length) {
+      // Deixa o proprio grid dizer que nao ha nada, sem rotular secao vazia.
+      return <CategoryGrid groups={groups} onSelect={g => goToGroup(g.id)} />;
+    }
+
+    return (
+      <>
+        {platform.length ? (
+          <CategoryGrid
+            title={i18n.t("helps.sections.platform")}
+            groups={platform}
+            onSelect={g => goToGroup(g.id)}
+          />
+        ) : null}
+        {company.length ? (
+          <CategoryGrid
+            title={i18n.t("helps.sections.company", {
+              name: user?.company?.name || i18n.t("helps.sections.companyFallback")
+            })}
+            groups={company}
+            onSelect={g => goToGroup(g.id)}
+          />
+        ) : null}
+      </>
+    );
+  };
+
   const renderBody = () => {
     if (!groupId) {
-      return <CategoryGrid groups={groups} onSelect={g => goToGroup(g.id)} />;
+      return renderCategories();
     }
 
     if (!group) {

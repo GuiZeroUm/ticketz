@@ -1,12 +1,15 @@
 import * as Yup from "yup";
 import AppError from "../../errors/AppError";
 import HelpGroup from "../../models/HelpGroup";
+import { scopeWhere } from "./scope";
 
 interface Data {
   title: string;
   subtitle?: string;
   icon?: string;
   audience?: string;
+  companyId: number;
+  isGlobal?: boolean;
   isActive?: boolean;
 }
 
@@ -29,14 +32,20 @@ const CreateService = async (data: Data): Promise<HelpGroup> => {
 
   const audience = data.audience || "company";
 
-  // Entra no fim da lista do proprio publico.
+  // O portal do parceiro autentica sem companyId, entao material de parceiro
+  // nao tem empresa a que pertencer: e sempre da plataforma.
+  const isGlobal = audience === "partner" ? true : !!data.isGlobal;
+
+  // Entra no fim da lista do proprio balde (publico + escopo) — se a contagem
+  // fosse global, dois tenants brigariam pela mesma posicao.
   const maxOrder = (await HelpGroup.max("order", {
-    where: { audience }
+    where: scopeWhere({ audience, isGlobal, companyId: data.companyId })
   })) as number | null;
 
   const record = await HelpGroup.create({
     ...data,
     audience,
+    isGlobal,
     order: Number.isInteger(maxOrder) ? maxOrder + 1 : 0
   } as HelpGroup);
 

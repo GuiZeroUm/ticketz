@@ -1553,6 +1553,18 @@ const messages = {
           company: "Clientes",
           partner: "Parceiros"
         },
+        scope: {
+          platform: "Plataforma",
+          company: "Minha empresa"
+        },
+        sections: {
+          platform: "Ajuda da Plataforma",
+          company: "Ajuda da {{name}}",
+          companyFallback: "sua empresa"
+        },
+        player: {
+          title: "Vídeo"
+        },
         contentType: {
           video: "Vídeo",
           article: "Artigo"
@@ -1572,7 +1584,10 @@ const messages = {
           editTitle: "Editar card",
           title: "Título",
           subtitle: "Subtítulo",
-          audience: "Público"
+          audience: "Público",
+          isGlobal: "Publicar para todas as empresas",
+          isGlobalHelper:
+            "Material da plataforma: aparece na Central de Ajuda de todas as empresas."
         },
         contentModal: {
           addTitle: "Novo conteúdo",
@@ -1581,8 +1596,11 @@ const messages = {
           title: "Título",
           description: "Descrição",
           contentPlaceholder: "Escreva o artigo...",
-          video: "Código do vídeo",
-          videoHelper: "Somente o ID do YouTube, ex.: dQw4w9WgXcQ",
+          video: "Vídeo do YouTube",
+          videoHelper:
+            "Cole o link do YouTube ou apenas o ID, ex.: dQw4w9WgXcQ",
+          videoInvalid: "Não reconhecemos um vídeo do YouTube nesse valor.",
+          videoPreview: "Prévia da capa do vídeo",
           duration: "Duração",
           link: "Link",
           linkHelper: "Opcional. Usado quando o vídeo não está no YouTube."
@@ -2055,7 +2073,9 @@ const messages = {
         ERR_HELP_INVALID_NAME: "Título do conteúdo inválido.",
         ERR_HELP_INVALID_GROUP: "O card informado não existe.",
         ERR_HELP_GROUP_REQUIRED: "Escolha um card para o conteúdo.",
-        ERR_HELP_VIDEO_REQUIRED: "Informe o código do vídeo ou um link.",
+        ERR_HELP_VIDEO_REQUIRED: "Informe o vídeo do YouTube ou um link.",
+        ERR_HELP_INVALID_VIDEO:
+          "Link de vídeo inválido. Cole o endereço do YouTube ou o ID de 11 caracteres.",
         ERR_HELP_CONTENT_REQUIRED: "O artigo não pode ficar vazio.",
         ERR_NO_HELP_FOUND: "Conteúdo de ajuda não encontrado.",
         ERR_NO_HELP_GROUP_FOUND: "Card de ajuda não encontrado.",

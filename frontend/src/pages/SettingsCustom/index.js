@@ -194,7 +194,9 @@ const SettingsCustom = () => {
           {isSuper() ? (
             <Tab label={i18n.t("settings.Plans.title")} value={"plans"} />
           ) : null}
-          {isSuper() ? (
+          {/* Admin da empresa tambem publica ajuda, so que restrita aos
+              proprios colaboradores. */}
+          {isAdmin() ? (
             <Tab label={i18n.t("settings.Help.title")} value={"helps"} />
           ) : null}
           {isSuper() ? <Tab label="Parceiros" value={"partners"} /> : null}
@@ -273,6 +275,9 @@ const SettingsCustom = () => {
           >
             <Whitelabel settings={settings} />
           </TabPanel>
+          <TabPanel className={classes.container} value={tab} name={"helps"}>
+            <HelpsManager />
+          </TabPanel>
           <OnlyForSuperUser
             user={currentUser}
             yes={() => (
@@ -304,13 +309,6 @@ const SettingsCustom = () => {
                   name={"plans"}
                 >
                   <PlansManager />
-                </TabPanel>
-                <TabPanel
-                  className={classes.container}
-                  value={tab}
-                  name={"helps"}
-                >
-                  <HelpsManager />
                 </TabPanel>
                 <TabPanel
                   className={classes.container}

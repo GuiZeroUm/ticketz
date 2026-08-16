@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import {
   Box,
   Button,
@@ -19,6 +19,8 @@ import useSortableList from "../../hooks/useSortableList";
 import ConfirmationModal from "../ConfirmationModal";
 import { getIconComponent } from "../IconPicker/icons";
 import HelpGroupModal from "./HelpGroupModal";
+import { AuthContext } from "../../context/Auth/AuthContext";
+import { bucketKey, bucketsOf } from "./scope";
 
 const useStyles = makeStyles(theme => ({
   header: {
@@ -75,71 +77,76 @@ const move = (list, from, to) => {
   return next;
 };
 
-const AUDIENCES = ["company", "partner"];
-
-const AudienceList = ({ audience, groups, onEdit, onDelete, onReorder }) => {
+/**
+ * Uma secao por balde (publico + escopo). O balde da plataforma aparece para o
+ * admin da empresa, mas somente leitura: sem alca de arrastar e sem acoes.
+ */
+const BucketList = ({ bucket, onEdit, onDelete, onReorder }) => {
   const classes = useStyles();
+  const { groups, manageable } = bucket;
 
-  const handleMove = (from, to) => onReorder(audience, move(groups, from, to));
+  const handleMove = (from, to) =>
+    onReorder(bucket.key, move(groups, from, to));
 
-  const listRef = useSortableList(handleMove, groups.length > 1);
+  const listRef = useSortableList(handleMove, manageable && groups.length > 1);
 
   return (
     <Box className={classes.audienceBlock}>
       <Typography variant="subtitle2" className={classes.audienceTitle}>
-        {i18n.t(`helps.audience.${audience}`)}
+        {bucket.label}
       </Typography>
 
-      {groups.length ? (
-        <div ref={listRef}>
-          {groups.map(group => {
-            const Icon = getIconComponent(group.icon);
+      <div ref={listRef}>
+        {groups.map(group => {
+          const Icon = getIconComponent(group.icon);
 
-            return (
-              <Paper
-                key={group.id}
-                className={classes.card}
-                variant="outlined"
-                data-sortable-item
-              >
+          return (
+            <Paper
+              key={group.id}
+              className={classes.card}
+              variant="outlined"
+              data-sortable-item
+            >
+              {manageable ? (
                 <span className={classes.handle} data-drag-handle>
                   <DragIndicatorIcon />
                 </span>
-                <Box className={classes.iconBox}>
-                  <Icon />
-                </Box>
-                <Box className={classes.info}>
-                  <Typography variant="subtitle1">{group.title}</Typography>
-                  {group.subtitle ? (
-                    <Typography variant="body2" className={classes.subtitle}>
-                      {group.subtitle}
-                    </Typography>
-                  ) : null}
-                </Box>
-                {!group.isActive ? (
-                  <Chip size="small" label={i18n.t("helps.inactive")} />
+              ) : null}
+              <Box className={classes.iconBox}>
+                <Icon />
+              </Box>
+              <Box className={classes.info}>
+                <Typography variant="subtitle1">{group.title}</Typography>
+                {group.subtitle ? (
+                  <Typography variant="body2" className={classes.subtitle}>
+                    {group.subtitle}
+                  </Typography>
                 ) : null}
-                <IconButton onClick={() => onEdit(group)}>
-                  <EditIcon />
-                </IconButton>
-                <IconButton onClick={() => onDelete(group)}>
-                  <DeleteOutlineIcon />
-                </IconButton>
-              </Paper>
-            );
-          })}
-        </div>
-      ) : (
-        <Typography variant="body2" className={classes.empty}>
-          {i18n.t("helps.noGroups")}
-        </Typography>
-      )}
+              </Box>
+              {!group.isActive ? (
+                <Chip size="small" label={i18n.t("helps.inactive")} />
+              ) : null}
+              {manageable ? (
+                <>
+                  <IconButton onClick={() => onEdit(group)}>
+                    <EditIcon />
+                  </IconButton>
+                  <IconButton onClick={() => onDelete(group)}>
+                    <DeleteOutlineIcon />
+                  </IconButton>
+                </>
+              ) : null}
+            </Paper>
+          );
+        })}
+      </div>
     </Box>
   );
 };
 
 const GroupsTab = ({ groups, api, onChanged }) => {
   const classes = useStyles();
+  const { user } = useContext(AuthContext);
 
   const [items, setItems] = useState(groups);
   const [editing, setEditing] = useState(null);
@@ -152,9 +159,11 @@ const GroupsTab = ({ groups, api, onChanged }) => {
 
   // Atualização otimista: o card já aparece na posição nova e volta sozinho se
   // o servidor recusar.
-  const handleReorder = async (audience, reordered) => {
+  const handleReorder = async (key, reordered) => {
     const previous = items;
-    const others = items.filter(group => group.audience !== audience);
+    // Compara pelo balde inteiro, nao so pelo publico: senao a secao da empresa
+    // e a da plataforma (mesmo publico "company") embaralhariam uma a outra.
+    const others = items.filter(group => bucketKey(group) !== key);
 
     setItems([...others, ...reordered]);
 
@@ -214,21 +223,24 @@ const GroupsTab = ({ groups, api, onChanged }) => {
         </Button>
       </Box>
 
-      {AUDIENCES.map(audience => (
-        <AudienceList
-          key={audience}
-          audience={audience}
-          groups={items
-            .filter(group => group.audience === audience)
-            .sort((a, b) => a.order - b.order)}
-          onEdit={group => {
-            setEditing(group);
-            setModalOpen(true);
-          }}
-          onDelete={setDeleting}
-          onReorder={handleReorder}
-        />
-      ))}
+      {items.length ? (
+        bucketsOf(items, user).map(bucket => (
+          <BucketList
+            key={bucket.key}
+            bucket={bucket}
+            onEdit={group => {
+              setEditing(group);
+              setModalOpen(true);
+            }}
+            onDelete={setDeleting}
+            onReorder={handleReorder}
+          />
+        ))
+      ) : (
+        <Typography variant="body2" className={classes.empty}>
+          {i18n.t("helps.noGroups")}
+        </Typography>
+      )}
 
       <HelpGroupModal
         open={modalOpen}

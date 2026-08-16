@@ -962,6 +962,18 @@ const messages = {
           company: "Customers",
           partner: "Partners"
         },
+        scope: {
+          platform: "Platform",
+          company: "My company"
+        },
+        sections: {
+          platform: "Platform help",
+          company: "{{name}} help",
+          companyFallback: "Your company"
+        },
+        player: {
+          title: "Video"
+        },
         contentType: {
           video: "Video",
           article: "Article"
@@ -981,7 +993,10 @@ const messages = {
           editTitle: "Edit card",
           title: "Title",
           subtitle: "Subtitle",
-          audience: "Audience"
+          audience: "Audience",
+          isGlobal: "Publish to every company",
+          isGlobalHelper:
+            "Platform material: shows up in the Help Center of every company."
         },
         contentModal: {
           addTitle: "New content",
@@ -990,8 +1005,11 @@ const messages = {
           title: "Title",
           description: "Description",
           contentPlaceholder: "Write the article...",
-          video: "Video code",
-          videoHelper: "YouTube ID only, e.g. dQw4w9WgXcQ",
+          video: "YouTube video",
+          videoHelper:
+            "Paste the YouTube link or just the ID, e.g. dQw4w9WgXcQ",
+          videoInvalid: "We could not find a YouTube video in this value.",
+          videoPreview: "Video thumbnail preview",
           duration: "Duration",
           link: "Link",
           linkHelper: "Optional. Used when the video is not on YouTube."
@@ -1457,7 +1475,9 @@ const messages = {
         ERR_HELP_INVALID_NAME: "Invalid content title.",
         ERR_HELP_INVALID_GROUP: "The given card does not exist.",
         ERR_HELP_GROUP_REQUIRED: "Choose a card for the content.",
-        ERR_HELP_VIDEO_REQUIRED: "Provide the video code or a link.",
+        ERR_HELP_VIDEO_REQUIRED: "Provide the YouTube video or a link.",
+        ERR_HELP_INVALID_VIDEO:
+          "Invalid video link. Paste the YouTube address or the 11-character ID.",
         ERR_HELP_CONTENT_REQUIRED: "The article cannot be empty.",
         ERR_NO_HELP_FOUND: "Help content not found.",
         ERR_NO_HELP_GROUP_FOUND: "Help card not found.",

@@ -9,15 +9,19 @@ import {
   AutoIncrement,
   AllowNull,
   Default,
-  HasMany
+  HasMany,
+  ForeignKey,
+  BelongsTo
 } from "sequelize-typescript";
 import Help from "./Help";
+import Company from "./Company";
 
 /**
  * Card de assunto da Central de Ajuda ("Chatbot", "Campanhas", ...).
  *
- * O publico (audience) vive aqui e o conteudo herda: manter o campo tambem em
- * Help criaria duas fontes de verdade que divergem.
+ * O publico (audience) e o escopo (companyId/isGlobal) vivem aqui e o conteudo
+ * herda: manter os campos tambem em Help criaria duas fontes de verdade que
+ * divergem.
  */
 @Table({
   tableName: "HelpGroups"
@@ -48,7 +52,24 @@ class HelpGroup extends Model<HelpGroup> {
   @Column
   audience: string;
 
-  // Posicao entre os cards do mesmo publico (0..N-1).
+  // Empresa dona do card — quem criou. Sempre preenchido, inclusive nos cards
+  // globais (a convencao do projeto nao usa companyId nulo).
+  @AllowNull(false)
+  @ForeignKey(() => Company)
+  @Column
+  companyId: number;
+
+  @BelongsTo(() => Company)
+  company: Company;
+
+  // true = material da plataforma, visivel para todas as empresas. So o super
+  // admin marca; o admin do tenant so cria card da propria empresa.
+  @AllowNull(false)
+  @Default(false)
+  @Column
+  isGlobal: boolean;
+
+  // Posicao entre os cards do mesmo publico e escopo (0..N-1).
   @AllowNull(false)
   @Default(0)
   @Column

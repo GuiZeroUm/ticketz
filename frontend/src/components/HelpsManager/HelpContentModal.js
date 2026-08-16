@@ -20,6 +20,8 @@ import {
 
 import { i18n } from "../../translate/i18n";
 import RichTextEditor from "../RichTextEditor";
+import parseYoutubeId from "../../helpers/parseYoutubeId";
+import { bucketLabel } from "./scope";
 
 const useStyles = makeStyles(theme => ({
   tabs: {
@@ -28,6 +30,13 @@ const useStyles = makeStyles(theme => ({
   row: {
     display: "flex",
     gap: theme.spacing(2)
+  },
+  preview: {
+    width: 120,
+    aspectRatio: "16 / 9",
+    objectFit: "cover",
+    borderRadius: theme.shape.borderRadius,
+    alignSelf: "center"
   }
 }));
 
@@ -78,12 +87,17 @@ const HelpContentModal = ({
 
   const isArticle = values.type === "article";
 
+  // Aceita o link inteiro do YouTube (e o que se copia da barra de enderecos) e
+  // resolve para o id — a previa aparecendo confirma que foi entendido.
+  const videoId = parseYoutubeId(values.video);
+  const videoInvalid = !isArticle && !!values.video && !videoId;
+
   const canSave =
     values.title.trim() &&
     values.groupId &&
     (isArticle
       ? !!values.content && !!values.content.replace(/<[^>]*>/g, "").trim()
-      : !!(values.video || values.link));
+      : !!(videoId || values.link));
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -116,13 +130,7 @@ const HelpContentModal = ({
           >
             {groups.map(group => (
               <MenuItem key={group.id} value={group.id}>
-                {group.title} (
-                {i18n.t(
-                  group.audience === "partner"
-                    ? "helps.audience.partner"
-                    : "helps.audience.company"
-                )}
-                )
+                {group.title} ({bucketLabel(group)})
               </MenuItem>
             ))}
           </Select>
@@ -161,7 +169,12 @@ const HelpContentModal = ({
               variant="outlined"
               margin="dense"
               label={i18n.t("helps.contentModal.video")}
-              helperText={i18n.t("helps.contentModal.videoHelper")}
+              error={videoInvalid}
+              helperText={i18n.t(
+                videoInvalid
+                  ? "helps.contentModal.videoInvalid"
+                  : "helps.contentModal.videoHelper"
+              )}
               value={values.video || ""}
               onChange={event => setField("video", event.target.value)}
             />
@@ -172,6 +185,13 @@ const HelpContentModal = ({
               value={values.duration || ""}
               onChange={event => setField("duration", event.target.value)}
             />
+            {videoId ? (
+              <img
+                className={classes.preview}
+                src={`https://img.youtube.com/vi/${videoId}/default.jpg`}
+                alt={i18n.t("helps.contentModal.videoPreview")}
+              />
+            ) : null}
           </Box>
         )}
 

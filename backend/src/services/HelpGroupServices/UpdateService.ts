@@ -1,6 +1,7 @@
 import * as Yup from "yup";
 import AppError from "../../errors/AppError";
 import HelpGroup from "../../models/HelpGroup";
+import { scopeKey, scopeWhere } from "./scope";
 
 interface Data {
   id: number;
@@ -8,6 +9,7 @@ interface Data {
   subtitle?: string;
   icon?: string;
   audience?: string;
+  isGlobal?: boolean;
   isActive?: boolean;
 }
 
@@ -34,25 +36,31 @@ const UpdateService = async (data: Data): Promise<HelpGroup> => {
     throw new AppError(err.message);
   }
 
-  // Mudar de publico move o card para o fim da lista do publico de destino,
-  // senao ele herdaria uma posicao ja ocupada la.
-  const movedAudience =
-    data.audience && data.audience !== record.audience ? data.audience : null;
+  const audience = data.audience || record.audience;
+  // Material de parceiro e sempre da plataforma (o portal autentica sem
+  // companyId, entao nao ha empresa a que pertencer).
+  const isGlobal = audience === "partner" ? true : data.isGlobal ?? record.isGlobal;
 
-  if (movedAudience) {
+  const target = { audience, isGlobal, companyId: record.companyId };
+
+  // Trocar de publico ou de escopo move o card para o fim da lista de destino,
+  // senao ele herdaria uma posicao ja ocupada la.
+  if (scopeKey(target) !== scopeKey(record)) {
     const maxOrder = (await HelpGroup.max("order", {
-      where: { audience: movedAudience }
+      where: scopeWhere(target)
     })) as number | null;
 
     await record.update({
       ...data,
+      audience,
+      isGlobal,
       order: Number.isInteger(maxOrder) ? maxOrder + 1 : 0
     });
 
     return record;
   }
 
-  await record.update(data);
+  await record.update({ ...data, audience, isGlobal });
 
   return record;
 };

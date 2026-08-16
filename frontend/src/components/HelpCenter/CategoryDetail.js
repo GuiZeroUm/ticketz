@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Box,
   Breadcrumbs,
@@ -13,6 +13,8 @@ import PlayCircleOutlineIcon from "@material-ui/icons/PlayCircleOutline";
 
 import { i18n } from "../../translate/i18n";
 import { getIconComponent } from "../IconPicker/icons";
+import parseYoutubeId from "../../helpers/parseYoutubeId";
+import VideoPlayerModal from "./VideoPlayerModal";
 
 const useStyles = makeStyles(theme => ({
   root: {
@@ -56,6 +58,15 @@ const useStyles = makeStyles(theme => ({
     display: "block",
     backgroundColor: theme.palette.action.hover
   },
+  thumbFallback: {
+    width: "100%",
+    aspectRatio: "16 / 9",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.palette.action.hover,
+    color: theme.palette.text.secondary
+  },
   cardBody: {
     padding: theme.spacing(1.5),
     textAlign: "left",
@@ -74,20 +85,54 @@ const useStyles = makeStyles(theme => ({
   }
 }));
 
-const YOUTUBE_THUMB = video =>
-  `https://img.youtube.com/vi/${video}/hqdefault.jpg`;
+// hqdefault e a unica resolucao que o YouTube garante para qualquer video.
+const YOUTUBE_THUMB = videoId =>
+  `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+
+/**
+ * Capa do card. Sem id do YouTube (video hospedado fora) — ou quando o YouTube
+ * nao devolve a imagem — cai num bloco com o icone de play, em vez de deixar um
+ * <img> quebrado na tela.
+ */
+const VideoThumb = ({ videoId, title, classes }) => {
+  const [failed, setFailed] = useState(false);
+
+  if (!videoId || failed) {
+    return (
+      <Box className={classes.thumbFallback}>
+        <PlayCircleOutlineIcon fontSize="large" />
+      </Box>
+    );
+  }
+
+  return (
+    <img
+      className={classes.thumb}
+      src={YOUTUBE_THUMB(videoId)}
+      alt={title}
+      onError={() => setFailed(true)}
+    />
+  );
+};
 
 const CategoryDetail = ({ group, onBack, onOpenArticle }) => {
   const classes = useStyles();
   const Icon = getIconComponent(group.icon);
+  const [player, setPlayer] = useState(null);
 
   const openVideo = video => {
-    const url = video.video
-      ? `https://www.youtube.com/watch?v=${video.video}`
-      : video.link;
+    // O backend ja grava o id normalizado; o parse aqui cobre registros antigos
+    // que guardaram a URL inteira.
+    const videoId = parseYoutubeId(video.video);
 
-    if (url) {
-      window.open(url, "_blank", "noopener,noreferrer");
+    if (videoId) {
+      setPlayer({ videoId, title: video.title });
+      return;
+    }
+
+    // Video fora do YouTube: nao da para embutir, entao abre na origem.
+    if (video.link) {
+      window.open(video.link, "_blank", "noopener,noreferrer");
     }
   };
 
@@ -131,13 +176,11 @@ const CategoryDetail = ({ group, onBack, onOpenArticle }) => {
             {group.videos.map(video => (
               <Card key={video.id} variant="outlined">
                 <CardActionArea onClick={() => openVideo(video)}>
-                  {video.video ? (
-                    <img
-                      className={classes.thumb}
-                      src={YOUTUBE_THUMB(video.video)}
-                      alt={video.title}
-                    />
-                  ) : null}
+                  <VideoThumb
+                    videoId={parseYoutubeId(video.video)}
+                    title={video.title}
+                    classes={classes}
+                  />
                   <Box className={classes.cardBody}>
                     <Typography variant="subtitle1">{video.title}</Typography>
                     {video.description ? (
@@ -188,6 +231,13 @@ const CategoryDetail = ({ group, onBack, onOpenArticle }) => {
           {i18n.t("helps.emptyGroup")}
         </Typography>
       ) : null}
+
+      <VideoPlayerModal
+        open={!!player}
+        videoId={player?.videoId}
+        title={player?.title || i18n.t("helps.player.title")}
+        onClose={() => setPlayer(null)}
+      />
     </Box>
   );
 };

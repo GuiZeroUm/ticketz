@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import {
   Box,
   Button,
@@ -21,6 +21,8 @@ import useSortableList from "../../hooks/useSortableList";
 import ConfirmationModal from "../ConfirmationModal";
 import { getIconComponent } from "../IconPicker/icons";
 import HelpContentModal from "./HelpContentModal";
+import { AuthContext } from "../../context/Auth/AuthContext";
+import { bucketLabel, canManageGroup } from "./scope";
 
 const useStyles = makeStyles(theme => ({
   header: {
@@ -73,6 +75,7 @@ const move = (list, from, to) => {
 const GroupBlock = ({
   group,
   contents,
+  manageable,
   onAdd,
   onEdit,
   onDelete,
@@ -84,18 +87,20 @@ const GroupBlock = ({
   const handleMove = (from, to) =>
     onReorder(group.id, move(contents, from, to));
 
-  const listRef = useSortableList(handleMove, contents.length > 1);
+  const listRef = useSortableList(handleMove, manageable && contents.length > 1);
 
   return (
     <Box className={classes.groupBlock}>
       <Box className={classes.groupHeader}>
         <GroupIcon fontSize="small" />
         <Typography variant="subtitle1">{group.title}</Typography>
-        <Chip size="small" label={i18n.t(`helps.audience.${group.audience}`)} />
+        <Chip size="small" label={bucketLabel(group)} />
         <Box flexGrow={1} />
-        <Button size="small" color="primary" onClick={() => onAdd(group)}>
-          {i18n.t("helps.buttons.addContent")}
-        </Button>
+        {manageable ? (
+          <Button size="small" color="primary" onClick={() => onAdd(group)}>
+            {i18n.t("helps.buttons.addContent")}
+          </Button>
+        ) : null}
       </Box>
 
       {contents.length ? (
@@ -107,9 +112,11 @@ const GroupBlock = ({
               variant="outlined"
               data-sortable-item
             >
-              <span className={classes.handle} data-drag-handle>
-                <DragIndicatorIcon />
-              </span>
+              {manageable ? (
+                <span className={classes.handle} data-drag-handle>
+                  <DragIndicatorIcon />
+                </span>
+              ) : null}
               <span
                 className={classes.typeIcon}
                 title={i18n.t(`helps.contentType.${content.type}`)}
@@ -131,12 +138,16 @@ const GroupBlock = ({
               {!content.isActive ? (
                 <Chip size="small" label={i18n.t("helps.inactive")} />
               ) : null}
-              <IconButton onClick={() => onEdit(content)}>
-                <EditIcon />
-              </IconButton>
-              <IconButton onClick={() => onDelete(content)}>
-                <DeleteOutlineIcon />
-              </IconButton>
+              {manageable ? (
+                <>
+                  <IconButton onClick={() => onEdit(content)}>
+                    <EditIcon />
+                  </IconButton>
+                  <IconButton onClick={() => onDelete(content)}>
+                    <DeleteOutlineIcon />
+                  </IconButton>
+                </>
+              ) : null}
             </Paper>
           ))}
         </div>
@@ -151,6 +162,11 @@ const GroupBlock = ({
 
 const ContentsTab = ({ groups, contents, api, onChanged }) => {
   const classes = useStyles();
+  const { user } = useContext(AuthContext);
+
+  // Cards da plataforma aparecem listados (o admin precisa saber o que os
+  // colaboradores dele ja veem), mas sem acoes de escrita.
+  const manageableGroups = groups.filter(group => canManageGroup(group, user));
 
   const [items, setItems] = useState(contents);
   const [editing, setEditing] = useState(null);
@@ -228,19 +244,22 @@ const ContentsTab = ({ groups, contents, api, onChanged }) => {
         <Typography variant="subtitle1">
           {i18n.t("helps.tabs.contents")}
         </Typography>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={() => openModal(null, groups[0].id)}
-        >
-          {i18n.t("helps.buttons.addContent")}
-        </Button>
+        {manageableGroups.length ? (
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => openModal(null, manageableGroups[0].id)}
+          >
+            {i18n.t("helps.buttons.addContent")}
+          </Button>
+        ) : null}
       </Box>
 
       {groups.map(group => (
         <GroupBlock
           key={group.id}
           group={group}
+          manageable={canManageGroup(group, user)}
           contents={items
             .filter(content => content.groupId === group.id)
             .sort((a, b) => a.order - b.order)}
@@ -254,7 +273,7 @@ const ContentsTab = ({ groups, contents, api, onChanged }) => {
       <HelpContentModal
         open={modalOpen}
         content={editing}
-        groups={groups}
+        groups={manageableGroups}
         defaultGroupId={defaultGroupId}
         onSave={handleSave}
         onClose={() => {

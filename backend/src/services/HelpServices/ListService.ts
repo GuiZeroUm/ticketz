@@ -1,10 +1,12 @@
 import { Sequelize } from "sequelize";
 import Help from "../../models/Help";
 import HelpGroup from "../../models/HelpGroup";
+import { HelpActor, manageableWhere } from "../HelpGroupServices/scope";
 
 interface Request {
   searchParam?: string;
   groupId?: string;
+  actor: HelpActor;
 }
 
 // Sem paginacao de proposito: a grade do super admin agrupa os conteudos por
@@ -12,7 +14,8 @@ interface Request {
 // gravaria posicoes erradas nos conteudos que ficaram de fora.
 const ListService = async ({
   searchParam = "",
-  groupId
+  groupId,
+  actor
 }: Request): Promise<Help[]> => {
   const whereCondition: Record<string, unknown> = {};
 
@@ -34,11 +37,24 @@ const ListService = async ({
       {
         model: HelpGroup,
         as: "group",
-        attributes: ["id", "title", "icon", "audience", "order"]
+        // required: o conteudo herda o escopo do card, entao filtrar o card
+        // aqui e o que impede um admin de ver conteudo de outro tenant.
+        required: true,
+        where: manageableWhere(actor),
+        attributes: [
+          "id",
+          "title",
+          "icon",
+          "audience",
+          "order",
+          "isGlobal",
+          "companyId"
+        ]
       }
     ],
     order: [
       [{ model: HelpGroup, as: "group" }, "audience", "ASC"],
+      [{ model: HelpGroup, as: "group" }, "isGlobal", "DESC"],
       [{ model: HelpGroup, as: "group" }, "order", "ASC"],
       ["order", "ASC"],
       ["id", "ASC"]

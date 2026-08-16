@@ -11,6 +11,10 @@ import { i18n } from "../../translate/i18n";
 import { getIconComponent } from "../IconPicker/icons";
 
 const useStyles = makeStyles(theme => ({
+  sectionTitle: {
+    // Alinha com o padding do grid abaixo.
+    padding: theme.spacing(2, 2, 0)
+  },
   grid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
@@ -55,7 +59,9 @@ const useStyles = makeStyles(theme => ({
   }
 }));
 
-const CategoryGrid = ({ groups, onSelect }) => {
+// title e opcional: a tela do tenant renderiza duas instancias rotuladas
+// ("Plataforma" e a propria empresa) e o portal do parceiro, uma so, sem rotulo.
+const CategoryGrid = ({ groups, onSelect, title }) => {
   const classes = useStyles();
 
   if (!groups.length) {
@@ -87,34 +93,41 @@ const CategoryGrid = ({ groups, onSelect }) => {
   };
 
   return (
-    <Box className={classes.grid}>
-      {groups.map(group => {
-        const Icon = getIconComponent(group.icon);
+    <Box>
+      {title ? (
+        <Typography variant="h6" className={classes.sectionTitle}>
+          {title}
+        </Typography>
+      ) : null}
+      <Box className={classes.grid}>
+        {groups.map(group => {
+          const Icon = getIconComponent(group.icon);
 
-        return (
-          <Card key={group.id} className={classes.card} variant="outlined">
-            <CardActionArea
-              className={classes.action}
-              onClick={() => onSelect(group)}
-            >
-              <Box className={classes.iconBox}>
-                <Icon fontSize="large" />
-              </Box>
-              <Typography variant="h6">{group.title}</Typography>
-              {group.subtitle ? (
-                <Typography variant="body2" className={classes.subtitle}>
-                  {group.subtitle}
+          return (
+            <Card key={group.id} className={classes.card} variant="outlined">
+              <CardActionArea
+                className={classes.action}
+                onClick={() => onSelect(group)}
+              >
+                <Box className={classes.iconBox}>
+                  <Icon fontSize="large" />
+                </Box>
+                <Typography variant="h6">{group.title}</Typography>
+                {group.subtitle ? (
+                  <Typography variant="body2" className={classes.subtitle}>
+                    {group.subtitle}
+                  </Typography>
+                ) : (
+                  <Box className={classes.subtitle} />
+                )}
+                <Typography variant="caption" className={classes.counts}>
+                  {describe(group)}
                 </Typography>
-              ) : (
-                <Box className={classes.subtitle} />
-              )}
-              <Typography variant="caption" className={classes.counts}>
-                {describe(group)}
-              </Typography>
-            </CardActionArea>
-          </Card>
-        );
-      })}
+              </CardActionArea>
+            </Card>
+          );
+        })}
+      </Box>
     </Box>
   );
 };

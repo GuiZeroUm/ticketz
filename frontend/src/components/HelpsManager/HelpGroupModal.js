@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import {
   Box,
   Button,
@@ -8,6 +8,7 @@ import {
   DialogTitle,
   FormControl,
   FormControlLabel,
+  FormHelperText,
   IconButton,
   InputLabel,
   MenuItem,
@@ -20,6 +21,7 @@ import {
 import { i18n } from "../../translate/i18n";
 import IconPicker from "../IconPicker";
 import { getIconComponent, DEFAULT_ICON } from "../IconPicker/icons";
+import { AuthContext } from "../../context/Auth/AuthContext";
 
 const useStyles = makeStyles(theme => ({
   row: {
@@ -43,11 +45,16 @@ const EMPTY = {
   subtitle: "",
   icon: DEFAULT_ICON,
   audience: "company",
+  isGlobal: false,
   isActive: true
 };
 
 const HelpGroupModal = ({ open, group, onSave, onClose }) => {
   const classes = useStyles();
+  const { user } = useContext(AuthContext);
+  // Publico e alcance sao decisoes da plataforma: o admin da empresa so cria
+  // card da propria empresa, e o backend ignora esses campos vindos dele.
+  const isSuper = !!user?.super;
   const [values, setValues] = useState(EMPTY);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -109,24 +116,46 @@ const HelpGroupModal = ({ open, group, onSave, onClose }) => {
           onChange={event => setField("subtitle", event.target.value)}
         />
 
-        <FormControl variant="outlined" margin="dense" fullWidth>
-          <InputLabel id="help-group-audience">
-            {i18n.t("helps.groupModal.audience")}
-          </InputLabel>
-          <Select
-            labelId="help-group-audience"
-            label={i18n.t("helps.groupModal.audience")}
-            value={values.audience}
-            onChange={event => setField("audience", event.target.value)}
-          >
-            <MenuItem value="company">
-              {i18n.t("helps.audience.company")}
-            </MenuItem>
-            <MenuItem value="partner">
-              {i18n.t("helps.audience.partner")}
-            </MenuItem>
-          </Select>
-        </FormControl>
+        {isSuper ? (
+          <FormControl variant="outlined" margin="dense" fullWidth>
+            <InputLabel id="help-group-audience">
+              {i18n.t("helps.groupModal.audience")}
+            </InputLabel>
+            <Select
+              labelId="help-group-audience"
+              label={i18n.t("helps.groupModal.audience")}
+              value={values.audience}
+              onChange={event => setField("audience", event.target.value)}
+            >
+              <MenuItem value="company">
+                {i18n.t("helps.audience.company")}
+              </MenuItem>
+              <MenuItem value="partner">
+                {i18n.t("helps.audience.partner")}
+              </MenuItem>
+            </Select>
+          </FormControl>
+        ) : null}
+
+        {/* Material de parceiro ja e da plataforma por definicao — o portal do
+            parceiro nao pertence a nenhuma empresa. */}
+        {isSuper && values.audience !== "partner" ? (
+          <Box>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={!!values.isGlobal}
+                  onChange={event => setField("isGlobal", event.target.checked)}
+                  color="primary"
+                />
+              }
+              label={i18n.t("helps.groupModal.isGlobal")}
+            />
+            <FormHelperText>
+              {i18n.t("helps.groupModal.isGlobalHelper")}
+            </FormHelperText>
+          </Box>
+        ) : null}
 
         <FormControlLabel
           control={
