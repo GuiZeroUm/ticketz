@@ -942,7 +942,73 @@ const messages = {
         }
       },
       helps: {
-        title: "Help Center"
+        title: "Help Center",
+        empty: "No material published yet.",
+        emptyGroup: "No content in this card.",
+        noGroups: "No cards registered.",
+        inactive: "Inactive",
+        active: "Active",
+        videos: "Videos",
+        articles: "Articles",
+        articleOne: "article",
+        articleOther: "articles",
+        videoOne: "video",
+        videoOther: "videos",
+        tabs: {
+          contents: "Content",
+          groups: "Groups"
+        },
+        audience: {
+          company: "Customers",
+          partner: "Partners"
+        },
+        contentType: {
+          video: "Video",
+          article: "Article"
+        },
+        buttons: {
+          addGroup: "New card",
+          addContent: "New content",
+          cancel: "Cancel",
+          save: "Save"
+        },
+        iconPicker: {
+          title: "Choose icon",
+          search: "Search icon"
+        },
+        groupModal: {
+          addTitle: "New card",
+          editTitle: "Edit card",
+          title: "Title",
+          subtitle: "Subtitle",
+          audience: "Audience"
+        },
+        contentModal: {
+          addTitle: "New content",
+          editTitle: "Edit content",
+          group: "Card",
+          title: "Title",
+          description: "Description",
+          contentPlaceholder: "Write the article...",
+          video: "Video code",
+          videoHelper: "YouTube ID only, e.g. dQw4w9WgXcQ",
+          duration: "Duration",
+          link: "Link",
+          linkHelper: "Optional. Used when the video is not on YouTube."
+        },
+        confirmDeleteGroup: {
+          title: "Delete card",
+          message:
+            "Do you really want to delete this card? All of its content will be removed."
+        },
+        confirmDeleteContent: {
+          title: "Delete content",
+          message: "Do you really want to delete this content?"
+        },
+        toasts: {
+          saved: "Operation completed successfully!",
+          deleted: "Record deleted successfully!"
+        }
       },
       about: {
         aboutthe: "About the",
@@ -1386,6 +1452,23 @@ const messages = {
           "Backend is starting up and not ready yet. Retrying automatically."
       },
       backendErrors: {
+        ERR_HELP_INVALID_TYPE: "Invalid content type.",
+        ERR_HELP_REQUIRED: "Fill in the required content fields.",
+        ERR_HELP_INVALID_NAME: "Invalid content title.",
+        ERR_HELP_INVALID_GROUP: "The given card does not exist.",
+        ERR_HELP_GROUP_REQUIRED: "Choose a card for the content.",
+        ERR_HELP_VIDEO_REQUIRED: "Provide the video code or a link.",
+        ERR_HELP_CONTENT_REQUIRED: "The article cannot be empty.",
+        ERR_NO_HELP_FOUND: "Help content not found.",
+        ERR_NO_HELP_GROUP_FOUND: "Help card not found.",
+        ERR_HELP_REORDER_EMPTY: "No content provided to reorder.",
+        ERR_HELP_REORDER_INVALID:
+          "Only contents from the same card can be reordered.",
+        ERR_HELP_GROUP_REORDER_EMPTY: "No cards provided to reorder.",
+        ERR_HELP_GROUP_REORDER_INVALID:
+          "Only cards from the same audience can be reordered.",
+        ERR_HELP_GROUP_INVALID_TITLE: "Invalid card title.",
+        ERR_HELP_GROUP_INVALID_AUDIENCE: "Invalid card audience.",
         ERR_UNAUTHORIZED: "You are not authorized to perform this action.",
         ERR_FORBIDDEN: "You do not have permission to access this resource.",
         ERR_CHECK_NUMBER: "Check the number and try again.",

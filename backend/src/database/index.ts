@@ -16,6 +16,7 @@ import Company from "../models/Company";
 import Plan from "../models/Plan";
 import TicketNote from "../models/TicketNote";
 import QuickMessage from "../models/QuickMessage";
+import HelpGroup from "../models/HelpGroup";
 import Help from "../models/Help";
 import TicketTraking from "../models/TicketTraking";
 import Counter from "../models/Counter";
@@ -78,6 +79,7 @@ const models = [
   Plan,
   TicketNote,
   QuickMessage,
+  HelpGroup,
   Help,
   TicketTraking,
   Counter,

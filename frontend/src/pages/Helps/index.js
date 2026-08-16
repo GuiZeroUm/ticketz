@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
+import { useHistory, useParams } from "react-router-dom";
 
 import { makeStyles, Paper } from "@material-ui/core";
 
@@ -6,87 +7,99 @@ import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
 import MainHeaderButtonsWrapper from "../../components/MainHeaderButtonsWrapper";
 import Title from "../../components/Title";
+import CategoryGrid from "../../components/HelpCenter/CategoryGrid";
+import CategoryDetail from "../../components/HelpCenter/CategoryDetail";
+import ArticleView from "../../components/HelpCenter/ArticleView";
 import { i18n } from "../../translate/i18n";
-import useHelps from "../../hooks/useHelps";
-
-import Accordion from "@material-ui/core/Accordion";
-import AccordionSummary from "@material-ui/core/AccordionSummary";
-import AccordionDetails from "@material-ui/core/AccordionDetails";
-import Typography from "@material-ui/core/Typography";
-import ExpandMoreIcon from "@material-ui/icons/ExpandMore";
+import useHelpGroups from "../../hooks/useHelpGroups";
+import toastError from "../../errors/toastError";
 
 const useStyles = makeStyles(theme => ({
   mainPaper: {
     width: "100%",
     minHeight: "200px",
-    overflowY: "scroll",
+    overflowY: "auto",
     ...theme.scrollbarStyles
-  },
-  heading: {
-    fontSize: theme.typography.pxToRem(15),
-    flexBasis: "33.33%",
-    flexShrink: 0
-  },
-  secondaryHeading: {
-    fontSize: theme.typography.pxToRem(15),
-    color: theme.palette.text.secondary
   }
 }));
 
 const Helps = () => {
   const classes = useStyles();
+  const history = useHistory();
+  const { groupId, contentId } = useParams();
+  const { listPublic, showPublic } = useHelpGroups();
 
-  const [records, setRecords] = useState([]);
-  const { list } = useHelps();
+  const [groups, setGroups] = useState([]);
+  const [group, setGroup] = useState(null);
 
   useEffect(() => {
-    async function fetchData() {
-      const helps = await list();
-      setRecords(helps);
-    }
-    fetchData();
+    listPublic().then(setGroups).catch(toastError);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const renderVideo = record => {
-    const url = `https://www.youtube.com/embed/${record.video}`;
-    return (
-      <iframe
-        style={{ width: 700, height: 500 }}
-        src={url}
-        title="YouTube video player"
-        frameBorder="0"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        allowFullScreen
-      ></iframe>
-    );
-  };
+  useEffect(() => {
+    if (!groupId) {
+      setGroup(null);
+      return;
+    }
 
-  const renderHelps = () => {
+    showPublic(groupId)
+      .then(setGroup)
+      .catch(err => {
+        toastError(err);
+        history.push("/helps");
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupId]);
+
+  const goToRoot = useCallback(() => history.push("/helps"), [history]);
+  const goToGroup = useCallback(id => history.push(`/helps/${id}`), [history]);
+
+  const article =
+    group && contentId
+      ? group.articles.find(item => String(item.id) === String(contentId))
+      : null;
+
+  const renderBody = () => {
+    if (!groupId) {
+      return <CategoryGrid groups={groups} onSelect={g => goToGroup(g.id)} />;
+    }
+
+    if (!group) {
+      return null;
+    }
+
+    if (contentId) {
+      // Artigo inexistente (ou desativado) volta para o card em vez de
+      // renderizar uma tela vazia.
+      if (!article) {
+        return (
+          <CategoryDetail
+            group={group}
+            onBack={goToRoot}
+            onOpenArticle={item =>
+              history.push(`/helps/${group.id}/${item.id}`)
+            }
+          />
+        );
+      }
+
+      return (
+        <ArticleView
+          group={group}
+          article={article}
+          onBack={goToRoot}
+          onBackToGroup={() => goToGroup(group.id)}
+        />
+      );
+    }
+
     return (
-      <>
-        {records.length
-          ? records.map((record, key) => (
-              <Accordion key={key}>
-                <AccordionSummary
-                  expandIcon={<ExpandMoreIcon />}
-                  aria-controls="panel1a-content"
-                  id="panel1a-header"
-                >
-                  <Typography className={classes.heading}>
-                    {record.title}
-                  </Typography>
-                  <Typography className={classes.secondaryHeading}>
-                    {record.description}
-                  </Typography>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <Typography>{renderVideo(record)}</Typography>
-                </AccordionDetails>
-              </Accordion>
-            ))
-          : null}
-      </>
+      <CategoryDetail
+        group={group}
+        onBack={goToRoot}
+        onOpenArticle={item => history.push(`/helps/${group.id}/${item.id}`)}
+      />
     );
   };
 
@@ -97,7 +110,7 @@ const Helps = () => {
         <MainHeaderButtonsWrapper></MainHeaderButtonsWrapper>
       </MainHeader>
       <Paper className={classes.mainPaper} variant="outlined">
-        {renderHelps()}
+        {renderBody()}
       </Paper>
     </MainContainer>
   );

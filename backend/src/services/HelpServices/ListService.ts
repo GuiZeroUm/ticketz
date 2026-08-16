@@ -1,49 +1,51 @@
-import { Sequelize, Op } from "sequelize";
+import { Sequelize } from "sequelize";
 import Help from "../../models/Help";
+import HelpGroup from "../../models/HelpGroup";
 
 interface Request {
   searchParam?: string;
-  pageNumber?: string;
+  groupId?: string;
 }
 
-interface Response {
-  records: Help[];
-  count: number;
-  hasMore: boolean;
-}
-
+// Sem paginacao de proposito: a grade do super admin agrupa os conteudos por
+// card e o arrasto reescreve a ordem da lista inteira — uma pagina parcial
+// gravaria posicoes erradas nos conteudos que ficaram de fora.
 const ListService = async ({
   searchParam = "",
-  pageNumber = "1"
-}: Request): Promise<Response> => {
-  const whereCondition = {
-    [Op.or]: [
-      {
-        title: Sequelize.where(
-          Sequelize.fn("LOWER", Sequelize.col("title")),
-          "LIKE",
-          `%${searchParam.toLowerCase().trim()}%`
-        )
-      }
-    ]
-  };
-  const limit = 20;
-  const offset = limit * (+pageNumber - 1);
+  groupId
+}: Request): Promise<Help[]> => {
+  const whereCondition: Record<string, unknown> = {};
 
-  const { count, rows: records } = await Help.findAndCountAll({
+  if (searchParam) {
+    whereCondition.title = Sequelize.where(
+      Sequelize.fn("LOWER", Sequelize.col("Help.title")),
+      "LIKE",
+      `%${searchParam.toLowerCase().trim()}%`
+    );
+  }
+
+  if (groupId) {
+    whereCondition.groupId = groupId;
+  }
+
+  const records = await Help.findAll({
     where: whereCondition,
-    limit,
-    offset,
-    order: [["title", "ASC"]]
+    include: [
+      {
+        model: HelpGroup,
+        as: "group",
+        attributes: ["id", "title", "icon", "audience", "order"]
+      }
+    ],
+    order: [
+      [{ model: HelpGroup, as: "group" }, "audience", "ASC"],
+      [{ model: HelpGroup, as: "group" }, "order", "ASC"],
+      ["order", "ASC"],
+      ["id", "ASC"]
+    ]
   });
 
-  const hasMore = count > offset + records.length;
-
-  return {
-    records,
-    count,
-    hasMore
-  };
+  return records;
 };
 
 export default ListService;

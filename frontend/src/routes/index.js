@@ -87,6 +87,18 @@ const Routes = () => {
                 <Route exact path="/tags" component={Tags} isPrivate />
                 <Route exact path="/contacts" component={Contacts} isPrivate />
                 <Route exact path="/helps" component={Helps} isPrivate />
+                <Route
+                  exact
+                  path="/helps/:groupId"
+                  component={Helps}
+                  isPrivate
+                />
+                <Route
+                  exact
+                  path="/helps/:groupId/:contentId"
+                  component={Helps}
+                  isPrivate
+                />
                 <Route exact path="/users" component={Users} isPrivate />
                 <Route exact path="/chatgpt" component={ChatGPT} isPrivate />
                 <Route

@@ -1533,7 +1533,73 @@ const messages = {
         }
       },
       helps: {
-        title: "Central de Ajuda"
+        title: "Central de Ajuda",
+        empty: "Nenhum material publicado ainda.",
+        emptyGroup: "Nenhum conteúdo neste card.",
+        noGroups: "Nenhum card cadastrado.",
+        inactive: "Inativo",
+        active: "Ativo",
+        videos: "Vídeos",
+        articles: "Artigos",
+        articleOne: "artigo",
+        articleOther: "artigos",
+        videoOne: "vídeo",
+        videoOther: "vídeos",
+        tabs: {
+          contents: "Conteúdo",
+          groups: "Grupos"
+        },
+        audience: {
+          company: "Clientes",
+          partner: "Parceiros"
+        },
+        contentType: {
+          video: "Vídeo",
+          article: "Artigo"
+        },
+        buttons: {
+          addGroup: "Novo card",
+          addContent: "Novo conteúdo",
+          cancel: "Cancelar",
+          save: "Salvar"
+        },
+        iconPicker: {
+          title: "Escolher ícone",
+          search: "Buscar ícone"
+        },
+        groupModal: {
+          addTitle: "Novo card",
+          editTitle: "Editar card",
+          title: "Título",
+          subtitle: "Subtítulo",
+          audience: "Público"
+        },
+        contentModal: {
+          addTitle: "Novo conteúdo",
+          editTitle: "Editar conteúdo",
+          group: "Card",
+          title: "Título",
+          description: "Descrição",
+          contentPlaceholder: "Escreva o artigo...",
+          video: "Código do vídeo",
+          videoHelper: "Somente o ID do YouTube, ex.: dQw4w9WgXcQ",
+          duration: "Duração",
+          link: "Link",
+          linkHelper: "Opcional. Usado quando o vídeo não está no YouTube."
+        },
+        confirmDeleteGroup: {
+          title: "Excluir card",
+          message:
+            "Deseja realmente excluir este card? Todo o conteúdo dele será removido."
+        },
+        confirmDeleteContent: {
+          title: "Excluir conteúdo",
+          message: "Deseja realmente excluir este conteúdo?"
+        },
+        toasts: {
+          saved: "Operação realizada com sucesso!",
+          deleted: "Registro excluído com sucesso!"
+        }
       },
       about: {
         aboutthe: "Sobre o",
@@ -1984,6 +2050,23 @@ const messages = {
           "O backend está iniciando e ainda não está pronto. Tentando novamente automaticamente."
       },
       backendErrors: {
+        ERR_HELP_INVALID_TYPE: "Tipo de conteúdo inválido.",
+        ERR_HELP_REQUIRED: "Preencha os campos obrigatórios do conteúdo.",
+        ERR_HELP_INVALID_NAME: "Título do conteúdo inválido.",
+        ERR_HELP_INVALID_GROUP: "O card informado não existe.",
+        ERR_HELP_GROUP_REQUIRED: "Escolha um card para o conteúdo.",
+        ERR_HELP_VIDEO_REQUIRED: "Informe o código do vídeo ou um link.",
+        ERR_HELP_CONTENT_REQUIRED: "O artigo não pode ficar vazio.",
+        ERR_NO_HELP_FOUND: "Conteúdo de ajuda não encontrado.",
+        ERR_NO_HELP_GROUP_FOUND: "Card de ajuda não encontrado.",
+        ERR_HELP_REORDER_EMPTY: "Nenhum conteúdo informado para reordenar.",
+        ERR_HELP_REORDER_INVALID:
+          "Só é possível reordenar conteúdos do mesmo card.",
+        ERR_HELP_GROUP_REORDER_EMPTY: "Nenhum card informado para reordenar.",
+        ERR_HELP_GROUP_REORDER_INVALID:
+          "Só é possível reordenar cards do mesmo público.",
+        ERR_HELP_GROUP_INVALID_TITLE: "Título do card inválido.",
+        ERR_HELP_GROUP_INVALID_AUDIENCE: "Público do card inválido.",
         ERR_UNAUTHORIZED: "Você não está autorizado a acessar este recurso.",
         ERR_FORBIDDEN: "Você não tem permissão para acessar este recurso.",
         ERR_CHECK_NUMBER: "Número não encontrado no Whatsapp.",

@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import Plan from "../models/Plan";
-import Help from "../models/Help";
+import FindPublicService from "../services/HelpGroupServices/FindPublicService";
+import ShowPublicService from "../services/HelpGroupServices/ShowPublicService";
 import {
   ListPartnerCompanies,
   CreatePartnerCompany,
@@ -121,10 +122,19 @@ export const listHelps = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  const helps = await Help.findAll({
-    where: { audience: "partner" },
-    order: [["id", "ASC"]]
+  const groups = await FindPublicService("partner");
+
+  return res.json(groups);
+};
+
+export const showHelpGroup = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const group = await ShowPublicService({
+    groupId: req.params.id,
+    audience: "partner"
   });
 
-  return res.json(helps);
+  return res.json(group);
 };

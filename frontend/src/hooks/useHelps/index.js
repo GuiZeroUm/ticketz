@@ -1,18 +1,12 @@
 import api from "../../services/api";
 
-const usePlans = () => {
-  const findAll = async params => {
-    const { data } = await api.request({
-      url: `/helps`,
-      method: "GET",
-      params
-    });
-    return data;
-  };
-
+/**
+ * CRUD dos conteúdos (vídeos e artigos) da Central de Ajuda.
+ */
+const useHelps = () => {
   const list = async params => {
     const { data } = await api.request({
-      url: "/helps/list",
+      url: "/helps",
       method: "GET",
       params
     });
@@ -45,13 +39,22 @@ const usePlans = () => {
     return data;
   };
 
+  const reorder = async items => {
+    const { data } = await api.request({
+      url: "/helps/reorder",
+      method: "PUT",
+      data: { items }
+    });
+    return data;
+  };
+
   return {
-    findAll,
     list,
     save,
     update,
-    remove
+    remove,
+    reorder
   };
 };
 
-export default usePlans;
+export default useHelps;

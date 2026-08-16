@@ -59,5 +59,10 @@ routes.put(
   PartnerPortalController.updateSettings
 );
 routes.get("/partner/helps", isPartnerAuth, PartnerPortalController.listHelps);
+routes.get(
+  "/partner/help-groups/:id",
+  isPartnerAuth,
+  PartnerPortalController.showHelpGroup
+);
 
 export default routes;

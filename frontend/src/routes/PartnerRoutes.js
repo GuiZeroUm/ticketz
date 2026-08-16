@@ -37,6 +37,16 @@ const PrivatePartnerRoutes = () => {
         <Route exact path="/parceiros/ajuda" component={PartnerAjuda} />
         <Route
           exact
+          path="/parceiros/ajuda/:groupId"
+          component={PartnerAjuda}
+        />
+        <Route
+          exact
+          path="/parceiros/ajuda/:groupId/:contentId"
+          component={PartnerAjuda}
+        />
+        <Route
+          exact
           path="/parceiros/configuracoes"
           component={PartnerConfiguracoes}
         />
