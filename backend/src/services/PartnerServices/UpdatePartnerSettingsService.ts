@@ -12,7 +12,7 @@ interface SettingsData {
   pixKey?: string;
   pixKeyType?: string;
   payoutMode?: string;
-  payoutDay?: number;
+  payoutDay?: number | null;
 }
 
 // 28 e o ultimo dia que existe em todos os meses.
@@ -52,18 +52,25 @@ const UpdatePartnerSettingsService = async (
   }
 
   if (data.payoutDay !== undefined) {
-    const day = Number(data.payoutDay);
-    if (!Number.isInteger(day) || day < 1 || day > MAX_PAYOUT_DAY) {
-      throw new AppError("ERR_INVALID_PAYOUT_DAY", 400);
+    // O modo imediato nao tem dia de fechamento: o portal manda null para
+    // limpar o agendamento, e a coluna aceita nulo.
+    if (data.payoutDay === null) {
+      payload.payoutDay = null;
+    } else {
+      const day = Number(data.payoutDay);
+      if (!Number.isInteger(day) || day < 1 || day > MAX_PAYOUT_DAY) {
+        throw new AppError("ERR_INVALID_PAYOUT_DAY", 400);
+      }
+      payload.payoutDay = day;
     }
-    payload.payoutDay = day;
   }
 
   const effectiveMode = payload.payoutMode || partner.payoutMode;
-  if (
-    effectiveMode === "scheduled" &&
-    !(payload.payoutDay || partner.payoutDay)
-  ) {
+  // Limpar o dia so e permitido fora do agendado, entao o valor que vale e o
+  // que veio na requisicao quando o campo foi enviado.
+  const effectiveDay =
+    "payoutDay" in payload ? payload.payoutDay : partner.payoutDay;
+  if (effectiveMode === "scheduled" && !effectiveDay) {
     throw new AppError("ERR_PAYOUT_DAY_REQUIRED", 400);
   }
 
