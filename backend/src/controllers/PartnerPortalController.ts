@@ -6,9 +6,9 @@ import {
   ListPartnerCompanies,
   CreatePartnerCompany,
   UpdatePartnerCompany,
-  ShowPartnerCompany,
-  DEFAULT_MIN_VALUE
+  ShowPartnerCompany
 } from "../services/PartnerServices/PartnerCompanyService";
+import { resellerCost } from "../services/PartnerServices/PartnerPricing";
 import ListPartnerPayoutsService from "../services/PartnerServices/ListPartnerPayoutsService";
 import UpdatePartnerSettingsService from "../services/PartnerServices/UpdatePartnerSettingsService";
 import { getPartnerPixFee } from "../services/PaymentGatewayServices/AbacatePayServices";
@@ -56,11 +56,21 @@ export const updateCompany = async (
   return res.json(company);
 };
 
-/** Planos com o piso de preco, para a tela de cadastro de cliente. */
+/**
+ * Planos com o custo de revenda, para a tela de cadastro de cliente. O piso e
+ * calculado por plano e por parceiro (`valor de tabela - desconto`), entao cada
+ * plano mostra o seu proprio custo em vez de um numero fixo.
+ */
 export const listPlans = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
+  const partner = await Partner.findByPk(req.partner.id);
+
+  if (!partner) {
+    throw new AppError("ERR_NO_PARTNER_FOUND", 404);
+  }
+
   const plans = await Plan.findAll({ order: [["value", "ASC"]] });
 
   return res.json(
@@ -68,7 +78,7 @@ export const listPlans = async (
       id: plan.id,
       name: plan.name,
       value: plan.value,
-      minValue: plan.minValue || DEFAULT_MIN_VALUE,
+      resellerCost: resellerCost(plan.value, partner.discountPct),
       users: plan.users,
       connections: plan.connections,
       queues: plan.queues

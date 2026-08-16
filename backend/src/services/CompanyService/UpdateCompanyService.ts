@@ -20,6 +20,9 @@ interface CompanyData {
   slug?: string;
   partnerId?: number | null;
   saleValue?: number | null;
+  introValue?: number | null;
+  introMonths?: number | null;
+  platformCost?: number | null;
 }
 
 const UpdateCompanyService = async (
@@ -46,9 +49,14 @@ const UpdateCompanyService = async (
   const wasActive = company.status;
   const previousDueDate = company.dueDate;
   const previousSaleValue = company.saleValue;
+  const previousIntroValue = company.introValue;
+  const previousIntroMonths = company.introMonths;
 
   const hasPartnerId = companyData.partnerId !== undefined;
   const hasSaleValue = companyData.saleValue !== undefined;
+  const hasIntroValue = companyData.introValue !== undefined;
+  const hasIntroMonths = companyData.introMonths !== undefined;
+  const hasPlatformCost = companyData.platformCost !== undefined;
 
   const hasSlug = companyData.slug !== undefined;
   const slug = hasSlug ? normalizeSlug(companyData.slug) : undefined;
@@ -74,7 +82,12 @@ const UpdateCompanyService = async (
     language,
     ...(hasSlug ? { slug: slug || null } : {}),
     ...(hasPartnerId ? { partnerId: companyData.partnerId || null } : {}),
-    ...(hasSaleValue ? { saleValue: companyData.saleValue ?? null } : {})
+    ...(hasSaleValue ? { saleValue: companyData.saleValue ?? null } : {}),
+    ...(hasIntroValue ? { introValue: companyData.introValue ?? null } : {}),
+    ...(hasIntroMonths ? { introMonths: companyData.introMonths ?? null } : {}),
+    ...(hasPlatformCost
+      ? { platformCost: companyData.platformCost ?? null }
+      : {})
   });
 
   if (
@@ -114,8 +127,16 @@ const UpdateCompanyService = async (
   }
 
   // Sem isso a mudanca de preco so valeria no ciclo seguinte: a fatura em
-  // aberto ja teria nascido com o valor antigo.
-  if (hasSaleValue && (companyData.saleValue ?? null) !== previousSaleValue) {
+  // aberto ja teria nascido com o valor antigo. Vale para os tres campos que
+  // determinam o preco do ciclo — mensalidade, valor do periodo inicial e
+  // duracao dele —, senao um periodo inicial recem-definido nasceria atrasado.
+  const priceChanged =
+    (hasSaleValue && (companyData.saleValue ?? null) !== previousSaleValue) ||
+    (hasIntroValue && (companyData.introValue ?? null) !== previousIntroValue) ||
+    (hasIntroMonths &&
+      (companyData.introMonths ?? null) !== previousIntroMonths);
+
+  if (priceChanged) {
     await Invoices.destroy({
       where: {
         companyId: company.id,

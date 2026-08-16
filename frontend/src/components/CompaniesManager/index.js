@@ -103,6 +103,8 @@ export function CompanyForm(props) {
     slug: "",
     partnerId: "",
     saleValue: "",
+    introValue: "",
+    introMonths: "",
     ...initialValue
   });
 
@@ -148,6 +150,14 @@ export function CompanyForm(props) {
       data.saleValue === "" || data.saleValue === null
         ? null
         : Number(data.saleValue);
+    data.introValue =
+      data.introValue === "" || data.introValue === null
+        ? null
+        : Number(data.introValue);
+    data.introMonths =
+      data.introMonths === "" || data.introMonths === null
+        ? null
+        : Number(data.introMonths);
     onSubmit(data);
     setRecord({ ...initialValue, dueDate: "" });
   };
@@ -395,7 +405,7 @@ export function CompanyForm(props) {
                     <MenuItem value="">Venda direta</MenuItem>
                     {partners.map(partner => (
                       <MenuItem key={partner.id} value={partner.id}>
-                        {partner.name} ({partner.commissionPct}%)
+                        {partner.name} ({partner.discountPct}%)
                       </MenuItem>
                     ))}
                   </Field>
@@ -411,6 +421,30 @@ export function CompanyForm(props) {
                   className={classes.fullWidth}
                   margin="dense"
                   helperText="Vazio = valor do plano"
+                />
+              </Grid>
+              <Grid xs={12} sm={6} md={2} item>
+                <Field
+                  as={TextField}
+                  label="Valor dos primeiros meses"
+                  name="introValue"
+                  type="number"
+                  variant="outlined"
+                  className={classes.fullWidth}
+                  margin="dense"
+                  helperText="Opcional. Vazio = sempre o preço de venda"
+                />
+              </Grid>
+              <Grid xs={12} sm={6} md={2} item>
+                <Field
+                  as={TextField}
+                  label="Durante quantos meses"
+                  name="introMonths"
+                  type="number"
+                  variant="outlined"
+                  className={classes.fullWidth}
+                  margin="dense"
+                  helperText="Depois volta ao preço de venda"
                 />
               </Grid>
               <Grid xs={12} item>
@@ -640,7 +674,9 @@ export default function CompaniesManager() {
     recurrence: "",
     slug: "",
     partnerId: "",
-    saleValue: ""
+    saleValue: "",
+    introValue: "",
+    introMonths: ""
   });
 
   const { handleImpersonate } = useContext(AuthContext);
@@ -718,7 +754,9 @@ export default function CompaniesManager() {
       dueDate: "",
       recurrence: "",
       partnerId: "",
-      saleValue: ""
+      saleValue: "",
+      introValue: "",
+      introMonths: ""
     }));
   };
 
@@ -747,7 +785,9 @@ export default function CompaniesManager() {
       recurrence: data.recurrence || "",
       slug: data.slug || "",
       partnerId: data.partnerId || "",
-      saleValue: data.saleValue ?? ""
+      saleValue: data.saleValue ?? "",
+      introValue: data.introValue ?? "",
+      introMonths: data.introMonths ?? ""
     }));
   };
 

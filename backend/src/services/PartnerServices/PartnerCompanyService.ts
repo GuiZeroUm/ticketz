@@ -1,17 +1,19 @@
 import moment from "moment";
 import AppError from "../../errors/AppError";
 import Company from "../../models/Company";
+import Partner from "../../models/Partner";
 import Plan from "../../models/Plan";
 import Invoices from "../../models/Invoices";
 import CreateCompanyService from "../CompanyService/CreateCompanyService";
 import UpdateCompanyService from "../CompanyService/UpdateCompanyService";
-
-// Piso global, usado quando o plano nao define um minimo proprio.
-export const DEFAULT_MIN_VALUE = 197;
+import { resellerCost } from "./PartnerPricing";
 
 // Trial das empresas criadas por parceiro. Expira sozinho pelo
 // checkCompanyCompliant se a primeira fatura nao for paga.
 const TRIAL_DAYS = 3;
+
+// Limite do periodo inicial: 3 anos e mais do que qualquer caso comercial.
+const MAX_INTRO_MONTHS = 36;
 
 const parseSaleValue = (value: any): number => {
   const parsed = Number(value);
@@ -21,29 +23,98 @@ const parseSaleValue = (value: any): number => {
   return Math.round(parsed * 100) / 100;
 };
 
+const isEmpty = (value: any): boolean =>
+  value === undefined || value === null || value === "";
+
+export interface IntroPricing {
+  introValue: number | null;
+  introMonths: number | null;
+}
+
 /**
- * Valida o preco de venda contra o piso do plano.
+ * Normaliza o periodo inicial. Os dois campos andam juntos: um sem o outro e
+ * erro, os dois vazios limpam a promocao.
  *
- * Esta e a trava comercial do canal de revenda: o parceiro define o preco,
- * mas nunca abaixo do minimo que sustenta a plataforma.
+ * Nao ha comparacao entre `introValue` e `saleValue` — o periodo inicial e
+ * bidirecional (consultoria embutida cobra mais, desconto de captacao cobra
+ * menos). A unica trava e o custo de revenda, aplicada no assertAboveFloor.
+ */
+const parseIntroPricing = (data: {
+  introValue?: any;
+  introMonths?: any;
+}): IntroPricing | undefined => {
+  if (data.introValue === undefined && data.introMonths === undefined) {
+    return undefined;
+  }
+
+  const emptyValue = isEmpty(data.introValue);
+  const emptyMonths = isEmpty(data.introMonths);
+
+  if (emptyValue && emptyMonths) {
+    return { introValue: null, introMonths: null };
+  }
+
+  if (emptyValue !== emptyMonths) {
+    throw new AppError("ERR_INVALID_INTRO_PRICING", 400);
+  }
+
+  const introValue = Number(data.introValue);
+  const introMonths = Number(data.introMonths);
+
+  if (!Number.isFinite(introValue) || introValue <= 0) {
+    throw new AppError("ERR_INVALID_INTRO_PRICING", 400);
+  }
+
+  if (
+    !Number.isInteger(introMonths) ||
+    introMonths < 1 ||
+    introMonths > MAX_INTRO_MONTHS
+  ) {
+    throw new AppError("ERR_INVALID_INTRO_PRICING", 400);
+  }
+
+  return { introValue: Math.round(introValue * 100) / 100, introMonths };
+};
+
+const getPartner = async (partnerId: number): Promise<Partner> => {
+  const partner = await Partner.findByPk(partnerId);
+
+  if (!partner) {
+    throw new AppError("ERR_NO_PARTNER_FOUND", 404);
+  }
+
+  return partner;
+};
+
+/**
+ * Valida os precos contra o custo de revenda do parceiro.
+ *
+ * Esta e a trava comercial do canal: o parceiro define quanto cobra, mas
+ * nenhum dos dois precos pode ficar abaixo do que a plataforma recebe.
  */
 const assertAboveFloor = async (
   planId: number,
-  saleValue: number
-): Promise<Plan> => {
+  partner: Partner,
+  saleValue: number,
+  introValue?: number | null
+): Promise<{ plan: Plan; cost: number }> => {
   const plan = await Plan.findByPk(planId);
 
   if (!plan) {
     throw new AppError("ERR_NO_PLAN_FOUND", 404);
   }
 
-  const floor = Number(plan.minValue) || DEFAULT_MIN_VALUE;
+  const cost = resellerCost(plan.value, partner.discountPct);
 
-  if (saleValue < floor) {
+  if (saleValue < cost) {
     throw new AppError("ERR_SALE_VALUE_BELOW_MINIMUM", 400);
   }
 
-  return plan;
+  if (introValue != null && introValue < cost) {
+    throw new AppError("ERR_INTRO_VALUE_BELOW_MINIMUM", 400);
+  }
+
+  return { plan, cost };
 };
 
 export interface PartnerCompanyListItem {
@@ -108,6 +179,8 @@ interface PartnerCompanyData {
   password?: string;
   planId: number;
   saleValue: number;
+  introValue?: number | null;
+  introMonths?: number | null;
   recurrence?: string;
 }
 
@@ -115,8 +188,19 @@ export const CreatePartnerCompany = async (
   partnerId: number,
   data: PartnerCompanyData
 ): Promise<Company> => {
+  const partner = await getPartner(partnerId);
   const saleValue = parseSaleValue(data.saleValue);
-  await assertAboveFloor(data.planId, saleValue);
+  const intro = parseIntroPricing(data) || {
+    introValue: null,
+    introMonths: null
+  };
+
+  const { cost } = await assertAboveFloor(
+    data.planId,
+    partner,
+    saleValue,
+    intro.introValue
+  );
 
   return CreateCompanyService({
     name: data.name,
@@ -128,7 +212,11 @@ export const CreatePartnerCompany = async (
     recurrence: data.recurrence || "MENSAL",
     dueDate: moment().add(TRIAL_DAYS, "days").format("YYYY-MM-DD"),
     partnerId,
-    saleValue
+    saleValue,
+    introValue: intro.introValue,
+    introMonths: intro.introMonths,
+    // Snapshot do custo: reajuste de plano nao mexe em negocio ja fechado.
+    platformCost: cost
   });
 };
 
@@ -138,16 +226,30 @@ export const UpdatePartnerCompany = async (
   data: Partial<PartnerCompanyData>
 ): Promise<Company> => {
   const company = await ShowPartnerCompany(partnerId, companyId);
+  const partner = await getPartner(partnerId);
 
   const planId = data.planId || company.planId;
-  let saleValue: number | undefined;
+  const planChanged = !!data.planId && data.planId !== company.planId;
+  const intro = parseIntroPricing(data);
 
-  if (data.saleValue !== undefined) {
-    saleValue = parseSaleValue(data.saleValue);
-    await assertAboveFloor(planId, saleValue);
-  } else if (data.planId && data.planId !== company.planId) {
-    // Trocar de plano pode deixar o preco atual abaixo do novo piso.
-    await assertAboveFloor(planId, Number(company.saleValue) || 0);
+  const saleValue =
+    data.saleValue !== undefined ? parseSaleValue(data.saleValue) : undefined;
+
+  let cost: number | undefined;
+
+  // Trocar de plano pode deixar o preco atual abaixo do novo custo, entao a
+  // revalidacao usa os valores que ficarao valendo depois da atualizacao.
+  if (saleValue !== undefined || intro !== undefined || planChanged) {
+    const effectiveSaleValue = saleValue ?? (Number(company.saleValue) || 0);
+    const effectiveIntroValue =
+      intro !== undefined ? intro.introValue : company.introValue ?? null;
+
+    ({ cost } = await assertAboveFloor(
+      planId,
+      partner,
+      effectiveSaleValue,
+      effectiveIntroValue
+    ));
   }
 
   // O parceiro nao mexe em status, vencimento nem slug: so no comercial.
@@ -157,6 +259,11 @@ export const UpdatePartnerCompany = async (
     email: data.email ?? company.email,
     phone: data.phone ?? company.phone,
     planId,
-    ...(saleValue !== undefined ? { saleValue } : {})
+    ...(saleValue !== undefined ? { saleValue } : {}),
+    ...(intro !== undefined
+      ? { introValue: intro.introValue, introMonths: intro.introMonths }
+      : {}),
+    // Plano novo e negocio novo: o snapshot do custo e refeito.
+    ...(planChanged && cost !== undefined ? { platformCost: cost } : {})
   });
 };

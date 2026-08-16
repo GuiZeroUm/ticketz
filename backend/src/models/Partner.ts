@@ -47,9 +47,9 @@ class Partner extends Model<Partner> {
   @Column
   tokenVersion: number;
 
-  @Default(0)
+  @Default(30)
   @Column(DataType.FLOAT)
-  commissionPct: number;
+  discountPct: number;
 
   @Column
   pixKey: string;

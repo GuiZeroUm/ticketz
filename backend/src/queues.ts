@@ -50,6 +50,7 @@ import {
 } from "./services/ScheduleServices/cadence";
 import SendPartnerPayoutsService from "./services/PartnerServices/SendPartnerPayoutsService";
 import ReconcilePartnerPayoutsService from "./services/PartnerServices/ReconcilePartnerPayoutsService";
+import { priceForDueDate } from "./services/PartnerServices/PartnerPricing";
 
 const connection = process.env.REDIS_URI || "";
 export const userMonitor = new Queue("UserMonitor", connection);
@@ -846,8 +847,11 @@ const createInvoices = new CronJob("0 * * * * *", async () => {
         await Invoices.create({
           detail: plan.name,
           status: "open",
-          // Empresa vendida por parceiro cobra o preco negociado por ele.
-          value: c.saleValue ?? plan.value,
+          // Empresa vendida por parceiro cobra o preco negociado por ele,
+          // respeitando o periodo inicial quando houver.
+          value: c.partnerId
+            ? priceForDueDate(c, dueDate) ?? plan.value
+            : c.saleValue ?? plan.value,
           currency: plan.currency || "",
           dueDate: dueDate.toISOString().split("T")[0],
           companyId: c.id

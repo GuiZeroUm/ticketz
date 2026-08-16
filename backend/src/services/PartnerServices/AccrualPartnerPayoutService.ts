@@ -3,21 +3,29 @@ import Invoices from "../../models/Invoices";
 import Company from "../../models/Company";
 import Partner from "../../models/Partner";
 import PartnerPayout from "../../models/PartnerPayout";
+import Plan from "../../models/Plan";
 import { getPartnerPixFee } from "../PaymentGatewayServices/AbacatePayServices";
 import { logger } from "../../utils/logger";
+import { resellerCost, round2 } from "./PartnerPricing";
 
-export const round2 = (value: number): number =>
-  Math.round((Number(value) || 0) * 100) / 100;
+// Reexportado para os importadores historicos deste modulo; a aritmetica do
+// canal mora em PartnerPricing.
+export { round2 };
 
 /**
- * Registra a comissão de uma fatura paga.
+ * Registra o repasse de uma fatura paga.
+ *
+ * O parceiro compra o plano com desconto e revende pelo preço que quiser: a
+ * plataforma fica com o custo de revenda e o parceiro com tudo o que estiver
+ * acima dele. O custo vem do snapshot gravado na venda (`Company.platformCost`),
+ * então reajuste de plano não altera negócio já fechado.
  *
  * Idempotente por construção: `PartnerPayouts.invoiceId` é único, então um
  * replay do webhook de pagamento não consegue gerar um segundo repasse. Essa
  * é a invariante crítica do módulo — tudo o mais pode ser reprocessado.
  *
  * No-op silencioso quando a empresa não foi vendida por parceiro, quando o
- * parceiro está inativo ou quando a comissão é zero.
+ * parceiro está inativo ou quando a margem é zero ou negativa.
  */
 const AccrualPartnerPayoutService = async (
   invoice: Invoices
@@ -35,13 +43,18 @@ const AccrualPartnerPayoutService = async (
     return null;
   }
 
-  const commissionPct = Number(partner.commissionPct) || 0;
-  if (commissionPct <= 0) {
-    return null;
-  }
+  // O snapshot cobre a venda; o fallback existe para empresas antigas que
+  // ficaram sem ele e recalcula pelo preco de tabela atual.
+  const platformCost =
+    company.platformCost != null
+      ? round2(company.platformCost)
+      : resellerCost(
+          (await Plan.findByPk(company.planId))?.value ?? 0,
+          partner.discountPct
+        );
 
   const baseValue = round2(invoice.value);
-  const amount = round2((baseValue * commissionPct) / 100);
+  const amount = round2(baseValue - platformCost);
 
   if (amount <= 0) {
     return null;
@@ -59,7 +72,7 @@ const AccrualPartnerPayoutService = async (
       companyId: company.id,
       invoiceId: invoice.id,
       baseValue,
-      commissionPct,
+      platformCost,
       amount,
       feeAmount,
       netAmount: round2(amount - feeAmount),
@@ -70,7 +83,7 @@ const AccrualPartnerPayoutService = async (
   } catch (error) {
     if (error instanceof UniqueConstraintError) {
       logger.debug(
-        `[partnerPayouts] comissão da fatura ${invoice.id} já registrada`
+        `[partnerPayouts] repasse da fatura ${invoice.id} já registrado`
       );
       return PartnerPayout.findOne({ where: { invoiceId: invoice.id } });
     }

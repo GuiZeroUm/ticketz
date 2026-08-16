@@ -61,10 +61,10 @@ class PartnerPayout extends Model<PartnerPayout> {
   @Column(DataType.FLOAT)
   baseValue: number;
 
-  // Snapshot do percentual no momento do accrual.
+  // Custo da plataforma descontado da fatura no momento do accrual.
   @Default(0)
   @Column(DataType.FLOAT)
-  commissionPct: number;
+  platformCost: number;
 
   @Default(0)
   @Column(DataType.FLOAT)

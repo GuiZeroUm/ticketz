@@ -56,7 +56,7 @@ const emptyRecord = {
   name: "",
   email: "",
   phone: "",
-  commissionPct: 0,
+  discountPct: 30,
   status: true
 };
 
@@ -124,13 +124,14 @@ export function PartnerForm({
             <Grid xs={12} sm={6} md={2} item>
               <Field
                 as={TextField}
-                label="Comissão (%)"
-                name="commissionPct"
+                label="Desconto de revenda (%)"
+                name="discountPct"
                 type="number"
                 variant="outlined"
                 className={classes.fullWidth}
                 margin="dense"
                 inputProps={{ min: 0, max: 100, step: "0.01" }}
+                helperText="O parceiro compra o plano com este desconto e fica com tudo que cobrar acima disso."
               />
             </Grid>
             <Grid xs={12} sm={6} md={2} item>
@@ -220,7 +221,7 @@ export function PartnersGrid({ records, onSelect, onInvite }) {
             <TableCell align="left">Nome</TableCell>
             <TableCell align="left">E-mail</TableCell>
             <TableCell align="left">Telefone</TableCell>
-            <TableCell align="center">Comissão</TableCell>
+            <TableCell align="center">Desconto</TableCell>
             <TableCell align="center">Clientes</TableCell>
             <TableCell align="right">A repassar</TableCell>
             <TableCell align="center">Recebimento</TableCell>
@@ -250,7 +251,7 @@ export function PartnersGrid({ records, onSelect, onInvite }) {
               <TableCell align="left">{row.name}</TableCell>
               <TableCell align="left">{row.email}</TableCell>
               <TableCell align="left">{row.phone || "-"}</TableCell>
-              <TableCell align="center">{row.commissionPct}%</TableCell>
+              <TableCell align="center">{row.discountPct}%</TableCell>
               <TableCell align="center">{row.companiesCount}</TableCell>
               <TableCell align="right">
                 {formatCurrency(row.pendingAmount)}
@@ -319,7 +320,7 @@ export default function PartnersManager() {
       name: data.name || "",
       email: data.email || "",
       phone: data.phone || "",
-      commissionPct: data.commissionPct ?? 0,
+      discountPct: data.discountPct ?? 30,
       status: data.status !== false
     });
     setInviteUrl("");
@@ -332,7 +333,7 @@ export default function PartnersManager() {
         name: data.name,
         email: data.email,
         phone: data.phone,
-        commissionPct: Number(data.commissionPct) || 0,
+        discountPct: Number(data.discountPct) || 30,
         status: data.status
       };
       if (data.id !== undefined) {

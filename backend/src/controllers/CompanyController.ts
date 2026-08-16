@@ -35,6 +35,9 @@ type CompanyData = {
   slug?: string;
   partnerId?: number | null;
   saleValue?: number | null;
+  introValue?: number | null;
+  introMonths?: number | null;
+  platformCost?: number | null;
 };
 
 type SchedulesData = {

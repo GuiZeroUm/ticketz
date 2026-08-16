@@ -20,6 +20,9 @@ interface CompanyData {
   slug?: string;
   partnerId?: number | null;
   saleValue?: number | null;
+  introValue?: number | null;
+  introMonths?: number | null;
+  platformCost?: number | null;
 }
 
 const CreateCompanyService = async (
@@ -91,7 +94,10 @@ const CreateCompanyService = async (
     language,
     slug: slug || null,
     partnerId: companyData.partnerId || null,
-    saleValue: companyData.saleValue ?? null
+    saleValue: companyData.saleValue ?? null,
+    introValue: companyData.introValue ?? null,
+    introMonths: companyData.introMonths ?? null,
+    platformCost: companyData.platformCost ?? null
   });
   const [user, created] = await User.findOrCreate({
     where: { name, email },

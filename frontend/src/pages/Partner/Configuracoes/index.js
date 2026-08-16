@@ -76,7 +76,7 @@ const PartnerConfiguracoes = () => {
     payoutMode: "immediate",
     payoutDay: 5
   });
-  const [commissionPct, setCommissionPct] = useState(0);
+  const [discountPct, setDiscountPct] = useState(0);
 
   useEffect(() => {
     partnerApi
@@ -88,7 +88,7 @@ const PartnerConfiguracoes = () => {
           payoutMode: data.payoutMode || "immediate",
           payoutDay: data.payoutDay || 5
         });
-        setCommissionPct(data.commissionPct || 0);
+        setDiscountPct(data.discountPct || 0);
         if (data.pixFee !== undefined && data.pixFee !== null) {
           setPixFee(Number(data.pixFee));
         }
@@ -125,11 +125,22 @@ const PartnerConfiguracoes = () => {
       </MainHeader>
       <Paper className={classes.mainPaper} variant="outlined">
         <div className={classes.section}>
-          <Typography className={classes.sectionTitle}>Sua comissão</Typography>
+          <Typography className={classes.sectionTitle}>
+            Seu desconto de revenda
+          </Typography>
           <Typography variant="body2" color="textSecondary">
-            Você recebe <strong>{commissionPct}%</strong> sobre o preço de venda
-            de cada cliente, em toda fatura paga. Para alterar esse percentual,
-            fale com o administrador.
+            Você compra cada plano com <strong>{discountPct}%</strong> de
+            desconto e fica com tudo o que cobrar acima desse valor.
+          </Typography>
+          <Typography
+            variant="body2"
+            color="textSecondary"
+            className={classes.hint}
+          >
+            Em toda fatura paga a plataforma recebe sempre o mesmo: o preço do
+            plano menos o seu desconto. O que passar disso é seu, qualquer que
+            seja o preço que você cobrar do cliente. Para alterar esse
+            percentual, fale com o administrador.
           </Typography>
         </div>
 

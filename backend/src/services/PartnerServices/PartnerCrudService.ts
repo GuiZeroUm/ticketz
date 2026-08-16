@@ -7,6 +7,7 @@ import PartnerPayout from "../../models/PartnerPayout";
 import SerializePartner, {
   SerializedPartner
 } from "../../helpers/SerializePartner";
+import { DEFAULT_DISCOUNT_PCT } from "./PartnerPricing";
 
 const PARTNERS_PER_PAGE = 20;
 
@@ -38,7 +39,7 @@ const assertEmailAvailable = async (
 const partnerSchema = Yup.object().shape({
   name: Yup.string().min(2, "ERR_PARTNER_INVALID_NAME").required(),
   email: Yup.string().email("ERR_PARTNER_INVALID_EMAIL").required(),
-  commissionPct: Yup.number().min(0).max(100)
+  discountPct: Yup.number().min(0).max(100)
 });
 
 export interface PartnerWithStats extends SerializedPartner {
@@ -125,7 +126,7 @@ interface PartnerData {
   name: string;
   email: string;
   phone?: string;
-  commissionPct?: number;
+  discountPct?: number;
   status?: boolean;
 }
 
@@ -142,11 +143,17 @@ export const CreatePartner = async (
 
   await assertEmailAvailable(email);
 
+  // Sem desconto informado o parceiro nasce no padrao do canal (30%), e nao em
+  // zero: zero significaria comprar o plano pelo preco de tabela.
+  const discountPct = Number(data.discountPct);
+
   const partner = await Partner.create({
     name: data.name,
     email,
     phone: data.phone,
-    commissionPct: Number(data.commissionPct) || 0,
+    discountPct: Number.isFinite(discountPct)
+      ? discountPct
+      : DEFAULT_DISCOUNT_PCT,
     status: data.status ?? true
   } as any);
 
@@ -169,13 +176,13 @@ export const UpdatePartner = async (
   if (data.phone !== undefined) payload.phone = data.phone;
   if (data.status !== undefined) payload.status = data.status;
 
-  if (data.commissionPct !== undefined) {
-    const pct = Number(data.commissionPct);
+  if (data.discountPct !== undefined) {
+    const pct = Number(data.discountPct);
     if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
       throw new AppError("ERR_INVALID_COMMISSION", 400);
     }
-    // Nao mexe nas comissoes ja apuradas: cada linha guarda o seu snapshot.
-    payload.commissionPct = pct;
+    // Nao mexe nos repasses ja apurados: cada linha guarda o seu snapshot.
+    payload.discountPct = pct;
   }
 
   if (data.email !== undefined) {

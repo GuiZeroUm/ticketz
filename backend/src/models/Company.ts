@@ -80,6 +80,19 @@ class Company extends Model<Company> {
   @Column(DataType.FLOAT)
   saleValue: number;
 
+  // Preco cobrado durante o periodo inicial. Pode ser maior ou menor que o
+  // saleValue; terminado o periodo, a cobranca volta para ele.
+  @Column(DataType.FLOAT)
+  introValue: number;
+
+  // Duracao em meses do periodo inicial.
+  @Column(DataType.INTEGER)
+  introMonths: number;
+
+  // Snapshot do que a plataforma recebe por ciclo, travado na venda.
+  @Column(DataType.FLOAT)
+  platformCost: number;
+
   @CreatedAt
   createdAt: Date;
 

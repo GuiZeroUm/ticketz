@@ -5,7 +5,7 @@ export interface SerializedPartner {
   name: string;
   email: string;
   phone: string;
-  commissionPct: number;
+  discountPct: number;
   pixKey: string;
   pixKeyType: string;
   payoutMode: string;
@@ -22,7 +22,7 @@ export const SerializePartner = (partner: Partner): SerializedPartner => ({
   name: partner.name,
   email: partner.email,
   phone: partner.phone,
-  commissionPct: partner.commissionPct,
+  discountPct: partner.discountPct,
   pixKey: partner.pixKey,
   pixKeyType: partner.pixKeyType,
   payoutMode: partner.payoutMode,

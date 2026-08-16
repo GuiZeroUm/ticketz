@@ -141,8 +141,8 @@ const PartnerFinanceiro = () => {
               <TableCell align="left">Cliente</TableCell>
               <TableCell align="left">Competência</TableCell>
               <TableCell align="right">Valor da venda</TableCell>
-              <TableCell align="center">Comissão</TableCell>
-              <TableCell align="right">Bruto</TableCell>
+              <TableCell align="right">Custo plataforma</TableCell>
+              <TableCell align="right">Sua margem</TableCell>
               <TableCell align="right">Tarifa</TableCell>
               <TableCell align="right">Líquido</TableCell>
               <TableCell align="center">Cliente pagou</TableCell>
@@ -171,7 +171,9 @@ const PartnerFinanceiro = () => {
                   <TableCell align="right">
                     {formatCurrency(row.baseValue)}
                   </TableCell>
-                  <TableCell align="center">{row.commissionPct}%</TableCell>
+                  <TableCell align="right">
+                    {formatCurrency(row.platformCost)}
+                  </TableCell>
                   <TableCell align="right">
                     {formatCurrency(row.amount)}
                   </TableCell>

@@ -52,6 +52,13 @@ const useStyles = makeStyles(theme => ({
   },
   almostDue: {
     color: theme.mode === "light" ? "blue" : "#38f"
+  },
+  introHint: {
+    display: "block",
+    lineHeight: 1.2
+  },
+  marginSummary: {
+    marginTop: theme.spacing(0.5)
   }
 }));
 
@@ -62,7 +69,28 @@ const emptyForm = {
   password: "",
   planId: "",
   saleValue: "",
+  introValue: "",
+  introMonths: "",
   recurrence: "MENSAL"
+};
+
+const toNumberOrNull = value => {
+  if (value === "" || value === null || value === undefined) {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const introEndsAt = company => {
+  if (!company.introValue || !(Number(company.introMonths) > 0)) {
+    return null;
+  }
+  const createdAt = moment(company.createdAt);
+  if (!createdAt.isValid()) {
+    return null;
+  }
+  return createdAt.add(Number(company.introMonths), "months");
 };
 
 const PartnerClientes = () => {
@@ -97,7 +125,34 @@ const PartnerClientes = () => {
   }, [loadCompanies]);
 
   const selectedPlan = plans.find(plan => plan.id === form.planId);
-  const floor = selectedPlan?.minValue;
+  const floor = selectedPlan?.resellerCost ?? null;
+
+  const belowFloor = value =>
+    floor != null && value !== "" && Number(value) < Number(floor);
+
+  const saleError = belowFloor(form.saleValue);
+  const introError = belowFloor(form.introValue);
+  const monthsError =
+    form.introValue !== "" && !(Number(form.introMonths) >= 1);
+
+  const requiredFilled =
+    !!form.name &&
+    !!form.email &&
+    !!form.planId &&
+    form.saleValue !== "" &&
+    (!!editingId || !!form.password);
+
+  const canSave =
+    !saleError && !introError && !monthsError && requiredFilled && !saving;
+
+  const saleMargin =
+    floor != null && form.saleValue !== "" && !saleError
+      ? Number(form.saleValue) - Number(floor)
+      : null;
+  const introMargin =
+    floor != null && form.introValue !== "" && !introError && !monthsError
+      ? Number(form.introValue) - Number(floor)
+      : null;
 
   const handleOpenCreate = () => {
     setEditingId(null);
@@ -114,6 +169,8 @@ const PartnerClientes = () => {
       phone: row.company.phone || "",
       planId: row.company.planId || "",
       saleValue: row.company.saleValue ?? "",
+      introValue: row.company.introValue ?? "",
+      introMonths: row.company.introMonths ?? "",
       recurrence: row.company.recurrence || "MENSAL"
     });
     setModalOpen(true);
@@ -124,12 +181,38 @@ const PartnerClientes = () => {
   };
 
   const handleSubmit = async () => {
-    if (floor && Number(form.saleValue) < Number(floor)) {
+    if (floor != null && Number(form.saleValue) < Number(floor)) {
       toast.error(
-        `O preço de venda não pode ser menor que ${formatCurrency(floor)}`
+        `O preço de venda não pode ser menor que o seu custo de ${formatCurrency(
+          floor
+        )}`
       );
       return;
     }
+
+    if (
+      floor != null &&
+      form.introValue !== "" &&
+      Number(form.introValue) < Number(floor)
+    ) {
+      toast.error(
+        `O valor dos primeiros meses não pode ser menor que o seu custo de ${formatCurrency(
+          floor
+        )}`
+      );
+      return;
+    }
+
+    if (form.introValue !== "" && !(Number(form.introMonths) >= 1)) {
+      toast.error(
+        "Informe durante quantos meses o valor inicial será cobrado (mínimo 1)."
+      );
+      return;
+    }
+
+    const introValue = toNumberOrNull(form.introValue);
+    const introMonths =
+      introValue == null ? null : toNumberOrNull(form.introMonths);
 
     setSaving(true);
     try {
@@ -139,12 +222,16 @@ const PartnerClientes = () => {
           email: form.email,
           phone: form.phone,
           planId: form.planId,
-          saleValue: Number(form.saleValue)
+          saleValue: Number(form.saleValue),
+          introValue,
+          introMonths
         });
       } else {
         await partnerApi.post("/partner/companies", {
           ...form,
-          saleValue: Number(form.saleValue)
+          saleValue: Number(form.saleValue),
+          introValue,
+          introMonths
         });
       }
       toast.success("Operação realizada com sucesso!");
@@ -170,6 +257,18 @@ const PartnerClientes = () => {
       }
     }
     return null;
+  };
+
+  const renderIntroPeriod = company => {
+    const endsAt = introEndsAt(company);
+    if (!endsAt || !endsAt.isAfter(moment())) {
+      return null;
+    }
+    return (
+      <Typography variant="caption" display="block" color="textSecondary">
+        {formatCurrency(company.introValue)} até {endsAt.format("MM/YYYY")}
+      </Typography>
+    );
   };
 
   const renderPaymentStatus = row => {
@@ -234,6 +333,7 @@ const PartnerClientes = () => {
                   </TableCell>
                   <TableCell align="right" style={{ color: "unset" }}>
                     {formatCurrency(row.company.saleValue)}
+                    {renderIntroPeriod(row.company)}
                   </TableCell>
                   <TableCell align="center" style={{ color: "unset" }}>
                     {row.company.dueDate
@@ -323,7 +423,8 @@ const PartnerClientes = () => {
                 >
                   {plans.map(plan => (
                     <MenuItem key={plan.id} value={plan.id}>
-                      {plan.name} — mínimo {formatCurrency(plan.minValue)}
+                      {plan.name} — seu custo{" "}
+                      {formatCurrency(plan.resellerCost)}
                     </MenuItem>
                   ))}
                 </Select>
@@ -338,11 +439,16 @@ const PartnerClientes = () => {
                 className={classes.fullWidth}
                 value={form.saleValue}
                 onChange={handleChange("saleValue")}
-                inputProps={{ min: floor || 0, step: "0.01" }}
+                inputProps={{ min: floor ?? 0, step: "0.01" }}
+                error={saleError}
                 helperText={
-                  floor
-                    ? `Mínimo do plano: ${formatCurrency(floor)}`
-                    : "Selecione um plano para ver o mínimo"
+                  floor == null
+                    ? "Selecione um plano para ver o seu custo"
+                    : saleError
+                      ? `Abaixo do seu custo de ${formatCurrency(
+                          floor
+                        )} — a plataforma não cobre esse valor`
+                      : `Seu custo neste plano: ${formatCurrency(floor)}`
                 }
                 required
               />
@@ -368,6 +474,83 @@ const PartnerClientes = () => {
                 </FormControl>
               </Grid>
             )}
+            <Grid xs={12} sm={6} item>
+              <TextField
+                label="Valor dos primeiros meses (opcional)"
+                type="number"
+                variant="outlined"
+                margin="dense"
+                className={classes.fullWidth}
+                value={form.introValue}
+                onChange={handleChange("introValue")}
+                inputProps={{ min: floor ?? 0, step: "0.01" }}
+                error={introError}
+                helperText={
+                  floor == null
+                    ? "Selecione um plano para ver o seu custo"
+                    : introError
+                      ? `Abaixo do seu custo de ${formatCurrency(
+                          floor
+                        )} — a plataforma não cobre esse valor`
+                      : `Seu custo neste plano: ${formatCurrency(floor)}`
+                }
+              />
+            </Grid>
+            <Grid xs={12} sm={6} item>
+              <TextField
+                label="Durante quantos meses"
+                type="number"
+                variant="outlined"
+                margin="dense"
+                className={classes.fullWidth}
+                value={form.introMonths}
+                onChange={handleChange("introMonths")}
+                inputProps={{ min: 1, step: "1" }}
+                error={monthsError}
+                disabled={form.introValue === ""}
+                helperText={
+                  monthsError
+                    ? "Informe pelo menos 1 mês"
+                    : "Depois desse período a cobrança passa para a mensalidade."
+                }
+              />
+            </Grid>
+            <Grid xs={12} item>
+              <Typography
+                variant="caption"
+                color="textSecondary"
+                className={classes.introHint}
+              >
+                Cobre um valor diferente no início — acima, para embutir
+                implantação, treinamento ou consultoria; ou abaixo, como
+                desconto de captação. Depois a cobrança passa sozinha para a
+                mensalidade.
+              </Typography>
+              {saleMargin != null && (
+                <Typography
+                  variant="body2"
+                  color="textSecondary"
+                  className={classes.marginSummary}
+                >
+                  {introMargin != null ? (
+                    <>
+                      Você recebe{" "}
+                      <strong>{formatCurrency(introMargin)}/mês</strong>{" "}
+                      {Number(form.introMonths) === 1
+                        ? "no primeiro mês"
+                        : `nos ${Number(form.introMonths)} primeiros meses`}{" "}
+                      e <strong>{formatCurrency(saleMargin)}/mês</strong>{" "}
+                      depois.
+                    </>
+                  ) : (
+                    <>
+                      Você recebe{" "}
+                      <strong>{formatCurrency(saleMargin)}/mês</strong>.
+                    </>
+                  )}
+                </Typography>
+              )}
+            </Grid>
             <Grid xs={12} item>
               <Typography variant="caption" color="textSecondary">
                 O cliente nasce com 3 dias de teste. Se a primeira fatura não
@@ -385,6 +568,7 @@ const PartnerClientes = () => {
             onClick={handleSubmit}
             variant="contained"
             color="primary"
+            disabled={!canSave}
           >
             Salvar
           </ButtonWithSpinner>
