@@ -3,18 +3,10 @@ import fs from "fs";
 import { Op, WhereOptions } from "sequelize";
 import { getIO } from "../libs/socket";
 import AppError from "../errors/AppError";
-import CommemorativeDate from "../models/CommemorativeDate";
 import Contact from "../models/Contact";
 import ScheduleDelivery from "../models/ScheduleDelivery";
-import User from "../models/User";
 import Company from "../models/Company";
-import {
-  estimateCadenceSeconds,
-  getScheduleCadence
-} from "../services/ScheduleServices/cadence";
 import CreateService, {
-  calculateNextRun,
-  normalizePayload,
   SchedulePayload
 } from "../services/ScheduleServices/CreateService";
 import ListService from "../services/ScheduleServices/ListService";
@@ -23,14 +15,10 @@ import ShowService from "../services/ScheduleServices/ShowService";
 import DeleteService from "../services/ScheduleServices/DeleteService";
 import {
   BUILT_IN_SCHEDULE_VARIABLES,
-  normalizeVariableKey,
-  renderScheduleMessage,
-  validateScheduleVariables
+  normalizeVariableKey
 } from "../services/ScheduleServices/variables";
-import {
-  customFieldNames,
-  resolveAudience
-} from "../services/ScheduleServices/audience";
+import { customFieldNames } from "../services/ScheduleServices/audience";
+import PreviewService from "../services/ScheduleServices/PreviewService";
 import CheckSettings from "../helpers/CheckSettings";
 import { normalizeVisualMedia } from "../helpers/mediaConversion";
 import SendNowService from "../services/ScheduleServices/SendNowService";
@@ -254,97 +242,16 @@ export const variables = async (
   });
 };
 
-const contactValue = (
-  contact: Contact,
-  variable: string,
-  commemorativeDate?: CommemorativeDate,
-  currentUser?: User
-): string => {
-  if (variable === "email") return contact.email;
-  if (variable === "idioma") return contact.language;
-  if (variable === "data_comemorativa") return commemorativeDate?.name || "";
-  if (variable === "atendente" || variable === "user")
-    return currentUser?.name || "";
-  if (variable === "apelido")
-    return contact.nickname || contact.name?.split(" ")[0];
-  if (variable === "aniversario") {
-    return contact.birthdayDay && contact.birthdayMonth ? "ok" : "";
-  }
-  if (variable.startsWith("extra.")) {
-    const key = variable.slice(6);
-    return (
-      contact.extraInfo?.find(info => normalizeVariableKey(info.name) === key)
-        ?.value || ""
-    );
-  }
-  return "ok";
-};
-
 export const preview = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  const payload = normalizePayload({
+  const result = await PreviewService({
     ...(req.body as SchedulePayload),
     companyId: req.user.companyId,
     userId: Number(req.user.id)
   });
-  const custom = await customFieldNames(req.user.companyId);
-  const usedVariables = validateScheduleVariables(payload.body, custom);
-  const contacts = await resolveAudience({
-    companyId: req.user.companyId,
-    kind: payload.kind,
-    audienceMode: payload.audienceMode,
-    contactIds: payload.contactIds
-  });
-  const occurrence = await calculateNextRun(payload);
-  const commemorativeDate = payload.commemorativeDateId
-    ? await CommemorativeDate.findOne({
-        where: {
-          id: payload.commemorativeDateId,
-          companyId: req.user.companyId
-        }
-      })
-    : null;
-  const currentUser = await User.findByPk(req.user.id, {
-    attributes: ["id", "name"]
-  });
-  const candidateCount = await Contact.count({
-    where: {
-      companyId: req.user.companyId,
-      channel: "whatsapp",
-      isGroup: false,
-      ...(payload.audienceMode === "SELECTED"
-        ? { id: { [Op.in]: payload.contactIds || [] } }
-        : {})
-    }
-  });
-  const missingVariables = usedVariables.reduce(
-    (result, variable) => {
-      const missing = contacts.filter(
-        contact =>
-          !contactValue(contact, variable, commemorativeDate, currentUser)
-      ).length;
-      if (missing) result[variable] = missing;
-      return result;
-    },
-    {} as Record<string, number>
-  );
-  const cadence = await getScheduleCadence(req.user.companyId);
-  return res.json({
-    eligibleCount: contacts.length,
-    excludedCount: Math.max(0, candidateCount - contacts.length),
-    missingVariables,
-    estimatedDurationSeconds: estimateCadenceSeconds(contacts.length, cadence),
-    nextRunAt: occurrence,
-    renderedMessage: renderScheduleMessage(payload.body, {
-      contact: contacts[0],
-      currentUser,
-      commemorativeDate,
-      occurrence,
-      timezone: payload.timezone
-    })
-  });
+  return res.json(result);
 };
 
 export const deliveries = async (

@@ -11,6 +11,8 @@ import User from "../../models/User";
 import AppError from "../../errors/AppError";
 import { BUILT_IN_SCHEDULE_VARIABLES } from "../ScheduleServices/variables";
 import { QUICK_MESSAGE_LIMITS } from "./McpQuickMessageService";
+import { SCHEDULE_LIMITS } from "./McpScheduleService";
+import { getTenantTimezone as getTimezone } from "./tenantTimezone";
 import { McpAuthContext } from "./OAuthService";
 
 type Filters = {
@@ -106,16 +108,6 @@ const decodeCursor = (
   } catch {
     throw new AppError("invalid_cursor", 400);
   }
-};
-
-const getTimezone = async (companyId: number): Promise<string> => {
-  const company = await Company.findByPk(companyId, {
-    attributes: ["schedules"]
-  });
-  const configured = company?.schedules?.timezone;
-  return DateTime.now().setZone(configured || mcpConfig.timezone).isValid
-    ? configured || mcpConfig.timezone
-    : mcpConfig.timezone;
 };
 
 const parseTenantDate = (
@@ -282,7 +274,10 @@ export const getTicketzContext = async (auth: McpAuthContext) => {
       listContacts: 200,
       listSchedules: 100,
       quickMessageShortcodeLength: QUICK_MESSAGE_LIMITS.shortcodeMaxLength,
-      quickMessageLength: QUICK_MESSAGE_LIMITS.messageMaxLength
+      quickMessageLength: QUICK_MESSAGE_LIMITS.messageMaxLength,
+      scheduleBodyMinLength: SCHEDULE_LIMITS.bodyMinLength,
+      scheduleBodyMaxLength: SCHEDULE_LIMITS.bodyMaxLength,
+      maxScheduleContacts: SCHEDULE_LIMITS.maxSelectedContacts
     },
     capabilities: {
       deterministicStats: true,
@@ -291,12 +286,17 @@ export const getTicketzContext = async (auth: McpAuthContext) => {
       contactBirthdays: true,
       scheduleReads: true,
       mediaFiles: false,
-      // Respostas rápidas são o único registro gravável: são modelos de texto
-      // que um atendente dispara depois, então criá-las não envia mensagem.
+      // Respostas rápidas são modelos de texto que um atendente dispara
+      // depois, então criá-las não envia mensagem. Agendamentos programam um
+      // envio futuro: criar um não dispara nada agora, o ScheduleMonitor é que
+      // entrega na data. Excluir e antecipar continuam fora do MCP.
       writeActions: true,
       quickMessageWrites: true,
       sendMessages: false,
-      scheduleWrites: false,
+      scheduleWrites: true,
+      scheduleDeletes: false,
+      scheduleSendNow: false,
+      scheduleMedia: false,
       contactWrites: false
     },
     scopes: auth.scopes

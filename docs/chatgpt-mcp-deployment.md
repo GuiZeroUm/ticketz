@@ -67,8 +67,9 @@ Use a URL exibida em **Administração → ChatGPT** para criar uma integração
 ## Dados expostos ao ChatGPT
 
 As ferramentas de leitura continuam nos dois escopos já concedidos
-(`conversations:read` e `reports:read`). As respostas rápidas estreiam a escrita
-em dois escopos novos, `quick_messages:read` e `quick_messages:write`:
+(`conversations:read` e `reports:read`). As respostas rápidas trouxeram
+`quick_messages:read` e `quick_messages:write`, e os agendamentos trazem agora
+`schedules:write`:
 
 | Ferramenta | Escopo | Conteúdo |
 | --- | --- | --- |
@@ -82,11 +83,20 @@ em dois escopos novos, `quick_messages:read` e `quick_messages:write`:
 | `list_quick_messages` | `quick_messages:read` | Respostas rápidas visíveis ao usuário conectado, com atalho, texto e dono |
 | `create_quick_message` | `quick_messages:write` | **Escrita.** Cria uma resposta rápida em nome do usuário conectado |
 | `update_quick_message` | `quick_messages:write` | **Escrita.** Edita o atalho e/ou o texto de uma resposta rápida existente |
+| `preview_schedule` | `conversations:read` | Simulação de agendamento: elegíveis, excluídos, variáveis vazias, próxima ocorrência, aviso de data passada e mensagem renderizada. Nada é gravado |
+| `create_schedule` | `schedules:write` | **Escrita.** Cria um agendamento `ONCE`, `BIRTHDAY` ou `COMMEMORATIVE` em nome do usuário conectado |
+| `update_schedule` | `schedules:write` | **Escrita.** Edita texto, data/hora, fuso ou público de um agendamento existente |
 
 O aniversário do contato guarda apenas dia e mês, então as respostas nunca
 permitem inferir idade ou ano. A auditoria não registra o texto livre dos
-filtros `contact` e `search` nem o campo `message` das respostas rápidas,
-mantendo nome, telefone, e-mail e conteúdo fora dos registros.
+filtros `contact` e `search`, nem o campo `message` das respostas rápidas, nem o
+campo `body` dos agendamentos, mantendo nome, telefone, e-mail e conteúdo fora
+dos registros.
+
+`preview_schedule` fica em `conversations:read` de propósito: simular não grava
+nada, e exigir escopo de escrita para uma prévia inverteria o menor privilégio.
+Uma conexão só de leitura já criada passa a enxergar a simulação, mas continua
+sem `create_schedule` e sem `update_schedule`.
 
 ## Escrita de respostas rápidas
 
@@ -106,18 +116,98 @@ Limites da escrita, todos herdados do que já valia na interface:
   repetir um atalho já visível, porque a tabela não tem índice único;
 - o registro nasce com `companyId` e `userId` vindos do grant, nunca do payload.
 
+## Escrita de agendamentos
+
+Um agendamento programa um envio futuro de WhatsApp: criá-lo **não dispara nada
+na hora**. A entrega continua sob o `ScheduleMonitor` e a cadência anti-bloqueio
+do tenant, exatamente como um agendamento criado na tela.
+
+As três ferramentas são cascas finas sobre os mesmos serviços de domínio que a
+tela e o REST usam (`ScheduleServices/CreateService`, `UpdateService`,
+`ShowService` e o novo `PreviewService`, extraído de `ScheduleController.preview`
+para que a prévia da tela e a do ChatGPT nunca divirjam). Nenhuma regra de
+audiência, recorrência ou variável foi reescrita na camada MCP.
+
+Limites e invariantes:
+
+- só administradores conectam o ChatGPT (`validateAccessToken` exige
+  `profile === "admin"`), então só administradores escrevem;
+- `companyId` e `userId` vêm sempre do grant, nunca do argumento da ferramenta;
+- `contact_ids` de outro tenant são **recusados** com
+  `ERR_SCHEDULE_INVALID_RECIPIENT` — o `resolveAudience` compara a contagem de
+  contatos elegíveis encontrados com a pedida;
+- máximo de 100 contatos por chamada no modo `SELECTED`
+  (`ERR_SCHEDULE_TOO_MANY_RECIPIENTS`) e 5.000 caracteres de texto
+  (`ERR_SCHEDULE_MESSAGE_TOO_LONG`); o mínimo de 5 caracteres e a checagem de
+  variáveis Mustache continuam sendo do domínio;
+- fuso padrão é o configurado em **Agendamentos** do tenant
+  (`Company.schedules.timezone`), com `MCP_TIMEZONE` como último recurso;
+- **mídia não é exposta**: o modelo não envia nem recebe `mediaPath`, então não
+  há como referenciar arquivo do servidor. Uma edição preserva a mídia que já
+  estava no agendamento;
+- **data no passado não é recusada.** O domínio aceita, a tela aceita, e o MCP
+  aceita: `preview_schedule` devolve `isInPast: true` como aviso para o modelo
+  repassar ao usuário. Recusar só aqui faria o ChatGPT divergir da agenda;
+- o evento de socket vai para a sala do tenant
+  (`company-<id>-mainchannel`), então a tela `/schedules` aberta atualiza na
+  hora e o texto do agendamento não vaza para outros clientes;
+- **não existe exclusão, pausa nem disparo antecipado pelo MCP.** Excluir e
+  antecipar ficaram fora por decisão de produto; pausar não existe no domínio
+  (o `UpdateService` grava `active: true` em toda edição e não há rota de
+  pausa), então a ferramenta não oferece `active` para não prometer algo que o
+  sistema não faz. Interromper um agendamento continua sendo exclusão na tela.
+
+Editar um agendamento reconstrói as entregas pendentes e zera os contadores,
+igual ao `PUT /schedules/:id` da tela. Um agendamento `ONCE` que já começou a
+enviar não pode ser alterado (`ERR_SCHEDULE_ALREADY_STARTED`).
+
+Erros estruturados que o modelo pode receber e repassar: `ERR_SCHEDULE_INVALID_MESSAGE`,
+`ERR_SCHEDULE_MESSAGE_TOO_LONG`, `ERR_SCHEDULE_UNKNOWN_VARIABLE`,
+`ERR_SCHEDULE_INVALID_DATE`, `ERR_SCHEDULE_DATE_REQUIRED`,
+`ERR_SCHEDULE_TIME_REQUIRED`, `ERR_SCHEDULE_INVALID_TIME`,
+`ERR_SCHEDULE_INVALID_TIMEZONE`, `ERR_SCHEDULE_INVALID_KIND`,
+`ERR_SCHEDULE_INVALID_AUDIENCE`, `ERR_SCHEDULE_RECIPIENT_REQUIRED`,
+`ERR_SCHEDULE_INVALID_RECIPIENT`, `ERR_SCHEDULE_TOO_MANY_RECIPIENTS`,
+`ERR_SCHEDULE_NO_ELIGIBLE_RECIPIENTS`, `ERR_SCHEDULE_NOTHING_TO_UPDATE`,
+`ERR_SCHEDULE_FIELD_NOT_APPLICABLE`, `ERR_SCHEDULE_ALREADY_STARTED`,
+`ERR_COMMEMORATIVE_DATE_NOT_FOUND` e `ERR_NO_SCHEDULE_FOUND`.
+
+### Erros das ferramentas
+
+Um erro de domínio volta como resultado MCP com `isError: true`, o código curto
+em `content[0].text` (ex.: `ERR_SCHEDULE_INVALID_RECIPIENT`) e o mesmo código em
+`structuredContent.result.error` com o status HTTP. Vale para **todas** as
+ferramentas, não só as de agendamento: a normalização está no `registerTool`.
+Antes disso o cliente recebia `"[object Object]"`, porque o `AppError` do projeto
+não estende `Error` e o SDK serializava o objeto lançado com `String()`.
+
+O envelope fica sob a chave `result` de propósito: o cliente do SDK valida
+`structuredContent` contra o `outputSchema` da ferramenta mesmo quando `isError`
+é `true`, e um envelope fora do schema faria o cliente levantar erro de
+protocolo, perdendo o código. Erro inesperado (bug, falha de banco) continua
+subindo como falha genérica — não recebe código de domínio.
+
 ### Reconexão obrigatória
 
 Escopo novo não é concedido retroativamente: os grants existentes guardam
 apenas os escopos aprovados na hora do consentimento. Uma conexão criada antes
 desta versão continua funcionando normalmente para leitura e **não precisa ser
-revogada**, mas as três ferramentas de resposta rápida nem sequer aparecem no
-`tools/list` dela — o registro é filtrado pelos escopos do grant, para não
-oferecer ao modelo uma ferramenta que sempre falharia.
+revogada**, mas as ferramentas de escrita nem sequer aparecem no `tools/list`
+dela — o registro é filtrado pelos escopos do grant, para não oferecer ao modelo
+uma ferramenta que sempre falharia. `list_schedules` e `preview_schedule` seguem
+em `conversations:read` e continuam disponíveis nas conexões antigas.
 
 Para liberar a escrita, reautorize o conector em **ChatGPT → Configurações →
 Conectores → Espaço Whats**, refazendo o login (slug do tenant, e-mail e senha)
 na tela de consentimento. Nenhuma variável de ambiente muda nesta versão.
+
+Escrita só é concedida quando o cliente **pede explicitamente** o escopo no
+`/authorize`. Um cliente que omite o parâmetro `scope` recebe apenas os escopos
+de leitura (`conversations:read`, `reports:read`, `quick_messages:read`), nunca
+`quick_messages:write` nem `schedules:write` — antes o padrão era conceder tudo o
+que o servidor suporta, então quem não pedia escrita saía do consentimento
+podendo gravar. O `scopes_supported` da descoberta continua anunciando todos os
+escopos, que é como o cliente sabe o que pode pedir.
 
 ## Retenção de auditoria
 

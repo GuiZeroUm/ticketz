@@ -44,7 +44,8 @@ const mcpConfig = {
     "conversations:read",
     "reports:read",
     "quick_messages:read",
-    "quick_messages:write"
+    "quick_messages:write",
+    "schedules:write"
   ],
   timezone: process.env.MCP_TIMEZONE || "America/Rio_Branco",
   frontendUrl: normalizeBaseUrl(

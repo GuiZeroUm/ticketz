@@ -2,6 +2,7 @@ import sequelize from "../../database";
 import mcpConfig from "../../config/mcp";
 import OAuthRefreshToken from "../../models/OAuthRefreshToken";
 import {
+  DEFAULT_GRANT_SCOPES,
   createPkceChallenge,
   hashOAuthToken,
   rotateRefreshToken,
@@ -63,6 +64,34 @@ describe("MCP OAuth security primitives", () => {
       "conversations:read"
     ]);
     expect(() => validateScopes("conversations:write")).toThrow(
+      "invalid_scope"
+    );
+  });
+
+  it("grants only reads when the client omits the scope parameter", () => {
+    // Antes o padrão era todo o mcpConfig.scopes: quem não pedia escrita saía
+    // do consentimento podendo gravar. Escrita agora exige pedido explícito.
+    const granted = validateScopes();
+
+    expect(granted).toEqual(DEFAULT_GRANT_SCOPES);
+    expect(granted).toEqual(expect.arrayContaining(["conversations:read"]));
+    expect(granted.some(scope => scope.endsWith(":write"))).toBe(false);
+    expect(validateScopes("")).toEqual(granted);
+  });
+
+  it("grants the write scopes the client asks for explicitly", () => {
+    expect(validateScopes("conversations:read schedules:write")).toEqual([
+      "conversations:read",
+      "schedules:write"
+    ]);
+    expect(validateScopes("quick_messages:write")).toEqual([
+      "quick_messages:write"
+    ]);
+  });
+
+  it("rejects a scope that does not exist", () => {
+    expect(() => validateScopes("schedules:delete")).toThrow("invalid_scope");
+    expect(() => validateScopes("conversations:read schedules:admin")).toThrow(
       "invalid_scope"
     );
   });

@@ -63,8 +63,16 @@ const auditOAuth = async (
   });
 };
 
+// Escopos concedidos quando o cliente não manda "scope" no /authorize. Só
+// leitura: um cliente que nunca pediu escrita não pode sair do consentimento
+// podendo gravar respostas rápidas ou agendamentos. Escrita agora exige pedido
+// explícito, que é o caminho que o conector real usa.
+export const DEFAULT_GRANT_SCOPES = mcpConfig.scopes.filter(
+  scope => !scope.endsWith(":write")
+);
+
 export const validateScopes = (scope?: string): string[] => {
-  const requested = (scope || mcpConfig.scopes.join(" "))
+  const requested = (scope || DEFAULT_GRANT_SCOPES.join(" "))
     .split(/\s+/)
     .filter(Boolean);
   if (
