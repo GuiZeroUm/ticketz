@@ -1,3 +1,9 @@
 .docker
 *~
 /.project
+
+# Metadados do macOS e artefatos locais
+.DS_Store
+**/.DS_Store
+body.txt
+strix_runs/
