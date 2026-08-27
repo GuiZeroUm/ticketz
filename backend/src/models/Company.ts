@@ -68,6 +68,27 @@ class Company extends Model<Company> {
   @Column
   slug: string;
 
+  @Column
+  platformStatus: string;
+
+  @Column
+  platformPreviousStatus: string;
+
+  @Column
+  platformBilling: string;
+
+  @Column
+  platformPartnerRef: string;
+
+  @Column(DataType.JSONB)
+  platformLimits: Record<string, number>;
+
+  @Column
+  platformCancelledAt: Date;
+
+  @Column(DataType.DATEONLY)
+  platformDataUntil: string;
+
   // Parceiro que revendeu esta empresa. Nulo em vendas diretas.
   @ForeignKey(() => Partner)
   @Column

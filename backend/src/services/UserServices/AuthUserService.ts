@@ -47,7 +47,7 @@ const resolveScopedCompanyId = async (
   let normalized = "";
   try {
     normalized = normalizeSlug(slug);
-  } catch (_) {
+  } catch {
     return null;
   }
 
@@ -96,6 +96,10 @@ const AuthUserService = async ({
 
   if (!user) {
     throw new AppError("ERR_INVALID_CREDENTIALS", 401);
+  }
+
+  if (!user.company?.status) {
+    throw new AppError("ERR_COMPANY_INACTIVE", 403);
   }
 
   if (!(await user.checkPassword(password))) {

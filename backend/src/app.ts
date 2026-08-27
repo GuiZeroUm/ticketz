@@ -10,6 +10,7 @@ import "./database";
 import path from "path";
 import uploadConfig from "./config/upload";
 import AppError from "./errors/AppError";
+import PlatformApiError from "./errors/PlatformApiError";
 import routes from "./routes";
 import { logger } from "./utils/logger";
 import { sendScheduledMessages } from "./queues";
@@ -92,6 +93,8 @@ app.use((req, _res, next) => {
   const safeHeaders = { ...headers };
   delete safeHeaders.authorization;
   delete safeHeaders.cookie;
+  delete safeHeaders["x-platform-key"];
+  delete safeHeaders["x-signature"];
   logger.trace(
     {
       method,
@@ -112,6 +115,14 @@ app.use(routes);
 
 app.use(Sentry.Handlers.errorHandler());
 app.use(async (err: Error, req: Request, res: Response, _: NextFunction) => {
+  if (err instanceof PlatformApiError) {
+    return res.status(err.statusCode).json({
+      error: err.code,
+      message: err.message,
+      ...(err.details ? { details: err.details } : {})
+    });
+  }
+
   if (err instanceof AppError) {
     logger[err.level](err);
     return res.status(err.statusCode).json({ error: err.message });

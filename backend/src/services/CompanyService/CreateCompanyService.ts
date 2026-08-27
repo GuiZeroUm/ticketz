@@ -5,6 +5,7 @@ import User from "../../models/User";
 import Setting from "../../models/Setting";
 import normalizeSlug from "../../helpers/normalizeSlug";
 import replicateMasterSuperAdmins from "../../helpers/replicateMasterSuperAdmins";
+import { Transaction } from "sequelize";
 
 interface CompanyData {
   name: string;
@@ -26,8 +27,10 @@ interface CompanyData {
 }
 
 const CreateCompanyService = async (
-  companyData: CompanyData
+  companyData: CompanyData,
+  options: { transaction?: Transaction } = {}
 ): Promise<Company> => {
+  const { transaction } = options;
   const {
     name,
     phone,
@@ -53,7 +56,8 @@ const CreateCompanyService = async (
         async value => {
           if (value) {
             const companyWithSameName = await Company.findOne({
-              where: { name: value }
+              where: { name: value },
+              transaction
             });
 
             return !companyWithSameName;
@@ -67,7 +71,8 @@ const CreateCompanyService = async (
       async value => {
         if (value) {
           const companyWithSameSlug = await Company.findOne({
-            where: { slug: value }
+            where: { slug: value },
+            transaction
           });
 
           return !companyWithSameSlug;
@@ -79,44 +84,50 @@ const CreateCompanyService = async (
 
   try {
     await companySchema.validate({ name, slug });
-  } catch (err: any) {
-    throw new AppError(err.message);
+  } catch (err) {
+    throw new AppError(
+      err instanceof Error ? err.message : "ERR_COMPANY_INVALID"
+    );
   }
 
-  const company = await Company.create({
-    name,
-    phone,
-    email,
-    status,
-    planId,
-    dueDate,
-    recurrence,
-    language,
-    slug: slug || null,
-    partnerId: companyData.partnerId || null,
-    saleValue: companyData.saleValue ?? null,
-    introValue: companyData.introValue ?? null,
-    introMonths: companyData.introMonths ?? null,
-    platformCost: companyData.platformCost ?? null
-  });
+  const company = await Company.create(
+    {
+      name,
+      phone,
+      email,
+      status,
+      planId,
+      dueDate,
+      recurrence,
+      language,
+      slug: slug || null,
+      partnerId: companyData.partnerId || null,
+      saleValue: companyData.saleValue ?? null,
+      introValue: companyData.introValue ?? null,
+      introMonths: companyData.introMonths ?? null,
+      platformCost: companyData.platformCost ?? null
+    },
+    { transaction }
+  );
   const [user, created] = await User.findOrCreate({
-    where: { name, email },
+    where: { email, companyId: company.id },
     defaults: {
       name,
       email,
       password: password || "123456",
       profile: "admin",
       companyId: company.id
-    }
+    },
+    transaction
   });
 
   if (!created) {
-    await user.update({ companyId: company.id });
+    await user.update({ companyId: company.id }, { transaction });
   }
 
   // Replica o(s) super admin(s) da empresa master para a nova empresa, para
   // que o dono da plataforma consiga logar no subdominio de qualquer tenant.
-  await replicateMasterSuperAdmins(company.id);
+  await replicateMasterSuperAdmins(company.id, transaction);
 
   await Setting.findOrCreate({
     where: {
@@ -127,7 +138,8 @@ const CreateCompanyService = async (
       companyId: company.id,
       key: "asaas",
       value: ""
-    }
+    },
+    transaction
   });
 
   // CheckMsgIsGroup
@@ -140,7 +152,8 @@ const CreateCompanyService = async (
       companyId: company.id,
       key: "enabled",
       value: ""
-    }
+    },
+    transaction
   });
 
   // CheckMsgIsGroup
@@ -153,7 +166,8 @@ const CreateCompanyService = async (
       companyId: company.id,
       key: "call",
       value: "disabled"
-    }
+    },
+    transaction
   });
 
   // scheduleType
@@ -166,7 +180,8 @@ const CreateCompanyService = async (
       companyId: company.id,
       key: "scheduleType",
       value: "disabled"
-    }
+    },
+    transaction
   });
 
   // userRating
@@ -179,7 +194,8 @@ const CreateCompanyService = async (
       companyId: company.id,
       key: "userRating",
       value: "disabled"
-    }
+    },
+    transaction
   });
 
   if (companyData.campaignsEnabled !== undefined) {
@@ -192,10 +208,11 @@ const CreateCompanyService = async (
         companyId: company.id,
         key: "campaignsEnabled",
         value: `${campaignsEnabled}`
-      }
+      },
+      transaction
     });
     if (!settingCreated) {
-      await setting.update({ value: `${campaignsEnabled}` });
+      await setting.update({ value: `${campaignsEnabled}` }, { transaction });
     }
   }
 

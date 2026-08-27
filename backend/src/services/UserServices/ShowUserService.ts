@@ -24,7 +24,11 @@ const ShowUserService = async (
         as: "queues",
         attributes: ["id", "name", "color"]
       },
-      { model: Company, as: "company", attributes: ["id", "name", "dueDate"] }
+      {
+        model: Company,
+        as: "company",
+        attributes: ["id", "name", "dueDate", "status", "platformStatus"]
+      }
     ],
     order: [[{ model: Queue, as: "queues" }, "name", "ASC"]]
   });

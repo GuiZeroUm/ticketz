@@ -1,4 +1,5 @@
 import User from "../models/User";
+import { Transaction } from "sequelize";
 
 // Empresa "master" cujos super admins sao replicados para toda nova empresa.
 // Configuravel via MASTER_COMPANY_ID (default 1).
@@ -16,7 +17,8 @@ const getMasterCompanyId = (): number => {
 // o usuario ja existir naquela empresa. Requer a unicidade (companyId, email)
 // no banco (ver migration 20260710130000).
 export const replicateMasterSuperAdmins = async (
-  companyId: number
+  companyId: number,
+  transaction?: Transaction
 ): Promise<void> => {
   const masterCompanyId = getMasterCompanyId();
 
@@ -25,11 +27,12 @@ export const replicateMasterSuperAdmins = async (
   }
 
   const masterSupers = await User.findAll({
-    where: { companyId: masterCompanyId, super: true }
+    where: { companyId: masterCompanyId, super: true },
+    transaction
   });
 
+  // eslint-disable-next-line no-restricted-syntax
   for (const su of masterSupers) {
-    // eslint-disable-next-line no-await-in-loop
     await User.findOrCreate({
       where: { email: su.email, companyId },
       defaults: {
@@ -40,7 +43,8 @@ export const replicateMasterSuperAdmins = async (
         super: true,
         tokenVersion: 0,
         companyId
-      } as any
+      } as User,
+      transaction
     });
   }
 };

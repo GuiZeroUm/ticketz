@@ -3,6 +3,7 @@ declare namespace Express {
     user: { id: string; profile: string; isSuper: boolean; companyId: number };
     companyId: number | undefined;
     partner?: { id: number; name: string; email: string };
+    platform?: { ok: true };
     mcpAuth?: {
       grantId: string;
       userId: number;

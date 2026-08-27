@@ -1,4 +1,4 @@
-import { Op } from "sequelize";
+import { Op, Transaction } from "sequelize";
 import AppError from "../../errors/AppError";
 import Company from "../../models/Company";
 import Invoices from "../../models/Invoices";
@@ -26,9 +26,11 @@ interface CompanyData {
 }
 
 const UpdateCompanyService = async (
-  companyData: CompanyData
+  companyData: CompanyData,
+  options: { transaction?: Transaction } = {}
 ): Promise<Company> => {
-  const company = await Company.findByPk(companyData.id);
+  const { transaction } = options;
+  const company = await Company.findByPk(companyData.id, { transaction });
   const {
     name,
     phone,
@@ -63,7 +65,8 @@ const UpdateCompanyService = async (
 
   if (slug) {
     const companyWithSameSlug = await Company.findOne({
-      where: { slug, id: { [Op.ne]: company.id } }
+      where: { slug, id: { [Op.ne]: company.id } },
+      transaction
     });
 
     if (companyWithSameSlug) {
@@ -71,30 +74,37 @@ const UpdateCompanyService = async (
     }
   }
 
-  await company.update({
-    name,
-    phone,
-    email,
-    status,
-    planId,
-    dueDate,
-    recurrence,
-    language,
-    ...(hasSlug ? { slug: slug || null } : {}),
-    ...(hasPartnerId ? { partnerId: companyData.partnerId || null } : {}),
-    ...(hasSaleValue ? { saleValue: companyData.saleValue ?? null } : {}),
-    ...(hasIntroValue ? { introValue: companyData.introValue ?? null } : {}),
-    ...(hasIntroMonths ? { introMonths: companyData.introMonths ?? null } : {}),
-    ...(hasPlatformCost
-      ? { platformCost: companyData.platformCost ?? null }
-      : {})
-  });
+  await company.update(
+    {
+      name,
+      phone,
+      email,
+      status,
+      planId,
+      dueDate,
+      recurrence,
+      language,
+      ...(hasSlug ? { slug: slug || null } : {}),
+      ...(hasPartnerId ? { partnerId: companyData.partnerId || null } : {}),
+      ...(hasSaleValue ? { saleValue: companyData.saleValue ?? null } : {}),
+      ...(hasIntroValue ? { introValue: companyData.introValue ?? null } : {}),
+      ...(hasIntroMonths
+        ? { introMonths: companyData.introMonths ?? null }
+        : {}),
+      ...(hasPlatformCost
+        ? { platformCost: companyData.platformCost ?? null }
+        : {})
+    },
+    { transaction }
+  );
 
   if (
     (wasActive !== false && status === false) ||
     (dueDate !== undefined && dueDate !== previousDueDate)
   ) {
-    await revokeCompanyMcpGrants(company.id);
+    if (!transaction) {
+      await revokeCompanyMcpGrants(company.id);
+    }
   }
 
   if (companyData.campaignsEnabled !== undefined) {
@@ -107,10 +117,11 @@ const UpdateCompanyService = async (
         companyId: company.id,
         key: "campaignsEnabled",
         value: `${campaignsEnabled}`
-      }
+      },
+      transaction
     });
     if (!created) {
-      await setting.update({ value: `${campaignsEnabled}` });
+      await setting.update({ value: `${campaignsEnabled}` }, { transaction });
     }
   }
 
@@ -119,10 +130,11 @@ const UpdateCompanyService = async (
       where: {
         companyId: company.id,
         status: "open",
-        dueDate: {
-          [Op.lte]: dueDate
-        }
-      }
+        dueDate: { [Op.lte]: dueDate },
+        origem: { [Op.ne]: "plataforma" },
+        externalRef: null
+      },
+      transaction
     });
   }
 
@@ -132,7 +144,8 @@ const UpdateCompanyService = async (
   // duracao dele —, senao um periodo inicial recem-definido nasceria atrasado.
   const priceChanged =
     (hasSaleValue && (companyData.saleValue ?? null) !== previousSaleValue) ||
-    (hasIntroValue && (companyData.introValue ?? null) !== previousIntroValue) ||
+    (hasIntroValue &&
+      (companyData.introValue ?? null) !== previousIntroValue) ||
     (hasIntroMonths &&
       (companyData.introMonths ?? null) !== previousIntroMonths);
 
@@ -140,8 +153,11 @@ const UpdateCompanyService = async (
     await Invoices.destroy({
       where: {
         companyId: company.id,
-        status: "open"
-      }
+        status: "open",
+        origem: { [Op.ne]: "plataforma" },
+        externalRef: null
+      },
+      transaction
     });
   }
 
@@ -149,8 +165,11 @@ const UpdateCompanyService = async (
     await Invoices.destroy({
       where: {
         companyId: company.id,
-        status: "open"
-      }
+        status: "open",
+        origem: { [Op.ne]: "plataforma" },
+        externalRef: null
+      },
+      transaction
     });
   }
 

@@ -54,7 +54,11 @@ import ScheduleAudienceContact from "../models/ScheduleAudienceContact";
 import ScheduleDelivery from "../models/ScheduleDelivery";
 import Partner from "../models/Partner";
 import PartnerPayout from "../models/PartnerPayout";
+import PlatformIdempotencyKey from "../models/PlatformIdempotencyKey";
+import PlatformWebhookOutbox from "../models/PlatformWebhookOutbox";
+import PlatformAccessToken from "../models/PlatformAccessToken";
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const dbConfig = require("../config/database");
 
 const sequelize = new Sequelize(dbConfig);
@@ -114,7 +118,10 @@ const models = [
   OAuthGrant,
   OAuthRefreshToken,
   McpAudit,
-  PartnerPayout
+  PartnerPayout,
+  PlatformIdempotencyKey,
+  PlatformWebhookOutbox,
+  PlatformAccessToken
 ];
 
 sequelize.addModels(models);
