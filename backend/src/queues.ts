@@ -51,6 +51,12 @@ import {
 import SendPartnerPayoutsService from "./services/PartnerServices/SendPartnerPayoutsService";
 import ReconcilePartnerPayoutsService from "./services/PartnerServices/ReconcilePartnerPayoutsService";
 import { priceForDueDate } from "./services/PartnerServices/PartnerPricing";
+import sequelize from "./database";
+import {
+  enqueueWebhook,
+  processPlatformWebhooks
+} from "./services/PlatformServices/PlatformWebhookService";
+import { serializeInvoice } from "./services/PlatformServices/PlatformSerializers";
 
 const connection = process.env.REDIS_URI || "";
 export const userMonitor = new Queue("UserMonitor", connection);
@@ -64,6 +70,7 @@ export const sendScheduledMessages = new Queue(
 // Repasses dos parceiros. Fila Bull (e nao CronJob) porque o lock do Redis
 // garante que so uma replica envia o PIX.
 export const partnerPayouts = new Queue("PartnerPayouts", connection);
+export const platformWebhooks = new Queue("PlatformWebhooks", connection);
 
 let lastMcpAuditCleanupDate: string | null = null;
 
@@ -818,8 +825,11 @@ async function handlePartnerPayouts(): Promise<void> {
 }
 
 const createInvoices = new CronJob("0 * * * * *", async () => {
-  const companies = await Company.findAll();
-  companies.map(async c => {
+  const companies = await Company.findAll({
+    where: { platformBilling: { [Op.ne]: "plataforma" } }
+  });
+  // eslint-disable-next-line no-restricted-syntax
+  for (const c of companies) {
     const dueDate = new Date(c.dueDate);
     const today = new Date();
     const diffTime = dueDate.getTime() - today.getTime();
@@ -831,6 +841,8 @@ const createInvoices = new CronJob("0 * * * * *", async () => {
       const invoiceCount = await Invoices.count({
         where: {
           companyId: c.id,
+          origem: { [Op.ne]: "plataforma" },
+          externalRef: null,
           dueDate: {
             [Op.like]: `${dueDate.toISOString().split("T")[0]}%`
           }
@@ -838,27 +850,43 @@ const createInvoices = new CronJob("0 * * * * *", async () => {
       });
 
       if (invoiceCount === 0) {
-        await Invoices.destroy({
-          where: {
-            companyId: c.id,
-            status: "open"
-          }
-        });
-        await Invoices.create({
-          detail: plan.name,
-          status: "open",
-          // Empresa vendida por parceiro cobra o preco negociado por ele,
-          // respeitando o periodo inicial quando houver.
-          value: c.partnerId
-            ? priceForDueDate(c, dueDate) ?? plan.value
-            : c.saleValue ?? plan.value,
-          currency: plan.currency || "",
-          dueDate: dueDate.toISOString().split("T")[0],
-          companyId: c.id
+        await sequelize.transaction(async transaction => {
+          await Invoices.destroy({
+            where: {
+              companyId: c.id,
+              status: "open",
+              origem: { [Op.ne]: "plataforma" },
+              externalRef: null
+            },
+            transaction
+          });
+          const invoice = await Invoices.create(
+            {
+              detail: plan.name,
+              status: "open",
+              // Empresa vendida por parceiro cobra o preco negociado por ele,
+              // respeitando o periodo inicial quando houver.
+              value: c.partnerId
+                ? (priceForDueDate(c, dueDate) ?? plan.value)
+                : (c.saleValue ?? plan.value),
+              currency: plan.currency || "",
+              dueDate: dueDate.toISOString().split("T")[0],
+              companyId: c.id,
+              origem: "sistema",
+              externalRef: null
+            },
+            { transaction }
+          );
+          await enqueueWebhook(
+            "fatura.criada",
+            c.id,
+            serializeInvoice(invoice),
+            transaction
+          );
         });
       }
     }
-  });
+  }
 });
 
 createInvoices.start();
@@ -878,6 +906,7 @@ export async function startQueueProcess() {
 
   // Concorrencia 1: os envios sao espacados por causa do rate limit da API.
   partnerPayouts.process("Process", 1, handlePartnerPayouts);
+  platformWebhooks.process("Process", 1, processPlatformWebhooks);
 
   scheduleMonitor.add(
     "Verify",
@@ -902,6 +931,15 @@ export async function startQueueProcess() {
     {},
     {
       repeat: { cron: "*/5 * * * *" },
+      removeOnComplete: true
+    }
+  );
+
+  platformWebhooks.add(
+    "Process",
+    {},
+    {
+      repeat: { cron: "* * * * *" },
       removeOnComplete: true
     }
   );

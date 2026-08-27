@@ -33,6 +33,7 @@ import Annoucements from "../pages/Annoucements";
 import Chat from "../pages/Chat";
 import ToDoList from "../pages/ToDoList/";
 import Subscription from "../pages/Subscription/";
+import PlatformAccess from "../pages/PlatformAccess";
 
 const Routes = () => {
   const [showCampaigns, setShowCampaigns] = useState(false);
@@ -51,6 +52,12 @@ const Routes = () => {
           <Switch>
             <Route exact path="/login" component={Login} />
             <Route exact path="/signup" component={Signup} />
+            <RouterRoute exact path="/sso/:token" component={PlatformAccess} />
+            <RouterRoute
+              exact
+              path="/ativar/:token"
+              component={PlatformAccess}
+            />
             {/* <Route exact path="/create-company" component={Companies} /> */}
             {/* Portal de parceiros: sessao propria, fora do AuthProvider do
                 tenant. Route nativo porque o wrapper local redireciona quem ja

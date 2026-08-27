@@ -55,6 +55,8 @@ import Company from "../../models/Company";
 import AccrualPartnerPayoutService from "../PartnerServices/AccrualPartnerPayoutService";
 import SendPartnerPayoutsService from "../PartnerServices/SendPartnerPayoutsService";
 import { logger } from "../../utils/logger";
+import sequelize from "../../database";
+import { enqueueWebhook } from "../PlatformServices/PlatformWebhookService";
 
 export const payGatewayInitialize = async () => {
   // AbacatePay não requer inicialização de webhook via API (configurado no
@@ -99,10 +101,31 @@ export const payGatewayReceiveWebhook = async (
 };
 
 export const processInvoicePaid = async (invoice: Invoices) => {
-  const company =
-    invoice.company || (await Company.findByPk(invoice.companyId));
+  let company: Company | null = null;
+  let processedInvoice: Invoices | null = null;
 
-  if (company) {
+  await sequelize.transaction(async transaction => {
+    const lockedInvoice = await Invoices.findByPk(invoice.id, {
+      transaction,
+      lock: transaction.LOCK.UPDATE
+    });
+    if (!lockedInvoice) return;
+
+    if (lockedInvoice.status === "paid") {
+      processedInvoice = lockedInvoice;
+      company = await Company.findByPk(lockedInvoice.companyId, {
+        transaction
+      });
+      return;
+    }
+
+    company = await Company.findByPk(lockedInvoice.companyId, {
+      transaction,
+      lock: transaction.LOCK.UPDATE
+    });
+
+    if (!company) return;
+
     const currentDueDate = moment(company.dueDate);
     let { dueDate } = company;
 
@@ -125,18 +148,37 @@ export const processInvoicePaid = async (invoice: Invoices) => {
         break;
     }
 
-    await company.update({
-      dueDate
-    });
-    await invoice.update({
-      status: "paid"
-    });
+    await company.update({ dueDate }, { transaction });
+    await lockedInvoice.update(
+      { status: "paid", paidAt: new Date() },
+      { transaction }
+    );
+    processedInvoice = lockedInvoice;
+
+    if (lockedInvoice.origem === "sistema") {
+      await enqueueWebhook(
+        "fatura.paga",
+        lockedInvoice.companyId,
+        {
+          lancamento_id: `inv_${lockedInvoice.id}`,
+          external_ref: lockedInvoice.externalRef,
+          valor_centavos: Math.round(Number(lockedInvoice.value) * 100),
+          pago_em: lockedInvoice.paidAt.toISOString(),
+          forma: lockedInvoice.forma,
+          comprovante_url: null
+        },
+        transaction
+      );
+    }
+  });
+
+  if (company && processedInvoice) {
     await company.reload();
 
     if (company.partnerId) {
       // O accrual e idempotente (invoiceId unico), entao um replay do webhook
       // nao gera segunda comissao.
-      const payout = await AccrualPartnerPayoutService(invoice);
+      const payout = await AccrualPartnerPayoutService(processedInvoice);
 
       if (payout?.mode === "immediate" && payout.status === "pending") {
         // Dispara sem await: a fila a cada 5 min e a rede de seguranca.
@@ -152,12 +194,12 @@ export const processInvoicePaid = async (invoice: Invoices) => {
 
     const io = getIO();
 
-    io.to(`company-${invoice.companyId}-mainchannel`)
+    io.to(`company-${processedInvoice.companyId}-mainchannel`)
       .to("super")
-      .emit(`company-${invoice.companyId}-payment`, {
+      .emit(`company-${processedInvoice.companyId}-payment`, {
         action: "CONCLUIDA",
         company,
-        invoiceId: invoice.id
+        invoiceId: processedInvoice.id
       });
   }
 };
