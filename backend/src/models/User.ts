@@ -42,6 +42,10 @@ class User extends Model<User> {
   @Column
   passwordHash: string;
 
+  @Default(true)
+  @Column
+  passwordConfigured: boolean;
+
   @Default(0)
   @Column
   tokenVersion: number;
@@ -91,6 +95,7 @@ class User extends Model<User> {
     if (instance.password) {
       instance.passwordHash = await hash(instance.password, 8);
       if (!instance.isNewRecord) {
+        instance.passwordConfigured = true;
         instance.tokenVersion = (instance.tokenVersion || 0) + 1;
       }
     }

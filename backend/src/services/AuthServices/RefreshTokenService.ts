@@ -22,37 +22,41 @@ export const RefreshTokenService = async (
   res: Res,
   token: string
 ): Promise<Response> => {
+  let decoded: RefreshTokenPayload;
   try {
-    const decoded = decodeRefreshToken(token);
-    const {
-      id,
-      tokenVersion,
-      impersonated,
-      originalUserId,
-      originalCompanyId
-    } = decoded as RefreshTokenPayload;
-
-    const user = await ShowUserService(id);
-
-    if (user.tokenVersion !== tokenVersion || !user.company?.status) {
-      res.clearCookie("jrt");
-      throw new AppError("ERR_SESSION_EXPIRED", 401);
-    }
-
-    const newToken = createAccessToken(user, {
-      impersonated: impersonated === true,
-      originalUserId,
-      originalCompanyId
-    });
-    const refreshToken = createRefreshToken(user, {
-      impersonated: impersonated === true,
-      originalUserId,
-      originalCompanyId
-    });
-
-    return { user, newToken, refreshToken };
+    decoded = decodeRefreshToken(token);
   } catch {
     res.clearCookie("jrt");
     throw new AppError("ERR_SESSION_EXPIRED", 401);
   }
+
+  const { id, tokenVersion, impersonated, originalUserId, originalCompanyId } =
+    decoded;
+  const user = await ShowUserService(id);
+
+  if (user.company?.platformStatus === "suspenso") {
+    res.clearCookie("jrt");
+    throw new AppError("ERR_COMPANY_SUSPENDED", 403);
+  }
+  if (
+    user.tokenVersion !== tokenVersion ||
+    !user.company?.status ||
+    user.company.platformStatus === "cancelado"
+  ) {
+    res.clearCookie("jrt");
+    throw new AppError("ERR_SESSION_EXPIRED", 401);
+  }
+
+  const newToken = createAccessToken(user, {
+    impersonated: impersonated === true,
+    originalUserId,
+    originalCompanyId
+  });
+  const refreshToken = createRefreshToken(user, {
+    impersonated: impersonated === true,
+    originalUserId,
+    originalCompanyId
+  });
+
+  return { user, newToken, refreshToken };
 };

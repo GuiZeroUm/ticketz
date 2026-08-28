@@ -54,6 +54,7 @@ import UserSocketSession from "../models/UserSocketSession";
 import { GetCompanySetting } from "../helpers/CheckSettings";
 import { DecoupledDriverServices } from "../services/DecoupledDriverServices/DecoupledDriverServices";
 import { corsOrigin } from "../helpers/corsOrigin";
+import Company from "../models/Company";
 
 const decoupledDriverServices = DecoupledDriverServices.getInstance();
 
@@ -124,11 +125,15 @@ export const initIO = (httpServer: Server): SocketIO => {
     const userId = tokenData.id;
 
     if (userId && userId !== "undefined" && userId !== "null") {
-      user = await User.findByPk(userId, { include: [Queue] });
-      if (user) {
+      user = await User.findByPk(userId, { include: [Queue, Company] });
+      if (
+        user?.company?.status &&
+        user.company.platformStatus !== "suspenso" &&
+        user.company.platformStatus !== "cancelado"
+      ) {
         await user.save();
       } else {
-        logger.info(`onConnect: User ${userId} not found`);
+        logger.info(`onConnect: User ${userId} not found or tenant inactive`);
         socket.disconnect();
         return io;
       }

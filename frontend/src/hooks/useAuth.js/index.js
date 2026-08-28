@@ -80,7 +80,11 @@ const useAuth = () => {
       },
       async error => {
         const originalRequest = error.config;
-        if (error?.response?.status === 403 && !originalRequest._retry) {
+        if (
+          error?.response?.status === 403 &&
+          error?.response?.data?.error === "ERR_SESSION_EXPIRED" &&
+          !originalRequest._retry
+        ) {
           originalRequest._retry = true;
 
           const { data } = await api.post("/auth/refresh_token");
@@ -216,6 +220,21 @@ const useAuth = () => {
     }
   };
 
+  const handlePasswordSetup = async setupData => {
+    setLoading(true);
+
+    try {
+      const { data } = await api.post("/auth/password/setup", setupData);
+      posLogin(data);
+      setLoading(false);
+      return true;
+    } catch (err) {
+      toastError(err);
+      setLoading(false);
+      return false;
+    }
+  };
+
   const handleImpersonate = async companyId => {
     setLoading(true);
 
@@ -292,6 +311,7 @@ const useAuth = () => {
     user,
     loading,
     handleLogin,
+    handlePasswordSetup,
     handleImpersonate,
     handleLogout,
     getCurrentUserInfo

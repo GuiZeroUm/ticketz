@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { createHash, randomBytes } from "crypto";
-import { addDays, addMinutes } from "date-fns";
+import { randomBytes } from "crypto";
+import { addDays } from "date-fns";
 import { Op } from "sequelize";
 import sequelize from "../../database";
 import PlatformApiError from "../../errors/PlatformApiError";
@@ -20,6 +20,12 @@ import {
 import CreateCompanyService from "../CompanyService/CreateCompanyService";
 import UpdateCompanyService from "../CompanyService/UpdateCompanyService";
 import { enqueueWebhook } from "./PlatformWebhookService";
+import { getIO } from "../../libs/socket";
+import {
+  hashPlatformAccessToken,
+  issuePlatformAccessToken,
+  PlatformAccessKind
+} from "./PlatformAccessTokenService";
 import {
   normalizePlanRef,
   planRef,
@@ -80,24 +86,18 @@ const getAdmin = async (
 const issueToken = async (
   company: Company,
   user: User,
-  kind: "activation" | "sso",
+  kind: PlatformAccessKind,
   motivo: string,
   ator: string,
   transaction: any
 ): Promise<{ url: string; expiresAt: Date }> => {
-  const rawToken = randomBytes(48).toString("base64url");
-  const expiresAt = addMinutes(new Date(), 5);
-  await PlatformAccessToken.create(
-    {
-      tokenHash: createHash("sha256").update(rawToken).digest("hex"),
-      companyId: company.id,
-      userId: user.id,
-      kind,
-      motivo,
-      ator,
-      expiresAt
-    } as any,
-    { transaction }
+  const { rawToken, expiresAt } = await issuePlatformAccessToken(
+    company,
+    user,
+    kind,
+    motivo,
+    ator,
+    transaction
   );
   return {
     url: `${tenantUrl(company.slug)}/${kind === "sso" ? "sso" : "ativar"}/${rawToken}`,
@@ -142,6 +142,7 @@ export const createPlatformTenant = async (
         email: body.email_admin,
         phone: body.telefone,
         password: body.senha_admin || randomBytes(32).toString("base64url"),
+        passwordConfigured: !generatedPassword,
         status: true,
         planId: plan.id,
         dueDate: addDays(new Date(), trialDays).toISOString().slice(0, 10),
@@ -272,9 +273,12 @@ export const suspendPlatformTenant = async (
       );
     }
   });
+  if (body.acao === "suspender") {
+    getIO().in(`company-${company.id}-mainchannel`).disconnectSockets(true);
+  }
   return {
     tenant_id: String(company.id),
-    status,
+    status: body.acao === "suspender" ? "suspenso" : "ativo",
     alterado_em: new Date().toISOString()
   };
 };
@@ -299,6 +303,7 @@ export const cancelPlatformTenant = async (
       transaction
     });
   });
+  getIO().in(`company-${company.id}-mainchannel`).disconnectSockets(true);
   return {
     tenant_id: String(company.id),
     status: "cancelado",
@@ -409,7 +414,7 @@ export const exchangePlatformAccess = async (
   if (typeof rawToken !== "string" || rawToken.length < 48) {
     throw new PlatformApiError("acesso_invalido", "Acesso inválido.", 401);
   }
-  const tokenHash = createHash("sha256").update(rawToken).digest("hex");
+  const tokenHash = hashPlatformAccessToken(rawToken);
   let userId = 0;
 
   await sequelize.transaction(async transaction => {
@@ -420,6 +425,7 @@ export const exchangePlatformAccess = async (
     });
     if (
       !accessToken ||
+      accessToken.kind !== "sso" ||
       accessToken.usedAt ||
       accessToken.expiresAt.getTime() < Date.now()
     ) {

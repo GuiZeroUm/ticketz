@@ -2,10 +2,29 @@ import { Router } from "express";
 import * as SessionController from "../controllers/SessionController";
 import isAuth from "../middleware/isAuth";
 import isSuper from "../middleware/isAdmin";
+import {
+  loginIdentifyLimiter,
+  passwordSetupLimiter
+} from "../middleware/mcpRateLimit";
 
 const authRoutes = Router();
 
 authRoutes.post("/login", SessionController.store);
+authRoutes.post(
+  "/login/identify",
+  loginIdentifyLimiter,
+  SessionController.identify
+);
+authRoutes.get(
+  "/activation/:token",
+  passwordSetupLimiter,
+  SessionController.activation
+);
+authRoutes.post(
+  "/password/setup",
+  passwordSetupLimiter,
+  SessionController.setupPassword
+);
 authRoutes.get(
   "/impersonate/:companyId",
   isAuth,

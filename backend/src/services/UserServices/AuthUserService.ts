@@ -28,31 +28,31 @@ interface Request {
   language?: string;
   // Slug do subdominio (tenant) sendo acessado. Quando presente e existente,
   // o login e' escopado a essa empresa: o mesmo email em empresas diferentes
-  // resolve para o usuario DAQUELA empresa. Sem slug (apex / URL raw do
-  // Railway) o login cai no comportamento global (busca por email).
+  // resolve para o usuario DAQUELA empresa. Sem slug (apex/local), o login e'
+  // restrito a empresa master configurada.
   slug?: string;
 }
 
-// Resolve o companyId a partir do slug do subdominio. Retorna null quando nao
-// ha slug, o slug e' invalido, ou nao existe empresa com esse slug — nesses
-// casos o login volta ao modo global (por email), que serve de valvula de
-// escape pelo apex/URL raw.
-const resolveScopedCompanyId = async (
-  slug?: string
-): Promise<number | null> => {
+// Resolve o companyId a partir do slug do subdominio. Sem slug, usa somente a
+// empresa master (dominio raiz/local). Com slug invalido/desconhecido, retorna
+// -1 para nunca procurar o e-mail em empresas fora daquele tenant.
+const resolveScopedCompanyId = async (slug?: string): Promise<number> => {
   if (!slug) {
-    return null;
+    const configuredMasterId = Number(process.env.MASTER_COMPANY_ID || 1);
+    return Number.isInteger(configuredMasterId) && configuredMasterId > 0
+      ? configuredMasterId
+      : -1;
   }
 
   let normalized = "";
   try {
     normalized = normalizeSlug(slug);
   } catch {
-    return null;
+    return -1;
   }
 
   if (!normalized) {
-    return null;
+    return -1;
   }
 
   const company = await Company.findOne({
@@ -60,7 +60,7 @@ const resolveScopedCompanyId = async (
     attributes: ["id"]
   });
 
-  return company ? company.id : null;
+  return company ? company.id : -1;
 };
 
 interface Response {
@@ -75,6 +75,9 @@ const AuthUserService = async ({
   language,
   slug
 }: Request): Promise<Response> => {
+  if (typeof email !== "string" || typeof password !== "string") {
+    throw new AppError("ERR_INVALID_CREDENTIALS", 401);
+  }
   const scopedCompanyId = await resolveScopedCompanyId(slug);
 
   const emailWhere = Sequelize.where(
@@ -85,9 +88,7 @@ const AuthUserService = async ({
   // Com tenant resolvido pelo subdominio, restringe o usuario aquela empresa.
   // Assim o mesmo email pode existir em varias empresas e cada subdominio
   // autentica apenas o usuario da sua propria empresa.
-  const where = scopedCompanyId
-    ? { [Op.and]: [emailWhere, { companyId: scopedCompanyId }] }
-    : emailWhere;
+  const where = { [Op.and]: [emailWhere, { companyId: scopedCompanyId }] };
 
   const user = await User.findOne({
     where,
@@ -98,7 +99,11 @@ const AuthUserService = async ({
     throw new AppError("ERR_INVALID_CREDENTIALS", 401);
   }
 
-  if (!user.company?.status) {
+  if (user.company?.platformStatus === "suspenso") {
+    throw new AppError("ERR_COMPANY_SUSPENDED", 403);
+  }
+
+  if (!user.company?.status || user.company.platformStatus === "cancelado") {
     throw new AppError("ERR_COMPANY_INACTIVE", 403);
   }
 

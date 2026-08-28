@@ -13,6 +13,39 @@ import Company from "../models/Company";
 import Setting from "../models/Setting";
 import Translation from "../models/Translation";
 import { decodeRefreshToken } from "../helpers/DecodeRefreshToken";
+import {
+  identifyLogin,
+  inspectActivation,
+  setupInitialPassword
+} from "../services/UserServices/LoginFlowService";
+
+export const identify = async (
+  req: Request,
+  res: Response
+): Promise<Response> =>
+  res.status(200).json(await identifyLogin(req.body.email, req.body.slug));
+
+export const activation = async (
+  req: Request,
+  res: Response
+): Promise<Response> =>
+  res.status(200).json(await inspectActivation(req.params.token));
+
+export const setupPassword = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const result = await setupInitialPassword(
+    req.body.token,
+    req.body.password,
+    req.body.password_confirmation
+  );
+  SendRefreshToken(res, result.refreshToken);
+  return res.status(200).json({
+    token: result.token,
+    user: result.serializedUser
+  });
+};
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const { email, password, slug } = req.body;

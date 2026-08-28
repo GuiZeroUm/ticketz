@@ -45,11 +45,31 @@ const messages = {
         title: "Accesso",
         form: {
           email: "Email",
-          password: "Password"
+          password: "Password",
+          newPassword: "Nuova password",
+          confirmPassword: "Conferma password",
+          passwordStrength:
+            "Usa almeno 8 caratteri con maiuscola, minuscola e un numero."
         },
         buttons: {
           submit: "Accedi",
+          continue: "Continua",
+          createPassword: "Crea password e accedi",
+          changeEmail: "Cambia email",
+          backToLogin: "Torna all'accesso",
           register: "Non hai un account? Registrati!"
+        },
+        errors: {
+          emailNotFound: "Non abbiamo trovato questa email.",
+          passwordMismatch: "Le password non coincidono.",
+          passwordStrength:
+            "La password deve avere almeno 8 caratteri, maiuscola, minuscola e un numero.",
+          activationInvalid:
+            "Questo link di attivazione non è valido o è scaduto."
+        },
+        activation: {
+          title: "Crea la tua password",
+          account: "Attivazione dell'account {{email}}"
         }
       },
       companies: {
@@ -1112,6 +1132,16 @@ const messages = {
           "Il backend si sta avviando e non è ancora pronto. Nuovo tentativo automatico."
       },
       backendErrors: {
+        ERR_EMAIL_NOT_FOUND: "Non abbiamo trovato questa email.",
+        ERR_COMPANY_SUSPENDED:
+          "Questo account è sospeso. Contatta il responsabile del tuo abbonamento.",
+        ERR_PASSWORD_ALREADY_CONFIGURED:
+          "Questo account ha già una password. Torna alla pagina di accesso.",
+        ERR_ACTIVATION_INVALID:
+          "Questo link di attivazione non è valido o è scaduto.",
+        ERR_PASSWORD_CONFIRMATION: "Le password non coincidono.",
+        ERR_PASSWORD_TOO_WEAK:
+          "La password deve avere almeno 8 caratteri, maiuscola, minuscola e un numero.",
         ERR_NO_OTHER_WHATSAPP: "Deve esserci almeno un WhatsApp predefinito.",
         ERR_NO_DEF_WAPP_FOUND:
           "Nessun WhatsApp predefinito trovato. Controlla la pagina delle connessioni.",

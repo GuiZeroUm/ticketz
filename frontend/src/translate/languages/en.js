@@ -83,11 +83,30 @@ const messages = {
         title: "Login",
         form: {
           email: "Email",
-          password: "Password"
+          password: "Password",
+          newPassword: "New password",
+          confirmPassword: "Confirm password",
+          passwordStrength:
+            "Use at least 8 characters with uppercase, lowercase, and a number."
         },
         buttons: {
           submit: "Log In",
+          continue: "Continue",
+          createPassword: "Create password and log in",
+          changeEmail: "Change email",
+          backToLogin: "Back to login",
           register: "Don't have an account? Sign up!"
+        },
+        errors: {
+          emailNotFound: "We couldn't find this email.",
+          passwordMismatch: "The passwords do not match.",
+          passwordStrength:
+            "The password must have at least 8 characters, uppercase, lowercase, and a number.",
+          activationInvalid: "This activation link is invalid or has expired."
+        },
+        activation: {
+          title: "Create your password",
+          account: "Activating the account {{email}}"
         }
       },
       companies: {
@@ -1470,6 +1489,16 @@ const messages = {
           "Backend is starting up and not ready yet. Retrying automatically."
       },
       backendErrors: {
+        ERR_EMAIL_NOT_FOUND: "We couldn't find this email.",
+        ERR_COMPANY_SUSPENDED:
+          "This account is suspended. Contact the person responsible for your subscription.",
+        ERR_PASSWORD_ALREADY_CONFIGURED:
+          "This account already has a password. Return to login to continue.",
+        ERR_ACTIVATION_INVALID:
+          "This activation link is invalid or has expired.",
+        ERR_PASSWORD_CONFIRMATION: "The passwords do not match.",
+        ERR_PASSWORD_TOO_WEAK:
+          "The password must have at least 8 characters, uppercase, lowercase, and a number.",
         ERR_HELP_INVALID_TYPE: "Invalid content type.",
         ERR_HELP_REQUIRED: "Fill in the required content fields.",
         ERR_HELP_INVALID_NAME: "Invalid content title.",

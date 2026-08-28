@@ -677,11 +677,30 @@ const messages = {
         title: "Login",
         form: {
           email: "Email",
-          password: "Senha"
+          password: "Senha",
+          newPassword: "Nova senha",
+          confirmPassword: "Confirmar senha",
+          passwordStrength:
+            "Use pelo menos 8 caracteres, com maiúscula, minúscula e número."
         },
         buttons: {
           submit: "Entrar",
+          continue: "Continuar",
+          createPassword: "Criar senha e entrar",
+          changeEmail: "Trocar e-mail",
+          backToLogin: "Voltar ao login",
           register: "Não tem uma conta? Cadastre-se!"
+        },
+        errors: {
+          emailNotFound: "Não encontramos esse e-mail.",
+          passwordMismatch: "As senhas não coincidem.",
+          passwordStrength:
+            "A senha deve ter pelo menos 8 caracteres, com maiúscula, minúscula e número.",
+          activationInvalid: "Este link de ativação é inválido ou expirou."
+        },
+        activation: {
+          title: "Crie sua senha",
+          account: "Ativando a conta {{email}}"
         }
       },
       companies: {
@@ -2068,6 +2087,15 @@ const messages = {
           "O backend está iniciando e ainda não está pronto. Tentando novamente automaticamente."
       },
       backendErrors: {
+        ERR_EMAIL_NOT_FOUND: "Não encontramos esse e-mail.",
+        ERR_COMPANY_SUSPENDED:
+          "Esta conta está suspensa. Entre em contato com o responsável pela sua assinatura.",
+        ERR_PASSWORD_ALREADY_CONFIGURED:
+          "Esta conta já possui senha. Volte ao login para entrar.",
+        ERR_ACTIVATION_INVALID: "Este link de ativação é inválido ou expirou.",
+        ERR_PASSWORD_CONFIRMATION: "As senhas não coincidem.",
+        ERR_PASSWORD_TOO_WEAK:
+          "A senha deve ter pelo menos 8 caracteres, com maiúscula, minúscula e número.",
         ERR_HELP_INVALID_TYPE: "Tipo de conteúdo inválido.",
         ERR_HELP_REQUIRED: "Preencha os campos obrigatórios do conteúdo.",
         ERR_HELP_INVALID_NAME: "Título do conteúdo inválido.",

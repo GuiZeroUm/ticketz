@@ -45,11 +45,30 @@ const messages = {
         title: "Connexion",
         form: {
           email: "Email",
-          password: "Mot de passe"
+          password: "Mot de passe",
+          newPassword: "Nouveau mot de passe",
+          confirmPassword: "Confirmer le mot de passe",
+          passwordStrength:
+            "Utilisez au moins 8 caractères avec une majuscule, une minuscule et un chiffre."
         },
         buttons: {
           submit: "Se connecter",
+          continue: "Continuer",
+          createPassword: "Créer le mot de passe et se connecter",
+          changeEmail: "Changer d'email",
+          backToLogin: "Retour à la connexion",
           register: "Vous n'avez pas de compte ? Inscrivez-vous !"
+        },
+        errors: {
+          emailNotFound: "Nous n'avons pas trouvé cet email.",
+          passwordMismatch: "Les mots de passe ne correspondent pas.",
+          passwordStrength:
+            "Le mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule et un chiffre.",
+          activationInvalid: "Ce lien d'activation est invalide ou a expiré."
+        },
+        activation: {
+          title: "Créez votre mot de passe",
+          account: "Activation du compte {{email}}"
         }
       },
       companies: {
@@ -1119,6 +1138,16 @@ const messages = {
           "Le backend démarre et n'est pas encore prêt. Nouvelle tentative automatique."
       },
       backendErrors: {
+        ERR_EMAIL_NOT_FOUND: "Nous n'avons pas trouvé cet email.",
+        ERR_COMPANY_SUSPENDED:
+          "Ce compte est suspendu. Contactez le responsable de votre abonnement.",
+        ERR_PASSWORD_ALREADY_CONFIGURED:
+          "Ce compte possède déjà un mot de passe. Revenez à la connexion.",
+        ERR_ACTIVATION_INVALID:
+          "Ce lien d'activation est invalide ou a expiré.",
+        ERR_PASSWORD_CONFIRMATION: "Les mots de passe ne correspondent pas.",
+        ERR_PASSWORD_TOO_WEAK:
+          "Le mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule et un chiffre.",
         ERR_NO_OTHER_WHATSAPP:
           "Il doit y avoir au moins un WhatsApp par défaut.",
         ERR_NO_DEF_WAPP_FOUND:

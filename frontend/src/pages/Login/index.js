@@ -24,6 +24,9 @@ import { AuthContext } from "../../context/Auth/AuthContext";
 import useSettings from "../../hooks/useSettings";
 import { getBackendURL } from "../../services/config";
 import ColorModeContext from "../../layout/themeContext";
+import api from "../../services/api";
+import toastError from "../../errors/toastError";
+import getCompanySlug from "../../helpers/getCompanySlug";
 
 const parseLoginLinks = value => {
   if (!value) {
@@ -413,24 +416,99 @@ const Login = () => {
     window.location.reload(false);
   };
 
-  const [user, setUser] = useState({ email: "", password: "" });
+  const [user, setUser] = useState({
+    email: "",
+    password: "",
+    newPassword: "",
+    confirmPassword: ""
+  });
+  const [step, setStep] = useState("email");
+  const [activationToken, setActivationToken] = useState("");
+  const [formError, setFormError] = useState("");
   const [allowSignup, setAllowSignup] = useState(false);
   const [loginLinks, setLoginLinks] = useState([]);
   const [sidePanelImage, setSidePanelImage] = useState("");
   const [backgroundContent, setBackgroundContent] = useState("");
 
-  const { handleLogin } = useContext(AuthContext);
+  const { handleLogin, handlePasswordSetup, loading } = useContext(AuthContext);
 
   const handleChangeInput = event => {
+    setFormError("");
     setUser(prevUser => ({
       ...prevUser,
-      [event.target.name]: event.target.value.trim()
+      [event.target.name]: event.target.value
     }));
   };
 
-  const handlSubmit = event => {
+  const handleIdentify = async () => {
+    try {
+      const slug = getCompanySlug();
+      const { data } = await api.post("/auth/login/identify", {
+        email: user.email.trim(),
+        ...(slug ? { slug } : {})
+      });
+
+      if (data.proxima_etapa === "criar_senha") {
+        setActivationToken(data.ativacao_token);
+        setStep("createPassword");
+      } else {
+        setStep("password");
+      }
+    } catch (err) {
+      if (err.response?.data?.error === "ERR_EMAIL_NOT_FOUND") {
+        setFormError(i18n.t("login.errors.emailNotFound"));
+        return;
+      }
+      toastError(err);
+    }
+  };
+
+  const handleSubmit = async event => {
     event.preventDefault();
-    handleLogin(user);
+    setFormError("");
+
+    if (step === "email") {
+      await handleIdentify();
+      return;
+    }
+
+    if (step === "password") {
+      await handleLogin({ email: user.email.trim(), password: user.password });
+      return;
+    }
+
+    if (user.newPassword !== user.confirmPassword) {
+      setFormError(i18n.t("login.errors.passwordMismatch"));
+      return;
+    }
+
+    const strongEnough =
+      user.newPassword.length >= 8 &&
+      /[a-z]/.test(user.newPassword) &&
+      /[A-Z]/.test(user.newPassword) &&
+      /[0-9]/.test(user.newPassword);
+    if (!strongEnough) {
+      setFormError(i18n.t("login.errors.passwordStrength"));
+      return;
+    }
+
+    await handlePasswordSetup({
+      token: activationToken,
+      password: user.newPassword,
+      password_confirmation: user.confirmPassword
+    });
+  };
+
+  const handleChangeEmail = () => {
+    setStep("email");
+    setActivationToken("");
+    setFormError("");
+    setUser(current => ({
+      ...current,
+      password: "",
+      newPassword: "",
+      confirmPassword: ""
+    }));
   };
 
   useEffect(() => {
@@ -466,51 +544,108 @@ const Login = () => {
   const isLightMode = theme.palette.type === "light";
 
   const formBody = (
-    <form className={classes.form} noValidate onSubmit={handlSubmit}>
-      <TextField
-        variant="outlined"
-        margin="normal"
-        required
-        fullWidth
-        id="email"
-        label={i18n.t("login.form.email")}
-        name="email"
-        value={user.email}
-        onChange={handleChangeInput}
-        autoComplete="email"
-        autoFocus
-      />
-      <TextField
-        variant="outlined"
-        margin="normal"
-        required
-        fullWidth
-        name="password"
-        label={i18n.t("login.form.password")}
-        type="password"
-        id="password"
-        value={user.password}
-        onChange={handleChangeInput}
-        autoComplete="current-password"
-      />
+    <form className={classes.form} noValidate onSubmit={handleSubmit}>
+      {step === "email" ? (
+        <TextField
+          variant="outlined"
+          margin="normal"
+          required
+          fullWidth
+          id="email"
+          label={i18n.t("login.form.email")}
+          name="email"
+          value={user.email}
+          onChange={handleChangeInput}
+          autoComplete="email"
+          autoFocus
+        />
+      ) : (
+        <Grid container alignItems="center" justify="space-between">
+          <Grid item>{user.email.trim()}</Grid>
+          <Grid item>
+            <Link component="button" type="button" onClick={handleChangeEmail}>
+              {i18n.t("login.buttons.changeEmail")}
+            </Link>
+          </Grid>
+        </Grid>
+      )}
+      {step === "password" && (
+        <TextField
+          variant="outlined"
+          margin="normal"
+          required
+          fullWidth
+          name="password"
+          label={i18n.t("login.form.password")}
+          type="password"
+          id="password"
+          value={user.password}
+          onChange={handleChangeInput}
+          autoComplete="current-password"
+          autoFocus
+        />
+      )}
+      {step === "createPassword" && (
+        <>
+          <TextField
+            variant="outlined"
+            margin="normal"
+            required
+            fullWidth
+            name="newPassword"
+            label={i18n.t("login.form.newPassword")}
+            type="password"
+            id="newPassword"
+            value={user.newPassword}
+            onChange={handleChangeInput}
+            autoComplete="new-password"
+            autoFocus
+          />
+          <TextField
+            variant="outlined"
+            margin="normal"
+            required
+            fullWidth
+            name="confirmPassword"
+            label={i18n.t("login.form.confirmPassword")}
+            type="password"
+            id="confirmPassword"
+            value={user.confirmPassword}
+            onChange={handleChangeInput}
+            autoComplete="new-password"
+            helperText={i18n.t("login.form.passwordStrength")}
+          />
+        </>
+      )}
+      {formError && (
+        <div role="alert" style={{ color: "#d32f2f", marginTop: 8 }}>
+          {formError}
+        </div>
+      )}
       <Button
         type="submit"
         fullWidth
         variant="contained"
         color="primary"
         className={classes.submit}
+        disabled={
+          loading ||
+          !user.email.trim() ||
+          (step === "password" && !user.password) ||
+          (step === "createPassword" &&
+            (!user.newPassword || !user.confirmPassword))
+        }
       >
-        {i18n.t("login.buttons.submit")}
+        {step === "email"
+          ? i18n.t("login.buttons.continue")
+          : step === "createPassword"
+            ? i18n.t("login.buttons.createPassword")
+            : i18n.t("login.buttons.submit")}
       </Button>
-      {allowSignup && (
+      {allowSignup && step === "email" && (
         <Grid container>
           <Grid item>
-            <Link
-              href="#"
-              variant="body2"
-              component={RouterLink}
-              to="/signup"
-            >
+            <Link href="#" variant="body2" component={RouterLink} to="/signup">
               {i18n.t("login.buttons.register")}
             </Link>
           </Grid>

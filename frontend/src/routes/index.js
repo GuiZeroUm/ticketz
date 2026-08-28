@@ -34,6 +34,7 @@ import Chat from "../pages/Chat";
 import ToDoList from "../pages/ToDoList/";
 import Subscription from "../pages/Subscription/";
 import PlatformAccess from "../pages/PlatformAccess";
+import PlatformActivation from "../pages/PlatformActivation";
 
 const Routes = () => {
   const [showCampaigns, setShowCampaigns] = useState(false);
@@ -56,7 +57,7 @@ const Routes = () => {
             <RouterRoute
               exact
               path="/ativar/:token"
-              component={PlatformAccess}
+              component={PlatformActivation}
             />
             {/* <Route exact path="/create-company" component={Companies} /> */}
             {/* Portal de parceiros: sessao propria, fora do AuthProvider do

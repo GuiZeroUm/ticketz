@@ -44,11 +44,31 @@ const messages = {
         title: "Masuk",
         form: {
           email: "Email",
-          password: "Kata Sandi"
+          password: "Kata Sandi",
+          newPassword: "Kata sandi baru",
+          confirmPassword: "Konfirmasi kata sandi",
+          passwordStrength:
+            "Gunakan minimal 8 karakter dengan huruf besar, huruf kecil, dan angka."
         },
         buttons: {
           submit: "Masuk",
+          continue: "Lanjutkan",
+          createPassword: "Buat kata sandi dan masuk",
+          changeEmail: "Ubah email",
+          backToLogin: "Kembali ke login",
           register: "Belum punya akun? Daftar!"
+        },
+        errors: {
+          emailNotFound: "Email ini tidak ditemukan.",
+          passwordMismatch: "Kata sandi tidak cocok.",
+          passwordStrength:
+            "Kata sandi harus minimal 8 karakter dengan huruf besar, huruf kecil, dan angka.",
+          activationInvalid:
+            "Tautan aktivasi ini tidak valid atau sudah kedaluwarsa."
+        },
+        activation: {
+          title: "Buat kata sandi Anda",
+          account: "Mengaktifkan akun {{email}}"
         }
       },
       companies: {
@@ -1139,6 +1159,16 @@ const messages = {
           "Backend sedang memulai dan belum siap. Mencoba lagi secara otomatis."
       },
       backendErrors: {
+        ERR_EMAIL_NOT_FOUND: "Email ini tidak ditemukan.",
+        ERR_COMPANY_SUSPENDED:
+          "Akun ini ditangguhkan. Hubungi penanggung jawab langganan Anda.",
+        ERR_PASSWORD_ALREADY_CONFIGURED:
+          "Akun ini sudah memiliki kata sandi. Kembali ke halaman login.",
+        ERR_ACTIVATION_INVALID:
+          "Tautan aktivasi ini tidak valid atau sudah kedaluwarsa.",
+        ERR_PASSWORD_CONFIRMATION: "Kata sandi tidak cocok.",
+        ERR_PASSWORD_TOO_WEAK:
+          "Kata sandi harus minimal 8 karakter dengan huruf besar, huruf kecil, dan angka.",
         ERR_FORBIDDEN: "Akses ditolak. Periksa izin Anda.",
         ERR_CHECK_NUMBER: "Nomor ini tidak terdaftar di WhatsApp.",
         ERR_NO_OTHER_WHATSAPP: "Harus ada setidaknya satu WhatsApp default.",

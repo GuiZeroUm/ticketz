@@ -44,11 +44,31 @@ const messages = {
         title: "Anmelden",
         form: {
           email: "Email",
-          password: "Passwort"
+          password: "Passwort",
+          newPassword: "Neues Passwort",
+          confirmPassword: "Passwort bestätigen",
+          passwordStrength:
+            "Verwenden Sie mindestens 8 Zeichen mit Großbuchstaben, Kleinbuchstaben und einer Zahl."
         },
         buttons: {
           submit: "Einloggen",
+          continue: "Weiter",
+          createPassword: "Passwort erstellen und anmelden",
+          changeEmail: "E-Mail ändern",
+          backToLogin: "Zurück zur Anmeldung",
           register: "Noch kein Konto? Registrieren!"
+        },
+        errors: {
+          emailNotFound: "Diese E-Mail wurde nicht gefunden.",
+          passwordMismatch: "Die Passwörter stimmen nicht überein.",
+          passwordStrength:
+            "Das Passwort muss mindestens 8 Zeichen, Groß- und Kleinbuchstaben sowie eine Zahl enthalten.",
+          activationInvalid:
+            "Dieser Aktivierungslink ist ungültig oder abgelaufen."
+        },
+        activation: {
+          title: "Passwort erstellen",
+          account: "Konto {{email}} wird aktiviert"
         }
       },
       companies: {
@@ -1125,6 +1145,16 @@ const messages = {
           "Das Backend startet noch und ist noch nicht bereit. Automatischer neuer Versuch."
       },
       backendErrors: {
+        ERR_EMAIL_NOT_FOUND: "Diese E-Mail wurde nicht gefunden.",
+        ERR_COMPANY_SUSPENDED:
+          "Dieses Konto ist gesperrt. Wenden Sie sich an die für Ihr Abonnement verantwortliche Person.",
+        ERR_PASSWORD_ALREADY_CONFIGURED:
+          "Dieses Konto hat bereits ein Passwort. Kehren Sie zur Anmeldung zurück.",
+        ERR_ACTIVATION_INVALID:
+          "Dieser Aktivierungslink ist ungültig oder abgelaufen.",
+        ERR_PASSWORD_CONFIRMATION: "Die Passwörter stimmen nicht überein.",
+        ERR_PASSWORD_TOO_WEAK:
+          "Das Passwort muss mindestens 8 Zeichen, Groß- und Kleinbuchstaben sowie eine Zahl enthalten.",
         ERR_NO_OTHER_WHATSAPP:
           "Es muss mindestens ein Standard-WhatsApp geben.",
         ERR_NO_DEF_WAPP_FOUND:

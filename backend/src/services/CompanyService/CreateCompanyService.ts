@@ -24,6 +24,7 @@ interface CompanyData {
   introValue?: number | null;
   introMonths?: number | null;
   platformCost?: number | null;
+  passwordConfigured?: boolean;
 }
 
 const CreateCompanyService = async (
@@ -115,6 +116,7 @@ const CreateCompanyService = async (
       name,
       email,
       password: password || "123456",
+      passwordConfigured: companyData.passwordConfigured !== false,
       profile: "admin",
       companyId: company.id
     },

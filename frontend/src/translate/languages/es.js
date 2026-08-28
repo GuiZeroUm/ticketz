@@ -80,11 +80,31 @@ const messages = {
         title: "Iniciar sesión",
         form: {
           email: "Correo electrónico",
-          password: "Contraseña"
+          password: "Contraseña",
+          newPassword: "Nueva contraseña",
+          confirmPassword: "Confirmar contraseña",
+          passwordStrength:
+            "Use al menos 8 caracteres, con mayúscula, minúscula y un número."
         },
         buttons: {
           submit: "Entrar",
+          continue: "Continuar",
+          createPassword: "Crear contraseña y entrar",
+          changeEmail: "Cambiar correo",
+          backToLogin: "Volver al inicio de sesión",
           register: "¿No tienes una cuenta? ¡Regístrate!"
+        },
+        errors: {
+          emailNotFound: "No encontramos este correo electrónico.",
+          passwordMismatch: "Las contraseñas no coinciden.",
+          passwordStrength:
+            "La contraseña debe tener al menos 8 caracteres, mayúscula, minúscula y un número.",
+          activationInvalid:
+            "Este enlace de activación no es válido o ha caducado."
+        },
+        activation: {
+          title: "Crea tu contraseña",
+          account: "Activando la cuenta {{email}}"
         }
       },
       companies: {
@@ -1240,6 +1260,16 @@ const messages = {
           "El backend se está iniciando y aún no está listo. Reintentando automáticamente."
       },
       backendErrors: {
+        ERR_EMAIL_NOT_FOUND: "No encontramos este correo electrónico.",
+        ERR_COMPANY_SUSPENDED:
+          "Esta cuenta está suspendida. Contacte al responsable de su suscripción.",
+        ERR_PASSWORD_ALREADY_CONFIGURED:
+          "Esta cuenta ya tiene contraseña. Vuelva al inicio de sesión.",
+        ERR_ACTIVATION_INVALID:
+          "Este enlace de activación no es válido o ha caducado.",
+        ERR_PASSWORD_CONFIRMATION: "Las contraseñas no coinciden.",
+        ERR_PASSWORD_TOO_WEAK:
+          "La contraseña debe tener al menos 8 caracteres, mayúscula, minúscula y un número.",
         ERR_FORBIDDEN: "No tienes permisos para acceder a este recurso.",
         ERR_CHECK_NUMBER: "No se pudo verificar el número de WhatsApp.",
         ERR_NO_OTHER_WHATSAPP:

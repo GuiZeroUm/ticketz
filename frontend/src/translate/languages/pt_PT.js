@@ -77,11 +77,30 @@ const messages = {
         title: "Entrar",
         form: {
           email: "Email",
-          password: "Palavra-passe"
+          password: "Palavra-passe",
+          newPassword: "Nova palavra-passe",
+          confirmPassword: "Confirmar palavra-passe",
+          passwordStrength:
+            "Use pelo menos 8 caracteres, com maiúscula, minúscula e número."
         },
         buttons: {
           submit: "Entrar",
+          continue: "Continuar",
+          createPassword: "Criar palavra-passe e entrar",
+          changeEmail: "Alterar email",
+          backToLogin: "Voltar ao login",
           register: "Não tem uma conta? Registe-se!"
+        },
+        errors: {
+          emailNotFound: "Não encontrámos este email.",
+          passwordMismatch: "As palavras-passe não coincidem.",
+          passwordStrength:
+            "A palavra-passe deve ter pelo menos 8 caracteres, com maiúscula, minúscula e número.",
+          activationInvalid: "Este link de ativação é inválido ou expirou."
+        },
+        activation: {
+          title: "Crie a sua palavra-passe",
+          account: "A ativar a conta {{email}}"
         }
       },
       companies: {
@@ -1173,6 +1192,15 @@ const messages = {
           "O backend está a iniciar e ainda não está pronto. A tentar novamente automaticamente."
       },
       backendErrors: {
+        ERR_EMAIL_NOT_FOUND: "Não encontrámos este email.",
+        ERR_COMPANY_SUSPENDED:
+          "Esta conta está suspensa. Contacte o responsável pela sua subscrição.",
+        ERR_PASSWORD_ALREADY_CONFIGURED:
+          "Esta conta já possui palavra-passe. Volte ao login para entrar.",
+        ERR_ACTIVATION_INVALID: "Este link de ativação é inválido ou expirou.",
+        ERR_PASSWORD_CONFIRMATION: "As palavras-passe não coincidem.",
+        ERR_PASSWORD_TOO_WEAK:
+          "A palavra-passe deve ter pelo menos 8 caracteres, com maiúscula, minúscula e número.",
         ERR_UNAUTHORIZED: "Não autorizado. Por favor, faça o login novamente.",
         ERR_FORBIDDEN:
           "Acesso negado. Você não tem permissão para acessar este recurso.",
