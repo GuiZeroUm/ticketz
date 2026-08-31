@@ -15,15 +15,15 @@ import {
 import { renderAuthorizationPage } from "../services/McpServices/OAuthAuthorizationView";
 
 const oauthIssuerOrigin = new URL(mcpConfig.issuer).origin;
-const authorizationCsp = [
-  "default-src 'none'",
-  `img-src 'self' ${oauthIssuerOrigin} data:`,
-  "style-src 'unsafe-inline'",
-  `form-action 'self' ${oauthIssuerOrigin}`,
-  "frame-ancestors 'none'"
-].join("; ");
-
-const setAuthorizationHeaders = (res: Response): void => {
+const setAuthorizationHeaders = (res: Response, redirectUri: string): void => {
+  const redirectOrigin = new URL(redirectUri).origin;
+  const authorizationCsp = [
+    "default-src 'none'",
+    `img-src 'self' ${oauthIssuerOrigin} data:`,
+    "style-src 'unsafe-inline'",
+    `form-action 'self' ${oauthIssuerOrigin} ${redirectOrigin}`,
+    "frame-ancestors 'none'"
+  ].join("; ");
   res.setHeader("Content-Security-Policy", authorizationCsp);
   res.setHeader("Cache-Control", "no-store");
 };
@@ -113,7 +113,7 @@ export const authorize = async (
     resource: String(req.query.resource || "")
   });
   const request = await loadAuthorizationRequest(handle);
-  setAuthorizationHeaders(res);
+  setAuthorizationHeaders(res, request.redirectUri);
   return res
     .type("html")
     .send(renderAuthorizationPage({ handle, scopes: request.scopes }, "email"));
@@ -129,7 +129,7 @@ export const identify = async (
     .toLowerCase();
   const request = await loadAuthorizationRequest(handle);
   const companies = await findAdminCompaniesByEmail(email);
-  setAuthorizationHeaders(res);
+  setAuthorizationHeaders(res, request.redirectUri);
 
   if (companies.length === 0) {
     return res.type("html").send(
@@ -161,7 +161,7 @@ export const restart = async (
 ): Promise<Response> => {
   const handle = String(req.body.handle || "");
   const request = await loadAuthorizationRequest(handle);
-  setAuthorizationHeaders(res);
+  setAuthorizationHeaders(res, request.redirectUri);
   return res
     .type("html")
     .send(renderAuthorizationPage({ handle, scopes: request.scopes }, "email"));
@@ -193,7 +193,7 @@ export const approve = async (
       [400, 401, 403].includes(error.statusCode)
     ) {
       const companies = await findAdminCompaniesByEmail(email);
-      setAuthorizationHeaders(res);
+      setAuthorizationHeaders(res, request.redirectUri);
       return res.type("html").send(
         renderAuthorizationPage(
           {
