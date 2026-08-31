@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID } from "crypto";
-import { Op, Transaction } from "sequelize";
+import { Op, Sequelize, Transaction } from "sequelize";
 import { sign, verify } from "jsonwebtoken";
 import sequelize from "../../database";
 import mcpConfig from "../../config/mcp";
@@ -11,7 +11,6 @@ import OAuthRefreshToken from "../../models/OAuthRefreshToken";
 import Setting from "../../models/Setting";
 import User from "../../models/User";
 import AppError from "../../errors/AppError";
-import normalizeSlug from "../../helpers/normalizeSlug";
 import { cacheLayer } from "../../libs/cache";
 
 export type McpAuthContext = {
@@ -30,6 +29,12 @@ export type AuthorizationRequest = {
   codeChallenge: string;
   resource: string;
   scopes: string[];
+};
+
+export type OAuthCompany = {
+  id: number;
+  name: string;
+  iconUrl?: string;
 };
 
 type AuthorizationCode = AuthorizationRequest & {
@@ -216,22 +221,101 @@ export const loadAuthorizationRequest = async (
   return JSON.parse(raw) as AuthorizationRequest;
 };
 
-export const authenticateAdmin = async (
-  slug: string,
+export const findAdminCompaniesByEmail = async (
+  email: string
+): Promise<OAuthCompany[]> => {
+  const normalizedEmail = String(email || "")
+    .trim()
+    .toLowerCase();
+  if (!normalizedEmail || normalizedEmail.length > 254) return [];
+
+  const users = await User.findAll({
+    where: {
+      profile: "admin",
+      passwordConfigured: true,
+      [Op.and]: Sequelize.where(
+        Sequelize.fn("LOWER", Sequelize.col("User.email")),
+        normalizedEmail
+      )
+    },
+    include: [{ model: Company, required: true }],
+    attributes: ["companyId"]
+  });
+
+  const eligible = await Promise.all(
+    users.map(async user => {
+      try {
+        await assertCompanyEligible(user.company);
+        return { id: user.company.id, name: user.company.name };
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  const companies = Array.from(
+    new Map(
+      eligible
+        .filter((company): company is OAuthCompany => company !== null)
+        .map(company => [company.id, company])
+    ).values()
+  ).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+
+  if (companies.length === 0) return companies;
+
+  const icons = await Setting.findAll({
+    where: {
+      companyId: { [Op.in]: companies.map(company => company.id) },
+      key: "appLogoFavicon"
+    },
+    attributes: ["companyId", "value"]
+  });
+  const iconByCompany = new Map(
+    icons
+      .map(setting => {
+        const clean = String(setting.value || "")
+          .split(/[?#]/)[0]
+          .trim()
+          .replace(/\\/g, "/")
+          .replace(/^\/+/, "");
+        const segments = clean.split("/").filter(Boolean);
+        if (
+          segments.length === 0 ||
+          segments.some(segment => segment === "." || segment === "..")
+        ) {
+          return null;
+        }
+        const encodedPath = segments.map(encodeURIComponent).join("/");
+        return [
+          setting.companyId,
+          `${mcpConfig.issuer}/public/${encodedPath}?inline=1`
+        ] as const;
+      })
+      .filter((entry): entry is readonly [number, string] => entry !== null)
+  );
+
+  return companies.map(company => ({
+    ...company,
+    ...(iconByCompany.has(company.id)
+      ? { iconUrl: iconByCompany.get(company.id) }
+      : {})
+  }));
+};
+
+export const authenticateAdminByCompany = async (
+  companyId: number,
   email: string,
   password: string
 ): Promise<{ user: User; company: Company }> => {
-  let normalizedSlug: string;
-  try {
-    normalizedSlug = normalizeSlug(slug);
-  } catch {
+  if (!Number.isInteger(companyId) || companyId <= 0) {
     throw new AppError("invalid_credentials", 401);
   }
-  const company = await Company.findOne({ where: { slug: normalizedSlug } });
+  const company = await Company.findByPk(companyId);
   if (!company) throw new AppError("invalid_credentials", 401);
   const user = await User.findOne({
     where: {
       companyId: company.id,
+      passwordConfigured: true,
       [Op.and]: sequelize.where(
         sequelize.fn("LOWER", sequelize.col("email")),
         email.toLowerCase()
@@ -254,7 +338,13 @@ const pilotEnabled = async (companyId: number): Promise<boolean> => {
 };
 
 const assertCompanyEligible = async (company: Company): Promise<void> => {
-  if (company.status === false) throw new AppError("company_inactive", 403);
+  if (
+    company.status === false ||
+    company.platformStatus === "suspenso" ||
+    company.platformStatus === "cancelado"
+  ) {
+    throw new AppError("company_inactive", 403);
+  }
   if (company.id !== 1 && company.dueDate) {
     const due = new Date(`${company.dueDate}T23:59:59.999`);
     const graceSetting = await Setting.findOne({

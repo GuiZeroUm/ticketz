@@ -1,14 +1,80 @@
 import sequelize from "../../database";
 import mcpConfig from "../../config/mcp";
 import OAuthRefreshToken from "../../models/OAuthRefreshToken";
+import Setting from "../../models/Setting";
+import User from "../../models/User";
 import {
   DEFAULT_GRANT_SCOPES,
   createPkceChallenge,
+  findAdminCompaniesByEmail,
   hashOAuthToken,
   rotateRefreshToken,
   validateRedirectUri,
   validateScopes
 } from "../../services/McpServices/OAuthService";
+
+describe("MCP OAuth e-mail identification", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("returns only eligible administrator workspaces in a stable order", async () => {
+    jest
+      .spyOn(User, "findAll")
+      .mockResolvedValue([
+        { company: { id: 4, name: "Unidade Norte", status: true } },
+        { company: { id: 3, name: "Unidade Centro", status: true } },
+        { company: { id: 4, name: "Unidade Norte", status: true } }
+      ] as unknown as User[]);
+    jest
+      .spyOn(Setting, "findOne")
+      .mockResolvedValue({ value: "enabled" } as Setting);
+    jest.spyOn(Setting, "findAll").mockResolvedValue([]);
+
+    await expect(
+      findAdminCompaniesByEmail(" ADMIN@EXAMPLE.COM ")
+    ).resolves.toEqual([
+      { id: 3, name: "Unidade Centro" },
+      { id: 4, name: "Unidade Norte" }
+    ]);
+
+    expect(User.findAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          profile: "admin",
+          passwordConfigured: true
+        })
+      })
+    );
+  });
+
+  it("does not offer a suspended company in the selector", async () => {
+    jest.spyOn(User, "findAll").mockResolvedValue([
+      {
+        company: {
+          id: 9,
+          name: "Empresa Suspensa",
+          status: true,
+          platformStatus: "suspenso"
+        }
+      }
+    ] as unknown as User[]);
+    jest.spyOn(Setting, "findOne");
+    jest.spyOn(Setting, "findAll");
+
+    await expect(
+      findAdminCompaniesByEmail("admin@example.com")
+    ).resolves.toEqual([]);
+    expect(Setting.findAll).not.toHaveBeenCalled();
+  });
+
+  it("does not query the database for an empty e-mail", async () => {
+    const findAll = jest.spyOn(User, "findAll");
+
+    await expect(findAdminCompaniesByEmail(" ")).resolves.toEqual([]);
+    expect(findAll).not.toHaveBeenCalled();
+  });
+});
 
 describe("MCP OAuth refresh rotation", () => {
   afterEach(() => {

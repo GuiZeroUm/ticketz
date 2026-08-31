@@ -3,26 +3,16 @@ import mcpConfig from "../config/mcp";
 import AppError from "../errors/AppError";
 import {
   approveAuthorization,
-  authenticateAdmin,
+  authenticateAdminByCompany,
   createAuthorizationRequest,
   exchangeAuthorizationCode,
+  findAdminCompaniesByEmail,
   loadAuthorizationRequest,
   registerClient,
   revokeToken,
   rotateRefreshToken
 } from "../services/McpServices/OAuthService";
-
-const escapeHtml = (value: string): string =>
-  value.replace(/[&<>'"]/g, char => {
-    const entities = {
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      "'": "&#39;",
-      '"': "&quot;"
-    };
-    return entities[char];
-  });
+import { renderAuthorizationPage } from "../services/McpServices/OAuthAuthorizationView";
 
 const redirectWithOAuthError = (
   res: Response,
@@ -109,50 +99,133 @@ export const authorize = async (
     resource: String(req.query.resource || "")
   });
   const request = await loadAuthorizationRequest(handle);
-  const scopes = request.scopes
-    .map(scope => `<li>${escapeHtml(scope)}</li>`)
-    .join("");
   res.setHeader(
     "Content-Security-Policy",
-    "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'"
+    "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'"
   );
   res.setHeader("Cache-Control", "no-store");
   return res
     .type("html")
-    .send(
-      `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Autorizar ChatGPT</title><style>body{font-family:system-ui;background:#f4f5f7;margin:0;color:#1f2937}.card{max-width:520px;margin:6vh auto;background:white;padding:32px;border-radius:16px;box-shadow:0 8px 30px #0001}h1{margin-top:0}.warning{background:#fff7ed;border:1px solid #fdba74;padding:14px;border-radius:8px}label{display:block;margin-top:16px;font-weight:600}input[type=text],input[type=email],input[type=password]{width:100%;box-sizing:border-box;padding:12px;margin-top:6px;border:1px solid #bbb;border-radius:7px}.consent{display:flex;gap:10px;font-weight:400}.actions{display:flex;gap:12px;margin-top:24px}button{padding:11px 18px;border:0;border-radius:7px;cursor:pointer}.approve{background:#163cff;color:white}.cancel{background:#e5e7eb}</style></head><body><main class="card"><h1>Conectar Espaço Whats ao ChatGPT</h1><p>Entre como administrador do tenant e confirme os acessos solicitados:</p><ul>${scopes}</ul><p class="warning"><strong>Atenção:</strong> conversas identificáveis e possíveis dados clínicos poderão ser transmitidos ao ChatGPT conforme suas solicitações.</p><form method="post" action="${escapeHtml(mcpConfig.issuer)}/oauth/authorize/approve"><input type="hidden" name="handle" value="${escapeHtml(handle)}"><label>Tenant<input type="text" name="slug" required autocomplete="organization"></label><label>E-mail<input type="email" name="email" required autocomplete="username"></label><label>Senha<input type="password" name="password" required autocomplete="current-password"></label><label class="consent"><input type="checkbox" name="consent" value="yes" required>Compreendo e autorizo o compartilhamento dos dados dentro dos escopos acima.</label><div class="actions"><button class="approve" type="submit">Autorizar</button><button class="cancel" type="submit" formaction="${escapeHtml(mcpConfig.issuer)}/oauth/authorize/cancel" formnovalidate>Cancelar</button></div></form></main></body></html>`
+    .send(renderAuthorizationPage({ handle, scopes: request.scopes }, "email"));
+};
+
+const setAuthorizationHeaders = (res: Response): void => {
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'"
+  );
+  res.setHeader("Cache-Control", "no-store");
+};
+
+export const identify = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const handle = String(req.body.handle || "");
+  const email = String(req.body.email || "")
+    .trim()
+    .toLowerCase();
+  const request = await loadAuthorizationRequest(handle);
+  const companies = await findAdminCompaniesByEmail(email);
+  setAuthorizationHeaders(res);
+
+  if (companies.length === 0) {
+    return res.type("html").send(
+      renderAuthorizationPage(
+        {
+          handle,
+          scopes: request.scopes,
+          error:
+            "Não encontramos uma conta administradora ativa com este e-mail. Confira o endereço e tente novamente."
+        },
+        "email"
+      )
     );
+  }
+
+  return res
+    .type("html")
+    .send(
+      renderAuthorizationPage(
+        { handle, scopes: request.scopes, email, companies },
+        "password"
+      )
+    );
+};
+
+export const restart = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const handle = String(req.body.handle || "");
+  const request = await loadAuthorizationRequest(handle);
+  setAuthorizationHeaders(res);
+  return res
+    .type("html")
+    .send(renderAuthorizationPage({ handle, scopes: request.scopes }, "email"));
 };
 
 export const approve = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  if (req.body.consent !== "yes") throw new AppError("consent_required", 400);
-  const request = await loadAuthorizationRequest(req.body.handle, true);
+  const handle = String(req.body.handle || "");
+  const request = await loadAuthorizationRequest(handle);
+  const email = String(req.body.email || "")
+    .trim()
+    .toLowerCase();
+  const companyId = Number(req.body.company_id);
+  let authenticated: Awaited<ReturnType<typeof authenticateAdminByCompany>>;
   try {
-    const { user, company } = await authenticateAdmin(
-      String(req.body.slug || ""),
-      String(req.body.email || ""),
+    if (req.body.consent !== "yes") {
+      throw new AppError("consent_required", 400);
+    }
+    authenticated = await authenticateAdminByCompany(
+      companyId,
+      email,
       String(req.body.password || "")
     );
-    const code = await approveAuthorization(request, user, company);
-    const url = new URL(request.redirectUri);
-    url.searchParams.set("code", code);
-    if (request.state) url.searchParams.set("state", request.state);
-    res.redirect(303, url.toString());
-    return res;
   } catch (error) {
-    if (error instanceof AppError && [401, 403].includes(error.statusCode)) {
-      return redirectWithOAuthError(
-        res,
-        request.redirectUri,
-        request.state,
-        "access_denied"
+    if (
+      error instanceof AppError &&
+      [400, 401, 403].includes(error.statusCode)
+    ) {
+      const companies = await findAdminCompaniesByEmail(email);
+      setAuthorizationHeaders(res);
+      return res.type("html").send(
+        renderAuthorizationPage(
+          {
+            handle,
+            scopes: request.scopes,
+            email,
+            companies,
+            selectedCompanyId: companyId,
+            error:
+              error.message === "consent_required"
+                ? "Marque a autorização para conectar sua conta."
+                : "E-mail ou senha incorretos. Confira os dados e tente novamente."
+          },
+          companies.length > 0 ? "password" : "email"
+        )
       );
     }
     throw error;
   }
+
+  // O handle só é consumido depois da senha válida. Assim um erro de digitação
+  // pode ser corrigido na própria tela, mas o código OAuth continua de uso único.
+  const consumedRequest = await loadAuthorizationRequest(handle, true);
+  const code = await approveAuthorization(
+    consumedRequest,
+    authenticated.user,
+    authenticated.company
+  );
+  const url = new URL(consumedRequest.redirectUri);
+  url.searchParams.set("code", code);
+  if (consumedRequest.state)
+    url.searchParams.set("state", consumedRequest.state);
+  res.redirect(303, url.toString());
+  return res;
 };
 
 export const cancel = async (
