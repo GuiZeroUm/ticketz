@@ -286,10 +286,8 @@ export const findAdminCompaniesByEmail = async (
           return null;
         }
         const encodedPath = segments.map(encodeURIComponent).join("/");
-        return [
-          setting.companyId,
-          `${mcpConfig.issuer}/public/${encodedPath}?inline=1`
-        ] as const;
+        const iconUrl: string = `${mcpConfig.issuer}/public/${encodedPath}?inline=1`;
+        return [setting.companyId, iconUrl] as const;
       })
       .filter((entry): entry is readonly [number, string] => entry !== null)
   );
