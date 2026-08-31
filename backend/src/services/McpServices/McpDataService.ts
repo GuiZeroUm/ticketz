@@ -277,7 +277,8 @@ export const getTicketzContext = async (auth: McpAuthContext) => {
       quickMessageLength: QUICK_MESSAGE_LIMITS.messageMaxLength,
       scheduleBodyMinLength: SCHEDULE_LIMITS.bodyMinLength,
       scheduleBodyMaxLength: SCHEDULE_LIMITS.bodyMaxLength,
-      maxScheduleContacts: SCHEDULE_LIMITS.maxSelectedContacts
+      maxScheduleContacts: SCHEDULE_LIMITS.maxSelectedContacts,
+      scheduleConfirmationTtlMinutes: SCHEDULE_LIMITS.confirmationTtlMinutes
     },
     capabilities: {
       deterministicStats: true,
@@ -294,6 +295,7 @@ export const getTicketzContext = async (auth: McpAuthContext) => {
       quickMessageWrites: true,
       sendMessages: false,
       scheduleWrites: true,
+      schedulePreviewConfirmationRequired: true,
       scheduleDeletes: false,
       scheduleSendNow: false,
       scheduleMedia: false,

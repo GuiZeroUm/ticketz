@@ -2,6 +2,7 @@ import { DateTime } from "luxon";
 import {
   birthdayMatches,
   isValidBirthday,
+  nextBirthdayScan,
   nextCommemorativeOccurrence,
   occurrenceForYear
 } from "../recurrence";
@@ -20,6 +21,18 @@ describe("schedule recurrence", () => {
     expect(birthdayMatches(29, 2, DateTime.fromISO("2024-02-29"))).toBe(true);
   });
 
+  it("calculates the birthday scan in the tenant timezone", () => {
+    const next = nextBirthdayScan(
+      "09:00",
+      "America/Rio_Branco",
+      DateTime.fromISO("2026-08-31T13:30:00Z")
+    );
+
+    expect(DateTime.fromJSDate(next).toUTC().toISO()).toBe(
+      "2026-08-31T14:00:00.000Z"
+    );
+  });
+
   it("calculates the second Sunday of May", () => {
     const occurrence = occurrenceForYear(
       {
@@ -28,7 +41,7 @@ describe("schedule recurrence", () => {
         day: null,
         weekday: 0,
         ordinal: 2
-      } as any,
+      } as Parameters<typeof occurrenceForYear>[0],
       2027,
       "09:30",
       "America/Sao_Paulo"
@@ -44,7 +57,7 @@ describe("schedule recurrence", () => {
         day: null,
         weekday: 1,
         ordinal: -1
-      } as any,
+      } as Parameters<typeof occurrenceForYear>[0],
       2026,
       "08:00",
       "America/Rio_Branco"
@@ -60,7 +73,7 @@ describe("schedule recurrence", () => {
         day: 1,
         weekday: null,
         ordinal: null
-      } as any,
+      } as Parameters<typeof nextCommemorativeOccurrence>[0],
       "10:00",
       "UTC",
       DateTime.fromISO("2026-08-13T10:00:00Z")
@@ -78,7 +91,7 @@ describe("schedule recurrence", () => {
         day: null,
         weekday: 1,
         ordinal: 5
-      } as any,
+      } as Parameters<typeof nextCommemorativeOccurrence>[0],
       "10:00",
       "UTC",
       DateTime.fromISO("2026-01-01T00:00:00Z")

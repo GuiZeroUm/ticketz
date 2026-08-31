@@ -7,14 +7,19 @@ import AppError from "../../errors/AppError";
 import McpAudit from "../../models/McpAudit";
 import Schedule from "../../models/Schedule";
 import { McpAuthContext } from "../../services/McpServices/OAuthService";
-import { createServer } from "../../services/McpServices/McpServerService";
+import {
+  MCP_SERVER_INSTRUCTIONS,
+  createServer
+} from "../../services/McpServices/McpServerService";
 import CreateService from "../../services/ScheduleServices/CreateService";
+import PreviewService from "../../services/ScheduleServices/PreviewService";
 import ShowService from "../../services/ScheduleServices/ShowService";
 import QuickMessageFindService from "../../services/QuickMessageService/FindService";
 import { getTenantTimezone } from "../../services/McpServices/tenantTimezone";
 import { getIO } from "../../libs/socket";
 
 jest.mock("../../services/ScheduleServices/CreateService");
+jest.mock("../../services/ScheduleServices/PreviewService");
 jest.mock("../../services/ScheduleServices/ShowService");
 jest.mock("../../services/QuickMessageService/FindService");
 jest.mock("../../services/McpServices/tenantTimezone");
@@ -42,6 +47,9 @@ jest.mock("../../services/TranslationServices/i18nService", () => ({
 let audit: jest.SpyInstance;
 const createService = CreateService as jest.MockedFunction<
   typeof CreateService
+>;
+const previewService = PreviewService as jest.MockedFunction<
+  typeof PreviewService
 >;
 const showService = ShowService as jest.MockedFunction<typeof ShowService>;
 const findQuickMessages = QuickMessageFindService as jest.MockedFunction<
@@ -123,11 +131,34 @@ const callTool = async (
 ): Promise<ToolResult> =>
   (await client.callTool({ name, arguments: args })) as ToolResult;
 
+const confirmedArguments = async (
+  client: Client,
+  args: Record<string, unknown> = validArguments
+): Promise<Record<string, unknown>> => {
+  const result = await callTool(client, "preview_schedule", args);
+  const structured = result.structuredContent as {
+    result: { preview: { confirmationToken: string } };
+  };
+  return {
+    ...args,
+    confirmation_token: structured.result.preview.confirmationToken,
+    confirmed: true
+  };
+};
+
 beforeEach(() => {
   audit = jest.spyOn(McpAudit, "create") as unknown as jest.SpyInstance;
   audit.mockResolvedValue(undefined);
   tenantTimezone.mockResolvedValue("America/Sao_Paulo");
   createService.mockResolvedValue(schedule);
+  previewService.mockResolvedValue({
+    eligibleCount: 1,
+    excludedCount: 0,
+    missingVariables: {},
+    estimatedDurationSeconds: 0,
+    nextRunAt: new Date("2026-08-21T18:00:00.000Z"),
+    renderedMessage: "Lembrete da sua consulta amanhã."
+  });
   showService.mockResolvedValue(schedule);
   findQuickMessages.mockResolvedValue([]);
   socket.mockReturnValue({ to: () => ({ emit: jest.fn() }) } as never);
@@ -148,7 +179,11 @@ describe("MCP tool error contract", () => {
     );
     const client = await connect();
 
-    const result = await callTool(client, "create_schedule", validArguments);
+    const result = await callTool(
+      client,
+      "create_schedule",
+      await confirmedArguments(client)
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content?.[0].text).toBe("ERR_SCHEDULE_INVALID_RECIPIENT");
@@ -163,7 +198,11 @@ describe("MCP tool error contract", () => {
     );
     const client = await connect();
 
-    const result = await callTool(client, "create_schedule", validArguments);
+    const result = await callTool(
+      client,
+      "create_schedule",
+      await confirmedArguments(client)
+    );
 
     expect(result.structuredContent).toEqual({
       result: {
@@ -178,7 +217,9 @@ describe("MCP tool error contract", () => {
 
     const result = await callTool(client, "update_schedule", {
       schedule_id: 900,
-      body: "Texto novo do lembrete."
+      body: "Texto novo do lembrete.",
+      confirmation_token: "preview-token",
+      confirmed: true
     });
 
     expect(result.content?.[0].text).toBe("ERR_NO_SCHEDULE_FOUND");
@@ -209,7 +250,7 @@ describe("MCP tool error contract", () => {
     );
     const client = await connect();
 
-    await callTool(client, "create_schedule", validArguments);
+    await callTool(client, "create_schedule", await confirmedArguments(client));
 
     expect(audit).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -226,7 +267,11 @@ describe("MCP tool error contract", () => {
     createService.mockRejectedValue(new Error("coluna inexistente"));
     const client = await connect();
 
-    const result = await callTool(client, "create_schedule", validArguments);
+    const result = await callTool(
+      client,
+      "create_schedule",
+      await confirmedArguments(client)
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content?.[0].text).toContain("coluna inexistente");
@@ -239,7 +284,11 @@ describe("MCP tool error contract", () => {
   it("still returns structured data when the tool succeeds", async () => {
     const client = await connect();
 
-    const result = await callTool(client, "create_schedule", validArguments);
+    const result = await callTool(
+      client,
+      "create_schedule",
+      await confirmedArguments(client)
+    );
 
     expect(result.isError).toBeFalsy();
     expect(result.structuredContent).toMatchObject({
@@ -262,5 +311,55 @@ describe("MCP tool listing", () => {
     expect(names).not.toContain("create_schedule");
     expect(names).not.toContain("update_schedule");
     expect(names).not.toContain("create_quick_message");
+  });
+
+  it("exposes schedule writes only after the explicit write grant", async () => {
+    const client = await connect();
+    const tools = (await client.listTools()).tools;
+    const create = tools.find(tool => tool.name === "create_schedule");
+    const update = tools.find(tool => tool.name === "update_schedule");
+
+    expect(create).toBeDefined();
+    expect(update).toBeDefined();
+    expect(create?.inputSchema).toMatchObject({
+      required: expect.arrayContaining(["confirmation_token", "confirmed"])
+    });
+    expect(update?.inputSchema).toMatchObject({
+      properties: expect.objectContaining({
+        kind: expect.any(Object),
+        commemorative_date_id: expect.any(Object),
+        confirmation_token: expect.any(Object),
+        confirmed: expect.any(Object)
+      }),
+      required: expect.arrayContaining([
+        "schedule_id",
+        "confirmation_token",
+        "confirmed"
+      ])
+    });
+  });
+});
+
+describe("MCP schedule guidance", () => {
+  it("requires context, coupon facts, preview, and later confirmation", () => {
+    expect(MCP_SERVER_INSTRUCTIONS).toContain(
+      "first call get_espaco_whats_context"
+    );
+    expect(MCP_SERVER_INSTRUCTIONS).toContain(
+      "require the coupon code, benefit, validity or conditions"
+    );
+    expect(MCP_SERVER_INSTRUCTIONS).toContain("{{primeiro_nome}}");
+    expect(MCP_SERVER_INSTRUCTIONS).toContain(
+      "never call a write tool in the same turn as its preview"
+    );
+  });
+
+  it("keeps media and Live mode explicitly unavailable", () => {
+    expect(MCP_SERVER_INSTRUCTIONS).toContain(
+      "media, file attachments, or media URLs"
+    );
+    expect(MCP_SERVER_INSTRUCTIONS).toContain(
+      "Voice or Live mode is not a supported app surface"
+    );
   });
 });

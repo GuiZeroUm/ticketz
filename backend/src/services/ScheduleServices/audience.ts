@@ -2,6 +2,7 @@ import { Op, WhereOptions } from "sequelize";
 import Contact from "../../models/Contact";
 import ContactCustomField from "../../models/ContactCustomField";
 import AppError from "../../errors/AppError";
+import { isValidBirthday } from "./recurrence";
 
 export type ScheduleKind = "ONCE" | "BIRTHDAY" | "COMMEMORATIVE";
 export type AudienceMode = "ALL" | "SELECTED";
@@ -38,7 +39,7 @@ export const resolveAudience = async ({
   if (audienceMode === "SELECTED" && !contactIds.length) {
     throw new AppError("ERR_SCHEDULE_RECIPIENT_REQUIRED", 400);
   }
-  const contacts = await Contact.findAll({
+  const foundContacts = await Contact.findAll({
     where: eligibleContactWhere(
       companyId,
       kind,
@@ -47,6 +48,12 @@ export const resolveAudience = async ({
     include: [{ model: ContactCustomField, as: "extraInfo" }],
     order: [["name", "ASC"]]
   });
+  const contacts =
+    kind === "BIRTHDAY"
+      ? foundContacts.filter(contact =>
+          isValidBirthday(contact.birthdayDay, contact.birthdayMonth)
+        )
+      : foundContacts;
   if (
     audienceMode === "SELECTED" &&
     contacts.length !== new Set(contactIds).size

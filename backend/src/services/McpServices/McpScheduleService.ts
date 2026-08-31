@@ -1,4 +1,6 @@
+import { createHmac, timingSafeEqual } from "crypto";
 import AppError from "../../errors/AppError";
+import mcpConfig from "../../config/mcp";
 import { getIO } from "../../libs/socket";
 import Schedule from "../../models/Schedule";
 import CreateService, {
@@ -18,7 +20,8 @@ import { getTenantTimezone } from "./tenantTimezone";
 export const SCHEDULE_LIMITS = {
   bodyMinLength: 5,
   bodyMaxLength: 5000,
-  maxSelectedContacts: 100
+  maxSelectedContacts: 100,
+  confirmationTtlMinutes: 30
 };
 
 export type ScheduleToolInput = {
@@ -34,12 +37,25 @@ export type ScheduleToolInput = {
 
 export type UpdateScheduleToolInput = {
   schedule_id: number;
+  kind?: ScheduleKind;
   body?: string;
   audience_mode?: AudienceMode;
   contact_ids?: number[];
   send_at?: string;
   send_time?: string;
   timezone?: string;
+  commemorative_date_id?: number;
+  confirmation_token?: string;
+  confirmed?: boolean;
+};
+
+export type PreviewScheduleToolInput = Partial<ScheduleToolInput> & {
+  schedule_id?: number;
+};
+
+export type ConfirmedScheduleToolInput = ScheduleToolInput & {
+  confirmation_token?: string;
+  confirmed?: boolean;
 };
 
 type ScheduleView = {
@@ -108,7 +124,9 @@ const normalizeBody = (body: string): string => {
 // outra empresa comparando a contagem encontrada com a pedida.
 const normalizeContactIds = (ids?: number[]): number[] | undefined => {
   if (ids === undefined) return undefined;
-  const unique = Array.from(new Set(ids.map(Number).filter(Boolean)));
+  const unique = Array.from(new Set(ids.map(Number).filter(Boolean))).sort(
+    (left, right) => left - right
+  );
   if (unique.length > SCHEDULE_LIMITS.maxSelectedContacts) {
     throw new AppError("ERR_SCHEDULE_TOO_MANY_RECIPIENTS", 400);
   }
@@ -122,6 +140,154 @@ const resolveTimezone = (
   timezone
     ? Promise.resolve(validateTimezone(timezone))
     : getTenantTimezone(companyId);
+
+type ResolvedScheduleInput = ScheduleToolInput & { timezone: string };
+
+const invalidPayload = (): never => {
+  throw new AppError("ERR_SCHEDULE_INVALID_PAYLOAD", 400);
+};
+
+const resolveCreateInput = async (
+  auth: McpAuthContext,
+  input: PreviewScheduleToolInput
+): Promise<ResolvedScheduleInput> => {
+  if (!input.kind || input.body === undefined || !input.audience_mode) {
+    return invalidPayload();
+  }
+  return {
+    kind: input.kind,
+    body: normalizeBody(input.body),
+    audience_mode: input.audience_mode,
+    contact_ids: normalizeContactIds(input.contact_ids),
+    send_at: input.send_at,
+    send_time: input.send_time,
+    timezone: await resolveTimezone(auth.companyId, input.timezone),
+    commemorative_date_id: input.commemorative_date_id
+  };
+};
+
+const resolveUpdateInput = (
+  current: Schedule,
+  input: UpdateScheduleToolInput
+): ResolvedScheduleInput => {
+  const kind = input.kind || current.kind;
+  if (
+    (kind === "ONCE" && input.send_time !== undefined) ||
+    (kind !== "ONCE" && input.send_at !== undefined) ||
+    (kind !== "COMMEMORATIVE" && input.commemorative_date_id !== undefined)
+  ) {
+    throw new AppError("ERR_SCHEDULE_FIELD_NOT_APPLICABLE", 400);
+  }
+
+  const audienceMode = input.audience_mode || current.audienceMode;
+  const currentContactIds = (current.audienceContacts || []).map(
+    item => item.contactId
+  );
+  const contactIds =
+    audienceMode === "ALL"
+      ? undefined
+      : normalizeContactIds(input.contact_ids || currentContactIds);
+  const wasOnce = current.kind === "ONCE";
+  const wasCommemorative = current.kind === "COMMEMORATIVE";
+
+  return {
+    kind,
+    body: normalizeBody(input.body ?? current.body),
+    audience_mode: audienceMode,
+    contact_ids: contactIds,
+    send_at:
+      kind === "ONCE"
+        ? input.send_at ||
+          (wasOnce
+            ? isoOrNull(current.sendAt || current.nextRunAt) || undefined
+            : undefined)
+        : undefined,
+    send_time:
+      kind === "ONCE"
+        ? undefined
+        : input.send_time || (!wasOnce ? current.sendTime : undefined),
+    timezone: input.timezone
+      ? validateTimezone(input.timezone)
+      : current.timezone,
+    commemorative_date_id:
+      kind === "COMMEMORATIVE"
+        ? input.commemorative_date_id ||
+          (wasCommemorative
+            ? current.commemorativeDateId || current.commemorativeDate?.id
+            : undefined)
+        : undefined
+  };
+};
+
+const confirmationPayload = (
+  auth: McpAuthContext,
+  operation: "create" | `update:${number}`,
+  input: ResolvedScheduleInput,
+  expiresAt: number
+): string =>
+  JSON.stringify({
+    companyId: auth.companyId,
+    userId: auth.userId,
+    operation,
+    expiresAt,
+    kind: input.kind,
+    body: input.body,
+    audienceMode: input.audience_mode,
+    contactIds: input.contact_ids || [],
+    sendAt: input.send_at || null,
+    sendTime: input.send_time || null,
+    timezone: input.timezone,
+    commemorativeDateId: input.commemorative_date_id || null
+  });
+
+const confirmationSignature = (payload: string): string =>
+  createHmac("sha256", mcpConfig.cursorSecret)
+    .update(payload)
+    .digest("base64url");
+
+const createConfirmationToken = (
+  auth: McpAuthContext,
+  operation: "create" | `update:${number}`,
+  input: ResolvedScheduleInput
+): { token: string; expiresAt: string } => {
+  const expiresAt =
+    Date.now() + SCHEDULE_LIMITS.confirmationTtlMinutes * 60 * 1000;
+  const signature = confirmationSignature(
+    confirmationPayload(auth, operation, input, expiresAt)
+  );
+  return {
+    token: `${expiresAt}.${signature}`,
+    expiresAt: new Date(expiresAt).toISOString()
+  };
+};
+
+const verifyConfirmation = (
+  auth: McpAuthContext,
+  operation: "create" | `update:${number}`,
+  input: ResolvedScheduleInput,
+  token?: string,
+  confirmed?: boolean
+): void => {
+  if (confirmed !== true) {
+    throw new AppError("ERR_SCHEDULE_CONFIRMATION_REQUIRED", 400);
+  }
+  const [rawExpiry, receivedSignature] = String(token || "").split(".");
+  const expiresAt = Number(rawExpiry);
+  if (!expiresAt || !receivedSignature || expiresAt < Date.now()) {
+    throw new AppError("ERR_SCHEDULE_PREVIEW_REQUIRED", 400);
+  }
+  const expectedSignature = confirmationSignature(
+    confirmationPayload(auth, operation, input, expiresAt)
+  );
+  const expected = Uint8Array.from(Buffer.from(expectedSignature));
+  const received = Uint8Array.from(Buffer.from(receivedSignature));
+  if (
+    expected.length !== received.length ||
+    !timingSafeEqual(expected, received)
+  ) {
+    throw new AppError("ERR_SCHEDULE_PREVIEW_MISMATCH", 400);
+  }
+};
 
 // A sala do socket é o próprio tenant: o evento carrega o texto e os
 // destinatários do agendamento, então um emit global vazaria isso para
@@ -143,17 +309,16 @@ const emit = (
 
 const toPayload = (
   auth: McpAuthContext,
-  input: ScheduleToolInput,
-  timezone: string
+  input: ResolvedScheduleInput
 ): SchedulePayload => ({
-  body: normalizeBody(input.body),
+  body: input.body,
   kind: input.kind,
   audienceMode: input.audience_mode,
   contactIds: normalizeContactIds(input.contact_ids),
   sendAt: input.send_at,
   sendTime: input.send_time,
   commemorativeDateId: input.commemorative_date_id,
-  timezone,
+  timezone: input.timezone,
   // companyId e userId vêm sempre do token verificado, nunca do argumento da
   // ferramenta: é o que impede o modelo de escrever em outro tenant ou de
   // registrar o agendamento no nome de outro usuário.
@@ -163,10 +328,22 @@ const toPayload = (
 
 export const previewSchedule = async (
   auth: McpAuthContext,
-  input: ScheduleToolInput
+  input: PreviewScheduleToolInput
 ) => {
-  const timezone = await resolveTimezone(auth.companyId, input.timezone);
-  const preview = await PreviewService(toPayload(auth, input, timezone));
+  const current = input.schedule_id
+    ? await ShowService(input.schedule_id, auth.companyId)
+    : null;
+  const resolved = current
+    ? resolveUpdateInput(current, {
+        ...input,
+        schedule_id: current.id
+      } as UpdateScheduleToolInput)
+    : await resolveCreateInput(auth, input);
+  const operation = current
+    ? (`update:${current.id}` as const)
+    : ("create" as const);
+  const preview = await PreviewService(toPayload(auth, resolved));
+  const confirmation = createConfirmationToken(auth, operation, resolved);
 
   return {
     preview: {
@@ -175,12 +352,14 @@ export const previewSchedule = async (
       missingVariables: preview.missingVariables,
       estimatedDurationSeconds: preview.estimatedDurationSeconds,
       nextRunAt: preview.nextRunAt.toISOString(),
-      timezone,
+      timezone: resolved.timezone,
       // Informativo, não impeditivo: o domínio aceita data passada e a tela
       // também, então rejeitar aqui faria o ChatGPT divergir do sistema. O
       // modelo usa isso para avisar o usuário antes de confirmar a criação.
       isInPast: preview.nextRunAt.getTime() < Date.now(),
-      sampleRenderedMessage: preview.renderedMessage
+      sampleRenderedMessage: preview.renderedMessage,
+      confirmationToken: confirmation.token,
+      confirmationTokenExpiresAt: confirmation.expiresAt
     },
     persisted: false,
     coverage: { returnedRecords: 0 }
@@ -189,10 +368,17 @@ export const previewSchedule = async (
 
 export const createSchedule = async (
   auth: McpAuthContext,
-  input: ScheduleToolInput
+  input: ConfirmedScheduleToolInput
 ) => {
-  const timezone = await resolveTimezone(auth.companyId, input.timezone);
-  const created = await CreateService(toPayload(auth, input, timezone));
+  const resolved = await resolveCreateInput(auth, input);
+  verifyConfirmation(
+    auth,
+    "create",
+    resolved,
+    input.confirmation_token,
+    input.confirmed
+  );
+  const created = await CreateService(toPayload(auth, resolved));
   // O CreateService recarrega sem os contatos da audiência; reler pelo
   // ShowService dá a mesma forma de registro que o update devolve.
   const schedule = await ShowService(created.id, auth.companyId);
@@ -210,47 +396,35 @@ export const updateSchedule = async (
   // encontrado, então nem chega ao UpdateService.
   const current = await ShowService(input.schedule_id, auth.companyId);
   const changed = [
+    input.kind,
     input.body,
     input.audience_mode,
     input.contact_ids,
     input.send_at,
     input.send_time,
-    input.timezone
+    input.timezone,
+    input.commemorative_date_id
   ].some(value => value !== undefined);
   if (!changed) {
     throw new AppError("ERR_SCHEDULE_NOTHING_TO_UPDATE", 400);
   }
-  if (input.send_at !== undefined && current.kind !== "ONCE") {
-    throw new AppError("ERR_SCHEDULE_FIELD_NOT_APPLICABLE", 400);
-  }
-  if (input.send_time !== undefined && current.kind === "ONCE") {
-    throw new AppError("ERR_SCHEDULE_FIELD_NOT_APPLICABLE", 400);
-  }
-
-  const timezone = input.timezone
-    ? validateTimezone(input.timezone)
-    : current.timezone;
+  const resolved = resolveUpdateInput(current, input);
+  verifyConfirmation(
+    auth,
+    `update:${current.id}`,
+    resolved,
+    input.confirmation_token,
+    input.confirmed
+  );
   const scheduleData: Partial<SchedulePayload> = {
-    timezone,
-    ...(input.body !== undefined ? { body: normalizeBody(input.body) } : {}),
-    ...(input.audience_mode !== undefined
-      ? { audienceMode: input.audience_mode }
-      : {}),
-    ...(input.contact_ids !== undefined
-      ? { contactIds: normalizeContactIds(input.contact_ids) }
-      : {}),
-    ...(input.send_time !== undefined ? { sendTime: input.send_time } : {}),
-    // O sendAt gravado volta como Date e parseOneTimeSchedule só entende ISO:
-    // sem reenviar o instante atual em ISO, alterar apenas o texto de um
-    // agendamento ONCE cairia em ERR_SCHEDULE_INVALID_DATE.
-    ...(current.kind === "ONCE"
-      ? {
-          sendAt:
-            input.send_at ??
-            isoOrNull(current.sendAt || current.nextRunAt) ??
-            undefined
-        }
-      : {})
+    kind: resolved.kind,
+    body: resolved.body,
+    audienceMode: resolved.audience_mode,
+    contactIds: resolved.contact_ids,
+    sendAt: resolved.send_at,
+    sendTime: resolved.send_time,
+    timezone: resolved.timezone,
+    commemorativeDateId: resolved.commemorative_date_id
   };
 
   const schedule = await UpdateService({

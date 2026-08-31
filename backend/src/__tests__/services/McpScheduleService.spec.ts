@@ -17,6 +17,7 @@ import { getIO } from "../../libs/socket";
 import {
   SCHEDULE_LIMITS,
   ScheduleToolInput,
+  UpdateScheduleToolInput,
   createSchedule,
   previewSchedule,
   updateSchedule
@@ -113,6 +114,29 @@ const input = (fields: Partial<ScheduleToolInput> = {}): ScheduleToolInput => ({
 const emit = jest.fn();
 const room = jest.fn(() => ({ emit }));
 
+const confirmedCreateInput = async (
+  fields: Partial<ScheduleToolInput> = {}
+) => {
+  const payload = input(fields);
+  const result = await previewSchedule(auth, payload);
+  return {
+    ...payload,
+    confirmation_token: result.preview.confirmationToken,
+    confirmed: true as const
+  };
+};
+
+const confirmedUpdateInput = async (
+  fields: Omit<UpdateScheduleToolInput, "confirmation_token" | "confirmed">
+) => {
+  const result = await previewSchedule(auth, fields);
+  return {
+    ...fields,
+    confirmation_token: result.preview.confirmationToken,
+    confirmed: true as const
+  };
+};
+
 beforeEach(() => {
   tenantTimezone.mockResolvedValue("America/Sao_Paulo");
   createService.mockResolvedValue(record());
@@ -132,7 +156,7 @@ beforeEach(() => {
 describe("MCP schedule creation", () => {
   it("takes tenant and owner from the token, never from the arguments", async () => {
     await createSchedule(auth, {
-      ...input(),
+      ...(await confirmedCreateInput()),
       // O modelo pode inventar estes campos; eles não estão no schema da tool e
       // não podem alcançar o payload de domínio.
       ...({ companyId: 99, userId: 1 } as Partial<ScheduleToolInput>)
@@ -144,7 +168,10 @@ describe("MCP schedule creation", () => {
   });
 
   it("falls back to the tenant timezone configured for schedules", async () => {
-    await createSchedule(auth, input({ timezone: undefined }));
+    await createSchedule(
+      auth,
+      await confirmedCreateInput({ timezone: undefined })
+    );
 
     expect(tenantTimezone).toHaveBeenCalledWith(3);
     expect(createService).toHaveBeenCalledWith(
@@ -160,7 +187,7 @@ describe("MCP schedule creation", () => {
   });
 
   it("emits on the tenant room instead of broadcasting the message body", async () => {
-    await createSchedule(auth, input());
+    await createSchedule(auth, await confirmedCreateInput());
 
     // Um emit global entregaria o texto e os destinatários a qualquer cliente
     // socket que escutasse o nome do evento.
@@ -176,13 +203,15 @@ describe("MCP schedule creation", () => {
       throw new Error("socket off");
     });
 
-    await expect(createSchedule(auth, input())).resolves.toMatchObject({
+    await expect(
+      createSchedule(auth, await confirmedCreateInput())
+    ).resolves.toMatchObject({
       schedule: { id: 21 }
     });
   });
 
   it("never exposes server media references in the returned schedule", async () => {
-    const result = await createSchedule(auth, input());
+    const result = await createSchedule(auth, await confirmedCreateInput());
 
     expect(result.schedule).not.toHaveProperty("mediaPath");
     expect(result.schedule).not.toHaveProperty("mediaName");
@@ -206,10 +235,11 @@ describe("MCP schedule creation", () => {
 
   it("refuses a body longer than the MCP payload limit", async () => {
     await expect(
-      createSchedule(
-        auth,
-        input({ body: "a".repeat(SCHEDULE_LIMITS.bodyMaxLength + 1) })
-      )
+      createSchedule(auth, {
+        ...input({ body: "a".repeat(SCHEDULE_LIMITS.bodyMaxLength + 1) }),
+        confirmed: true,
+        confirmation_token: "invalid"
+      })
     ).rejects.toMatchObject({ message: "ERR_SCHEDULE_MESSAGE_TOO_LONG" });
     expect(createService).not.toHaveBeenCalled();
   });
@@ -225,7 +255,7 @@ describe("MCP schedule creation", () => {
     );
 
     await expect(
-      createSchedule(auth, input({ body: "oi" }))
+      createSchedule(auth, await confirmedCreateInput({ body: "oi" }))
     ).rejects.toMatchObject({ message: "ERR_SCHEDULE_INVALID_MESSAGE" });
     expect(createService).toHaveBeenCalledWith(
       expect.objectContaining({ body: "oi" })
@@ -235,7 +265,7 @@ describe("MCP schedule creation", () => {
   it("does not send media even when the schedule kind repeats yearly", async () => {
     await createSchedule(
       auth,
-      input({
+      await confirmedCreateInput({
         kind: "BIRTHDAY",
         audience_mode: "ALL",
         contact_ids: undefined,
@@ -252,6 +282,34 @@ describe("MCP schedule creation", () => {
       sendTime: "09:00"
     });
   });
+
+  it("refuses to persist before the user confirmation", async () => {
+    const result = await previewSchedule(auth, input());
+
+    await expect(
+      createSchedule(auth, {
+        ...input(),
+        confirmation_token: result.preview.confirmationToken,
+        confirmed: false
+      })
+    ).rejects.toMatchObject({
+      message: "ERR_SCHEDULE_CONFIRMATION_REQUIRED"
+    });
+    expect(createService).not.toHaveBeenCalled();
+  });
+
+  it("refuses a preview token after any schedule field changes", async () => {
+    const result = await previewSchedule(auth, input());
+
+    await expect(
+      createSchedule(auth, {
+        ...input({ body: "Um texto diferente do que foi aprovado." }),
+        confirmation_token: result.preview.confirmationToken,
+        confirmed: true
+      })
+    ).rejects.toMatchObject({ message: "ERR_SCHEDULE_PREVIEW_MISMATCH" });
+    expect(createService).not.toHaveBeenCalled();
+  });
 });
 
 describe("MCP schedule preview", () => {
@@ -267,7 +325,9 @@ describe("MCP schedule preview", () => {
       estimatedDurationSeconds: 30,
       nextRunAt: "2026-08-21T18:00:00.000Z",
       timezone: "America/Sao_Paulo",
-      sampleRenderedMessage: "Lembrete da sua consulta amanhã."
+      sampleRenderedMessage: "Lembrete da sua consulta amanhã.",
+      confirmationToken: expect.any(String),
+      confirmationTokenExpiresAt: expect.any(String)
     });
   });
 
@@ -313,6 +373,25 @@ describe("MCP schedule preview", () => {
       expect.objectContaining({ companyId: 3, userId: 7 })
     );
   });
+
+  it("merges stored fields when previewing an edit", async () => {
+    await previewSchedule(auth, {
+      schedule_id: 21,
+      body: "Texto novo do lembrete."
+    });
+
+    expect(showService).toHaveBeenCalledWith(21, 3);
+    expect(previewService).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "ONCE",
+        body: "Texto novo do lembrete.",
+        audienceMode: "SELECTED",
+        contactIds: [11],
+        sendAt: "2026-08-21T18:00:00.000Z",
+        timezone: "America/Sao_Paulo"
+      })
+    );
+  });
 });
 
 describe("MCP schedule update", () => {
@@ -341,29 +420,46 @@ describe("MCP schedule update", () => {
   it("resends the stored date as ISO so editing only the text keeps the schedule", async () => {
     // O sendAt gravado volta como Date e parseOneTimeSchedule só entende ISO:
     // sem isto, alterar apenas o texto cairia em ERR_SCHEDULE_INVALID_DATE.
-    await updateSchedule(auth, {
-      schedule_id: 21,
-      body: "Texto novo do lembrete."
-    });
+    await updateSchedule(
+      auth,
+      await confirmedUpdateInput({
+        schedule_id: 21,
+        body: "Texto novo do lembrete."
+      })
+    );
 
     expect(updateService).toHaveBeenCalledWith({
       id: 21,
       companyId: 3,
       scheduleData: {
-        timezone: "America/Sao_Paulo",
+        kind: "ONCE",
         body: "Texto novo do lembrete.",
-        sendAt: "2026-08-21T18:00:00.000Z"
+        audienceMode: "SELECTED",
+        contactIds: [11],
+        sendAt: "2026-08-21T18:00:00.000Z",
+        sendTime: undefined,
+        timezone: "America/Sao_Paulo",
+        commemorativeDateId: undefined
       }
     });
   });
 
-  it("keeps the untouched fields out of the payload the domain merges", async () => {
-    await updateSchedule(auth, { schedule_id: 21, contact_ids: [11, 11, 12] });
+  it("builds a complete target without exposing or changing media", async () => {
+    await updateSchedule(
+      auth,
+      await confirmedUpdateInput({
+        schedule_id: 21,
+        contact_ids: [11, 11, 12]
+      })
+    );
 
     const payload = updateService.mock.calls[0][0].scheduleData;
     expect(payload.contactIds).toEqual([11, 12]);
-    expect(payload.body).toBeUndefined();
+    expect(payload.body).toBe("Lembrete da sua consulta amanhã.");
     expect(payload.sendTime).toBeUndefined();
+    expect(payload).not.toHaveProperty("mediaPath");
+    expect(payload).not.toHaveProperty("mediaName");
+    expect(payload).not.toHaveProperty("mediaType");
   });
 
   it("refuses a time field that does not apply to the schedule kind", async () => {
@@ -388,19 +484,130 @@ describe("MCP schedule update", () => {
       record({ kind: "BIRTHDAY", sendAt: null, sendTime: "09:00" })
     );
 
-    await updateSchedule(auth, { schedule_id: 21, send_time: "10:30" });
+    await updateSchedule(
+      auth,
+      await confirmedUpdateInput({ schedule_id: 21, send_time: "10:30" })
+    );
 
     expect(updateService.mock.calls[0][0].scheduleData).toEqual({
+      kind: "BIRTHDAY",
+      body: "Lembrete da sua consulta amanhã.",
+      audienceMode: "SELECTED",
+      contactIds: [11],
+      sendAt: undefined,
+      commemorativeDateId: undefined,
       timezone: "America/Sao_Paulo",
       sendTime: "10:30"
     });
   });
 
-  it("emits the update on the tenant room", async () => {
-    await updateSchedule(auth, {
-      schedule_id: 21,
-      body: "Texto novo do lembrete."
+  it("changes a one-time schedule into an automatic birthday schedule", async () => {
+    await updateSchedule(
+      auth,
+      await confirmedUpdateInput({
+        schedule_id: 21,
+        kind: "BIRTHDAY",
+        audience_mode: "ALL",
+        send_time: "09:15"
+      })
+    );
+
+    expect(updateService.mock.calls[0][0].scheduleData).toMatchObject({
+      kind: "BIRTHDAY",
+      audienceMode: "ALL",
+      contactIds: undefined,
+      sendAt: undefined,
+      sendTime: "09:15",
+      commemorativeDateId: undefined
     });
+  });
+
+  it("changes a recurring schedule into a one-time schedule", async () => {
+    showService.mockResolvedValue(
+      record({ kind: "BIRTHDAY", sendAt: null, sendTime: "09:00" })
+    );
+
+    await updateSchedule(
+      auth,
+      await confirmedUpdateInput({
+        schedule_id: 21,
+        kind: "ONCE",
+        send_at: "2026-09-10T14:30:00"
+      })
+    );
+
+    expect(updateService.mock.calls[0][0].scheduleData).toMatchObject({
+      kind: "ONCE",
+      sendAt: "2026-09-10T14:30:00",
+      sendTime: undefined,
+      commemorativeDateId: undefined
+    });
+  });
+
+  it("changes a birthday schedule into a commemorative-date schedule", async () => {
+    showService.mockResolvedValue(
+      record({ kind: "BIRTHDAY", sendAt: null, sendTime: "09:00" })
+    );
+
+    await updateSchedule(
+      auth,
+      await confirmedUpdateInput({
+        schedule_id: 21,
+        kind: "COMMEMORATIVE",
+        commemorative_date_id: 8,
+        send_time: "10:00"
+      })
+    );
+
+    expect(updateService.mock.calls[0][0].scheduleData).toMatchObject({
+      kind: "COMMEMORATIVE",
+      sendAt: undefined,
+      sendTime: "10:00",
+      commemorativeDateId: 8
+    });
+  });
+
+  it("requires a new matching preview when editing", async () => {
+    const approved = await confirmedUpdateInput({
+      schedule_id: 21,
+      body: "Texto aprovado na prévia."
+    });
+
+    await expect(
+      updateSchedule(auth, {
+        ...approved,
+        body: "Texto alterado depois da prévia."
+      })
+    ).rejects.toMatchObject({ message: "ERR_SCHEDULE_PREVIEW_MISMATCH" });
+    expect(updateService).not.toHaveBeenCalled();
+  });
+
+  it("propagates the domain block for a one-time schedule that already started", async () => {
+    updateService.mockRejectedValue(
+      Object.assign(new Error("ERR_SCHEDULE_ALREADY_STARTED"), {
+        statusCode: 400
+      })
+    );
+
+    await expect(
+      updateSchedule(
+        auth,
+        await confirmedUpdateInput({
+          schedule_id: 21,
+          body: "Novo texto depois do início."
+        })
+      )
+    ).rejects.toMatchObject({ message: "ERR_SCHEDULE_ALREADY_STARTED" });
+  });
+
+  it("emits the update on the tenant room", async () => {
+    await updateSchedule(
+      auth,
+      await confirmedUpdateInput({
+        schedule_id: 21,
+        body: "Texto novo do lembrete."
+      })
+    );
 
     expect(room).toHaveBeenCalledWith("company-3-mainchannel");
     expect(emit).toHaveBeenCalledWith("company-3-schedule", {
@@ -442,7 +649,8 @@ describe("MCP schedule authorization", () => {
         kind: "ONCE",
         body: "Lembrete da sua consulta amanhã.",
         contact_ids: [11, 12],
-        send_at: "2026-08-21T15:00:00"
+        send_at: "2026-08-21T15:00:00",
+        confirmation_token: "temporary-secret"
       })
     ).toEqual({
       kind: "ONCE",
