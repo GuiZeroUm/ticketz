@@ -14,6 +14,20 @@ import {
 } from "../services/McpServices/OAuthService";
 import { renderAuthorizationPage } from "../services/McpServices/OAuthAuthorizationView";
 
+const oauthIssuerOrigin = new URL(mcpConfig.issuer).origin;
+const authorizationCsp = [
+  "default-src 'none'",
+  `img-src 'self' ${oauthIssuerOrigin} data:`,
+  "style-src 'unsafe-inline'",
+  `form-action 'self' ${oauthIssuerOrigin}`,
+  "frame-ancestors 'none'"
+].join("; ");
+
+const setAuthorizationHeaders = (res: Response): void => {
+  res.setHeader("Content-Security-Policy", authorizationCsp);
+  res.setHeader("Cache-Control", "no-store");
+};
+
 const redirectWithOAuthError = (
   res: Response,
   redirectUri: string,
@@ -99,22 +113,10 @@ export const authorize = async (
     resource: String(req.query.resource || "")
   });
   const request = await loadAuthorizationRequest(handle);
-  res.setHeader(
-    "Content-Security-Policy",
-    "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'"
-  );
-  res.setHeader("Cache-Control", "no-store");
+  setAuthorizationHeaders(res);
   return res
     .type("html")
     .send(renderAuthorizationPage({ handle, scopes: request.scopes }, "email"));
-};
-
-const setAuthorizationHeaders = (res: Response): void => {
-  res.setHeader(
-    "Content-Security-Policy",
-    "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'"
-  );
-  res.setHeader("Cache-Control", "no-store");
 };
 
 export const identify = async (
