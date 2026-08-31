@@ -89,6 +89,23 @@ export const validateScopes = (scope?: string): string[] => {
   return [...new Set(requested)];
 };
 
+// O app do ChatGPT que já existia antes de schedules:write continua pedindo o
+// conjunto antigo de escopos, que termina em quick_messages:write. Ao
+// reconectar, acrescentamos a nova permissão ao pedido que será exibido na tela
+// de consentimento. Grants existentes não são alterados e clientes somente de
+// leitura continuam somente de leitura.
+export const resolveAuthorizationScopes = (scope?: string): string[] => {
+  const requested = validateScopes(scope);
+  if (
+    scope &&
+    requested.includes("quick_messages:write") &&
+    !requested.includes("schedules:write")
+  ) {
+    return [...requested, "schedules:write"];
+  }
+  return requested;
+};
+
 export const validateRedirectUri = (uri: string): void => {
   let parsed: URL;
   try {
@@ -198,7 +215,7 @@ export const createAuthorizationRequest = async (
     state: input.state,
     codeChallenge: input.code_challenge,
     resource: input.resource,
-    scopes: validateScopes(input.scope)
+    scopes: resolveAuthorizationScopes(input.scope)
   };
   await cacheLayer.set(
     `mcp:authorize:${sha256(handle)}`,

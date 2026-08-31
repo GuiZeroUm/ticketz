@@ -16,6 +16,7 @@ import PreviewService from "../../services/ScheduleServices/PreviewService";
 import ShowService from "../../services/ScheduleServices/ShowService";
 import QuickMessageFindService from "../../services/QuickMessageService/FindService";
 import { getTenantTimezone } from "../../services/McpServices/tenantTimezone";
+import { getMcpWriteCapabilities } from "../../services/McpServices/McpDataService";
 import { getIO } from "../../libs/socket";
 
 jest.mock("../../services/ScheduleServices/CreateService");
@@ -298,6 +299,27 @@ describe("MCP tool error contract", () => {
 });
 
 describe("MCP tool listing", () => {
+  it("reports write capabilities from the granted scopes", () => {
+    expect(getMcpWriteCapabilities(["conversations:read"])).toEqual({
+      writeActions: false,
+      quickMessageWrites: false,
+      scheduleWrites: false,
+      schedulePreviewConfirmationRequired: false
+    });
+    expect(
+      getMcpWriteCapabilities([
+        "conversations:read",
+        "quick_messages:write",
+        "schedules:write"
+      ])
+    ).toEqual({
+      writeActions: true,
+      quickMessageWrites: true,
+      scheduleWrites: true,
+      schedulePreviewConfirmationRequired: true
+    });
+  });
+
   it("hides the write tools from a read-only connection", async () => {
     const client = await connect({
       ...auth,

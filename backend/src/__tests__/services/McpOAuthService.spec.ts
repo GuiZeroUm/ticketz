@@ -8,6 +8,7 @@ import {
   createPkceChallenge,
   findAdminCompaniesByEmail,
   hashOAuthToken,
+  resolveAuthorizationScopes,
   rotateRefreshToken,
   validateRedirectUri,
   validateScopes
@@ -153,6 +154,24 @@ describe("MCP OAuth security primitives", () => {
     expect(validateScopes("quick_messages:write")).toEqual([
       "quick_messages:write"
     ]);
+  });
+
+  it("adds schedule writes to the legacy ChatGPT consent request", () => {
+    expect(
+      resolveAuthorizationScopes(
+        "conversations:read reports:read quick_messages:read quick_messages:write"
+      )
+    ).toEqual([
+      "conversations:read",
+      "reports:read",
+      "quick_messages:read",
+      "quick_messages:write",
+      "schedules:write"
+    ]);
+    expect(resolveAuthorizationScopes("conversations:read")).toEqual([
+      "conversations:read"
+    ]);
+    expect(resolveAuthorizationScopes()).toEqual(DEFAULT_GRANT_SCOPES);
   });
 
   it("rejects a scope that does not exist", () => {

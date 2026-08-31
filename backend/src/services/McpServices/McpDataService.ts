@@ -197,6 +197,17 @@ const baseReplacements = (
   dateTo: period.toUtc
 });
 
+export const getMcpWriteCapabilities = (scopes: string[]) => {
+  const quickMessageWrites = scopes.includes("quick_messages:write");
+  const scheduleWrites = scopes.includes("schedules:write");
+  return {
+    writeActions: quickMessageWrites || scheduleWrites,
+    quickMessageWrites,
+    scheduleWrites,
+    schedulePreviewConfirmationRequired: scheduleWrites
+  };
+};
+
 export const getTicketzContext = async (auth: McpAuthContext) => {
   const [company, attendants, queues, tags, commemorativeDates] =
     await Promise.all([
@@ -291,11 +302,8 @@ export const getTicketzContext = async (auth: McpAuthContext) => {
       // depois, então criá-las não envia mensagem. Agendamentos programam um
       // envio futuro: criar um não dispara nada agora, o ScheduleMonitor é que
       // entrega na data. Excluir e antecipar continuam fora do MCP.
-      writeActions: true,
-      quickMessageWrites: true,
+      ...getMcpWriteCapabilities(auth.scopes),
       sendMessages: false,
-      scheduleWrites: true,
-      schedulePreviewConfirmationRequired: true,
       scheduleDeletes: false,
       scheduleSendNow: false,
       scheduleMedia: false,
