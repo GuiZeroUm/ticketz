@@ -24,6 +24,8 @@ import User from "./User";
 import UserRating from "./UserRating";
 import Whatsapp from "./Whatsapp";
 import { OpenHoursData } from "../helpers/checkOpenHours";
+import TaskBoardColumn from "./TaskBoardColumn";
+import TaskBoardTask from "./TaskBoardTask";
 
 @Table
 class Company extends Model<Company> {
@@ -182,6 +184,12 @@ class Company extends Model<Company> {
     hooks: true
   })
   ticketTrankins: TicketTraking[];
+
+  @HasMany(() => TaskBoardColumn, { onDelete: "CASCADE" })
+  taskBoardColumns: TaskBoardColumn[];
+
+  @HasMany(() => TaskBoardTask, { onDelete: "CASCADE" })
+  taskBoardTasks: TaskBoardTask[];
 }
 
 export default Company;

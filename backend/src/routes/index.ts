@@ -42,10 +42,12 @@ import commemorativeDateRoutes from "./commemorativeDateRoutes";
 import partnerRoutes from "./partnerRoutes";
 import partnerAdminRoutes from "./partnerAdminRoutes";
 import platformRoutes from "./platformRoutes";
+import taskBoardRoutes from "./taskBoardRoutes";
 
 const routes = Router();
 
 routes.use(platformRoutes);
+routes.use(taskBoardRoutes);
 routes.use(oauthRoutes);
 routes.use(mcpRoutes);
 routes.use(chatGptRoutes);

@@ -373,13 +373,60 @@ const messages = {
         }
       },
       todolist: {
-        title: "Liste des tâches",
+        title: "Tableau des tâches",
+        loading: "Chargement du tableau...",
+        loadError: "Impossible de charger le tableau.",
+        emptyColumn: "Glissez une tâche dans cette colonne",
+        dragTask: "Déplacer la tâche",
+        dragTaskLabel: "Déplacer la tâche {{title}}",
+        completedAt: "Terminée le {{date}}",
+        editTaskTitle: "Modifier la tâche",
         form: {
-          name: "Nom de la tâche"
+          name: "Nom de la tâche",
+          columnName: "Nom de la colonne"
         },
         buttons: {
           add: "Ajouter",
-          save: "Enregistrer"
+          save: "Enregistrer",
+          configure: "Configurer les colonnes",
+          clearFilter: "Effacer le filtre",
+          tryAgain: "Réessayer",
+          editTask: "Modifier la tâche",
+          deleteTask: "Supprimer la tâche",
+          addColumn: "Ajouter une colonne"
+        },
+        filters: {
+          from: "Terminées depuis",
+          to: "Terminées jusqu’au",
+          invalidDate: "Date invalide"
+        },
+        settings: {
+          title: "Configurer les colonnes",
+          description:
+            "Personnalisez l’ordre, les noms et les couleurs. Une seule colonne représente les tâches terminées.",
+          markDone: "Marquer {{title}} comme colonne terminée",
+          doneColumn: "Colonne des tâches terminées",
+          regularColumn: "Colonne de travail en cours",
+          moveLeft: "Déplacer à gauche",
+          moveRight: "Déplacer à droite",
+          editColumn: "Modifier la colonne",
+          newColumn: "Nouvelle colonne",
+          chooseColor: "Choisir la couleur",
+          useBrandColor: "Utiliser la couleur de l’entreprise"
+        },
+        confirm: {
+          deleteTaskTitle: "Supprimer la tâche",
+          deleteTask: "Supprimer la tâche « {{title}} » ?",
+          deleteColumnTitle: "Supprimer la colonne",
+          deleteColumn: "Supprimer la colonne « {{title}} » ?"
+        },
+        toasts: {
+          taskCreated: "Tâche créée.",
+          taskSaved: "Tâche mise à jour.",
+          taskDeleted: "Tâche supprimée.",
+          columnSaved: "Colonne enregistrée.",
+          columnDeleted: "Colonne supprimée.",
+          doneColumnChanged: "Colonne terminée mise à jour."
         }
       },
       ticketsManager: {
@@ -1138,6 +1185,21 @@ const messages = {
           "Le backend démarre et n'est pas encore prêt. Nouvelle tentative automatique."
       },
       backendErrors: {
+        ERR_TASK_BOARD_INVALID_TITLE: "Saisissez un titre valide.",
+        ERR_TASK_BOARD_INVALID_COLOR:
+          "Saisissez une couleur hexadécimale valide.",
+        ERR_TASK_BOARD_COLUMN_NOT_FOUND: "Colonne introuvable.",
+        ERR_TASK_BOARD_TASK_NOT_FOUND: "Tâche introuvable.",
+        ERR_TASK_BOARD_INVALID_DATE: "Saisissez une date valide.",
+        ERR_TASK_BOARD_INVALID_DATE_RANGE: "La plage de dates est invalide.",
+        ERR_TASK_BOARD_DONE_COLUMN_REQUIRED:
+          "Le tableau doit avoir une colonne de tâches terminées.",
+        ERR_TASK_BOARD_INVALID_COLUMN_ORDER:
+          "L’ordre des colonnes est invalide.",
+        ERR_TASK_BOARD_CANNOT_DELETE_DONE_COLUMN:
+          "Choisissez une autre colonne terminée avant de supprimer celle-ci.",
+        ERR_TASK_BOARD_COLUMN_NOT_EMPTY:
+          "Déplacez les tâches de cette colonne avant de la supprimer.",
         ERR_EMAIL_NOT_FOUND: "Nous n'avons pas trouvé cet email.",
         ERR_COMPANY_SUSPENDED:
           "Ce compte est suspendu. Contactez le responsable de votre abonnement.",

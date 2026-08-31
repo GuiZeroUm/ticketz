@@ -376,13 +376,60 @@ const messages = {
         }
       },
       todolist: {
-        title: "Aufgabenliste",
+        title: "Aufgabenboard",
+        loading: "Board wird geladen...",
+        loadError: "Das Board konnte nicht geladen werden.",
+        emptyColumn: "Ziehen Sie eine Aufgabe in diese Spalte",
+        dragTask: "Aufgabe verschieben",
+        dragTaskLabel: "Aufgabe {{title}} verschieben",
+        completedAt: "Abgeschlossen am {{date}}",
+        editTaskTitle: "Aufgabe bearbeiten",
         form: {
-          name: "Aufgabenname"
+          name: "Aufgabenname",
+          columnName: "Spaltenname"
         },
         buttons: {
           add: "Hinzufügen",
-          save: "Speichern"
+          save: "Speichern",
+          configure: "Spalten konfigurieren",
+          clearFilter: "Filter löschen",
+          tryAgain: "Erneut versuchen",
+          editTask: "Aufgabe bearbeiten",
+          deleteTask: "Aufgabe löschen",
+          addColumn: "Spalte hinzufügen"
+        },
+        filters: {
+          from: "Abgeschlossen von",
+          to: "Abgeschlossen bis",
+          invalidDate: "Ungültiges Datum"
+        },
+        settings: {
+          title: "Spalten konfigurieren",
+          description:
+            "Reihenfolge, Namen und Farben anpassen. Nur eine Spalte steht für abgeschlossene Aufgaben.",
+          markDone: "{{title}} als abgeschlossene Spalte markieren",
+          doneColumn: "Spalte für abgeschlossene Aufgaben",
+          regularColumn: "Spalte für laufende Aufgaben",
+          moveLeft: "Nach links verschieben",
+          moveRight: "Nach rechts verschieben",
+          editColumn: "Spalte bearbeiten",
+          newColumn: "Neue Spalte",
+          chooseColor: "Farbe auswählen",
+          useBrandColor: "Unternehmensfarbe verwenden"
+        },
+        confirm: {
+          deleteTaskTitle: "Aufgabe löschen",
+          deleteTask: "Aufgabe „{{title}}“ löschen?",
+          deleteColumnTitle: "Spalte löschen",
+          deleteColumn: "Spalte „{{title}}“ löschen?"
+        },
+        toasts: {
+          taskCreated: "Aufgabe erstellt.",
+          taskSaved: "Aufgabe aktualisiert.",
+          taskDeleted: "Aufgabe gelöscht.",
+          columnSaved: "Spalte gespeichert.",
+          columnDeleted: "Spalte gelöscht.",
+          doneColumnChanged: "Abgeschlossene Spalte aktualisiert."
         }
       },
       ticketsManager: {
@@ -1145,6 +1192,20 @@ const messages = {
           "Das Backend startet noch und ist noch nicht bereit. Automatischer neuer Versuch."
       },
       backendErrors: {
+        ERR_TASK_BOARD_INVALID_TITLE: "Geben Sie einen gültigen Titel ein.",
+        ERR_TASK_BOARD_INVALID_COLOR: "Geben Sie eine gültige Hex-Farbe ein.",
+        ERR_TASK_BOARD_COLUMN_NOT_FOUND: "Spalte nicht gefunden.",
+        ERR_TASK_BOARD_TASK_NOT_FOUND: "Aufgabe nicht gefunden.",
+        ERR_TASK_BOARD_INVALID_DATE: "Geben Sie ein gültiges Datum ein.",
+        ERR_TASK_BOARD_INVALID_DATE_RANGE: "Der Datumsbereich ist ungültig.",
+        ERR_TASK_BOARD_DONE_COLUMN_REQUIRED:
+          "Das Board benötigt eine Spalte für abgeschlossene Aufgaben.",
+        ERR_TASK_BOARD_INVALID_COLUMN_ORDER:
+          "Die Spaltenreihenfolge ist ungültig.",
+        ERR_TASK_BOARD_CANNOT_DELETE_DONE_COLUMN:
+          "Wählen Sie eine andere abgeschlossene Spalte, bevor Sie diese löschen.",
+        ERR_TASK_BOARD_COLUMN_NOT_EMPTY:
+          "Verschieben Sie die Aufgaben, bevor Sie diese Spalte löschen.",
         ERR_EMAIL_NOT_FOUND: "Diese E-Mail wurde nicht gefunden.",
         ERR_COMPANY_SUSPENDED:
           "Dieses Konto ist gesperrt. Wenden Sie sich an die für Ihr Abonnement verantwortliche Person.",

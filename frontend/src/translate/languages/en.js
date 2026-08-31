@@ -487,13 +487,60 @@ const messages = {
         }
       },
       todolist: {
-        title: "Tasks list",
+        title: "Task board",
+        loading: "Loading board...",
+        loadError: "The board could not be loaded.",
+        emptyColumn: "Drag a task to this column",
+        dragTask: "Move task",
+        dragTaskLabel: "Move task {{title}}",
+        completedAt: "Completed on {{date}}",
+        editTaskTitle: "Edit task",
         form: {
-          name: "Task name"
+          name: "Task name",
+          columnName: "Column name"
         },
         buttons: {
           add: "Add",
-          save: "Save"
+          save: "Save",
+          configure: "Configure columns",
+          clearFilter: "Clear filter",
+          tryAgain: "Try again",
+          editTask: "Edit task",
+          deleteTask: "Delete task",
+          addColumn: "Add column"
+        },
+        filters: {
+          from: "Completed from",
+          to: "Completed to",
+          invalidDate: "Invalid date"
+        },
+        settings: {
+          title: "Configure columns",
+          description:
+            "Customize order, names and colors. Only one column represents completed tasks.",
+          markDone: "Mark {{title}} as the completed column",
+          doneColumn: "Completed tasks column",
+          regularColumn: "Work in progress column",
+          moveLeft: "Move left",
+          moveRight: "Move right",
+          editColumn: "Edit column",
+          newColumn: "New column",
+          chooseColor: "Choose color",
+          useBrandColor: "Use company color"
+        },
+        confirm: {
+          deleteTaskTitle: "Delete task",
+          deleteTask: "Delete the task “{{title}}”?",
+          deleteColumnTitle: "Delete column",
+          deleteColumn: "Delete the column “{{title}}”?"
+        },
+        toasts: {
+          taskCreated: "Task created.",
+          taskSaved: "Task updated.",
+          taskDeleted: "Task deleted.",
+          columnSaved: "Column saved.",
+          columnDeleted: "Column deleted.",
+          doneColumnChanged: "Completed column updated."
         }
       },
       ticketsManager: {
@@ -1489,6 +1536,19 @@ const messages = {
           "Backend is starting up and not ready yet. Retrying automatically."
       },
       backendErrors: {
+        ERR_TASK_BOARD_INVALID_TITLE: "Enter a valid title.",
+        ERR_TASK_BOARD_INVALID_COLOR: "Enter a valid hexadecimal color.",
+        ERR_TASK_BOARD_COLUMN_NOT_FOUND: "Column not found.",
+        ERR_TASK_BOARD_TASK_NOT_FOUND: "Task not found.",
+        ERR_TASK_BOARD_INVALID_DATE: "Enter a valid date.",
+        ERR_TASK_BOARD_INVALID_DATE_RANGE: "The date range is invalid.",
+        ERR_TASK_BOARD_DONE_COLUMN_REQUIRED:
+          "The board must have a completed tasks column.",
+        ERR_TASK_BOARD_INVALID_COLUMN_ORDER: "The column order is invalid.",
+        ERR_TASK_BOARD_CANNOT_DELETE_DONE_COLUMN:
+          "Choose another completed column before deleting this one.",
+        ERR_TASK_BOARD_COLUMN_NOT_EMPTY:
+          "Move this column's tasks before deleting it.",
         ERR_EMAIL_NOT_FOUND: "We couldn't find this email.",
         ERR_COMPANY_SUSPENDED:
           "This account is suspended. Contact the person responsible for your subscription.",

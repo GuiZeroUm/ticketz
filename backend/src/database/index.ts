@@ -57,6 +57,8 @@ import PartnerPayout from "../models/PartnerPayout";
 import PlatformIdempotencyKey from "../models/PlatformIdempotencyKey";
 import PlatformWebhookOutbox from "../models/PlatformWebhookOutbox";
 import PlatformAccessToken from "../models/PlatformAccessToken";
+import TaskBoardColumn from "../models/TaskBoardColumn";
+import TaskBoardTask from "../models/TaskBoardTask";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const dbConfig = require("../config/database");
@@ -121,7 +123,9 @@ const models = [
   PartnerPayout,
   PlatformIdempotencyKey,
   PlatformWebhookOutbox,
-  PlatformAccessToken
+  PlatformAccessToken,
+  TaskBoardColumn,
+  TaskBoardTask
 ];
 
 sequelize.addModels(models);

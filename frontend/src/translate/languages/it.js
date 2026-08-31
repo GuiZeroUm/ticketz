@@ -372,13 +372,60 @@ const messages = {
         }
       },
       todolist: {
-        title: "Elenco attività",
+        title: "Bacheca attività",
+        loading: "Caricamento bacheca...",
+        loadError: "Impossibile caricare la bacheca.",
+        emptyColumn: "Trascina un’attività in questa colonna",
+        dragTask: "Sposta attività",
+        dragTaskLabel: "Sposta attività {{title}}",
+        completedAt: "Completata il {{date}}",
+        editTaskTitle: "Modifica attività",
         form: {
-          name: "Nome attività"
+          name: "Nome attività",
+          columnName: "Nome colonna"
         },
         buttons: {
           add: "Aggiungi",
-          save: "Salva"
+          save: "Salva",
+          configure: "Configura colonne",
+          clearFilter: "Cancella filtro",
+          tryAgain: "Riprova",
+          editTask: "Modifica attività",
+          deleteTask: "Elimina attività",
+          addColumn: "Aggiungi colonna"
+        },
+        filters: {
+          from: "Completate da",
+          to: "Completate fino a",
+          invalidDate: "Data non valida"
+        },
+        settings: {
+          title: "Configura colonne",
+          description:
+            "Personalizza ordine, nomi e colori. Una sola colonna rappresenta le attività completate.",
+          markDone: "Contrassegna {{title}} come colonna completata",
+          doneColumn: "Colonna attività completate",
+          regularColumn: "Colonna attività in corso",
+          moveLeft: "Sposta a sinistra",
+          moveRight: "Sposta a destra",
+          editColumn: "Modifica colonna",
+          newColumn: "Nuova colonna",
+          chooseColor: "Scegli colore",
+          useBrandColor: "Usa colore aziendale"
+        },
+        confirm: {
+          deleteTaskTitle: "Elimina attività",
+          deleteTask: "Eliminare l’attività “{{title}}”?",
+          deleteColumnTitle: "Elimina colonna",
+          deleteColumn: "Eliminare la colonna “{{title}}”?"
+        },
+        toasts: {
+          taskCreated: "Attività creata.",
+          taskSaved: "Attività aggiornata.",
+          taskDeleted: "Attività eliminata.",
+          columnSaved: "Colonna salvata.",
+          columnDeleted: "Colonna eliminata.",
+          doneColumnChanged: "Colonna completata aggiornata."
         }
       },
       ticketsManager: {
@@ -1132,6 +1179,20 @@ const messages = {
           "Il backend si sta avviando e non è ancora pronto. Nuovo tentativo automatico."
       },
       backendErrors: {
+        ERR_TASK_BOARD_INVALID_TITLE: "Inserisci un titolo valido.",
+        ERR_TASK_BOARD_INVALID_COLOR: "Inserisci un colore esadecimale valido.",
+        ERR_TASK_BOARD_COLUMN_NOT_FOUND: "Colonna non trovata.",
+        ERR_TASK_BOARD_TASK_NOT_FOUND: "Attività non trovata.",
+        ERR_TASK_BOARD_INVALID_DATE: "Inserisci una data valida.",
+        ERR_TASK_BOARD_INVALID_DATE_RANGE: "L’intervallo di date non è valido.",
+        ERR_TASK_BOARD_DONE_COLUMN_REQUIRED:
+          "La bacheca deve avere una colonna per le attività completate.",
+        ERR_TASK_BOARD_INVALID_COLUMN_ORDER:
+          "L’ordine delle colonne non è valido.",
+        ERR_TASK_BOARD_CANNOT_DELETE_DONE_COLUMN:
+          "Scegli un’altra colonna completata prima di eliminare questa.",
+        ERR_TASK_BOARD_COLUMN_NOT_EMPTY:
+          "Sposta le attività prima di eliminare questa colonna.",
         ERR_EMAIL_NOT_FOUND: "Non abbiamo trovato questa email.",
         ERR_COMPANY_SUSPENDED:
           "Questo account è sospeso. Contatta il responsabile del tuo abbonamento.",

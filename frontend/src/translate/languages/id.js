@@ -382,13 +382,60 @@ const messages = {
         }
       },
       todolist: {
-        title: "Daftar tugas",
+        title: "Papan tugas",
+        loading: "Memuat papan...",
+        loadError: "Papan tidak dapat dimuat.",
+        emptyColumn: "Seret tugas ke kolom ini",
+        dragTask: "Pindahkan tugas",
+        dragTaskLabel: "Pindahkan tugas {{title}}",
+        completedAt: "Selesai pada {{date}}",
+        editTaskTitle: "Edit tugas",
         form: {
-          name: "Nama tugas"
+          name: "Nama tugas",
+          columnName: "Nama kolom"
         },
         buttons: {
           add: "Tambah",
-          save: "GuaSimpanrdar"
+          save: "Simpan",
+          configure: "Atur kolom",
+          clearFilter: "Hapus filter",
+          tryAgain: "Coba lagi",
+          editTask: "Edit tugas",
+          deleteTask: "Hapus tugas",
+          addColumn: "Tambah kolom"
+        },
+        filters: {
+          from: "Selesai dari",
+          to: "Selesai sampai",
+          invalidDate: "Tanggal tidak valid"
+        },
+        settings: {
+          title: "Atur kolom",
+          description:
+            "Sesuaikan urutan, nama, dan warna. Hanya satu kolom yang mewakili tugas selesai.",
+          markDone: "Tandai {{title}} sebagai kolom selesai",
+          doneColumn: "Kolom tugas selesai",
+          regularColumn: "Kolom tugas berjalan",
+          moveLeft: "Pindah ke kiri",
+          moveRight: "Pindah ke kanan",
+          editColumn: "Edit kolom",
+          newColumn: "Kolom baru",
+          chooseColor: "Pilih warna",
+          useBrandColor: "Gunakan warna perusahaan"
+        },
+        confirm: {
+          deleteTaskTitle: "Hapus tugas",
+          deleteTask: "Hapus tugas “{{title}}”?",
+          deleteColumnTitle: "Hapus kolom",
+          deleteColumn: "Hapus kolom “{{title}}”?"
+        },
+        toasts: {
+          taskCreated: "Tugas dibuat.",
+          taskSaved: "Tugas diperbarui.",
+          taskDeleted: "Tugas dihapus.",
+          columnSaved: "Kolom disimpan.",
+          columnDeleted: "Kolom dihapus.",
+          doneColumnChanged: "Kolom selesai diperbarui."
         }
       },
       ticketsManager: {
@@ -1159,6 +1206,19 @@ const messages = {
           "Backend sedang memulai dan belum siap. Mencoba lagi secara otomatis."
       },
       backendErrors: {
+        ERR_TASK_BOARD_INVALID_TITLE: "Masukkan judul yang valid.",
+        ERR_TASK_BOARD_INVALID_COLOR: "Masukkan warna heksadesimal yang valid.",
+        ERR_TASK_BOARD_COLUMN_NOT_FOUND: "Kolom tidak ditemukan.",
+        ERR_TASK_BOARD_TASK_NOT_FOUND: "Tugas tidak ditemukan.",
+        ERR_TASK_BOARD_INVALID_DATE: "Masukkan tanggal yang valid.",
+        ERR_TASK_BOARD_INVALID_DATE_RANGE: "Rentang tanggal tidak valid.",
+        ERR_TASK_BOARD_DONE_COLUMN_REQUIRED:
+          "Papan harus memiliki kolom tugas selesai.",
+        ERR_TASK_BOARD_INVALID_COLUMN_ORDER: "Urutan kolom tidak valid.",
+        ERR_TASK_BOARD_CANNOT_DELETE_DONE_COLUMN:
+          "Pilih kolom selesai lain sebelum menghapus kolom ini.",
+        ERR_TASK_BOARD_COLUMN_NOT_EMPTY:
+          "Pindahkan tugas sebelum menghapus kolom ini.",
         ERR_EMAIL_NOT_FOUND: "Email ini tidak ditemukan.",
         ERR_COMPANY_SUSPENDED:
           "Akun ini ditangguhkan. Hubungi penanggung jawab langganan Anda.",

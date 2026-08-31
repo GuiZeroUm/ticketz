@@ -440,13 +440,60 @@ const messages = {
         }
       },
       todolist: {
-        title: "Lista de tareas",
+        title: "Tablero de tareas",
+        loading: "Cargando el tablero...",
+        loadError: "No se pudo cargar el tablero.",
+        emptyColumn: "Arrastra una tarea a esta columna",
+        dragTask: "Mover tarea",
+        dragTaskLabel: "Mover tarea {{title}}",
+        completedAt: "Completada el {{date}}",
+        editTaskTitle: "Editar tarea",
         form: {
-          name: "Nombre de la tarea"
+          name: "Nombre de la tarea",
+          columnName: "Nombre de la columna"
         },
         buttons: {
           add: "Añadir",
-          save: "Guardar"
+          save: "Guardar",
+          configure: "Configurar columnas",
+          clearFilter: "Limpiar filtro",
+          tryAgain: "Intentar de nuevo",
+          editTask: "Editar tarea",
+          deleteTask: "Eliminar tarea",
+          addColumn: "Añadir columna"
+        },
+        filters: {
+          from: "Completadas desde",
+          to: "Completadas hasta",
+          invalidDate: "Fecha no válida"
+        },
+        settings: {
+          title: "Configurar columnas",
+          description:
+            "Personaliza el orden, los nombres y los colores. Solo una columna representa tareas completadas.",
+          markDone: "Marcar {{title}} como columna completada",
+          doneColumn: "Columna de tareas completadas",
+          regularColumn: "Columna de trabajo en curso",
+          moveLeft: "Mover a la izquierda",
+          moveRight: "Mover a la derecha",
+          editColumn: "Editar columna",
+          newColumn: "Nueva columna",
+          chooseColor: "Elegir color",
+          useBrandColor: "Usar color de la empresa"
+        },
+        confirm: {
+          deleteTaskTitle: "Eliminar tarea",
+          deleteTask: "¿Eliminar la tarea “{{title}}”?",
+          deleteColumnTitle: "Eliminar columna",
+          deleteColumn: "¿Eliminar la columna “{{title}}”?"
+        },
+        toasts: {
+          taskCreated: "Tarea creada.",
+          taskSaved: "Tarea actualizada.",
+          taskDeleted: "Tarea eliminada.",
+          columnSaved: "Columna guardada.",
+          columnDeleted: "Columna eliminada.",
+          doneColumnChanged: "Columna completada actualizada."
         }
       },
       ticketsManager: {
@@ -1260,6 +1307,21 @@ const messages = {
           "El backend se está iniciando y aún no está listo. Reintentando automáticamente."
       },
       backendErrors: {
+        ERR_TASK_BOARD_INVALID_TITLE: "Introduce un título válido.",
+        ERR_TASK_BOARD_INVALID_COLOR: "Introduce un color hexadecimal válido.",
+        ERR_TASK_BOARD_COLUMN_NOT_FOUND: "Columna no encontrada.",
+        ERR_TASK_BOARD_TASK_NOT_FOUND: "Tarea no encontrada.",
+        ERR_TASK_BOARD_INVALID_DATE: "Introduce una fecha válida.",
+        ERR_TASK_BOARD_INVALID_DATE_RANGE:
+          "El intervalo de fechas no es válido.",
+        ERR_TASK_BOARD_DONE_COLUMN_REQUIRED:
+          "El tablero debe tener una columna de tareas completadas.",
+        ERR_TASK_BOARD_INVALID_COLUMN_ORDER:
+          "El orden de columnas no es válido.",
+        ERR_TASK_BOARD_CANNOT_DELETE_DONE_COLUMN:
+          "Elige otra columna completada antes de eliminar esta.",
+        ERR_TASK_BOARD_COLUMN_NOT_EMPTY:
+          "Mueve las tareas de esta columna antes de eliminarla.",
         ERR_EMAIL_NOT_FOUND: "No encontramos este correo electrónico.",
         ERR_COMPANY_SUSPENDED:
           "Esta cuenta está suspendida. Contacte al responsable de su suscripción.",
