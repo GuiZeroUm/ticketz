@@ -1,0 +1,184 @@
+name: espaco-whats
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: ${TZ:-America/Rio_Branco}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 10
+        window: 120s
+    networks:
+      - internal
+
+  redis:
+    image: redis:8.2.1-alpine
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --save
+      - "60"
+      - "1"
+      - --requirepass
+      - ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a $$REDIS_PASSWORD ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 10
+        window: 120s
+    networks:
+      - internal
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      TZ: ${TZ:-America/Rio_Branco}
+      DB_DIALECT: postgres
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: ${POSTGRES_USER}
+      DB_PASS: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB}
+      DB_TIMEZONE: ${DB_TIMEZONE:--05:00}
+      REDIS_URI: redis://:${REDIS_PASSWORD}@redis:6379
+      REDIS_OPT_LIMITER_MAX: ${REDIS_OPT_LIMITER_MAX:-1}
+      REDIS_OPT_LIMITER_DURATION: ${REDIS_OPT_LIMITER_DURATION:-3000}
+      FRONTEND_URL: ${FRONTEND_URL}
+      FRONTEND_URL_REGEX: ${FRONTEND_URL_REGEX}
+      BACKEND_URL: ${BACKEND_URL}
+      APP_BASE_DOMAIN: ${APP_BASE_DOMAIN}
+      EMAIL_ADDRESS: ${EMAIL_ADDRESS}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      USER_LIMIT: ${USER_LIMIT:-10000}
+      CONNECTIONS_LIMIT: ${CONNECTIONS_LIMIT:-100000}
+      CLOSED_SEND_BY_ME: ${CLOSED_SEND_BY_ME:-true}
+      SOCKET_ADMIN: ${SOCKET_ADMIN:-true}
+      VERIFY_TOKEN: ${VERIFY_TOKEN}
+      PLATFORM_API_KEY: ${PLATFORM_API_KEY}
+      PLATFORM_WEBHOOK_SECRET: ${PLATFORM_WEBHOOK_SECRET}
+      PLATFORM_WEBHOOK_URL: ${PLATFORM_WEBHOOK_URL:-}
+      PLATFORM_TENANT_URL_TEMPLATE: ${PLATFORM_TENANT_URL_TEMPLATE}
+      ABACATEPAY_TOKEN: ${ABACATEPAY_TOKEN:-}
+      ABACATEPAY_WEBHOOK_SECRET: ${ABACATEPAY_WEBHOOK_SECRET:-}
+      MCP_BASE_URL: ${MCP_BASE_URL}
+      MCP_TIMEZONE: ${MCP_TIMEZONE:-America/Rio_Branco}
+      MCP_PRIVATE_KEY: ${MCP_PRIVATE_KEY}
+      MCP_PUBLIC_KEY: ${MCP_PUBLIC_KEY}
+      MCP_CURSOR_SECRET: ${MCP_CURSOR_SECRET}
+      MCP_KEY_ID: ${MCP_KEY_ID:-espaco-whats-mcp-1}
+    volumes:
+      - backend_public:/usr/src/app/public
+      - backend_private:/usr/src/app/private
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          node -e "require('http').get('http://127.0.0.1:3000/api/platform/v1/health',
+          r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 90s
+    stop_grace_period: 45s
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 5s
+        order: start-first
+        failure_action: rollback
+        monitor: 60s
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+        order: stop-first
+        monitor: 60s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 120s
+    networks:
+      - internal
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      FRONTEND_HOST: ${FRONTEND_HOST}
+      APP_BASE_DOMAIN: ${APP_BASE_DOMAIN}
+      EMAIL_ADDRESS: ${EMAIL_ADDRESS}
+      BACKEND_SERVICE: backend
+      BACKEND_PORT: "3000"
+      BACKEND_PATH: /backend
+      BACKEND_PROTOCOL: ${PUBLIC_PROTOCOL:-http}
+      LANDING_WHATSAPP_NUMBER: ${LANDING_WHATSAPP_NUMBER:-}
+      LOG_LEVEL: ${LOG_LEVEL:-warn}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 30s
+    stop_grace_period: 30s
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 5s
+        order: start-first
+        failure_action: rollback
+        monitor: 45s
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+        order: stop-first
+        monitor: 45s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 120s
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: overlay
+
+volumes:
+  postgres_data:
+  redis_data:
+  backend_public:
+  backend_private:

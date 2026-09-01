@@ -1,18 +1,14 @@
 name: Create and publish multi-arch Docker images
 
 on:
+  workflow_dispatch:
   push:
-    branches:
-      - 'main'
-      - 'fix/**'
-      - 'dev'
-      - 'test-**'
     tags:
       - 'v*.*.*'
 env:
   REGISTRY: ghcr.io
-  IMAGE_BACKEND: ticketz-oss/ticketz-backend
-  IMAGE_FRONTEND: ticketz-oss/ticketz-frontend
+  IMAGE_BACKEND: ${{ github.repository_owner }}/espaco-whats-backend
+  IMAGE_FRONTEND: ${{ github.repository_owner }}/espaco-whats-frontend
 
 jobs:
   build-and-push-images:

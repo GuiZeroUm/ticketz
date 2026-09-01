@@ -1,0 +1,136 @@
+name: Validate and release to Dokploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: espaco-whats-production
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  backend:
+    name: Backend checks
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ticketz_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ticketz_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8.2.1-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      NODE_ENV: test
+      DB_DIALECT: postgres
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASS: postgres
+      DB_NAME: ticketz_test
+      DB_TIMEZONE: +00:00
+      REDIS_URI: redis://127.0.0.1:6379
+      ADMIN_PASSWORD: ci-only-password
+      EMAIL_ADDRESS: ci@espacowhats.invalid
+      BACKEND_URL: http://127.0.0.1:3000
+      FRONTEND_URL: http://127.0.0.1:3001
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm run generate:i18nkeys
+      - name: Lint report (legacy debt)
+        run: npm run lint
+        continue-on-error: true
+      - run: npm run build
+      - run: npm test -- --runInBand --forceExit
+
+  frontend:
+    name: Frontend checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm test -- --watchAll=false
+        env:
+          CI: "true"
+      - run: npm run build
+        env:
+          # The legacy codebase has pre-existing ESLint warnings. Keep tests strict,
+          # but do not promote those warnings to build errors.
+          CI: "false"
+          NODE_OPTIONS: --openssl-legacy-provider
+
+  compose:
+    name: Production manifest check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Docker Compose
+        env:
+          POSTGRES_DB: ci
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci-password
+          REDIS_PASSWORD: ci-password
+          FRONTEND_URL: http://espaco-whats.example.invalid
+          FRONTEND_URL_REGEX: ^http://([a-z0-9-]+\.)?espaco-whats\.example\.invalid$
+          BACKEND_URL: http://espaco-whats.example.invalid/backend
+          APP_BASE_DOMAIN: espaco-whats.example.invalid
+          FRONTEND_HOST: espaco-whats.example.invalid
+          EMAIL_ADDRESS: ci@espacowhats.invalid
+          ADMIN_PASSWORD: ci-password
+          VERIFY_TOKEN: ci-token
+          PLATFORM_API_KEY: 000000000000000000000000000000000000000000000000
+          PLATFORM_WEBHOOK_SECRET: ci-secret
+          PLATFORM_TENANT_URL_TEMPLATE: http://{slug}.espaco-whats.example.invalid
+          MCP_BASE_URL: http://espaco-whats.example.invalid/backend
+          MCP_PRIVATE_KEY: ci-private-key
+          MCP_PUBLIC_KEY: ci-public-key
+          MCP_CURSOR_SECRET: ci-cursor
+        run: docker compose -f docker-compose.dokploy.yml config --quiet
+
+  release:
+    name: Release approved commit
+    needs: [backend, frontend, compose]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Advance deployment branch
+        run: git push origin "${GITHUB_SHA}:refs/heads/deploy" --force-with-lease
