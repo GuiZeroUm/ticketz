@@ -175,7 +175,10 @@ services:
 
 networks:
   internal:
-    driver: overlay
+    # Dokploy executes Compose projects with regular Docker Compose. The
+    # default bridge network remains private and is attachable by the service
+    # containers, unlike a non-attachable Swarm overlay network.
+    driver: bridge
 
 volumes:
   postgres_data:
