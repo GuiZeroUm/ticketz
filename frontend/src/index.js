@@ -17,8 +17,12 @@ function clearBackendRetryTimers() {
 
 function getBackendProbeUrl(config) {
   const protocol = config.BACKEND_PROTOCOL || "https";
-  const hostname = config.BACKEND_HOST || window.location.hostname;
-  const port = config.BACKEND_PORT ? `:${config.BACKEND_PORT}` : "";
+  const explicitBackendHost = config.BACKEND_HOST;
+  const hostname = explicitBackendHost || window.location.hostname;
+  // BACKEND_PORT refers to the internal container endpoint. Same-origin
+  // browser requests go through /backend on the current HTTPS origin.
+  const port =
+    explicitBackendHost && config.BACKEND_PORT ? `:${config.BACKEND_PORT}` : "";
   const path =
     config.BACKEND_PATH ||
     (hostname === "localhost" || hostname !== window.location.hostname

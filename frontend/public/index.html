@@ -305,8 +305,14 @@
 
       const configureSplash = async config => {
         const protocol = config.BACKEND_PROTOCOL || "https";
-        const hostname = config.BACKEND_HOST || window.location.hostname;
-        const port = config.BACKEND_PORT ? `:${config.BACKEND_PORT}` : "";
+        const explicitBackendHost = config.BACKEND_HOST;
+        const hostname = explicitBackendHost || window.location.hostname;
+        // BACKEND_PORT is the container's internal port. In same-origin mode
+        // the browser must use Traefik/Nginx on 443 and the /backend proxy.
+        const port =
+          explicitBackendHost && config.BACKEND_PORT
+            ? `:${config.BACKEND_PORT}`
+            : "";
         const path =
           config.BACKEND_PATH ||
           (hostname === "localhost" || hostname !== window.location.hostname
