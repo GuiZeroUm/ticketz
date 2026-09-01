@@ -9,7 +9,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       TZ: ${TZ:-America/Rio_Branco}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      # PostgreSQL 18 stores clusters below a major-version directory and
+      # expects the persistent mount at /var/lib/postgresql.
+      - postgres_data_v18:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
@@ -181,7 +183,7 @@ networks:
     driver: bridge
 
 volumes:
-  postgres_data:
+  postgres_data_v18:
   redis_data:
   backend_public:
   backend_private:
