@@ -336,6 +336,7 @@ const ToDoList = () => {
                 inputVariant="outlined"
                 format="dd/MM/yyyy"
                 label={i18n.t("todolist.filters.from")}
+                InputLabelProps={{ shrink: true }}
                 value={completedFrom}
                 onChange={setCompletedFrom}
                 clearable
@@ -347,6 +348,7 @@ const ToDoList = () => {
                 inputVariant="outlined"
                 format="dd/MM/yyyy"
                 label={i18n.t("todolist.filters.to")}
+                InputLabelProps={{ shrink: true }}
                 value={completedTo}
                 minDate={
                   completedFrom && isValid(completedFrom)
