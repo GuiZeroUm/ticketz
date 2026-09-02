@@ -15,7 +15,7 @@ interface CompanyData {
   status?: boolean;
   planId?: number;
   campaignsEnabled?: boolean;
-  dueDate?: string;
+  dueDate?: string | null;
   recurrence?: string;
   language?: string;
   slug?: string;
@@ -46,6 +46,15 @@ const CreateCompanyService = async (
   } = companyData;
 
   const slug = normalizeSlug(companyData.slug);
+  const defaultDueDate = new Date();
+  defaultDueDate.setUTCDate(defaultDueDate.getUTCDate() + 3);
+
+  // Tenants created from the administrative screen used to be persisted with
+  // no due date. That makes the compliance check fail immediately and leaves
+  // a newly-created tenant unable to use tickets or messages. Keep the same
+  // three-day initial period already used by public signup when no date was
+  // supplied explicitly.
+  const effectiveDueDate = dueDate || defaultDueDate.toISOString().slice(0, 10);
 
   const companySchema = Yup.object().shape({
     name: Yup.string()
@@ -96,12 +105,18 @@ const CreateCompanyService = async (
       name,
       phone,
       email,
-      status,
+      status: status !== false,
       planId,
-      dueDate,
-      recurrence,
+      dueDate: effectiveDueDate,
+      recurrence: recurrence || "MENSAL",
       language,
       slug: slug || null,
+      // Do not rely solely on database defaults for access-critical fields.
+      // This also prevents schema drift from creating an already-suspended
+      // tenant. Platform-created tenants can still change these values in the
+      // same transaction immediately after creation.
+      platformStatus: "ativo",
+      platformBilling: "sistema",
       partnerId: companyData.partnerId || null,
       saleValue: companyData.saleValue ?? null,
       introValue: companyData.introValue ?? null,

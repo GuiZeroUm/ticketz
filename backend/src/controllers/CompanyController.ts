@@ -30,7 +30,7 @@ type CompanyData = {
   status?: boolean;
   planId?: number;
   campaignsEnabled?: boolean;
-  dueDate?: string;
+  dueDate?: string | null;
   recurrence?: string;
   slug?: string;
   partnerId?: number | null;
@@ -59,7 +59,14 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   const newCompany: CompanyData = req.body;
 
   const schema = Yup.object().shape({
-    name: Yup.string().required()
+    name: Yup.string().required(),
+    dueDate: Yup.string()
+      .nullable()
+      .test(
+        "valid-due-date",
+        "ERR_COMPANY_INVALID_DUE_DATE",
+        value => !value || moment(value, moment.ISO_8601, true).isValid()
+      )
   });
 
   try {
@@ -126,7 +133,14 @@ export const update = async (
   const companyData: CompanyData = req.body;
 
   const schema = Yup.object().shape({
-    name: Yup.string()
+    name: Yup.string(),
+    dueDate: Yup.string()
+      .nullable()
+      .test(
+        "valid-due-date",
+        "ERR_COMPANY_INVALID_DUE_DATE",
+        value => !value || moment(value, moment.ISO_8601, true).isValid()
+      )
   });
 
   try {

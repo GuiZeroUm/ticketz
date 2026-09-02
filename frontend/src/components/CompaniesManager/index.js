@@ -35,6 +35,8 @@ import moment from "moment";
 
 import { AuthContext } from "../../context/Auth/AuthContext";
 
+const initialDueDate = () => moment().add(3, "days").format("YYYY-MM-DD");
+
 const useStyles = makeStyles(theme => ({
   root: {
     width: "100%"
@@ -98,8 +100,8 @@ export function CompanyForm(props) {
     planId: "",
     status: true,
     campaignsEnabled: false,
-    dueDate: "",
-    recurrence: "",
+    dueDate: initialDueDate(),
+    recurrence: "MENSAL",
     slug: "",
     partnerId: "",
     saleValue: "",
@@ -128,37 +130,47 @@ export function CompanyForm(props) {
 
   useEffect(() => {
     setRecord(prev => {
-      if (moment(initialValue).isValid()) {
-        initialValue.dueDate = moment(initialValue.dueDate).format(
-          "YYYY-MM-DD"
-        );
-      }
+      const dueDate = moment(
+        initialValue.dueDate,
+        moment.ISO_8601,
+        true
+      ).isValid()
+        ? moment(initialValue.dueDate).format("YYYY-MM-DD")
+        : "";
+
       return {
         ...prev,
-        ...initialValue
+        ...initialValue,
+        dueDate
       };
     });
   }, [initialValue]);
 
   const handleSubmit = async data => {
-    if (data.dueDate === "" || moment(data.dueDate).isValid() === false) {
-      data.dueDate = null;
-    }
+    const normalizedData = { ...data };
+    normalizedData.dueDate = moment(
+      normalizedData.dueDate,
+      moment.ISO_8601,
+      true
+    ).isValid()
+      ? moment(normalizedData.dueDate).format("YYYY-MM-DD")
+      : null;
     // Venda direta: sem parceiro o preco volta a ser o do plano.
-    data.partnerId = data.partnerId === "" ? null : Number(data.partnerId);
-    data.saleValue =
-      data.saleValue === "" || data.saleValue === null
+    normalizedData.partnerId =
+      normalizedData.partnerId === "" ? null : Number(normalizedData.partnerId);
+    normalizedData.saleValue =
+      normalizedData.saleValue === "" || normalizedData.saleValue === null
         ? null
-        : Number(data.saleValue);
-    data.introValue =
-      data.introValue === "" || data.introValue === null
+        : Number(normalizedData.saleValue);
+    normalizedData.introValue =
+      normalizedData.introValue === "" || normalizedData.introValue === null
         ? null
-        : Number(data.introValue);
-    data.introMonths =
-      data.introMonths === "" || data.introMonths === null
+        : Number(normalizedData.introValue);
+    normalizedData.introMonths =
+      normalizedData.introMonths === "" || normalizedData.introMonths === null
         ? null
-        : Number(data.introMonths);
-    onSubmit(data);
+        : Number(normalizedData.introMonths);
+    onSubmit(normalizedData);
     setRecord({ ...initialValue, dueDate: "" });
   };
 
@@ -670,8 +682,8 @@ export default function CompaniesManager() {
     planId: "",
     status: true,
     campaignsEnabled: false,
-    dueDate: "",
-    recurrence: "",
+    dueDate: initialDueDate(),
+    recurrence: "MENSAL",
     slug: "",
     partnerId: "",
     saleValue: "",
@@ -751,8 +763,8 @@ export default function CompaniesManager() {
       planId: "",
       status: true,
       campaignsEnabled: false,
-      dueDate: "",
-      recurrence: "",
+      dueDate: initialDueDate(),
+      recurrence: "MENSAL",
       partnerId: "",
       saleValue: "",
       introValue: "",

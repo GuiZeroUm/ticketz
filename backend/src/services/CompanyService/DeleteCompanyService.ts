@@ -13,12 +13,14 @@ const DeleteCompanyService = async (id: string): Promise<void> => {
     throw new AppError("ERR_NO_COMPANY_FOUND", 404);
   }
 
-  await company.destroy();
-
   const companyMediaPath = join(getPublicPath(), "media", id);
 
-  // recursively remove company media folder
-  fs.rmSync(companyMediaPath, { recursive: true });
+  // A tenant may not have uploaded any media yet. In that case the directory
+  // does not exist and deletion must remain successful. Remove media before
+  // the database row so a genuine filesystem failure remains retryable.
+  fs.rmSync(companyMediaPath, { recursive: true, force: true });
+
+  await company.destroy();
 };
 
 export default DeleteCompanyService;

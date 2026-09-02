@@ -14,7 +14,7 @@ interface CompanyData {
   status?: boolean;
   planId?: number;
   campaignsEnabled?: boolean;
-  dueDate?: string;
+  dueDate?: string | null;
   recurrence?: string;
   language?: string;
   slug?: string;
