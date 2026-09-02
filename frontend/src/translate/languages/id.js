@@ -550,6 +550,34 @@ const messages = {
         title: "ChatGPT",
         enabled: "Pilot aktif",
         disabled: "Pilot nonaktif",
+        tabs: { plugin: "Plugin", mcp: "MCP" },
+        plugin: {
+          name: "Espaço Whats",
+          recommended: "Direkomendasikan",
+          description:
+            "Cara termudah menggunakan data layanan pelanggan Anda di ChatGPT.",
+          details:
+            "Instal plugin, hubungkan akun Espaço Whats dengan OAuth, lalu gunakan dari menu plugin atau dengan menyebut @EspaçoWhats.",
+          open: "Buka plugin di ChatGPT",
+          steps: {
+            title: "Cara menginstal dan menghubungkan",
+            open: "Buka plugin Espaço Whats di ChatGPT",
+            install: "Klik Instal plugin",
+            connect: "Pilih Hubungkan",
+            login: "Masuk dengan tenant, email, dan kata sandi administrator",
+            use: "Gunakan menu plugin atau sebut @EspaçoWhats"
+          },
+          marketplace: {
+            title: "Instalasi GitHub untuk workspace",
+            description:
+              "Administrator juga dapat mengimpor marketplace resmi melalui Pengaturan workspace → Plugin → Tambah → Impor marketplace.",
+            repository: "Repositori",
+            path: "Path",
+            pathValue: "Biarkan kosong",
+            branch: "Branch",
+            copy: "Salin repositori"
+          }
+        },
         warningTitle: "Data pribadi dan klinis",
         warning:
           "Setelah terhubung, percakapan yang dapat diidentifikasi dan kemungkinan data klinis dapat dikirim ke ChatGPT sesuai pertanyaan Anda. Gunakan hanya setelah persetujuan hukum dan administratif.",
@@ -582,7 +610,11 @@ const messages = {
           one: "Koneksi ini akan segera kehilangan akses.",
           all: "Semua koneksi tenant ini akan segera kehilangan akses."
         },
-        toasts: { copied: "URL MCP disalin.", revoked: "Koneksi dicabut." }
+        toasts: {
+          copied: "URL MCP disalin.",
+          repositoryCopied: "Repositori plugin disalin.",
+          revoked: "Koneksi dicabut."
+        }
       },
       notifications: {
         noTickets: "Tidak ada notifikasi."

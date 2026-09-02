@@ -647,6 +647,34 @@ const messages = {
         title: "ChatGPT",
         enabled: "Pilot enabled",
         disabled: "Pilot disabled",
+        tabs: { plugin: "Plugin", mcp: "MCP" },
+        plugin: {
+          name: "Espaço Whats",
+          recommended: "Recommended",
+          description:
+            "The simplest way to use your customer service data in ChatGPT.",
+          details:
+            "Install the plugin, connect your Espaço Whats account with OAuth, and use it from the plugin menu or by mentioning @EspaçoWhats.",
+          open: "Open plugin in ChatGPT",
+          steps: {
+            title: "How to install and connect",
+            open: "Open the Espaço Whats plugin in ChatGPT",
+            install: "Select Install plugin",
+            connect: "Select Connect",
+            login: "Sign in with the tenant, administrator email, and password",
+            use: "Use the plugin menu or mention @EspaçoWhats"
+          },
+          marketplace: {
+            title: "GitHub installation for workspaces",
+            description:
+              "An administrator can also import the official marketplace from Workspace settings → Plugins → Add → Import marketplace.",
+            repository: "Repository",
+            path: "Path",
+            pathValue: "Leave blank",
+            branch: "Branch",
+            copy: "Copy repository"
+          }
+        },
         warningTitle: "Personal and clinical data",
         warning:
           "When connected, identifiable conversations and possible clinical data may be sent to ChatGPT based on your questions. Use only after legal and administrative approval.",
@@ -679,7 +707,11 @@ const messages = {
           one: "This connection will lose access immediately.",
           all: "All connections for this tenant will lose access immediately."
         },
-        toasts: { copied: "MCP URL copied.", revoked: "Connection revoked." }
+        toasts: {
+          copied: "MCP URL copied.",
+          repositoryCopied: "Plugin repository copied.",
+          revoked: "Connection revoked."
+        }
       },
       notifications: {
         noTickets: "No notifications."

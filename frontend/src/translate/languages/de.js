@@ -536,6 +536,34 @@ const messages = {
         title: "ChatGPT",
         enabled: "Pilot aktiviert",
         disabled: "Pilot deaktiviert",
+        tabs: { plugin: "Plugin", mcp: "MCP" },
+        plugin: {
+          name: "Espaço Whats",
+          recommended: "Empfohlen",
+          description:
+            "Der einfachste Weg, Ihre Kundendienstdaten in ChatGPT zu verwenden.",
+          details:
+            "Installieren Sie das Plugin, verbinden Sie Ihr Espaço-Whats-Konto über OAuth und verwenden Sie es im Plugin-Menü oder mit @EspaçoWhats.",
+          open: "Plugin in ChatGPT öffnen",
+          steps: {
+            title: "Installation und Verbindung",
+            open: "Öffnen Sie das Espaço-Whats-Plugin in ChatGPT",
+            install: "Klicken Sie auf Plugin installieren",
+            connect: "Wählen Sie Verbinden",
+            login: "Mit Tenant, Admin-E-Mail und Passwort anmelden",
+            use: "Plugin-Menü verwenden oder @EspaçoWhats erwähnen"
+          },
+          marketplace: {
+            title: "GitHub-Installation für Workspaces",
+            description:
+              "Administratoren können den offiziellen Marketplace auch unter Workspace-Einstellungen → Plugins → Hinzufügen → Marketplace importieren einbinden.",
+            repository: "Repository",
+            path: "Pfad",
+            pathValue: "Leer lassen",
+            branch: "Branch",
+            copy: "Repository kopieren"
+          }
+        },
         warningTitle: "Personenbezogene und klinische Daten",
         warning:
           "Nach der Verbindung können identifizierbare Gespräche und mögliche klinische Daten entsprechend Ihren Fragen an ChatGPT übertragen werden. Nur nach rechtlicher und administrativer Freigabe verwenden.",
@@ -570,6 +598,7 @@ const messages = {
         },
         toasts: {
           copied: "MCP-URL kopiert.",
+          repositoryCopied: "Plugin-Repository kopiert.",
           revoked: "Verbindung widerrufen."
         }
       },

@@ -599,6 +599,34 @@ const messages = {
         title: "ChatGPT",
         enabled: "Piloto habilitado",
         disabled: "Piloto deshabilitado",
+        tabs: { plugin: "Plugin", mcp: "MCP" },
+        plugin: {
+          name: "Espaço Whats",
+          recommended: "Recomendado",
+          description:
+            "La forma más sencilla de usar sus atenciones dentro de ChatGPT.",
+          details:
+            "Instale el plugin, conecte su cuenta de Espaço Whats con OAuth y úselo desde el menú de plugins o mencionando @EspaçoWhats.",
+          open: "Abrir plugin en ChatGPT",
+          steps: {
+            title: "Cómo instalar y conectar",
+            open: "Abra el plugin Espaço Whats en ChatGPT",
+            install: "Haga clic en Instalar plugin",
+            connect: "Seleccione Conectar",
+            login: "Ingrese tenant, correo y contraseña de administrador",
+            use: "Use el menú de plugins o mencione @EspaçoWhats"
+          },
+          marketplace: {
+            title: "Instalación para workspaces desde GitHub",
+            description:
+              "Un administrador también puede importar el marketplace oficial en Configuración del workspace → Plugins → Añadir → Importar marketplace.",
+            repository: "Repositorio",
+            path: "Ruta",
+            pathValue: "Déjelo en blanco",
+            branch: "Branch",
+            copy: "Copiar repositorio"
+          }
+        },
         warningTitle: "Datos personales y clínicos",
         warning:
           "Al conectar, conversaciones identificables y posibles datos clínicos podrán enviarse a ChatGPT según sus preguntas. Úselo solo después de la aprobación legal y administrativa.",
@@ -631,7 +659,11 @@ const messages = {
           one: "Esta conexión perderá el acceso inmediatamente.",
           all: "Todas las conexiones del tenant perderán el acceso inmediatamente."
         },
-        toasts: { copied: "URL MCP copiada.", revoked: "Conexión revocada." }
+        toasts: {
+          copied: "URL MCP copiada.",
+          repositoryCopied: "Repositorio del plugin copiado.",
+          revoked: "Conexión revocada."
+        }
       },
       notifications: {
         noTickets: "Ninguna notificación."
