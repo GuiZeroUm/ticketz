@@ -279,7 +279,13 @@ const messages = {
           outOfHoursMessage: "Messaggio fuori orario",
           ratingMessage: "Messaggio di valutazione",
           transferMessage: "Messaggio di trasferimento",
+          connections: "Connessioni WhatsApp",
+          connectionsHelp:
+            "La coda e il chatbot saranno disponibili solo su queste connessioni.",
           token: "Token"
+        },
+        validation: {
+          connectionRequired: "Seleziona almeno una connessione per la coda."
         },
         toasts: {
           saved: "Coda salvata con successo"
@@ -460,6 +466,11 @@ const messages = {
       transferTicketModal: {
         title: "Trasferisci Ticket",
         fieldLabel: "Digita per cercare utenti",
+        fieldConnectionLabel: "Trasferisci tramite connessione",
+        fieldConnectionPlaceholder: "Seleziona una connessione",
+        connectionHelp:
+          "Dopo aver scelto la connessione, seleziona una coda disponibile.",
+        connectionUnavailable: "disconnessa",
         fieldQueueLabel: "Trasferisci alla coda",
         fieldQueuePlaceholder: "Seleziona una coda",
         noOptions: "Nessun utente trovato con questo nome",
@@ -1254,6 +1265,20 @@ const messages = {
           "Impossibile modificare il messaggio di WhatsApp.",
         ERR_OTHER_OPEN_TICKET:
           "Esiste già un ticket aperto per questo contatto.",
+        ERR_QUEUE_INVALID_CONNECTION:
+          "Una connessione selezionata non appartiene a questa azienda.",
+        ERR_WAPP_INVALID_QUEUE:
+          "Una coda selezionata non appartiene a questa azienda.",
+        ERR_TICKET_INVALID_CONNECTION:
+          "La connessione selezionata non è compatibile con questo ticket.",
+        ERR_TICKET_GROUP_CONNECTION_TRANSFER:
+          "Un ticket di gruppo non può cambiare connessione.",
+        ERR_TICKET_CONNECTION_NOT_CONNECTED:
+          "La connessione di destinazione deve essere connessa.",
+        ERR_TICKET_TRANSFER_QUEUE_REQUIRED:
+          "Seleziona una coda quando cambi connessione.",
+        ERR_QUEUE_NOT_AVAILABLE_FOR_CONNECTION:
+          "Questa coda non è collegata alla connessione selezionata.",
         ERR_SESSION_EXPIRED: "Sessione scaduta. Per favore, accedi di nuovo.",
         ERR_USER_CREATION_DISABLED:
           "La creazione dell'utente è stata disabilitata dall'amministratore.",

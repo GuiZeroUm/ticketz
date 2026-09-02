@@ -279,7 +279,14 @@ const messages = {
           outOfHoursMessage: "Message hors des heures d'ouverture",
           ratingMessage: "Message d'évaluation",
           transferMessage: "Message de transfert",
+          connections: "Connexions WhatsApp",
+          connectionsHelp:
+            "La file et le chatbot ne seront proposés que sur ces connexions.",
           token: "Jeton"
+        },
+        validation: {
+          connectionRequired:
+            "Sélectionnez au moins une connexion pour la file."
         },
         toasts: {
           saved: "File d'attente enregistrée avec succès"
@@ -461,6 +468,11 @@ const messages = {
       transferTicketModal: {
         title: "Transférer le Ticket",
         fieldLabel: "Tapez pour rechercher des utilisateurs",
+        fieldConnectionLabel: "Transférer via la connexion",
+        fieldConnectionPlaceholder: "Sélectionnez une connexion",
+        connectionHelp:
+          "Après avoir choisi la connexion, sélectionnez une file disponible.",
+        connectionUnavailable: "déconnectée",
         fieldQueueLabel: "Transférer à la file d'attente",
         fieldQueuePlaceholder: "Sélectionnez une file d'attente",
         noOptions: "Aucun utilisateur trouvé avec ce nom",
@@ -1261,6 +1273,20 @@ const messages = {
         ERR_DELETE_WAPP_MSG: "Impossible de supprimer le message WhatsApp.",
         ERR_EDITING_WAPP_MSG: "Impossible de modifier le message WhatsApp.",
         ERR_OTHER_OPEN_TICKET: "Il y a déjà un ticket ouvert pour ce contact.",
+        ERR_QUEUE_INVALID_CONNECTION:
+          "Une connexion sélectionnée n'appartient pas à cette entreprise.",
+        ERR_WAPP_INVALID_QUEUE:
+          "Une file sélectionnée n'appartient pas à cette entreprise.",
+        ERR_TICKET_INVALID_CONNECTION:
+          "La connexion sélectionnée n'est pas compatible avec ce ticket.",
+        ERR_TICKET_GROUP_CONNECTION_TRANSFER:
+          "Un ticket de groupe ne peut pas changer de connexion.",
+        ERR_TICKET_CONNECTION_NOT_CONNECTED:
+          "La connexion de destination doit être connectée.",
+        ERR_TICKET_TRANSFER_QUEUE_REQUIRED:
+          "Sélectionnez une file lors du changement de connexion.",
+        ERR_QUEUE_NOT_AVAILABLE_FOR_CONNECTION:
+          "Cette file n'est pas liée à la connexion sélectionnée.",
         ERR_SESSION_EXPIRED: "Session expirée. Veuillez vous reconnecter.",
         ERR_USER_CREATION_DISABLED:
           "La création d'utilisateur a été désactivée par l'administrateur.",

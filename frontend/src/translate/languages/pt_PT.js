@@ -308,7 +308,13 @@ const messages = {
           outOfHoursMessage: "Mensagem fora de expediente",
           ratingMessage: "Mensagem de avaliação",
           transferMessage: "Mensagem de Transferência",
+          connections: "Conexões de WhatsApp",
+          connectionsHelp:
+            "A fila e o chatbot serão apresentados apenas nestas conexões.",
           token: "Token"
+        },
+        validation: {
+          connectionRequired: "Selecione pelo menos uma conexão para a fila."
         },
         toasts: {
           saved: "Fila salva com sucesso"
@@ -496,6 +502,11 @@ const messages = {
       transferTicketModal: {
         title: "Transferir Ticket",
         fieldLabel: "Digite para buscar utilizadores",
+        fieldConnectionLabel: "Encaminhar pela conexão",
+        fieldConnectionPlaceholder: "Selecione uma conexão",
+        connectionHelp:
+          "Depois de escolher a conexão, selecione uma fila disponível nela.",
+        connectionUnavailable: "desconectada",
         fieldQueueLabel: "Transferir para fila",
         fieldQueuePlaceholder: "Selecione uma fila",
         noOptions: "Nenhum utilizador encontrado com esse nome",
@@ -1314,6 +1325,20 @@ const messages = {
         ERR_DELETE_WAPP_MSG: "Não foi possível excluir a mensagem do WhatsApp.",
         ERR_EDITING_WAPP_MSG: "Não foi possível editar a mensagem do WhatsApp.",
         ERR_OTHER_OPEN_TICKET: "Já existe um ticket aberto para este contacto.",
+        ERR_QUEUE_INVALID_CONNECTION:
+          "Uma das conexões selecionadas não pertence a esta empresa.",
+        ERR_WAPP_INVALID_QUEUE:
+          "Uma das filas selecionadas não pertence a esta empresa.",
+        ERR_TICKET_INVALID_CONNECTION:
+          "A conexão selecionada não é compatível com este atendimento.",
+        ERR_TICKET_GROUP_CONNECTION_TRANSFER:
+          "Não é possível trocar a conexão de um atendimento em grupo.",
+        ERR_TICKET_CONNECTION_NOT_CONNECTED:
+          "A conexão de destino precisa estar conectada.",
+        ERR_TICKET_TRANSFER_QUEUE_REQUIRED:
+          "Selecione uma fila ao trocar a conexão.",
+        ERR_QUEUE_NOT_AVAILABLE_FOR_CONNECTION:
+          "Esta fila não está vinculada à conexão selecionada.",
         ERR_SESSION_EXPIRED: "Sessão expirada. Por favor entre novamente.",
         ERR_USER_CREATION_DISABLED:
           "A criação do utilizador foi desabilitada pelo administrador.",

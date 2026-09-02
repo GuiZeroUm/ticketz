@@ -9,6 +9,7 @@ import ListTicketsService from "../services/TicketServices/ListTicketsService";
 import ShowTicketUUIDService from "../services/TicketServices/ShowTicketFromUUIDService";
 import ShowTicketService from "../services/TicketServices/ShowTicketService";
 import UpdateTicketService from "../services/TicketServices/UpdateTicketService";
+import GetTicketTransferOptionsService from "../services/TicketServices/GetTicketTransferOptionsService";
 import ListTicketsServiceKanban from "../services/TicketServices/ListTicketsServiceKanban";
 
 type IndexQuery = {
@@ -44,7 +45,6 @@ const updateMutex = new Mutex();
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const {
     nextUpdatedAt,
-    nextTicketId,
     status,
     groups,
     date,
@@ -220,6 +220,21 @@ export const update = async (
   });
 
   return res.status(200).json(ticket);
+};
+
+export const transferOptions = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { ticketId } = req.params;
+  const { companyId } = req.user;
+
+  const options = await GetTicketTransferOptionsService({
+    ticketId,
+    companyId
+  });
+
+  return res.status(200).json(options);
 };
 
 export const remove = async (

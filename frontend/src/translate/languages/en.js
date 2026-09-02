@@ -342,7 +342,13 @@ const messages = {
           outOfHoursMessage: "Out of Hours Message",
           ratingMessage: "Rating Message",
           transferMessage: "Transfer Message",
+          connections: "WhatsApp connections",
+          connectionsHelp:
+            "The queue and chatbot will only be offered on these connections.",
           token: "Token"
+        },
+        validation: {
+          connectionRequired: "Select at least one connection for the queue."
         },
         tabs: {
           label: "Queue sections",
@@ -577,6 +583,11 @@ const messages = {
       transferTicketModal: {
         title: "Transfer Ticket",
         fieldLabel: "Type to search for users",
+        fieldConnectionLabel: "Transfer through connection",
+        fieldConnectionPlaceholder: "Select a connection",
+        connectionHelp:
+          "After choosing the connection, select one of its available queues.",
+        connectionUnavailable: "disconnected",
         fieldQueueLabel: "Transfer to queue",
         fieldQueuePlaceholder: "Select a queue",
         noOptions: "No user found with that name",
@@ -1630,6 +1641,20 @@ const messages = {
         ERR_EDITING_WAPP_MSG: "Could not edit WhatsApp message.",
         ERR_OTHER_OPEN_TICKET:
           "There is already an open ticket for this contact.",
+        ERR_QUEUE_INVALID_CONNECTION:
+          "One of the selected connections does not belong to this company.",
+        ERR_WAPP_INVALID_QUEUE:
+          "One of the selected queues does not belong to this company.",
+        ERR_TICKET_INVALID_CONNECTION:
+          "The selected connection is not compatible with this ticket.",
+        ERR_TICKET_GROUP_CONNECTION_TRANSFER:
+          "A group ticket cannot be moved to another connection.",
+        ERR_TICKET_CONNECTION_NOT_CONNECTED:
+          "The destination connection must be connected.",
+        ERR_TICKET_TRANSFER_QUEUE_REQUIRED:
+          "Select a queue when changing the connection.",
+        ERR_QUEUE_NOT_AVAILABLE_FOR_CONNECTION:
+          "This queue is not linked to the selected connection.",
         ERR_SESSION_EXPIRED: "Session expired. Please log in.",
         ERR_USER_CREATION_DISABLED:
           "User creation has been disabled by the administrator.",

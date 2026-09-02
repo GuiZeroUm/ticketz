@@ -283,7 +283,14 @@ const messages = {
           outOfHoursMessage: "Nachricht außerhalb der Geschäftszeiten",
           ratingMessage: "Bewertungsnachricht",
           transferMessage: "Übertragungsnachricht",
+          connections: "WhatsApp-Verbindungen",
+          connectionsHelp:
+            "Warteschlange und Chatbot werden nur in diesen Verbindungen angeboten.",
           token: "Token"
+        },
+        validation: {
+          connectionRequired:
+            "Wählen Sie mindestens eine Verbindung für die Warteschlange."
         },
         toasts: {
           saved: "Warteschlange erfolgreich gespeichert"
@@ -464,6 +471,11 @@ const messages = {
       transferTicketModal: {
         title: "Ticket übertragen",
         fieldLabel: "Benutzer suchen",
+        fieldConnectionLabel: "Über Verbindung übertragen",
+        fieldConnectionPlaceholder: "Verbindung auswählen",
+        connectionHelp:
+          "Wählen Sie danach eine verfügbare Warteschlange der Verbindung.",
+        connectionUnavailable: "getrennt",
         fieldQueueLabel: "In Warteschlange übertragen",
         fieldQueuePlaceholder: "Wählen Sie eine Warteschlange",
         noOptions: "Kein Benutzer mit diesem Namen gefunden",
@@ -1265,6 +1277,20 @@ const messages = {
           "WhatsApp-Nachricht konnte nicht bearbeitet werden.",
         ERR_OTHER_OPEN_TICKET:
           "Es gibt bereits ein offenes Ticket für diesen Kontakt.",
+        ERR_QUEUE_INVALID_CONNECTION:
+          "Eine ausgewählte Verbindung gehört nicht zu diesem Unternehmen.",
+        ERR_WAPP_INVALID_QUEUE:
+          "Eine ausgewählte Warteschlange gehört nicht zu diesem Unternehmen.",
+        ERR_TICKET_INVALID_CONNECTION:
+          "Die ausgewählte Verbindung ist mit diesem Ticket nicht kompatibel.",
+        ERR_TICKET_GROUP_CONNECTION_TRANSFER:
+          "Ein Gruppenticket kann nicht zu einer anderen Verbindung wechseln.",
+        ERR_TICKET_CONNECTION_NOT_CONNECTED:
+          "Die Zielverbindung muss verbunden sein.",
+        ERR_TICKET_TRANSFER_QUEUE_REQUIRED:
+          "Wählen Sie beim Verbindungswechsel eine Warteschlange.",
+        ERR_QUEUE_NOT_AVAILABLE_FOR_CONNECTION:
+          "Diese Warteschlange ist nicht mit der Verbindung verknüpft.",
         ERR_SESSION_EXPIRED: "Sitzung abgelaufen. Bitte erneut einloggen.",
         ERR_USER_CREATION_DISABLED:
           "Die Benutzererstellung wurde vom Administrator deaktiviert.",

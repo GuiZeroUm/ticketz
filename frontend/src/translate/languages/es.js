@@ -342,7 +342,13 @@ const messages = {
           outOfHoursMessage: "Mensaje fuera del horario",
           ratingMessage: "Mensaje de calificación",
           transferMessage: "Mensaje de transferencia",
+          connections: "Conexiones de WhatsApp",
+          connectionsHelp:
+            "La cola y el chatbot solo se ofrecerán en estas conexiones.",
           token: "Token"
+        },
+        validation: {
+          connectionRequired: "Selecciona al menos una conexión para la cola."
         },
         toasts: {
           saved: "Cola guardada exitosamente"
@@ -528,6 +534,11 @@ const messages = {
       transferTicketModal: {
         title: "Transferir Ticket",
         fieldLabel: "Escribe para buscar usuarios",
+        fieldConnectionLabel: "Transferir mediante conexión",
+        fieldConnectionPlaceholder: "Selecciona una conexión",
+        connectionHelp:
+          "Después de elegir la conexión, selecciona una cola disponible.",
+        connectionUnavailable: "desconectada",
         fieldQueueLabel: "Transferir a cola",
         fieldQueuePlaceholder: "Selecciona una cola",
         noOptions: "Ningún usuario encontrado con ese nombre",
@@ -1384,6 +1395,20 @@ const messages = {
         ERR_DELETE_WAPP_MSG: "No se pudo eliminar el mensaje de WhatsApp.",
         ERR_EDITING_WAPP_MSG: "No se pudo editar el mensaje de WhatsApp.",
         ERR_OTHER_OPEN_TICKET: "Ya hay un ticket abierto para este contacto.",
+        ERR_QUEUE_INVALID_CONNECTION:
+          "Una de las conexiones seleccionadas no pertenece a esta empresa.",
+        ERR_WAPP_INVALID_QUEUE:
+          "Una de las colas seleccionadas no pertenece a esta empresa.",
+        ERR_TICKET_INVALID_CONNECTION:
+          "La conexión seleccionada no es compatible con este ticket.",
+        ERR_TICKET_GROUP_CONNECTION_TRANSFER:
+          "No se puede cambiar la conexión de un ticket de grupo.",
+        ERR_TICKET_CONNECTION_NOT_CONNECTED:
+          "La conexión de destino debe estar conectada.",
+        ERR_TICKET_TRANSFER_QUEUE_REQUIRED:
+          "Selecciona una cola al cambiar la conexión.",
+        ERR_QUEUE_NOT_AVAILABLE_FOR_CONNECTION:
+          "Esta cola no está vinculada a la conexión seleccionada.",
         ERR_SESSION_EXPIRED: "Sesión expirada. Por favor, inicie sesión.",
         ERR_USER_CREATION_DISABLED:
           "La creación de usuarios está deshabilitada por el administrador.",

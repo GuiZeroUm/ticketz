@@ -282,7 +282,13 @@ const messages = {
           outOfHoursMessage: "Pesan Di Luar Jam Kerja",
           ratingMessage: "Pesan Penilaian",
           transferMessage: "Pesan Transfer",
+          connections: "Koneksi WhatsApp",
+          connectionsHelp:
+            "Antrean dan chatbot hanya tersedia pada koneksi ini.",
           token: "Token"
+        },
+        validation: {
+          connectionRequired: "Pilih setidaknya satu koneksi untuk antrean."
         },
         outOfHoursAction: {
           title: "Tindakan Di Luar Jam Kerja",
@@ -478,6 +484,10 @@ const messages = {
       transferTicketModal: {
         title: "Transfer Tiket",
         fieldLabel: "Ketik untuk mencari pengguna",
+        fieldConnectionLabel: "Transfer melalui koneksi",
+        fieldConnectionPlaceholder: "Pilih koneksi",
+        connectionHelp: "Setelah memilih koneksi, pilih antrean yang tersedia.",
+        connectionUnavailable: "terputus",
         fieldQueueLabel: "Transfer ke antrian",
         fieldQueuePlaceholder: "Pilih antrian",
         noOptions: "Tidak ada pengguna yang ditemukan dengan nama itu",
@@ -1279,6 +1289,19 @@ const messages = {
         ERR_DELETE_WAPP_MSG: "Tidak dapat menghapus pesan WhatsApp.",
         ERR_EDITING_WAPP_MSG: "Tidak dapat mengedit pesan WhatsApp.",
         ERR_OTHER_OPEN_TICKET: "Sudah ada tiket terbuka untuk kontak ini.",
+        ERR_QUEUE_INVALID_CONNECTION:
+          "Salah satu koneksi bukan milik perusahaan ini.",
+        ERR_WAPP_INVALID_QUEUE:
+          "Salah satu antrean bukan milik perusahaan ini.",
+        ERR_TICKET_INVALID_CONNECTION:
+          "Koneksi yang dipilih tidak kompatibel dengan tiket ini.",
+        ERR_TICKET_GROUP_CONNECTION_TRANSFER:
+          "Tiket grup tidak dapat dipindahkan ke koneksi lain.",
+        ERR_TICKET_CONNECTION_NOT_CONNECTED: "Koneksi tujuan harus tersambung.",
+        ERR_TICKET_TRANSFER_QUEUE_REQUIRED:
+          "Pilih antrean saat mengganti koneksi.",
+        ERR_QUEUE_NOT_AVAILABLE_FOR_CONNECTION:
+          "Antrean ini tidak tertaut ke koneksi yang dipilih.",
         ERR_SESSION_EXPIRED: "Sesi berakhir. Silakan masuk.",
         ERR_USER_CREATION_DISABLED:
           "Pembuatan pengguna telah dinonaktifkan oleh administrator.",

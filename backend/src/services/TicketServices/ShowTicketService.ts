@@ -55,7 +55,9 @@ const ShowTicketService = async (
         model: Whatsapp,
         as: "whatsapp",
         attributes: [
+          "id",
           "name",
+          "channel",
           "status",
           "ratingMessage",
           "transferMessage",

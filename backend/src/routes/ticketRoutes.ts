@@ -9,6 +9,13 @@ const ticketRoutes = express.Router();
 ticketRoutes.get("/tickets", isAuth, isCompliant, TicketController.index);
 
 ticketRoutes.get(
+  "/tickets/:ticketId/transfer-options",
+  isAuth,
+  isCompliant,
+  TicketController.transferOptions
+);
+
+ticketRoutes.get(
   "/tickets/:ticketId",
   isAuth,
   isCompliant,

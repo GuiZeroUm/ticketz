@@ -22,11 +22,18 @@ import toastError from "../../errors/toastError";
 import ColorPicker from "../ColorPicker";
 import {
   Grid,
+  Checkbox,
+  FormControl,
   IconButton,
   InputAdornment,
+  InputLabel,
+  ListItemText,
+  MenuItem,
   Paper,
+  Select,
   Tab,
-  Tabs
+  Tabs,
+  Typography
 } from "@material-ui/core";
 import { AttachFile, Colorize, DeleteOutline } from "@material-ui/icons";
 import ChatbotFlow from "../ChatbotFlow";
@@ -85,25 +92,28 @@ const isOpenHoursFormat = schedules => {
   );
 };
 
+const initialQueue = {
+  name: "",
+  color: "",
+  greetingMessage: "",
+  outOfHoursMessage: ""
+};
+
 const QueueModal = ({ open, onClose, queueId }) => {
   const classes = useStyles();
 
-  const initialState = {
-    name: "",
-    color: "",
-    greetingMessage: "",
-    outOfHoursMessage: ""
-  };
-
   const [colorPickerModalOpen, setColorPickerModalOpen] = useState(false);
-  const [queue, setQueue] = useState(initialState);
+  const [queue, setQueue] = useState(initialQueue);
   const [tab, setTab] = useState(0);
   const [schedulesEnabled, setSchedulesEnabled] = useState(false);
   const greetingRef = useRef();
   const [attachment, setAttachment] = useState(null);
   const attachmentFile = useRef(null);
-  const [queueEditable, setQueueEditable] = useState(true);
+  const queueEditable = true;
   const [confirmationOpen, setConfirmationOpen] = useState(false);
+  const [connections, setConnections] = useState([]);
+  const [selectedWhatsappIds, setSelectedWhatsappIds] = useState([]);
+  const [connectionsLoaded, setConnectionsLoaded] = useState(false);
 
   const [schedules, setSchedules] = useState({});
 
@@ -119,31 +129,59 @@ const QueueModal = ({ open, onClose, queueId }) => {
   }, []);
 
   useEffect(() => {
+    let active = true;
+
     (async () => {
-      if (!queueId) return;
+      if (!open) return;
+      setConnectionsLoaded(false);
       try {
-        const { data } = await api.get(`/queue/${queueId}`);
-        setQueue(prevState => {
-          return { ...prevState, ...data };
-        });
-        setSchedules(data.schedules);
+        const [connectionsResponse, queueResponse] = await Promise.all([
+          api.get("/whatsapp"),
+          queueId ? api.get(`/queue/${queueId}`) : Promise.resolve(null)
+        ]);
+
+        if (!active) return;
+
+        const availableConnections = connectionsResponse.data || [];
+        setConnections(availableConnections);
+        setConnectionsLoaded(true);
+
+        if (queueResponse) {
+          const data = queueResponse.data;
+          setQueue(prevState => ({ ...prevState, ...data }));
+          setSchedules(data.schedules || {});
+
+          const assignedIds = data.whatsapps?.map(item => item.id) || [];
+          setSelectedWhatsappIds(
+            assignedIds.length > 0
+              ? assignedIds
+              : availableConnections.map(item => item.id)
+          );
+        } else {
+          setQueue(initialQueue);
+          setSchedules({});
+          setSelectedWhatsappIds(availableConnections.map(item => item.id));
+        }
       } catch (err) {
-        toastError(err);
+        if (active) toastError(err);
       }
     })();
 
     return () => {
-      setQueue({
-        name: "",
-        color: "",
-        greetingMessage: ""
-      });
+      active = false;
+      setQueue(initialQueue);
+      setConnections([]);
+      setSelectedWhatsappIds([]);
+      setConnectionsLoaded(false);
     };
   }, [queueId, open]);
 
   const handleClose = () => {
     onClose();
-    setQueue(initialState);
+    setQueue(initialQueue);
+    setConnections([]);
+    setSelectedWhatsappIds([]);
+    setConnectionsLoaded(false);
     // O diálogo não desmonta entre aberturas: sem isto, abrir "nova fila"
     // depois de editar o chatbot cairia numa aba desabilitada e vazia.
     setTab(0);
@@ -170,15 +208,30 @@ const QueueModal = ({ open, onClose, queueId }) => {
   };
 
   const handleSaveQueue = async values => {
+    if (
+      connectionsLoaded &&
+      connections.length > 1 &&
+      selectedWhatsappIds.length === 0
+    ) {
+      toast.warn(i18n.t("queueModal.validation.connectionRequired"));
+      return;
+    }
+
     try {
       let savedId = queueId;
+      const payload = {
+        ...values,
+        schedules,
+        ...(connectionsLoaded ? { whatsappIds: selectedWhatsappIds } : {})
+      };
+      delete payload.whatsapps;
 
       if (queueId) {
-        await api.put(`/queue/${queueId}`, { ...values, schedules });
+        await api.put(`/queue/${queueId}`, payload);
       } else {
         // O id só existe depois do POST: usar "queueId" aqui perdia o anexo
         // silenciosamente ao criar uma fila.
-        const { data } = await api.post("/queue", { ...values, schedules });
+        const { data } = await api.post("/queue", payload);
         savedId = data.id;
       }
 
@@ -252,11 +305,9 @@ const QueueModal = ({ open, onClose, queueId }) => {
               initialValues={queue}
               enableReinitialize={true}
               validationSchema={QueueSchema}
-              onSubmit={(values, actions) => {
-                setTimeout(() => {
-                  handleSaveQueue(values);
-                  actions.setSubmitting(false);
-                }, 400);
+              onSubmit={async (values, actions) => {
+                await handleSaveQueue(values);
+                actions.setSubmitting(false);
               }}
             >
               {({ touched, errors, isSubmitting, values }) => (
@@ -363,6 +414,43 @@ const QueueModal = ({ open, onClose, queueId }) => {
                         />
                       )}
                     </div>
+                    {connections.length > 1 && (
+                      <FormControl variant="outlined" margin="dense" fullWidth>
+                        <InputLabel>
+                          {i18n.t("queueModal.form.connections")}
+                        </InputLabel>
+                        <Select
+                          multiple
+                          value={selectedWhatsappIds}
+                          onChange={event =>
+                            setSelectedWhatsappIds(event.target.value)
+                          }
+                          label={i18n.t("queueModal.form.connections")}
+                          renderValue={selected =>
+                            connections
+                              .filter(connection =>
+                                selected.includes(connection.id)
+                              )
+                              .map(connection => connection.name)
+                              .join(", ")
+                          }
+                        >
+                          {connections.map(connection => (
+                            <MenuItem key={connection.id} value={connection.id}>
+                              <Checkbox
+                                checked={selectedWhatsappIds.includes(
+                                  connection.id
+                                )}
+                              />
+                              <ListItemText primary={connection.name} />
+                            </MenuItem>
+                          ))}
+                        </Select>
+                        <Typography variant="caption" color="textSecondary">
+                          {i18n.t("queueModal.form.connectionsHelp")}
+                        </Typography>
+                      </FormControl>
+                    )}
                     {(queue.mediaPath || attachment) && (
                       <Grid xs={12} item>
                         <Button startIcon={<AttachFile />}>

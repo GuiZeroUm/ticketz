@@ -15,8 +15,8 @@ import formatBody from "../../helpers/Mustache";
 import { logger } from "../../utils/logger";
 import { incrementCounter } from "../CounterServices/IncrementCounter";
 import { getJidOf } from "../WbotServices/getJidOf";
-import Queue from "../../models/Queue";
 import { _t } from "../TranslationServices/i18nService";
+import ResolveTicketTransferService from "./ResolveTicketTransferService";
 
 export interface UpdateTicketData {
   status?: string;
@@ -25,6 +25,7 @@ export interface UpdateTicketData {
   chatbot?: boolean;
   queueOptionId?: number;
   justClose?: boolean;
+  whatsappId?: number;
 }
 
 interface Request {
@@ -114,16 +115,14 @@ const UpdateTicketService = async ({
 
     const ticket = await ShowTicketService(ticketId, companyId);
     const isGroup = ticket.contact?.isGroup || ticket.isGroup;
-
-    if (queueId && queueId !== ticket.queueId) {
-      const newQueue = await Queue.findByPk(queueId);
-      if (!newQueue) {
-        throw new AppError("Queue not found", 404);
-      }
-      if (newQueue.companyId !== ticket.companyId) {
-        throw new AppError("Queue does not belong to the same company", 403);
-      }
-    }
+    const transferTarget =
+      ticketData.whatsappId !== undefined || queueId !== undefined
+        ? await ResolveTicketTransferService({
+            ticket,
+            whatsappId: ticketData.whatsappId,
+            queueId
+          })
+        : { whatsappId: ticket.whatsappId, connectionChanged: false };
 
     if (user && ticket.status !== "pending") {
       if (user.profile !== "admin" && ticket.userId !== user.id) {
@@ -172,7 +171,10 @@ const UpdateTicketService = async ({
     }
 
     if (oldStatus === "closed") {
-      await CheckContactOpenTickets(ticket.contactId, ticket.whatsappId);
+      await CheckContactOpenTickets(
+        ticket.contactId,
+        transferTarget.whatsappId
+      );
       chatbot = null;
       queueOptionId = null;
     }
@@ -285,7 +287,7 @@ const UpdateTicketService = async ({
       status,
       queueId,
       userId,
-      whatsappId: ticket.whatsappId,
+      whatsappId: transferTarget.whatsappId,
       chatbot,
       queueOptionId
     });
@@ -297,7 +299,10 @@ const UpdateTicketService = async ({
         await incrementCounter(companyId, "ticket-accept");
       } else if (status === "closed") {
         await incrementCounter(companyId, "ticket-close");
-      } else if (status === "pending" && oldQueueId !== queueId) {
+      } else if (
+        status === "pending" &&
+        (oldQueueId !== queueId || transferTarget.connectionChanged)
+      ) {
         await incrementCounter(companyId, "ticket-transfer");
       }
     }
@@ -353,7 +358,7 @@ const UpdateTicketService = async ({
       !dontRunChatbot &&
       !ticket.userId &&
       ticket.queueId &&
-      ticket.queueId !== oldQueueId
+      (ticket.queueId !== oldQueueId || transferTarget.connectionChanged)
     ) {
       const wbot = await GetTicketWbot(ticket);
       if (wbot) {
@@ -392,7 +397,7 @@ const UpdateTicketService = async ({
         !accepted &&
         oldQueueId &&
         ticket.queueId &&
-        oldQueueId !== ticket.queueId &&
+        (oldQueueId !== ticket.queueId || transferTarget.connectionChanged) &&
         ticket.whatsapp?.status === "CONNECTED"
       ) {
         const systemTransferMessage = await GetCompanySetting(
@@ -427,7 +432,10 @@ const UpdateTicketService = async ({
         });
     }
 
-    websocketUpdateTicket(ticket, [`user-${oldUserId}`]);
+    websocketUpdateTicket(ticket, [
+      `user-${oldUserId}`,
+      `queue-${oldQueueId}-${oldStatus}`
+    ]);
 
     return { ticket, oldStatus, oldUserId };
   } catch (err) {
