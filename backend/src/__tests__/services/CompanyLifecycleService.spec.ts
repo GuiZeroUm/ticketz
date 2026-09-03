@@ -72,6 +72,12 @@ describe("CreateCompanyService", () => {
       }),
       { transaction: undefined }
     );
+    expect(settingFindOrCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { companyId: 42, key: "voiceCallsEnabled" },
+        defaults: expect.objectContaining({ value: "false" })
+      })
+    );
   });
 });
 

@@ -5,6 +5,8 @@ import Invoices from "../../models/Invoices";
 import Setting from "../../models/Setting";
 import normalizeSlug from "../../helpers/normalizeSlug";
 import { revokeCompanyMcpGrants } from "../McpServices/RevokeMcpGrantsService";
+import { assertVoiceCompanyAllowlisted } from "../VoiceServices/VoiceAccessService";
+import { disableCompanyVoiceConnections } from "../VoiceServices/VoiceService";
 
 interface CompanyData {
   name: string;
@@ -14,6 +16,7 @@ interface CompanyData {
   status?: boolean;
   planId?: number;
   campaignsEnabled?: boolean;
+  voiceCallsEnabled?: boolean;
   dueDate?: string | null;
   recurrence?: string;
   language?: string;
@@ -122,6 +125,39 @@ const UpdateCompanyService = async (
     });
     if (!created) {
       await setting.update({ value: `${campaignsEnabled}` }, { transaction });
+    }
+  }
+
+  if (companyData.voiceCallsEnabled !== undefined) {
+    if (companyData.voiceCallsEnabled) {
+      assertVoiceCompanyAllowlisted(company.id);
+    }
+    const [setting, created] = await Setting.findOrCreate({
+      where: {
+        companyId: company.id,
+        key: "voiceCallsEnabled"
+      },
+      defaults: {
+        companyId: company.id,
+        key: "voiceCallsEnabled",
+        value: `${companyData.voiceCallsEnabled}`
+      },
+      transaction
+    });
+    if (!created) {
+      await setting.update(
+        { value: `${companyData.voiceCallsEnabled}` },
+        { transaction }
+      );
+    }
+    if (!companyData.voiceCallsEnabled) {
+      if (transaction) {
+        transaction.afterCommit(() =>
+          disableCompanyVoiceConnections(company.id)
+        );
+      } else {
+        await disableCompanyVoiceConnections(company.id);
+      }
     }
   }
 

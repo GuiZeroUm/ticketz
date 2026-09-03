@@ -57,10 +57,51 @@ services:
     networks:
       - internal
 
+  wacalls:
+    build:
+      context: ./wacalls
+      dockerfile: Dockerfile
+    env_file:
+      - path: /etc/dokploy/secrets/espaco_whats_wacalls.env
+        required: false
+    environment:
+      WACALLS_INTERNAL_TOKEN: ${WACALLS_INTERNAL_TOKEN:-}
+      WACALLS_INTERNAL_TOKEN_FILE: /run/secrets/wacalls_internal_token
+      WACALLS_ALLOWED_ORIGIN: ""
+    volumes:
+      - wacalls_data:/data
+    secrets:
+      - wacalls_internal_token
+    ports:
+      - "${WACALLS_UDP_PORT_RANGE:-50000-50020}:${WACALLS_UDP_PORT_RANGE:-50000-50020}/udp"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 20s
+    cpus: 2.0
+    mem_limit: 2g
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 120s
+    networks:
+      - internal
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    env_file:
+      - path: /etc/dokploy/secrets/espaco_whats_wacalls.env
+        required: false
     environment:
       NODE_ENV: production
       PORT: "3000"
@@ -98,9 +139,17 @@ services:
       MCP_PUBLIC_KEY: ${MCP_PUBLIC_KEY}
       MCP_CURSOR_SECRET: ${MCP_CURSOR_SECRET}
       MCP_KEY_ID: ${MCP_KEY_ID:-espaco-whats-mcp-1}
+      WACALLS_INTERNAL_URL: http://wacalls:8080
+      WACALLS_INTERNAL_TOKEN: ${WACALLS_INTERNAL_TOKEN:-}
+      WACALLS_INTERNAL_TOKEN_FILE: /run/secrets/wacalls_internal_token
+      WACALLS_TOKEN_SECRET: ${WACALLS_TOKEN_SECRET:-}
+      WACALLS_TOKEN_SECRET_FILE: /run/secrets/wacalls_media_token_secret
     volumes:
       - backend_public:/usr/src/app/public
       - backend_private:/usr/src/app/private
+    secrets:
+      - wacalls_internal_token
+      - wacalls_media_token_secret
     healthcheck:
       test:
         - CMD-SHELL
@@ -186,3 +235,10 @@ volumes:
   redis_data:
   backend_public:
   backend_private:
+  wacalls_data:
+
+secrets:
+  wacalls_internal_token:
+    file: /etc/dokploy/secrets/espaco_whats_wacalls_internal_token
+  wacalls_media_token_secret:
+    file: /etc/dokploy/secrets/espaco_whats_wacalls_media_token_secret

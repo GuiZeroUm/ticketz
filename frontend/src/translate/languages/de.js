@@ -1,6 +1,47 @@
 const messages = {
   de: {
     translations: {
+      voiceCalls: {
+        settingsTab: "Experimentelle Anrufe",
+        companySwitch: "Experimentelle Anrufe",
+        enabled: "Aktiviert",
+        disabled: "Deaktiviert",
+        experimentalTitle: "Experimentelle Anrufintegration",
+        warning:
+          "Inoffizielle WhatsApp-Integration. Es besteht das Risiko einer Trennung, Sperrung oder Kontosperre. Nur im Test-Mandanten verwenden.",
+        serviceUnavailable: "Der Anrufdienst ist derzeit nicht verfügbar.",
+        riskConsent:
+          "Ich verstehe das Risiko und möchte ein zweites Gerät per QR-Code verknüpfen.",
+        status: "Status",
+        disconnect: "Ausschalten und trennen",
+        pair: "Mit QR-Code verknüpfen",
+        noConnections: "Erstellen Sie zuerst eine WhatsApp-Verbindung.",
+        qrInstruction:
+          "Öffnen Sie in WhatsApp Verknüpfte Geräte und scannen Sie diesen zweiten QR-Code.",
+        disconnectedSuccess: "Anrufintegration getrennt.",
+        incoming: "Eingehender Anruf",
+        incomingHint:
+          "Der erste Mitarbeiter, der annimmt, übernimmt den Anruf.",
+        reject: "Ablehnen",
+        accept: "Annehmen",
+        active: "Laufender Anruf",
+        mute: "Mikrofon stummschalten",
+        end: "Beenden",
+        states: {
+          disconnected: "Getrennt",
+          pairing: "Warten auf QR-Code",
+          connecting: "Verbinden",
+          open: "Verbunden",
+          logged_out: "Getrennt"
+        },
+        errors: {
+          load: "Experimentelle Anrufe konnten nicht geladen werden.",
+          pair: "Der Anruf-QR-Code konnte nicht erstellt werden.",
+          action: "Die Anrufaktion konnte nicht abgeschlossen werden.",
+          microphone:
+            "Der Mikrofonzugriff wurde verweigert. Der Anruf wurde beendet."
+        }
+      },
       common: {
         search: "Suchen",
         edit: "Bearbeiten",

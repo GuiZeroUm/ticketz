@@ -59,6 +59,8 @@ import PlatformWebhookOutbox from "../models/PlatformWebhookOutbox";
 import PlatformAccessToken from "../models/PlatformAccessToken";
 import TaskBoardColumn from "../models/TaskBoardColumn";
 import TaskBoardTask from "../models/TaskBoardTask";
+import VoiceConnection from "../models/VoiceConnection";
+import VoiceCall from "../models/VoiceCall";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const dbConfig = require("../config/database");
@@ -125,7 +127,9 @@ const models = [
   PlatformWebhookOutbox,
   PlatformAccessToken,
   TaskBoardColumn,
-  TaskBoardTask
+  TaskBoardTask,
+  VoiceConnection,
+  VoiceCall
 ];
 
 sequelize.addModels(models);

@@ -1,6 +1,47 @@
 const messages = {
   fr: {
     translations: {
+      voiceCalls: {
+        settingsTab: "Appels expérimentaux",
+        companySwitch: "Appels expérimentaux",
+        enabled: "Activés",
+        disabled: "Désactivés",
+        experimentalTitle: "Intégration expérimentale des appels",
+        warning:
+          "Intégration WhatsApp non officielle. Il existe un risque de déconnexion, suspension ou bannissement. Utilisez-la uniquement dans le tenant de test.",
+        serviceUnavailable:
+          "Le service d'appels est actuellement indisponible.",
+        riskConsent:
+          "Je comprends le risque et souhaite associer un deuxième appareil par code QR.",
+        status: "État",
+        disconnect: "Désactiver et dissocier",
+        pair: "Associer par code QR",
+        noConnections:
+          "Créez d'abord une connexion WhatsApp avant de configurer les appels.",
+        qrInstruction:
+          "Dans WhatsApp, ouvrez Appareils connectés et scannez ce deuxième code QR.",
+        disconnectedSuccess: "Intégration des appels dissociée.",
+        incoming: "Appel entrant",
+        incomingHint: "Le premier agent qui accepte prendra l'appel.",
+        reject: "Refuser",
+        accept: "Répondre",
+        active: "Appel en cours",
+        mute: "Couper le micro",
+        end: "Terminer",
+        states: {
+          disconnected: "Déconnectée",
+          pairing: "En attente du code QR",
+          connecting: "Connexion",
+          open: "Connectée",
+          logged_out: "Dissociée"
+        },
+        errors: {
+          load: "Impossible de charger les appels expérimentaux.",
+          pair: "Impossible de générer le code QR des appels.",
+          action: "Impossible de terminer l'action d'appel.",
+          microphone: "L'accès au micro a été refusé. L'appel a été terminé."
+        }
+      },
       common: {
         search: "Rechercher",
         edit: "Éditer",

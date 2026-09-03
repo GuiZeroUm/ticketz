@@ -30,6 +30,7 @@ type CompanyData = {
   status?: boolean;
   planId?: number;
   campaignsEnabled?: boolean;
+  voiceCallsEnabled?: boolean;
   dueDate?: string | null;
   recurrence?: string;
   slug?: string;

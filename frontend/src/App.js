@@ -8,6 +8,7 @@ import { createTheme, ThemeProvider } from "@material-ui/core/styles";
 import { useMediaQuery } from "@material-ui/core";
 import ColorModeContext from "./layout/themeContext";
 import { PhoneCallProvider } from "./context/PhoneCall/PhoneCallContext";
+import { VoiceCallProvider } from "./context/VoiceCall/VoiceCallContext";
 import { SocketContext, socketManager } from "./context/Socket/SocketContext";
 import useSettings from "./hooks/useSettings";
 import Favicon from "react-favicon";
@@ -267,7 +268,9 @@ const App = () => {
           <ThemeProvider theme={theme}>
             <QueryClientProvider client={queryClient}>
               <SocketContext.Provider value={socketManager}>
-                <Routes />
+                <VoiceCallProvider>
+                  <Routes />
+                </VoiceCallProvider>
               </SocketContext.Provider>
             </QueryClientProvider>
           </ThemeProvider>

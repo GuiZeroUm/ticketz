@@ -1,6 +1,47 @@
 const messages = {
   pt: {
     translations: {
+      voiceCalls: {
+        settingsTab: "Chamadas experimentais",
+        companySwitch: "Chamadas experimentais",
+        enabled: "Habilitadas",
+        disabled: "Desabilitadas",
+        experimentalTitle: "Integração experimental de chamadas",
+        warning:
+          "Integração não oficial com o WhatsApp. Existe risco de desconexão, suspensão ou banimento. Use somente no tenant de testes.",
+        serviceUnavailable:
+          "O serviço de chamadas não está disponível no momento.",
+        riskConsent:
+          "Compreendo o risco e quero vincular um segundo dispositivo por QR Code.",
+        status: "Estado",
+        disconnect: "Desligar e desvincular",
+        pair: "Vincular por QR Code",
+        noConnections:
+          "Crie primeiro uma conexão de WhatsApp para configurar chamadas.",
+        qrInstruction:
+          "No WhatsApp, abra Dispositivos conectados e leia este segundo QR Code.",
+        disconnectedSuccess: "Integração de chamadas desvinculada.",
+        incoming: "Chamada recebida",
+        incomingHint: "O primeiro atendente que aceitar ficará com a chamada.",
+        reject: "Recusar",
+        accept: "Atender",
+        active: "Chamada em andamento",
+        mute: "Silenciar microfone",
+        end: "Encerrar",
+        states: {
+          disconnected: "Desconectada",
+          pairing: "Aguardando QR Code",
+          connecting: "Conectando",
+          open: "Conectada",
+          logged_out: "Desvinculada"
+        },
+        errors: {
+          load: "Não foi possível carregar as chamadas experimentais.",
+          pair: "Não foi possível gerar o QR Code de chamadas.",
+          action: "Não foi possível concluir a ação da chamada.",
+          microphone: "O microfone foi negado. A chamada foi encerrada."
+        }
+      },
       landing: {
         meta: {
           title: "Espaço Whats — Atendimento profissional pelo WhatsApp",

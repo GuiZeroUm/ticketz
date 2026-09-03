@@ -233,6 +233,19 @@ const CreateCompanyService = async (
     }
   }
 
+  await Setting.findOrCreate({
+    where: {
+      companyId: company.id,
+      key: "voiceCallsEnabled"
+    },
+    defaults: {
+      companyId: company.id,
+      key: "voiceCallsEnabled",
+      value: "false"
+    },
+    transaction
+  });
+
   return company;
 };
 

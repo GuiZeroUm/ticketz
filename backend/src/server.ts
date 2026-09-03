@@ -10,6 +10,10 @@ import {
   payGatewayInitialize
 } from "./services/PaymentGatewayServices/PaymentGatewayServices";
 import { i18nReady } from "./services/TranslationServices/i18nService";
+import {
+  startVoiceEventBridge,
+  stopVoiceEventBridge
+} from "./services/VoiceServices/VoiceService";
 
 // Environment Variable Validation
 if (!process.env.PORT) {
@@ -35,6 +39,7 @@ async function startServer() {
     await Promise.all(sessionPromises);
 
     startQueueProcess();
+    startVoiceEventBridge();
     logger.info(`Server started on port: ${process.env.PORT}`);
 
     try {
@@ -67,6 +72,7 @@ i18nReady.then(() => {
     timeout: 30000,
     onShutdown: async () => {
       logger.info("Shutdown initiated. Cleaning up...");
+      stopVoiceEventBridge();
     },
     finally: () => {
       logger.info("Server has shut down.");

@@ -34,6 +34,7 @@ import { SelectLanguage } from "../SelectLanguage";
 import moment from "moment";
 
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { i18n } from "../../translate/i18n";
 
 const initialDueDate = () => moment().add(3, "days").format("YYYY-MM-DD");
 
@@ -100,6 +101,7 @@ export function CompanyForm(props) {
     planId: "",
     status: true,
     campaignsEnabled: false,
+    voiceCallsEnabled: false,
     dueDate: initialDueDate(),
     recurrence: "MENSAL",
     slug: "",
@@ -329,6 +331,27 @@ export function CompanyForm(props) {
                         {plan.name}
                       </MenuItem>
                     ))}
+                  </Field>
+                </FormControl>
+              </Grid>
+              <Grid xs={12} sm={6} md={2} item>
+                <FormControl margin="dense" variant="outlined" fullWidth>
+                  <InputLabel htmlFor="voice-calls-selection">
+                    {i18n.t("voiceCalls.companySwitch")}
+                  </InputLabel>
+                  <Field
+                    as={Select}
+                    id="voice-calls-selection"
+                    label={i18n.t("voiceCalls.companySwitch")}
+                    name="voiceCallsEnabled"
+                    margin="dense"
+                  >
+                    <MenuItem value={true}>
+                      {i18n.t("voiceCalls.enabled")}
+                    </MenuItem>
+                    <MenuItem value={false}>
+                      {i18n.t("voiceCalls.disabled")}
+                    </MenuItem>
                   </Field>
                 </FormControl>
               </Grid>
@@ -583,6 +606,13 @@ export function CompaniesManagerGrid(props) {
     return "Desabilitadas";
   };
 
+  const renderVoiceStatus = row => {
+    const setting = row.settings?.find(s => s.key === "voiceCallsEnabled");
+    return setting?.value === "true"
+      ? i18n.t("voiceCalls.enabled")
+      : i18n.t("voiceCalls.disabled");
+  };
+
   const rowClass = record => {
     if (moment(record.dueDate).isValid()) {
       const now = moment();
@@ -618,6 +648,9 @@ export function CompaniesManagerGrid(props) {
             <TableCell align="left">Telefone</TableCell>
             <TableCell align="left">Plano</TableCell>
             <TableCell align="left">Campanhas</TableCell>
+            <TableCell align="left">
+              {i18n.t("voiceCalls.companySwitch")}
+            </TableCell>
             <TableCell align="left">Status</TableCell>
             <TableCell align="left">Criada Em</TableCell>
             <TableCell align="left">Vencimento</TableCell>
@@ -645,6 +678,9 @@ export function CompaniesManagerGrid(props) {
               </TableCell>
               <TableCell align="left" style={{ color: "unset" }}>
                 {renderCampaignsStatus(row)}
+              </TableCell>
+              <TableCell align="left" style={{ color: "unset" }}>
+                {renderVoiceStatus(row)}
               </TableCell>
               <TableCell align="left" style={{ color: "unset" }}>
                 {renderStatus(row)}
@@ -682,6 +718,7 @@ export default function CompaniesManager() {
     planId: "",
     status: true,
     campaignsEnabled: false,
+    voiceCallsEnabled: false,
     dueDate: initialDueDate(),
     recurrence: "MENSAL",
     slug: "",
@@ -763,6 +800,7 @@ export default function CompaniesManager() {
       planId: "",
       status: true,
       campaignsEnabled: false,
+      voiceCallsEnabled: false,
       dueDate: initialDueDate(),
       recurrence: "MENSAL",
       partnerId: "",
@@ -774,13 +812,20 @@ export default function CompaniesManager() {
 
   const handleSelect = data => {
     let campaignsEnabled = false;
+    let voiceCallsEnabled = false;
 
-    const setting = data.settings.find(
+    const setting = (data.settings || []).find(
       s => s.key.indexOf("campaignsEnabled") > -1
     );
     if (setting) {
       campaignsEnabled =
         setting.value === "true" || setting.value === "enabled";
+    }
+    const voiceSetting = (data.settings || []).find(
+      s => s.key === "voiceCallsEnabled"
+    );
+    if (voiceSetting) {
+      voiceCallsEnabled = voiceSetting.value === "true";
     }
 
     setRecord(prev => ({
@@ -793,6 +838,7 @@ export default function CompaniesManager() {
       planId: data.planId || "",
       status: data.status === false ? false : true,
       campaignsEnabled,
+      voiceCallsEnabled,
       dueDate: data.dueDate || "",
       recurrence: data.recurrence || "",
       slug: data.slug || "",

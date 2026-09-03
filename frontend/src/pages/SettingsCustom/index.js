@@ -15,6 +15,8 @@ import Options from "../../components/Settings/Options";
 import Whitelabel from "../../components/Settings/Whitelabel";
 import PaymentGateway from "../../components/Settings/PaymentGateway";
 import I18nSettings from "../../components/Settings/I18nSettings";
+import VoiceSettings from "../../components/VoiceSettings";
+import api from "../../services/api";
 
 import { i18n } from "../../translate/i18n.js";
 import { toast } from "react-toastify";
@@ -78,6 +80,7 @@ const SettingsCustom = () => {
   const [currentUser, setCurrentUser] = useState({});
   const [settings, setSettings] = useState({});
   const [schedulesEnabled, setSchedulesEnabled] = useState(false);
+  const [voiceAvailable, setVoiceAvailable] = useState(false);
 
   const { getCurrentUserInfo } = useAuth();
   const { find, updateSchedules } = useCompanies();
@@ -110,6 +113,13 @@ const SettingsCustom = () => {
     }
     findData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    api
+      .get("/voice/connections")
+      .then(() => setVoiceAvailable(true))
+      .catch(() => setVoiceAvailable(false));
   }, []);
 
   const handleTabChange = (event, newValue) => {
@@ -206,6 +216,12 @@ const SettingsCustom = () => {
               value={"whitelabel"}
             />
           ) : null}
+          {isAdmin() && voiceAvailable ? (
+            <Tab
+              label={i18n.t("voiceCalls.settingsTab")}
+              value={"voiceCalls"}
+            />
+          ) : null}
           {isSuper() ? (
             <Tab
               label={i18n.t("settings.PaymentGateways.title")}
@@ -274,6 +290,13 @@ const SettingsCustom = () => {
             name={"whitelabel"}
           >
             <Whitelabel settings={settings} />
+          </TabPanel>
+          <TabPanel
+            className={classes.container}
+            value={tab}
+            name={"voiceCalls"}
+          >
+            <VoiceSettings />
           </TabPanel>
           <TabPanel className={classes.container} value={tab} name={"helps"}>
             <HelpsManager />

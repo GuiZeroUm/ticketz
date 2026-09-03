@@ -1,6 +1,45 @@
 const messages = {
   en: {
     translations: {
+      voiceCalls: {
+        settingsTab: "Experimental calls",
+        companySwitch: "Experimental calls",
+        enabled: "Enabled",
+        disabled: "Disabled",
+        experimentalTitle: "Experimental calling integration",
+        warning:
+          "Unofficial WhatsApp integration. There is a risk of disconnection, suspension, or account ban. Use it only in the test tenant.",
+        serviceUnavailable: "The calling service is currently unavailable.",
+        riskConsent:
+          "I understand the risk and want to link a second device using a QR code.",
+        status: "Status",
+        disconnect: "Turn off and unlink",
+        pair: "Link with QR code",
+        noConnections: "Create a WhatsApp connection before configuring calls.",
+        qrInstruction:
+          "In WhatsApp, open Linked devices and scan this second QR code.",
+        disconnectedSuccess: "Calling integration unlinked.",
+        incoming: "Incoming call",
+        incomingHint: "The first attendant to accept will take the call.",
+        reject: "Reject",
+        accept: "Answer",
+        active: "Call in progress",
+        mute: "Mute microphone",
+        end: "End call",
+        states: {
+          disconnected: "Disconnected",
+          pairing: "Waiting for QR code",
+          connecting: "Connecting",
+          open: "Connected",
+          logged_out: "Unlinked"
+        },
+        errors: {
+          load: "Could not load experimental calls.",
+          pair: "Could not generate the calling QR code.",
+          action: "Could not complete the call action.",
+          microphone: "Microphone permission was denied. The call was ended."
+        }
+      },
       date: {
         yesterday: "Yesterday"
       },

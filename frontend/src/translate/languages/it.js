@@ -1,6 +1,47 @@
 const messages = {
   it: {
     translations: {
+      voiceCalls: {
+        settingsTab: "Chiamate sperimentali",
+        companySwitch: "Chiamate sperimentali",
+        enabled: "Attivate",
+        disabled: "Disattivate",
+        experimentalTitle: "Integrazione sperimentale delle chiamate",
+        warning:
+          "Integrazione WhatsApp non ufficiale. Esiste il rischio di disconnessione, sospensione o blocco. Usala solo nel tenant di test.",
+        serviceUnavailable:
+          "Il servizio chiamate non è al momento disponibile.",
+        riskConsent:
+          "Comprendo il rischio e voglio collegare un secondo dispositivo tramite codice QR.",
+        status: "Stato",
+        disconnect: "Disattiva e scollega",
+        pair: "Collega con codice QR",
+        noConnections:
+          "Crea prima una connessione WhatsApp per configurare le chiamate.",
+        qrInstruction:
+          "In WhatsApp, apri Dispositivi collegati e scansiona questo secondo codice QR.",
+        disconnectedSuccess: "Integrazione chiamate scollegata.",
+        incoming: "Chiamata in arrivo",
+        incomingHint: "Il primo operatore che accetta prenderà la chiamata.",
+        reject: "Rifiuta",
+        accept: "Rispondi",
+        active: "Chiamata in corso",
+        mute: "Disattiva microfono",
+        end: "Termina",
+        states: {
+          disconnected: "Disconnessa",
+          pairing: "In attesa del codice QR",
+          connecting: "Connessione",
+          open: "Connessa",
+          logged_out: "Scollegata"
+        },
+        errors: {
+          load: "Impossibile caricare le chiamate sperimentali.",
+          pair: "Impossibile generare il codice QR delle chiamate.",
+          action: "Impossibile completare l'azione di chiamata.",
+          microphone: "Il microfono è stato negato. La chiamata è terminata."
+        }
+      },
       common: {
         search: "Cerca",
         edit: "Modifica",

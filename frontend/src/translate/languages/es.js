@@ -1,6 +1,47 @@
 const messages = {
   es: {
     translations: {
+      voiceCalls: {
+        settingsTab: "Llamadas experimentales",
+        companySwitch: "Llamadas experimentales",
+        enabled: "Habilitadas",
+        disabled: "Deshabilitadas",
+        experimentalTitle: "Integración experimental de llamadas",
+        warning:
+          "Integración no oficial con WhatsApp. Existe riesgo de desconexión, suspensión o bloqueo. Úsala solo en el tenant de pruebas.",
+        serviceUnavailable:
+          "El servicio de llamadas no está disponible en este momento.",
+        riskConsent:
+          "Comprendo el riesgo y quiero vincular un segundo dispositivo mediante código QR.",
+        status: "Estado",
+        disconnect: "Apagar y desvincular",
+        pair: "Vincular con código QR",
+        noConnections:
+          "Crea primero una conexión de WhatsApp para configurar llamadas.",
+        qrInstruction:
+          "En WhatsApp, abre Dispositivos vinculados y escanea este segundo código QR.",
+        disconnectedSuccess: "Integración de llamadas desvinculada.",
+        incoming: "Llamada entrante",
+        incomingHint: "El primer agente que acepte atenderá la llamada.",
+        reject: "Rechazar",
+        accept: "Contestar",
+        active: "Llamada en curso",
+        mute: "Silenciar micrófono",
+        end: "Finalizar",
+        states: {
+          disconnected: "Desconectada",
+          pairing: "Esperando código QR",
+          connecting: "Conectando",
+          open: "Conectada",
+          logged_out: "Desvinculada"
+        },
+        errors: {
+          load: "No se pudieron cargar las llamadas experimentales.",
+          pair: "No se pudo generar el código QR de llamadas.",
+          action: "No se pudo completar la acción de llamada.",
+          microphone: "Se denegó el micrófono. La llamada fue finalizada."
+        }
+      },
       date: {
         yesterday: "Ayer"
       },

@@ -95,6 +95,16 @@ jobs:
           CI: "false"
           NODE_OPTIONS: --openssl-legacy-provider
 
+  wacalls:
+    name: WaCalls checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The image downloads a checksum-pinned upstream revision, applies the
+      # local security overlay and runs the full Go suite before compiling.
+      - run: docker build -t espaco-whats-wacalls-ci .
+        working-directory: wacalls
+
   compose:
     name: Production manifest check
     runs-on: ubuntu-latest
@@ -121,11 +131,17 @@ jobs:
           MCP_PRIVATE_KEY: ci-private-key
           MCP_PUBLIC_KEY: ci-public-key
           MCP_CURSOR_SECRET: ci-cursor
+          WACALLS_ENABLED: "true"
+          WACALLS_ALLOWED_COMPANY_IDS: "1"
+          WACALLS_INTERNAL_TOKEN: 000000000000000000000000000000000000000000000000
+          WACALLS_TOKEN_SECRET: 111111111111111111111111111111111111111111111111
+          WACALLS_PUBLIC_IP: 127.0.0.1
+          WACALLS_UDP_PORT_RANGE: 50000-50020
         run: docker compose -f docker-compose.dokploy.yml config --quiet
 
   release:
     name: Release approved commit
-    needs: [backend, frontend, compose]
+    needs: [backend, frontend, wacalls, compose]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     steps:

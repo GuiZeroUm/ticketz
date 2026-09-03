@@ -1,6 +1,46 @@
 const messages = {
   id: {
     translations: {
+      voiceCalls: {
+        settingsTab: "Panggilan eksperimental",
+        companySwitch: "Panggilan eksperimental",
+        enabled: "Diaktifkan",
+        disabled: "Dinonaktifkan",
+        experimentalTitle: "Integrasi panggilan eksperimental",
+        warning:
+          "Integrasi WhatsApp tidak resmi. Ada risiko terputus, ditangguhkan, atau diblokir. Gunakan hanya pada tenant pengujian.",
+        serviceUnavailable: "Layanan panggilan sedang tidak tersedia.",
+        riskConsent:
+          "Saya memahami risikonya dan ingin menautkan perangkat kedua dengan kode QR.",
+        status: "Status",
+        disconnect: "Matikan dan putuskan",
+        pair: "Tautkan dengan kode QR",
+        noConnections:
+          "Buat koneksi WhatsApp terlebih dahulu sebelum mengatur panggilan.",
+        qrInstruction:
+          "Di WhatsApp, buka Perangkat tertaut dan pindai kode QR kedua ini.",
+        disconnectedSuccess: "Integrasi panggilan telah diputus.",
+        incoming: "Panggilan masuk",
+        incomingHint: "Agen pertama yang menerima akan menangani panggilan.",
+        reject: "Tolak",
+        accept: "Jawab",
+        active: "Panggilan berlangsung",
+        mute: "Bisukan mikrofon",
+        end: "Akhiri",
+        states: {
+          disconnected: "Terputus",
+          pairing: "Menunggu kode QR",
+          connecting: "Menghubungkan",
+          open: "Terhubung",
+          logged_out: "Dilepas"
+        },
+        errors: {
+          load: "Panggilan eksperimental tidak dapat dimuat.",
+          pair: "Kode QR panggilan tidak dapat dibuat.",
+          action: "Tindakan panggilan tidak dapat diselesaikan.",
+          microphone: "Izin mikrofon ditolak. Panggilan diakhiri."
+        }
+      },
       common: {
         search: "Cari",
         edit: "Edit",
