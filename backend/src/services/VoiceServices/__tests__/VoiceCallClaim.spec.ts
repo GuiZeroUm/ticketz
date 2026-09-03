@@ -39,7 +39,7 @@ jest.mock("../WaCallsClient", () => ({
   }
 }));
 jest.mock("../VoiceHistoryService", () => ({
-  startVoiceHistory: jest.fn().mockResolvedValue(undefined),
+  startVoiceHistory: jest.fn(async call => call),
   finishVoiceHistory: jest.fn().mockResolvedValue(undefined)
 }));
 jest.mock("../VoiceArtifactService", () => ({

@@ -93,6 +93,11 @@ Atendimentos, vinculada ao contato, fila e atendente, sem enviar mensagem extern
 Ao término ela é fechada e aparece em Resolvidos com a duração. Se habilitados,
 gravação e transcrição são anexadas a esse mesmo histórico.
 
+A criação e o fechamento desse histórico usam bloqueio de linha e são
+idempotentes. Se o evento de encerramento coincidir com a criação do ticket, ou
+se o backend reiniciar nesse intervalo, a inicialização recupera chamadas aceitas
+com ticket ausente/aberto e conclui o fechamento sem duplicar a ocorrência.
+
 Estados persistidos: `ringing`, `accepted`, `rejected`, `missed`, `ended` e
 `failed`. São armazenados número, contato, atendimento, conexão, filas, atendente,
 horários, duração, estado dos artefatos e erro técnico.

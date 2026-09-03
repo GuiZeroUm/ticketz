@@ -1,4 +1,6 @@
 import moment from "moment";
+import { Op } from "sequelize";
+import sequelize from "../../database";
 import { getIO } from "../../libs/socket";
 import Ticket from "../../models/Ticket";
 import TicketTraking from "../../models/TicketTraking";
@@ -45,40 +47,61 @@ const emitVoiceTicketUpdate = (ticket: Ticket, oldStatus?: string): void => {
   });
 };
 
-export const startVoiceHistory = async (call: VoiceCall): Promise<void> => {
-  if (!call.contactId || call.ticketId) return;
-  const ticket = await Ticket.create({
-    contactId: call.contactId,
-    companyId: call.companyId,
-    queueId: call.queueId,
-    whatsappId: call.whatsappId,
-    userId: call.userId,
-    status: "open",
-    channel: "voice",
-    unreadMessages: 0,
-    lastMessage: "Ligação",
-    isGroup: false
+export const startVoiceHistory = async (
+  call: VoiceCall
+): Promise<VoiceCall> => {
+  let created = false;
+  const lockedCall = await sequelize.transaction(async transaction => {
+    const current = await VoiceCall.findByPk(call.id, {
+      transaction,
+      lock: transaction.LOCK.UPDATE
+    });
+    if (!current || !current.contactId || !current.acceptedAt) {
+      return current || call;
+    }
+    if (current.ticketId) return current;
+
+    const ticket = await Ticket.create(
+      {
+        contactId: current.contactId,
+        companyId: current.companyId,
+        queueId: current.queueId,
+        whatsappId: current.whatsappId,
+        userId: current.userId,
+        status: "open",
+        channel: "voice",
+        unreadMessages: 0,
+        lastMessage: "Ligação",
+        isGroup: false
+      },
+      { transaction }
+    );
+    const startedAt = current.acceptedAt;
+    await TicketTraking.create(
+      {
+        ticketId: ticket.id,
+        companyId: current.companyId,
+        whatsappId: current.whatsappId,
+        userId: current.userId,
+        queuedAt: current.startedAt,
+        startedAt,
+        waitTime: moment(startedAt).diff(moment(current.startedAt), "seconds")
+      },
+      { transaction }
+    );
+    await current.update({ ticketId: ticket.id }, { transaction });
+    created = true;
+    return current;
   });
-  const startedAt = call.acceptedAt || new Date();
-  await TicketTraking.create({
-    ticketId: ticket.id,
-    companyId: call.companyId,
-    whatsappId: call.whatsappId,
-    userId: call.userId,
-    queuedAt: call.startedAt,
-    startedAt,
-    waitTime: moment(startedAt).diff(moment(call.startedAt), "seconds")
-  });
-  await call.update({ ticketId: ticket.id });
-  await incrementCounter(call.companyId, "ticket-create");
-  await incrementCounter(call.companyId, "ticket-accept");
+
+  if (!lockedCall.contactId || !lockedCall.ticketId) return lockedCall;
   await CreateMessageService({
-    companyId: call.companyId,
+    companyId: lockedCall.companyId,
     messageData: {
-      id: voiceMessageId(call, "summary"),
-      ticketId: ticket.id,
-      contactId: call.contactId,
-      queueId: call.queueId,
+      id: voiceMessageId(lockedCall, "summary"),
+      ticketId: lockedCall.ticketId,
+      contactId: lockedCall.contactId,
+      queueId: lockedCall.queueId,
       channel: "voice",
       fromMe: true,
       read: true,
@@ -87,6 +110,11 @@ export const startVoiceHistory = async (call: VoiceCall): Promise<void> => {
       body: "📞 Ligação em andamento"
     }
   });
+  if (created) {
+    await incrementCounter(lockedCall.companyId, "ticket-create");
+    await incrementCounter(lockedCall.companyId, "ticket-accept");
+  }
+  return lockedCall;
 };
 
 export const finishVoiceHistory = async (call: VoiceCall): Promise<void> => {
@@ -116,19 +144,34 @@ export const finishVoiceHistory = async (call: VoiceCall): Promise<void> => {
   });
 
   const endedAt = call.endedAt || new Date();
-  const tracking = await TicketTraking.findOne({
-    where: { ticketId: ticket.id, finishedAt: null },
-    order: [["id", "DESC"]]
-  });
-  if (tracking) {
-    await tracking.update({
-      finishedAt: endedAt,
-      serviceTime: call.durationSeconds,
-      userId: call.userId
-    });
-  }
   const oldStatus = ticket.status;
-  await ticket.update({ status: "closed" });
+  let closedNow = false;
+  await sequelize.transaction(async transaction => {
+    const lockedTicket = await Ticket.findByPk(ticket.id, {
+      transaction,
+      lock: transaction.LOCK.UPDATE
+    });
+    if (!lockedTicket || lockedTicket.status === "closed") return;
+    const tracking = await TicketTraking.findOne({
+      where: { ticketId: ticket.id, finishedAt: null },
+      order: [["id", "DESC"]],
+      transaction,
+      lock: transaction.LOCK.UPDATE
+    });
+    if (tracking) {
+      await tracking.update(
+        {
+          finishedAt: endedAt,
+          serviceTime: call.durationSeconds,
+          userId: call.userId
+        },
+        { transaction }
+      );
+    }
+    await lockedTicket.update({ status: "closed" }, { transaction });
+    closedNow = true;
+  });
+  if (!closedNow) return;
   await incrementCounter(call.companyId, "ticket-close");
   const hydrated = await ShowTicketService(ticket.id, call.companyId);
   getIO()
@@ -140,6 +183,24 @@ export const finishVoiceHistory = async (call: VoiceCall): Promise<void> => {
       ticketId: ticket.id
     });
   emitVoiceTicketUpdate(hydrated, oldStatus);
+};
+
+export const recoverVoiceHistories = async (): Promise<void> => {
+  const calls = await VoiceCall.findAll({
+    where: {
+      acceptedAt: { [Op.not]: null },
+      state: { [Op.in]: ["ended", "failed", "rejected", "missed"] }
+    },
+    include: [{ model: Ticket, as: "ticket", required: false }],
+    order: [["id", "DESC"]],
+    limit: 500
+  });
+  await calls.reduce(async (previous, call) => {
+    await previous;
+    if (call.ticketId && call.ticket?.status === "closed") return;
+    const withTicket = await startVoiceHistory(call);
+    if (withTicket.ticketId) await finishVoiceHistory(withTicket);
+  }, Promise.resolve());
 };
 
 export { durationLabel, voiceMessageId };

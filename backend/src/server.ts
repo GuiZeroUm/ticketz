@@ -15,6 +15,7 @@ import {
   stopVoiceEventBridge
 } from "./services/VoiceServices/VoiceService";
 import { recoverPendingVoiceArtifacts } from "./services/VoiceServices/VoiceArtifactService";
+import { recoverVoiceHistories } from "./services/VoiceServices/VoiceHistoryService";
 
 // Environment Variable Validation
 if (!process.env.PORT) {
@@ -41,6 +42,9 @@ async function startServer() {
 
     startQueueProcess();
     startVoiceEventBridge();
+    await recoverVoiceHistories().catch(error =>
+      logger.error({ error }, "Unable to recover voice ticket histories")
+    );
     await recoverPendingVoiceArtifacts();
     logger.info(`Server started on port: ${process.env.PORT}`);
 

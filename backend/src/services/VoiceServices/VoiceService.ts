@@ -166,21 +166,33 @@ const finishCall = async (
   });
   const finished = result.finished || call;
   await finished.reload({ include: ["contact"] }).catch(() => undefined);
-  if (result.changed && finished.ticketId) {
-    await finishVoiceHistory(finished).catch(historyError =>
+  if (finished.acceptedAt) {
+    let historyReady = false;
+    try {
+      const withTicket = await startVoiceHistory(finished);
+      if (withTicket.ticketId) {
+        await finishVoiceHistory(withTicket);
+        historyReady = true;
+      }
+    } catch (historyError) {
       logger.error(
         { error: historyError, voiceCallId: finished.id },
         "Unable to finalize voice ticket history"
-      )
-    );
-    setImmediate(() => {
-      finalizeVoiceArtifacts(finished.id).catch(artifactError =>
-        logger.error(
-          { error: artifactError, voiceCallId: finished.id },
-          "Unable to finalize voice artifacts"
-        )
       );
-    });
+    }
+    if (
+      historyReady &&
+      (result.changed || finished.artifactStatus === "capturing")
+    ) {
+      setImmediate(() => {
+        finalizeVoiceArtifacts(finished.id).catch(artifactError =>
+          logger.error(
+            { error: artifactError, voiceCallId: finished.id },
+            "Unable to finalize voice artifacts"
+          )
+        );
+      });
+    }
   }
   await emitToUsers(
     finished.queueIds || [],
@@ -647,12 +659,15 @@ export const acceptVoiceCall = async (
   }
 
   await call.reload({ include: ["contact"] });
-  await startVoiceHistory(call).catch(historyError =>
+  try {
+    const withTicket = await startVoiceHistory(call);
+    Object.assign(call, withTicket.get ? withTicket.get() : withTicket);
+  } catch (historyError) {
     logger.error(
       { error: historyError, voiceCallId: call.id },
       "Unable to create voice ticket history"
-    )
-  );
+    );
+  }
 
   await emitToUsers(
     call.queueIds || [],
