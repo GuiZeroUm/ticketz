@@ -20,6 +20,7 @@ import { toast } from "react-toastify";
 import api from "../../services/api";
 import { SocketContext } from "../Socket/SocketContext";
 import { openVoiceWebRTC } from "../../helpers/voiceWebRTC";
+import { validVoiceCallId } from "../../helpers/voiceCallId";
 import { i18n } from "../../translate/i18n";
 
 export const VoiceCallContext = createContext({});
@@ -101,8 +102,11 @@ export function VoiceCallProvider({ children }) {
     const companyId = localStorage.getItem("companyId");
     if (!companyId) return undefined;
     const socket = socketManager.GetSocket(companyId);
-    const onIncoming = call => setIncoming(call);
+    const onIncoming = call => {
+      if (validVoiceCallId(call?.id)) setIncoming(call);
+    };
     const onUpdated = call => {
+      if (!validVoiceCallId(call?.id)) return;
       if (call.state === "accepted") {
         setIncoming(current => (current?.id === call.id ? null : current));
       }
@@ -111,6 +115,7 @@ export function VoiceCallProvider({ children }) {
       );
     };
     const onEnded = call => {
+      if (!validVoiceCallId(call?.id)) return;
       setIncoming(current => (current?.id === call.id ? null : current));
       if (activeIdRef.current === call.id) closeMedia();
     };
@@ -127,9 +132,15 @@ export function VoiceCallProvider({ children }) {
 
   const reject = async () => {
     if (!incoming) return;
+    const callId = validVoiceCallId(incoming.id);
+    if (!callId) {
+      setIncoming(null);
+      toast.error(i18n.t("voiceCalls.errors.action"));
+      return;
+    }
     setBusy(true);
     try {
-      await api.post(`/voice/calls/${incoming.id}/reject`);
+      await api.post(`/voice/calls/${callId}/reject`);
       setIncoming(null);
     } catch (error) {
       if (error.response?.status === 409) setIncoming(null);
@@ -142,14 +153,20 @@ export function VoiceCallProvider({ children }) {
   const accept = async () => {
     if (!incoming) return;
     const call = incoming;
+    const callId = validVoiceCallId(call.id);
+    if (!callId) {
+      setIncoming(null);
+      toast.error(i18n.t("voiceCalls.errors.action"));
+      return;
+    }
     setBusy(true);
     try {
-      const { data } = await api.post(`/voice/calls/${call.id}/accept`);
+      const { data } = await api.post(`/voice/calls/${callId}/accept`);
       setIncoming(null);
-      const media = await openVoiceWebRTC(call.id, data.mediaToken);
+      const media = await openVoiceWebRTC(callId, data.mediaToken);
       mediaRef.current = media;
-      activeIdRef.current = call.id;
-      setActive(data.call);
+      activeIdRef.current = callId;
+      setActive({ ...data.call, id: callId });
     } catch (error) {
       if (error.response?.status === 409) {
         setIncoming(null);
@@ -157,10 +174,10 @@ export function VoiceCallProvider({ children }) {
         error.name === "NotAllowedError" ||
         error.name === "PermissionDeniedError"
       ) {
-        await api.post(`/voice/calls/${call.id}/end`).catch(() => {});
+        await api.post(`/voice/calls/${callId}/end`).catch(() => {});
         toast.error(i18n.t("voiceCalls.errors.microphone"));
       } else {
-        await api.post(`/voice/calls/${call.id}/end`).catch(() => {});
+        await api.post(`/voice/calls/${callId}/end`).catch(() => {});
         toast.error(i18n.t("voiceCalls.errors.action"));
       }
     } finally {
@@ -170,9 +187,15 @@ export function VoiceCallProvider({ children }) {
 
   const end = async () => {
     if (!active) return;
+    const callId = validVoiceCallId(active.id);
+    if (!callId) {
+      closeMedia();
+      toast.error(i18n.t("voiceCalls.errors.action"));
+      return;
+    }
     setBusy(true);
     try {
-      await api.post(`/voice/calls/${active.id}/end`);
+      await api.post(`/voice/calls/${callId}/end`);
     } catch {
       toast.error(i18n.t("voiceCalls.errors.action"));
     } finally {

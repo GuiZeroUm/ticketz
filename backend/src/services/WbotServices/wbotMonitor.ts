@@ -12,6 +12,7 @@ import { _t } from "../TranslationServices/i18nService";
 import { Session } from "../../libs/wbot";
 import { cacheLayer } from "../../libs/cache";
 import { GetCompanySetting } from "../../helpers/CheckSettings";
+import { voiceEnabledForCompany } from "../VoiceServices/VoiceAccessService";
 
 const contactMutex = new Mutex();
 
@@ -25,6 +26,11 @@ const wbotMonitor = async (
       const content = node.content[0] as BinaryNode;
 
       if (content.tag === "terminate") {
+        // The experimental voice bridge owns the full call lifecycle for its
+        // allowlisted tenant. The legacy monitor must not send the historical
+        // "calls are disabled" auto-reply after a bridged call terminates.
+        if (await voiceEnabledForCompany(companyId)) return;
+
         const sendMsgCall = await GetCompanySetting(
           companyId,
           "call",

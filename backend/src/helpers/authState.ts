@@ -158,7 +158,16 @@ const authState = async (
           // eslint-disable-next-line no-restricted-syntax, guard-for-in
           for (const category in data) {
             if (category === "pre-key") {
-              logger.info({ category: data[category] }, "Setting pre-keys");
+              // Never log Signal key material. Even development/debug logs may
+              // be persisted by the deployment platform.
+              logger.debug(
+                {
+                  whatsappId,
+                  category,
+                  keyCount: Object.keys(data[category] || {}).length
+                },
+                "Setting WhatsApp keys"
+              );
             }
             // eslint-disable-next-line no-restricted-syntax, guard-for-in
             for (const id in data[category]) {
