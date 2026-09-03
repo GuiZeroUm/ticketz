@@ -1,6 +1,6 @@
-import { randomUUID } from "crypto";
 import fs from "fs";
 import path from "path";
+import { pipeline } from "stream/promises";
 import { Op } from "sequelize";
 import { GetCompanySetting } from "../../helpers/CheckSettings";
 import privateFiles from "../../config/privateFiles";
@@ -18,7 +18,7 @@ import { durationLabel, voiceMessageId } from "./VoiceHistoryService";
 import { waCallsClient } from "./WaCallsClient";
 
 type Speaker = "agent" | "customer";
-type LabeledSegment = {
+export type LabeledSegment = {
   start: number;
   end: number;
   speaker: string;
@@ -57,7 +57,7 @@ const hasAudiblePCM = (wav: Buffer): boolean => {
   return count > 0 && Math.sqrt(sum / count) > 0.002;
 };
 
-const speakerName = (
+export const voiceSpeakerName = (
   speaker: Speaker,
   contact: Contact,
   user: User
@@ -72,6 +72,21 @@ const timestamp = (seconds: number): string => {
   return `${String(Math.floor(safe / 60)).padStart(2, "0")}:${String(
     safe % 60
   ).padStart(2, "0")}`;
+};
+
+export const mergeVoiceTranscript = (
+  ...groups: LabeledSegment[][]
+): { segments: LabeledSegment[]; transcript: string } => {
+  const segments = groups.flat().sort((a, b) => a.start - b.start);
+  return {
+    segments,
+    transcript: segments
+      .map(
+        segment =>
+          `[${timestamp(segment.start)}] ${segment.speaker}: ${segment.text}`
+      )
+      .join("\n")
+  };
 };
 
 const providerCredentials = async (
@@ -153,11 +168,31 @@ const transcribeTrack = async (
   return output;
 };
 
-export const finalizeVoiceArtifacts = async (callId: number): Promise<void> => {
-  const call = await VoiceCall.findByPk(callId, {
+export const finalizeVoiceArtifacts = async (
+  callId: number,
+  recoverProcessing = false
+): Promise<void> => {
+  let call = await VoiceCall.findByPk(callId, {
     include: ["contact", "user", "voiceConnection"]
   });
   if (!call || (!call.recordingEnabled && !call.transcriptionEnabled)) return;
+  const claimableStatuses = recoverProcessing
+    ? ["capturing", "processing"]
+    : ["capturing"];
+  const [claimed] = await VoiceCall.update(
+    { artifactStatus: "processing", artifactError: null },
+    {
+      where: {
+        id: call.id,
+        artifactStatus: { [Op.in]: claimableStatuses }
+      }
+    }
+  );
+  if (claimed !== 1) return;
+  call = await VoiceCall.findByPk(callId, {
+    include: ["contact", "user", "voiceConnection"]
+  });
+  if (!call) return;
   const sessionId = call.voiceConnection?.sessionId;
   if (!sessionId || !call.ticketId) {
     await call.update({
@@ -167,24 +202,30 @@ export const finalizeVoiceArtifacts = async (callId: number): Promise<void> => {
     return;
   }
 
-  await call.update({ artifactStatus: "processing", artifactError: null });
   try {
     if (call.recordingEnabled) {
-      const recording = await waCallsClient.getCapture(
-        sessionId,
-        call.externalCallId,
-        "mixed"
-      );
       const relativeDir = path.join("voice", String(call.companyId));
       const absoluteDir = path.join(privateFiles.directory, relativeDir);
       await fs.promises.mkdir(absoluteDir, { recursive: true });
-      const filename = `${call.id}-${randomUUID()}.wav`;
+      const filename = `${call.id}.wav`;
       const relativePath = path.join(relativeDir, filename);
-      await fs.promises.writeFile(
-        path.join(absoluteDir, filename),
-        Uint8Array.from(recording),
-        { mode: 0o600 }
-      );
+      const absolutePath = path.join(absoluteDir, filename);
+      const temporaryPath = `${absolutePath}.part`;
+      try {
+        const recording = await waCallsClient.streamCapture(
+          sessionId,
+          call.externalCallId,
+          "mixed"
+        );
+        await pipeline(
+          recording,
+          fs.createWriteStream(temporaryPath, { mode: 0o600, flags: "w" })
+        );
+        await fs.promises.rename(temporaryPath, absolutePath);
+      } catch (error) {
+        await fs.promises.unlink(temporaryPath).catch(() => undefined);
+        throw error;
+      }
       await call.update({ recordingUrl: relativePath });
       await CreateMessageService({
         companyId: call.companyId,
@@ -211,7 +252,7 @@ export const finalizeVoiceArtifacts = async (callId: number): Promise<void> => {
           call,
           sessionId,
           "agent",
-          speakerName("agent", call.contact, call.user),
+          voiceSpeakerName("agent", call.contact, call.user),
           provider,
           apiKey
         ),
@@ -219,20 +260,15 @@ export const finalizeVoiceArtifacts = async (callId: number): Promise<void> => {
           call,
           sessionId,
           "customer",
-          speakerName("customer", call.contact, call.user),
+          voiceSpeakerName("customer", call.contact, call.user),
           provider,
           apiKey
         )
       ]);
-      const segments = [...agentSegments, ...customerSegments].sort(
-        (a, b) => a.start - b.start
+      const { segments, transcript } = mergeVoiceTranscript(
+        agentSegments,
+        customerSegments
       );
-      const transcript = segments
-        .map(
-          segment =>
-            `[${timestamp(segment.start)}] ${segment.speaker}: ${segment.text}`
-        )
-        .join("\n");
       await call.update({
         transcript,
         transcriptSegments: segments,
@@ -289,7 +325,7 @@ export const recoverPendingVoiceArtifacts = async (): Promise<void> => {
   });
   pending.forEach(call => {
     setImmediate(() => {
-      finalizeVoiceArtifacts(call.id).catch(error =>
+      finalizeVoiceArtifacts(call.id, true).catch(error =>
         logger.error(
           { voiceCallId: call.id, error: error?.message },
           "Unable to recover pending voice artifacts"

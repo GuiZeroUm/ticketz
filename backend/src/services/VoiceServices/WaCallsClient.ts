@@ -1,5 +1,6 @@
 import axios, { AxiosInstance } from "axios";
 import { readFileSync } from "fs";
+import { Readable } from "stream";
 import AppError from "../../errors/AppError";
 
 const internalToken = (): string => {
@@ -155,6 +156,19 @@ class WaCallsClient {
       }
     );
     return Buffer.from(data);
+  }
+
+  async streamCapture(
+    sessionId: string,
+    callId: string,
+    track: "agent" | "customer" | "mixed"
+  ): Promise<Readable> {
+    this.assertConfigured();
+    const { data } = await this.http.get(
+      `/api/sessions/${encodeURIComponent(sessionId)}/calls/${encodeURIComponent(callId)}/capture/${track}`,
+      { responseType: "stream", timeout: 120000 }
+    );
+    return data as Readable;
   }
 
   async deleteCapture(sessionId: string, callId: string): Promise<void> {

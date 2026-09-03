@@ -36,7 +36,7 @@ import { i18n } from "../../translate/i18n";
 
 export const VoiceCallContext = createContext({});
 
-const CallIdentity = ({ call }) => {
+export const CallIdentity = ({ call }) => {
   const name = call?.contactName || call?.number || "-";
   return (
     <>
@@ -48,7 +48,7 @@ const CallIdentity = ({ call }) => {
   );
 };
 
-const DraggableCallCard = ({
+export const DraggableCallCard = ({
   active,
   duration,
   muted,
@@ -145,15 +145,17 @@ const DraggableCallCard = ({
   );
 };
 
-const ActiveCallCard = props => {
+export const accumulateDragPosition = (position, delta) => ({
+  x: position.x + delta.x,
+  y: position.y + delta.y
+});
+
+export const ActiveCallCard = props => {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   return (
     <DndContext
       onDragEnd={({ delta }) =>
-        setPosition(previous => ({
-          x: previous.x + delta.x,
-          y: previous.y + delta.y
-        }))
+        setPosition(previous => accumulateDragPosition(previous, delta))
       }
     >
       <DraggableCallCard {...props} position={position} />

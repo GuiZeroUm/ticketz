@@ -52,7 +52,11 @@ duas horas de áudio faturável (um canal por participante).
 
 O processamento acontece depois do encerramento da ligação. Se o backend reiniciar
 nesse intervalo, itens que estavam em captura ou processamento são retomados na
-inicialização.
+inicialização. A gravação mista é transferida diretamente para um arquivo privado
+temporário e promovida por renomeação atômica quando termina; assim, uma ligação
+longa não precisa ser mantida inteira na memória. Antes de iniciar, o backend
+também reivindica o artefato por atualização atômica no banco, evitando cobrança
+duplicada da Groq quando eventos de encerramento chegam quase ao mesmo tempo.
 
 ## Otimização de capacidade
 
