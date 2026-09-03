@@ -103,7 +103,9 @@ export function VoiceCallProvider({ children }) {
     if (!companyId) return undefined;
     const socket = socketManager.GetSocket(companyId);
     const onIncoming = call => {
-      if (validVoiceCallId(call?.id)) setIncoming(call);
+      if (validVoiceCallId(call?.id) && !activeIdRef.current) {
+        setIncoming(call);
+      }
     };
     const onUpdated = call => {
       if (!validVoiceCallId(call?.id)) return;
@@ -160,14 +162,24 @@ export function VoiceCallProvider({ children }) {
       return;
     }
     setBusy(true);
+    let accepted = false;
     try {
       const { data } = await api.post(`/voice/calls/${callId}/accept`);
+      accepted = true;
       setIncoming(null);
-      const media = await openVoiceWebRTC(callId, data.mediaToken);
-      mediaRef.current = media;
       activeIdRef.current = callId;
       setActive({ ...data.call, id: callId });
+      const media = await openVoiceWebRTC(callId, data.mediaToken);
+      if (activeIdRef.current !== callId) {
+        media.close();
+        return;
+      }
+      mediaRef.current = media;
     } catch (error) {
+      // The peer may hang up while getUserMedia/ICE is still being prepared.
+      // The voice:ended event clears the active id; that race is a normal end,
+      // not an action failure that should trigger another request or toast.
+      if (accepted && activeIdRef.current !== callId) return;
       if (error.response?.status === 409) {
         setIncoming(null);
       } else if (
@@ -180,6 +192,7 @@ export function VoiceCallProvider({ children }) {
         await api.post(`/voice/calls/${callId}/end`).catch(() => {});
         toast.error(i18n.t("voiceCalls.errors.action"));
       }
+      if (activeIdRef.current === callId) closeMedia();
     } finally {
       setBusy(false);
     }
