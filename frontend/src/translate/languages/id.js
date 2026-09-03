@@ -26,6 +26,8 @@ const messages = {
         accept: "Jawab",
         active: "Panggilan berlangsung",
         mute: "Bisukan mikrofon",
+        transcribe: "Transkripsikan panggilan",
+        record: "Rekam panggilan",
         end: "Akhiri",
         states: {
           disconnected: "Terputus",
@@ -38,6 +40,8 @@ const messages = {
           load: "Panggilan eksperimental tidak dapat dimuat.",
           pair: "Kode QR panggilan tidak dapat dibuat.",
           action: "Tindakan panggilan tidak dapat diselesaikan.",
+          transcriptionConfig:
+            "Atur GROQ_API_KEY di environment untuk mengaktifkan transkripsi.",
           microphone: "Izin mikrofon ditolak. Panggilan diakhiri."
         }
       },

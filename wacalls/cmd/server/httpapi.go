@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/subtle"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"os"
 	"strings"
@@ -28,6 +29,9 @@ func (s *server) routes(internalToken string) http.Handler {
 	mux.HandleFunc("POST /api/sessions/{sid}/calls/{id}/webrtc", s.handleWebRTC)
 	mux.HandleFunc("POST /api/sessions/{sid}/calls/{id}/accept", s.handleAccept)
 	mux.HandleFunc("POST /api/sessions/{sid}/calls/{id}/reject", s.handleReject)
+	mux.HandleFunc("POST /api/sessions/{sid}/calls/{id}/capture", s.handleCapture)
+	mux.HandleFunc("GET /api/sessions/{sid}/calls/{id}/capture/{track}", s.handleCaptureDownload)
+	mux.HandleFunc("DELETE /api/sessions/{sid}/calls/{id}/capture", s.handleCaptureDelete)
 	mux.HandleFunc("DELETE /api/sessions/{sid}/calls/{id}", s.handleEndCall)
 	mux.HandleFunc("GET /api/sessions/{sid}/history", s.handleHistory)
 
@@ -174,6 +178,55 @@ func (s *server) handleEndCall(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *server) handleCapture(w http.ResponseWriter, r *http.Request) {
+	if sess := s.sessionByID(w, r.PathValue("sid")); sess != nil {
+		id := r.PathValue("id")
+		ac, ok := sess.reg.get(id)
+		if !ok {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "no such call"})
+			return
+		}
+		var body struct {
+			Enabled bool `json:"enabled"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid body"})
+			return
+		}
+		if body.Enabled {
+			if err := ac.startRecorder(sess.id, id); err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+				return
+			}
+		} else {
+			ac.stopRecorder(true)
+		}
+		writeJSON(w, http.StatusOK, map[string]bool{"enabled": body.Enabled})
+	}
+}
+
+func (s *server) handleCaptureDownload(w http.ResponseWriter, r *http.Request) {
+	if sess := s.sessionByID(w, r.PathValue("sid")); sess != nil {
+		if err := serveCallRecording(w, r, sess.id, r.PathValue("id"), r.PathValue("track")); err != nil {
+			if !errors.Is(err, os.ErrNotExist) {
+				s.log.Warn("recording download failed", "err", err)
+			}
+			http.Error(w, "recording unavailable", http.StatusNotFound)
+		}
+	}
+}
+
+func (s *server) handleCaptureDelete(w http.ResponseWriter, r *http.Request) {
+	if sess := s.sessionByID(w, r.PathValue("sid")); sess != nil {
+		if ac, ok := sess.reg.get(r.PathValue("id")); ok {
+			ac.stopRecorder(true)
+		} else {
+			removeCallRecording(sess.id, r.PathValue("id"))
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
 func (s *server) handleHistory(w http.ResponseWriter, r *http.Request) {
 	if sess := s.sessionByID(w, r.PathValue("sid")); sess != nil {
 		writeJSON(w, http.StatusOK, map[string]any{"rows": s.broker.historyRows(sess.id, 50)})
@@ -238,6 +291,7 @@ func (s *server) doWebRTC(sess *Session, w http.ResponseWriter, r *http.Request)
 	}
 
 	bridge.OnBrowserPCM = func(pcm []float32) {
+		ac.writeAgentPCM(pcm)
 		ac.cm.FeedCapturedPCM(pcm)
 	}
 	bridge.OnTerminalICE = func() {

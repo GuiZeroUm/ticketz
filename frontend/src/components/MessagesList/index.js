@@ -64,6 +64,37 @@ import { Mutex } from "async-mutex";
 
 const loadPageMutex = new Mutex();
 
+const VoiceRecordingPlayer = ({ message }) => {
+  const [source, setSource] = useState("");
+  const callId = /^voice-(\d+)-recording$/.exec(message.id)?.[1];
+
+  useEffect(() => {
+    if (!callId) return undefined;
+    let active = true;
+    let objectUrl = "";
+    api
+      .get(`/voice/calls/${callId}/recording`, { responseType: "blob" })
+      .then(({ data }) => {
+        if (!active) return;
+        objectUrl = URL.createObjectURL(data);
+        setSource(objectUrl);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [callId]);
+
+  return source ? (
+    <audio controls preload="metadata">
+      <source src={source} type="audio/wav" />
+    </audio>
+  ) : (
+    <CircularProgress size={20} />
+  );
+};
+
 const useStyles = makeStyles(theme => ({
   messageContainer: {
     "& a": {
@@ -1033,6 +1064,9 @@ const MessagesList = ({ ticket, ticketId, isGroup, markAsRead, readOnly }) => {
   };
 
   const checkMessageMedia = (message, data, isSticker = false) => {
+    if (message.mediaType === "voice_recording") {
+      return <VoiceRecordingPlayer message={message} />;
+    }
     const document =
       data?.message?.documentMessage ||
       data?.message?.documentWithCaptionMessage?.message?.documentMessage;
@@ -1083,10 +1117,13 @@ const MessagesList = ({ ticket, ticketId, isGroup, markAsRead, readOnly }) => {
       );
     }
     if (!document && message.mediaType === "audio") {
+      const audioType = (message.mediaUrl || "").toLowerCase().includes(".wav")
+        ? "audio/wav"
+        : "audio/ogg";
       return (
         <>
           <audio className={classes.audioBottom} controls>
-            <source src={message.mediaUrl} type="audio/ogg"></source>
+            <source src={message.mediaUrl} type={audioType}></source>
           </audio>
           {message.body && !["🔊", "Áudio"].includes(message.body) && (
             <div className={classes.mediaDescription}>{message.body}</div>
@@ -1911,7 +1948,7 @@ const MessagesList = ({ ticket, ticketId, isGroup, markAsRead, readOnly }) => {
                   </span>
                 </div>
               )}
-              {message.mediaUrl &&
+              {(message.mediaUrl || message.mediaType === "voice_recording") &&
                 !data?.message?.extendedTextMessage &&
                 checkMessageMedia(message, data, isSticker)}
               {renderButtons(data?.message)}
@@ -2009,7 +2046,8 @@ const MessagesList = ({ ticket, ticketId, isGroup, markAsRead, readOnly }) => {
                   {renderMessageAck(message)}
                 </span>
               </div>
-              {message.mediaUrl && checkMessageMedia(message, data, isSticker)}
+              {(message.mediaUrl || message.mediaType === "voice_recording") &&
+                checkMessageMedia(message, data, isSticker)}
               {renderReplies(message.replies)}
               {messageError && (
                 <div

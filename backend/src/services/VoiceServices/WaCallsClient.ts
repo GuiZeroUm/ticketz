@@ -123,6 +123,47 @@ class WaCallsClient {
     return String(data.sdp_answer);
   }
 
+  async setCapture(
+    sessionId: string,
+    callId: string,
+    enabled: boolean
+  ): Promise<void> {
+    this.assertConfigured();
+    await this.http.post(
+      `/api/sessions/${encodeURIComponent(sessionId)}/calls/${encodeURIComponent(callId)}/capture`,
+      { enabled }
+    );
+  }
+
+  async getCapture(
+    sessionId: string,
+    callId: string,
+    track: "agent" | "customer" | "mixed",
+    offsetMs?: number,
+    durationMs?: number
+  ): Promise<Buffer> {
+    this.assertConfigured();
+    const { data } = await this.http.get(
+      `/api/sessions/${encodeURIComponent(sessionId)}/calls/${encodeURIComponent(callId)}/capture/${track}`,
+      {
+        responseType: "arraybuffer",
+        timeout: 120000,
+        params: {
+          ...(offsetMs === undefined ? {} : { offset_ms: offsetMs }),
+          ...(durationMs === undefined ? {} : { duration_ms: durationMs })
+        }
+      }
+    );
+    return Buffer.from(data);
+  }
+
+  async deleteCapture(sessionId: string, callId: string): Promise<void> {
+    this.assertConfigured();
+    await this.http.delete(
+      `/api/sessions/${encodeURIComponent(sessionId)}/calls/${encodeURIComponent(callId)}/capture`
+    );
+  }
+
   async openEventStream(
     onEvent: (event: WaCallsEvent) => Promise<void>,
     onDisconnect: () => void

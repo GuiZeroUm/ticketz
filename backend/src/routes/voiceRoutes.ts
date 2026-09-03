@@ -24,6 +24,12 @@ voiceRoutes.post(
   voiceConnectionLimiter,
   VoiceController.pair
 );
+voiceRoutes.get(
+  "/voice/calls/:callId/recording",
+  isAuth,
+  voiceActionLimiter,
+  VoiceController.recording
+);
 voiceRoutes.delete(
   "/voice/connections/:whatsappId",
   isAuth,
@@ -48,6 +54,12 @@ voiceRoutes.post(
   isAuth,
   voiceActionLimiter,
   VoiceController.end
+);
+voiceRoutes.post(
+  "/voice/calls/:callId/artifact",
+  isAuth,
+  voiceActionLimiter,
+  VoiceController.artifact
 );
 voiceRoutes.post(
   "/voice/calls/:callId/webrtc",

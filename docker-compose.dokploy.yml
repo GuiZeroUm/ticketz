@@ -68,6 +68,8 @@ services:
       WACALLS_INTERNAL_TOKEN: ${WACALLS_INTERNAL_TOKEN:-}
       WACALLS_INTERNAL_TOKEN_FILE: /run/secrets/wacalls_internal_token
       WACALLS_ALLOWED_ORIGIN: ""
+      GOGC: ${WACALLS_GOGC:-100}
+      GOMEMLIMIT: ${WACALLS_GOMEMLIMIT:-1536MiB}
     volumes:
       - wacalls_data:/data
     secrets:
@@ -144,6 +146,9 @@ services:
       WACALLS_INTERNAL_TOKEN_FILE: /run/secrets/wacalls_internal_token
       WACALLS_TOKEN_SECRET: ${WACALLS_TOKEN_SECRET:-}
       WACALLS_TOKEN_SECRET_FILE: /run/secrets/wacalls_media_token_secret
+      VOICE_TRANSCRIPTION_PROVIDER: ${VOICE_TRANSCRIPTION_PROVIDER:-groq}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     volumes:
       - backend_public:/usr/src/app/public
       - backend_private:/usr/src/app/private

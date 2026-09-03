@@ -14,6 +14,7 @@ import {
   startVoiceEventBridge,
   stopVoiceEventBridge
 } from "./services/VoiceServices/VoiceService";
+import { recoverPendingVoiceArtifacts } from "./services/VoiceServices/VoiceArtifactService";
 
 // Environment Variable Validation
 if (!process.env.PORT) {
@@ -40,6 +41,7 @@ async function startServer() {
 
     startQueueProcess();
     startVoiceEventBridge();
+    await recoverPendingVoiceArtifacts();
     logger.info(`Server started on port: ${process.env.PORT}`);
 
     try {

@@ -19,13 +19,55 @@ não é publicada.
 - Todos os endpoints públicos passam pela autenticação do Ticketz, lista de
   permissão de tenant e limites de requisições.
 - CORS direto para o WaCalls é bloqueado. O QR só é entregue a administradores.
-- Somente metadados são gravados em `VoiceCalls`; áudio não é gravado.
+- Gravação e transcrição são desligadas por padrão e só começam quando o
+  atendente aciona o respectivo botão durante uma chamada.
+- As gravações ficam no volume privado do backend e são entregues apenas por
+  endpoint autenticado. Elas não são enviadas ao WhatsApp.
 
 Os arquivos operacionais ficam em `/etc/dokploy/secrets`:
 
 - `espaco_whats_wacalls.env`: flag global, empresa permitida, IP e faixa UDP;
 - `espaco_whats_wacalls_internal_token`: autenticação entre serviços;
 - `espaco_whats_wacalls_media_token_secret`: assinatura dos tokens curtos.
+
+Para transcrição de chamadas, configure no ambiente do Compose/Dokploy:
+
+- `GROQ_API_KEY`: chave criada no console da Groq;
+- `VOICE_TRANSCRIPTION_PROVIDER=groq` (é o padrão);
+- opcionalmente, `OPENAI_API_KEY` e
+  `VOICE_TRANSCRIPTION_PROVIDER=openai` para usar a alternativa.
+
+`GROQ_API_KEY` é lida somente do ambiente do backend: ela não deve ser gravada
+em configurações de tenant, logs ou Git. A chave `openAiKey` já existente não é
+reutilizada para a Groq.
+
+O backend usa `whisper-large-v3-turbo`, áudio WAV mono a 16 kHz e resposta
+`verbose_json`. Os canais do atendente e do cliente são transcritos separadamente
+e depois intercalados pelos timestamps; assim, os nomes não dependem de
+diarização probabilística. Como a Groq considera apenas a primeira faixa de um
+arquivo, essa separação também evita perder um dos participantes. No tier gratuito,
+os blocos de cinco minutos permanecem abaixo de 25 MB e as solicitações passam por
+uma fila de cadência para respeitar 20 RPM. Uma hora de conversa pode consumir até
+duas horas de áudio faturável (um canal por participante).
+
+O processamento acontece depois do encerramento da ligação. Se o backend reiniciar
+nesse intervalo, itens que estavam em captura ou processamento são retomados na
+inicialização.
+
+## Otimização de capacidade
+
+O AudioWorklet agrupa os blocos nativos de 128 amostras em quadros de 960
+amostras (60 ms), reduzindo em 7,5 vezes o número de mensagens e conversões entre
+navegador e WaCalls. O encoder reutiliza o buffer de saneamento, elimina uma cópia
+por quadro e usa uma área de trabalho única na FFT recursiva. No benchmark sintético
+do encoder, esta última alteração reduziu as alocações de aproximadamente 3.618 para
+1.731 por quadro (52%) e os bytes alocados de aproximadamente 1,62 MB para 1,28 MB
+(21%). O tempo observado permaneceu na mesma faixa em host compartilhado; o ganho
+real de CPU ainda deve ser confirmado com chamadas simultâneas.
+
+`GOMEMLIMIT` fica explicitamente limitado, mas `GOGC` permanece em 100 por padrão:
+o ensaio isolado não confirmou vantagem estável para 200. Escala horizontal em
+workers de voz continua sendo a etapa seguinte antes de liberar muitos tenants.
 
 ## Fluxo funcional
 
@@ -37,9 +79,15 @@ protegido por transação e bloqueio de linha; os demais recebem conflito e para
 tocar. Após 30 segundos, ou sem atendente online, a chamada vira `missed` e é
 recusada no upstream.
 
+Ao atender, o sistema resolve o LID/número contra os contatos existentes; quando
+não encontra, cria o contato. Uma ocorrência com canal `voice` é criada em
+Atendimentos, vinculada ao contato, fila e atendente, sem enviar mensagem externa.
+Ao término ela é fechada e aparece em Resolvidos com a duração. Se habilitados,
+gravação e transcrição são anexadas a esse mesmo histórico.
+
 Estados persistidos: `ringing`, `accepted`, `rejected`, `missed`, `ended` e
-`failed`. São armazenados número, conexão, filas, atendente, horários, duração e
-erro técnico.
+`failed`. São armazenados número, contato, atendimento, conexão, filas, atendente,
+horários, duração, estado dos artefatos e erro técnico.
 
 ## Verificação do piloto
 
@@ -53,6 +101,10 @@ Antes de expandir, executar e registrar:
 6. Tentativa pelo tenant não permitido; deve retornar `403`.
 7. Uma chamada contínua de 30 minutos.
 8. Envio e recebimento de mensagens antes e depois dos testes.
+9. Nome de contato conhecido e criação de um contato ainda desconhecido.
+10. Histórico `Ligação` em aberto e fechamento em Resolvidos, sem mensagem no celular.
+11. Gravação privada e transcrição Groq com os dois participantes identificados.
+12. Arrastar o cartão da chamada e continuar usando as demais telas.
 
 Monitorar `docker stats`, saúde dos containers, eventos `failed`, chamadas perdidas,
 desconexões e relatos de áudio. A expansão fica bloqueada se desconexões superarem

@@ -26,6 +26,8 @@ const messages = {
         accept: "Annehmen",
         active: "Laufender Anruf",
         mute: "Mikrofon stummschalten",
+        transcribe: "Anruf transkribieren",
+        record: "Anruf aufzeichnen",
         end: "Beenden",
         states: {
           disconnected: "Getrennt",
@@ -38,6 +40,8 @@ const messages = {
           load: "Experimentelle Anrufe konnten nicht geladen werden.",
           pair: "Der Anruf-QR-Code konnte nicht erstellt werden.",
           action: "Die Anrufaktion konnte nicht abgeschlossen werden.",
+          transcriptionConfig:
+            "Setzen Sie GROQ_API_KEY in der Umgebung, um die Transkription zu aktivieren.",
           microphone:
             "Der Mikrofonzugriff wurde verweigert. Der Anruf wurde beendet."
         }

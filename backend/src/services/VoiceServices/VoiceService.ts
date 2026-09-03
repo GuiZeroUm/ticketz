@@ -19,6 +19,12 @@ import {
 } from "./VoiceAccessService";
 import { clearVoiceQR, setVoiceQR, waitForVoiceQR } from "./VoiceRuntimeStore";
 import { WaCallsEvent, waCallsClient } from "./WaCallsClient";
+import { resolveVoiceContact } from "./VoiceContactService";
+import { finishVoiceHistory, startVoiceHistory } from "./VoiceHistoryService";
+import {
+  assertVoiceTranscriptionConfigured,
+  finalizeVoiceArtifacts
+} from "./VoiceArtifactService";
 
 type RequestUser = {
   id: string | number;
@@ -67,6 +73,8 @@ const serializeConnection = (connection: VoiceConnection) => ({
 const callPayload = (call: VoiceCall) => ({
   id: call.id,
   number: call.number,
+  contactId: call.contactId,
+  contactName: call.contact?.name || call.number,
   whatsappId: call.whatsappId,
   queueId: call.queueId,
   queueIds: call.queueIds || [],
@@ -76,7 +84,10 @@ const callPayload = (call: VoiceCall) => ({
   acceptedAt: call.acceptedAt,
   endedAt: call.endedAt,
   durationSeconds: call.durationSeconds,
-  error: call.error
+  error: call.error,
+  recordingEnabled: Boolean(call.recordingEnabled),
+  transcriptionEnabled: Boolean(call.transcriptionEnabled),
+  artifactStatus: call.artifactStatus
 });
 
 const queueIdsForWhatsapp = async (whatsappId: number): Promise<number[]> => {
@@ -127,25 +138,57 @@ const finishCall = async (
   const timer = missedTimers.get(call.id);
   if (timer) clearTimeout(timer);
   missedTimers.delete(call.id);
-  const durationSeconds = call.acceptedAt
-    ? Math.max(
-        0,
-        Math.floor((now.getTime() - call.acceptedAt.getTime()) / 1000)
-      )
-    : 0;
-  await call.update({
-    state,
-    endedAt: now,
-    durationSeconds,
-    error: error || null
+  const result = await sequelize.transaction(async transaction => {
+    const locked = await VoiceCall.findByPk(call.id, {
+      transaction,
+      lock: transaction.LOCK.UPDATE
+    });
+    if (!locked) return { finished: null, changed: false };
+    if (["ended", "failed", "missed", "rejected"].includes(locked.state)) {
+      return { finished: locked, changed: false };
+    }
+    const durationSeconds = locked.acceptedAt
+      ? Math.max(
+          0,
+          Math.floor((now.getTime() - locked.acceptedAt.getTime()) / 1000)
+        )
+      : 0;
+    await locked.update(
+      {
+        state,
+        endedAt: now,
+        durationSeconds,
+        error: error || null
+      },
+      { transaction }
+    );
+    return { finished: locked, changed: true };
   });
+  const finished = result.finished || call;
+  await finished.reload({ include: ["contact"] }).catch(() => undefined);
+  if (result.changed && finished.ticketId) {
+    await finishVoiceHistory(finished).catch(historyError =>
+      logger.error(
+        { error: historyError, voiceCallId: finished.id },
+        "Unable to finalize voice ticket history"
+      )
+    );
+    setImmediate(() => {
+      finalizeVoiceArtifacts(finished.id).catch(artifactError =>
+        logger.error(
+          { error: artifactError, voiceCallId: finished.id },
+          "Unable to finalize voice artifacts"
+        )
+      );
+    });
+  }
   await emitToUsers(
-    call.queueIds || [],
+    finished.queueIds || [],
     "voice:ended",
-    callPayload(call),
-    call.userId
+    callPayload(finished),
+    finished.userId
   );
-  return call;
+  return finished;
 };
 
 const rejectUpstream = async (call: VoiceCall): Promise<void> => {
@@ -215,9 +258,10 @@ const handleIncoming = async (event: WaCallsEvent): Promise<void> => {
       state: { [Op.in]: ["ringing", "accepted"] }
     }
   });
-  const number = String(event.peer || "")
-    .split("@")[0]
-    .replace(/\D/g, "");
+  const { contact, peer } = await resolveVoiceContact(
+    connection.companyId,
+    event.peer
+  );
   const call = await VoiceCall.create({
     externalCallId: event.id,
     companyId: connection.companyId,
@@ -225,12 +269,14 @@ const handleIncoming = async (event: WaCallsEvent): Promise<void> => {
     whatsappId: connection.whatsappId,
     queueId: queueIds[0] || null,
     queueIds,
-    number,
+    contactId: contact.id,
+    number: peer.number,
     direction: "inbound",
     state: "ringing",
     startedAt: new Date(event.offeredAt || event.startedAt || Date.now()),
     durationSeconds: 0
   });
+  call.contact = contact;
 
   const onlineUsers = await onlineEligibleUserIds(queueIds);
   if (activeCalls >= 2 || onlineUsers.length === 0) {
@@ -294,7 +340,8 @@ const handleSessionList = async (event: WaCallsEvent): Promise<void> => {
 const handleCallStatus = async (event: WaCallsEvent): Promise<void> => {
   if (!event.id) return;
   const call = await VoiceCall.findOne({
-    where: { externalCallId: event.id }
+    where: { externalCallId: event.id },
+    include: ["contact"]
   });
   if (!call) return;
   if (event.status === "connected" && call.state === "accepted") {
@@ -310,7 +357,8 @@ const handleCallStatus = async (event: WaCallsEvent): Promise<void> => {
 const handleCallEnded = async (event: WaCallsEvent): Promise<void> => {
   if (!event.id) return;
   const call = await VoiceCall.findOne({
-    where: { externalCallId: event.id }
+    where: { externalCallId: event.id },
+    include: ["contact"]
   });
   if (!call || ["ended", "failed", "missed", "rejected"].includes(call.state)) {
     return;
@@ -598,6 +646,14 @@ export const acceptVoiceCall = async (
     throw new AppError("ERR_VOICE_SERVICE_UNAVAILABLE", 503);
   }
 
+  await call.reload({ include: ["contact"] });
+  await startVoiceHistory(call).catch(historyError =>
+    logger.error(
+      { error: historyError, voiceCallId: call.id },
+      "Unable to create voice ticket history"
+    )
+  );
+
   await emitToUsers(
     call.queueIds || [],
     "voice:updated",
@@ -676,6 +732,70 @@ export const endVoiceCall = async (
     }
   }
   await finishCall(call, "ended");
+  return callPayload(call);
+};
+
+export const setVoiceCallArtifactOption = async (
+  callId: number,
+  requestUser: RequestUser,
+  kind: unknown,
+  enabled: unknown
+) => {
+  await assertVoiceEnabled(requestUser.companyId);
+  if (
+    !["recording", "transcription"].includes(String(kind)) ||
+    typeof enabled !== "boolean"
+  ) {
+    throw new AppError("ERR_VOICE_INVALID_ARTIFACT_OPTION", 422);
+  }
+  if (kind === "transcription" && enabled) {
+    try {
+      await assertVoiceTranscriptionConfigured(requestUser.companyId);
+    } catch {
+      throw new AppError("ERR_VOICE_TRANSCRIPTION_NOT_CONFIGURED", 422);
+    }
+  }
+  const call = await VoiceCall.findOne({
+    where: { id: callId, companyId: requestUser.companyId },
+    include: ["contact"]
+  });
+  if (!call) throw new AppError("ERR_VOICE_CALL_NOT_FOUND", 404);
+  const user = await User.findByPk(requestUser.id, { attributes: ["profile"] });
+  if (call.userId !== Number(requestUser.id) && user?.profile !== "admin") {
+    throw new AppError("ERR_VOICE_CALL_FORBIDDEN", 403);
+  }
+  if (call.state !== "accepted") {
+    throw new AppError("ERR_VOICE_CALL_NOT_ACTIVE", 409);
+  }
+  const nextRecording =
+    kind === "recording" ? enabled : Boolean(call.recordingEnabled);
+  const nextTranscription =
+    kind === "transcription" ? enabled : Boolean(call.transcriptionEnabled);
+  const wasCapturing = call.recordingEnabled || call.transcriptionEnabled;
+  const willCapture = nextRecording || nextTranscription;
+  const connection = await VoiceConnection.findByPk(call.voiceConnectionId);
+  if (!connection?.sessionId) {
+    throw new AppError("ERR_VOICE_SERVICE_UNAVAILABLE", 503);
+  }
+  if (wasCapturing !== willCapture) {
+    await waCallsClient.setCapture(
+      connection.sessionId,
+      call.externalCallId,
+      willCapture
+    );
+  }
+  await call.update({
+    recordingEnabled: nextRecording,
+    transcriptionEnabled: nextTranscription,
+    artifactStatus: willCapture ? "capturing" : null,
+    artifactError: null
+  });
+  await emitToUsers(
+    call.queueIds || [],
+    "voice:updated",
+    callPayload(call),
+    call.userId
+  );
   return callPayload(call);
 };
 

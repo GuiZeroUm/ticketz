@@ -38,6 +38,17 @@ jest.mock("../WaCallsClient", () => ({
     acceptCall: jest.fn().mockResolvedValue(undefined)
   }
 }));
+jest.mock("../VoiceHistoryService", () => ({
+  startVoiceHistory: jest.fn().mockResolvedValue(undefined),
+  finishVoiceHistory: jest.fn().mockResolvedValue(undefined)
+}));
+jest.mock("../VoiceArtifactService", () => ({
+  assertVoiceTranscriptionConfigured: jest.fn().mockResolvedValue(undefined),
+  finalizeVoiceArtifacts: jest.fn().mockResolvedValue(undefined)
+}));
+jest.mock("../VoiceContactService", () => ({
+  resolveVoiceContact: jest.fn()
+}));
 
 const voiceCallFindOne = VoiceCall.findOne as jest.MockedFunction<
   typeof VoiceCall.findOne
@@ -80,7 +91,8 @@ describe("atomic voice call acceptance", () => {
       endedAt: null,
       durationSeconds: 0,
       error: null,
-      update: jest.fn(async values => Object.assign(call, values))
+      update: jest.fn(async values => Object.assign(call, values)),
+      reload: jest.fn(async () => call)
     } as unknown as VoiceCall;
     voiceCallFindOne.mockImplementation(async () => call);
     userQueueFindOne.mockResolvedValue({} as UserQueue);

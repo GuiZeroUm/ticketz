@@ -25,6 +25,8 @@ const messages = {
         accept: "Answer",
         active: "Call in progress",
         mute: "Mute microphone",
+        transcribe: "Transcribe call",
+        record: "Record call",
         end: "End call",
         states: {
           disconnected: "Disconnected",
@@ -37,6 +39,8 @@ const messages = {
           load: "Could not load experimental calls.",
           pair: "Could not generate the calling QR code.",
           action: "Could not complete the call action.",
+          transcriptionConfig:
+            "Set GROQ_API_KEY in the environment to enable transcription.",
           microphone: "Microphone permission was denied. The call was ended."
         }
       },

@@ -13,9 +13,20 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  Paper,
+  Tooltip,
   Typography
 } from "@material-ui/core";
-import { CallEnd, Mic, MicOff, Phone, PhoneDisabled } from "@material-ui/icons";
+import {
+  CallEnd,
+  FiberManualRecord,
+  Mic,
+  MicOff,
+  Phone,
+  PhoneDisabled,
+  Subtitles
+} from "@material-ui/icons";
+import { DndContext, useDraggable } from "@dnd-kit/core";
 import { toast } from "react-toastify";
 import api from "../../services/api";
 import { SocketContext } from "../Socket/SocketContext";
@@ -24,6 +35,131 @@ import { validVoiceCallId } from "../../helpers/voiceCallId";
 import { i18n } from "../../translate/i18n";
 
 export const VoiceCallContext = createContext({});
+
+const CallIdentity = ({ call }) => {
+  const name = call?.contactName || call?.number || "-";
+  return (
+    <>
+      <Typography variant="h6">{name}</Typography>
+      {call?.number && call.number !== name && (
+        <Typography color="textSecondary">{call.number}</Typography>
+      )}
+    </>
+  );
+};
+
+const DraggableCallCard = ({
+  active,
+  duration,
+  muted,
+  busy,
+  artifactBusy,
+  onMute,
+  onEnd,
+  onArtifact,
+  position
+}) => {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform } =
+    useDraggable({ id: "active-voice-call" });
+  const x = position.x + (transform?.x || 0);
+  const y = position.y + (transform?.y || 0);
+
+  return (
+    <Paper
+      ref={setNodeRef}
+      elevation={12}
+      style={{
+        position: "fixed",
+        zIndex: 1400,
+        width: "min(390px, calc(100vw - 24px))",
+        left: "max(12px, calc(50% - 195px))",
+        bottom: 24,
+        transform: `translate3d(${x}px, ${y}px, 0)`
+      }}
+      {...attributes}
+    >
+      <div
+        ref={setActivatorNodeRef}
+        {...listeners}
+        style={{
+          cursor: "move",
+          padding: "16px 20px 8px",
+          touchAction: "none"
+        }}
+      >
+        <Typography variant="h6">{i18n.t("voiceCalls.active")}</Typography>
+      </div>
+      <div style={{ padding: "8px 20px" }}>
+        <CallIdentity call={active} />
+        <Typography color="textSecondary">{duration}</Typography>
+      </div>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          alignItems: "center",
+          gap: 4,
+          padding: "8px 12px 14px"
+        }}
+      >
+        <Tooltip title={i18n.t("voiceCalls.transcribe")}>
+          <span>
+            <IconButton
+              onClick={() =>
+                onArtifact("transcription", !active.transcriptionEnabled)
+              }
+              disabled={artifactBusy}
+              color={active.transcriptionEnabled ? "primary" : "default"}
+              aria-label={i18n.t("voiceCalls.transcribe")}
+            >
+              <Subtitles />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip title={i18n.t("voiceCalls.record")}>
+          <span>
+            <IconButton
+              onClick={() => onArtifact("recording", !active.recordingEnabled)}
+              disabled={artifactBusy}
+              color={active.recordingEnabled ? "secondary" : "default"}
+              aria-label={i18n.t("voiceCalls.record")}
+            >
+              <FiberManualRecord />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <IconButton onClick={onMute} aria-label={i18n.t("voiceCalls.mute")}>
+          {muted ? <MicOff /> : <Mic />}
+        </IconButton>
+        <Button
+          onClick={onEnd}
+          color="secondary"
+          variant="contained"
+          disabled={busy}
+          startIcon={<CallEnd />}
+        >
+          {i18n.t("voiceCalls.end")}
+        </Button>
+      </div>
+    </Paper>
+  );
+};
+
+const ActiveCallCard = props => {
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  return (
+    <DndContext
+      onDragEnd={({ delta }) =>
+        setPosition(previous => ({
+          x: previous.x + delta.x,
+          y: previous.y + delta.y
+        }))
+      }
+    >
+      <DraggableCallCard {...props} position={position} />
+    </DndContext>
+  );
+};
 
 const startRinging = () => {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -61,6 +197,7 @@ export function VoiceCallProvider({ children }) {
   const [incoming, setIncoming] = useState(null);
   const [active, setActive] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [artifactBusy, setArtifactBusy] = useState(false);
   const [muted, setMuted] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const mediaRef = useRef(null);
@@ -223,6 +360,29 @@ export function VoiceCallProvider({ children }) {
     setMuted(next);
   };
 
+  const toggleArtifact = async (kind, enabled) => {
+    const callId = validVoiceCallId(active?.id);
+    if (!callId) return;
+    setArtifactBusy(true);
+    try {
+      const { data } = await api.post(`/voice/calls/${callId}/artifact`, {
+        kind,
+        enabled
+      });
+      setActive(current =>
+        current?.id === callId ? { ...current, ...data } : current
+      );
+    } catch (error) {
+      toast.error(
+        error.response?.status === 422 && kind === "transcription"
+          ? i18n.t("voiceCalls.errors.transcriptionConfig")
+          : i18n.t("voiceCalls.errors.action")
+      );
+    } finally {
+      setArtifactBusy(false);
+    }
+  };
+
   const duration = `${String(Math.floor(elapsed / 60)).padStart(2, "0")}:${String(
     elapsed % 60
   ).padStart(2, "0")}`;
@@ -238,7 +398,7 @@ export function VoiceCallProvider({ children }) {
       >
         <DialogTitle>{i18n.t("voiceCalls.incoming")}</DialogTitle>
         <DialogContent>
-          <Typography variant="h6">{incoming?.number || "-"}</Typography>
+          <CallIdentity call={incoming} />
           <Typography color="textSecondary">
             {i18n.t("voiceCalls.incomingHint")}
           </Typography>
@@ -263,35 +423,18 @@ export function VoiceCallProvider({ children }) {
           </Button>
         </DialogActions>
       </Dialog>
-      <Dialog
-        open={Boolean(active)}
-        maxWidth="xs"
-        fullWidth
-        disableBackdropClick
-      >
-        <DialogTitle>{i18n.t("voiceCalls.active")}</DialogTitle>
-        <DialogContent>
-          <Typography variant="h6">{active?.number || "-"}</Typography>
-          <Typography color="textSecondary">{duration}</Typography>
-        </DialogContent>
-        <DialogActions>
-          <IconButton
-            onClick={toggleMute}
-            aria-label={i18n.t("voiceCalls.mute")}
-          >
-            {muted ? <MicOff /> : <Mic />}
-          </IconButton>
-          <Button
-            onClick={end}
-            color="secondary"
-            variant="contained"
-            disabled={busy}
-            startIcon={<CallEnd />}
-          >
-            {i18n.t("voiceCalls.end")}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {active && (
+        <ActiveCallCard
+          active={active}
+          duration={duration}
+          muted={muted}
+          busy={busy}
+          artifactBusy={artifactBusy}
+          onMute={toggleMute}
+          onEnd={end}
+          onArtifact={toggleArtifact}
+        />
+      )}
     </VoiceCallContext.Provider>
   );
 }

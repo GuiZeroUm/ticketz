@@ -87,10 +87,13 @@ func (s *Session) wireCall(cm *call.CallManager, callID string) {
 	}
 	cm.OnPeerAudio = func(pcm16 []float32) {
 		ac, ok := s.reg.get(callID)
-		if !ok || ac.bridge == nil {
+		if !ok {
 			return
 		}
-		_ = ac.bridge.WritePCM(pcm16)
+		ac.writeCustomerPCM(pcm16)
+		if ac.bridge != nil {
+			_ = ac.bridge.WritePCM(pcm16)
+		}
 	}
 }
 
@@ -244,6 +247,7 @@ func (s *Session) removeCall(callID string) {
 	if ac.bridge != nil {
 		ac.bridge.Close()
 	}
+	ac.stopRecorder(false)
 }
 
 func (s *Session) terminateCall(callID string, reason core.EndCallReason) {
@@ -260,6 +264,7 @@ func (s *Session) teardownAllCalls() {
 		if ac.bridge != nil {
 			ac.bridge.Close()
 		}
+		ac.stopRecorder(false)
 	}
 }
 

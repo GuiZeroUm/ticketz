@@ -27,6 +27,8 @@ const messages = {
         accept: "Contestar",
         active: "Llamada en curso",
         mute: "Silenciar micrófono",
+        transcribe: "Transcribir llamada",
+        record: "Grabar llamada",
         end: "Finalizar",
         states: {
           disconnected: "Desconectada",
@@ -39,6 +41,8 @@ const messages = {
           load: "No se pudieron cargar las llamadas experimentales.",
           pair: "No se pudo generar el código QR de llamadas.",
           action: "No se pudo completar la acción de llamada.",
+          transcriptionConfig:
+            "Configure GROQ_API_KEY en el entorno para activar la transcripción.",
           microphone: "Se denegó el micrófono. La llamada fue finalizada."
         }
       },
