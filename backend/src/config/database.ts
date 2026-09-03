@@ -1,15 +1,24 @@
 import "../bootstrap";
 
+const integerEnvironment = (
+  name: string,
+  fallback: number,
+  minimum = 0
+): number => {
+  const parsed = Number.parseInt(process.env[name] || "", 10);
+  return Number.isInteger(parsed) && parsed >= minimum ? parsed : fallback;
+};
+
 module.exports = {
   define: {
     charset: "utf8mb4",
     collate: "utf8mb4_bin"
   },
   pool: {
-    max: process.env.DB_MAX_CONNECTIONS || 60,
-    min: process.env.DB_MIN_CONNECTIONS || 5,
-    acquire: process.env.DB_ACQUIRE || 30000,
-    idle: process.env.DB_IDLE || 10000
+    max: integerEnvironment("DB_MAX_CONNECTIONS", 60, 1),
+    min: integerEnvironment("DB_MIN_CONNECTIONS", 5),
+    acquire: integerEnvironment("DB_ACQUIRE", 30000, 1),
+    idle: integerEnvironment("DB_IDLE", 10000)
   },
   dialect: process.env.DB_DIALECT || "postgres",
   timezone: process.env.DB_TIMEZONE || "-03:00",
