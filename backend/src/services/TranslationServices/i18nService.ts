@@ -20,10 +20,12 @@ type ModelWithCompany = {
   company: Company;
 };
 
-GetCompanySetting(1, "defaultLanguage", "en").then(setting => {
-  defaultLanguage = setting || "en";
-  logger.trace({ defaultLanguage }, "i18n: Default language set");
-});
+if (process.env.NODE_ENV !== "test") {
+  GetCompanySetting(1, "defaultLanguage", "en").then(setting => {
+    defaultLanguage = setting || "en";
+    logger.trace({ defaultLanguage }, "i18n: Default language set");
+  });
+}
 
 export function updateDefaultLanguage(newDefault: string) {
   defaultLanguage = newDefault;
@@ -56,12 +58,15 @@ export async function initializeI18n() {
   });
 }
 
-const i18nReady = new Promise<void>(resolve => {
-  initializeI18n().then(() => {
-    resolve();
-    logger.trace("i18n initialized");
-  });
-});
+const i18nReady =
+  process.env.NODE_ENV === "test"
+    ? Promise.resolve()
+    : new Promise<void>(resolve => {
+        initializeI18n().then(() => {
+          resolve();
+          logger.trace("i18n initialized");
+        });
+      });
 
 export async function reloadTranslations() {
   return i18n.reloadResources().then(() => {
