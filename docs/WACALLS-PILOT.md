@@ -59,11 +59,19 @@ inicialização.
 O AudioWorklet agrupa os blocos nativos de 128 amostras em quadros de 960
 amostras (60 ms), reduzindo em 7,5 vezes o número de mensagens e conversões entre
 navegador e WaCalls. O encoder reutiliza o buffer de saneamento, elimina uma cópia
-por quadro e usa uma área de trabalho única na FFT recursiva. No benchmark sintético
-do encoder, esta última alteração reduziu as alocações de aproximadamente 3.618 para
-1.731 por quadro (52%) e os bytes alocados de aproximadamente 1,62 MB para 1,28 MB
-(21%). O tempo observado permaneceu na mesma faixa em host compartilhado; o ganho
-real de CPU ainda deve ser confirmado com chamadas simultâneas.
+por quadro e usa uma área de trabalho única na FFT recursiva. As matrizes
+trigonométricas da FFT, as janelas/tabelas LPC e as áreas temporárias da busca CELP
+são calculadas uma vez e reutilizadas. O cache da FFT ocupa aproximadamente 9,9 MB
+fixos, compartilhados por todas as chamadas; as demais áreas são pequenas e isoladas
+por encoder.
+
+Em benchmark sintético pareado (`GOMAXPROCS=1`, `GOGC=100`, três amostras de 12 s),
+a mediana do encoder caiu de 6,10 ms para 2,07 ms por quadro de 60 ms (cerca de 66%).
+As alocações caíram de 1.728 para 583 por quadro (66%) e os bytes de 1,28 MB para
+0,71 MB (45%). O teste de regressão codifica 80 quadros variados e exige o mesmo
+SHA-256 da versão anterior, garantindo saída binária idêntica. Esses números medem
+somente o encoder; o ganho real do serviço deve ser confirmado com chamadas
+simultâneas no tenant de teste.
 
 `GOMEMLIMIT` fica explicitamente limitado, mas `GOGC` permanece em 100 por padrão:
 o ensaio isolado não confirmou vantagem estável para 200. Escala horizontal em
