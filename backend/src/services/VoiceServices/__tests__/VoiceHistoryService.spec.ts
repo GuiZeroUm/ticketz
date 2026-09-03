@@ -103,6 +103,10 @@ describe("voice ticket history", () => {
     expect(second.ticketId).toBe(901);
     expect(ticketCreate).toHaveBeenCalledTimes(1);
     expect(trackingCreate).toHaveBeenCalledTimes(1);
+    expect(trackingCreate).toHaveBeenCalledWith(
+      expect.not.objectContaining({ waitTime: expect.anything() }),
+      expect.anything()
+    );
     expect(createMessage).toHaveBeenCalledTimes(2);
     expect(increment).toHaveBeenCalledTimes(2);
   });
@@ -135,6 +139,10 @@ describe("voice ticket history", () => {
 
     expect(ticket.status).toBe("closed");
     expect(tracking.update).toHaveBeenCalledTimes(1);
+    expect(tracking.update).toHaveBeenCalledWith(
+      expect.not.objectContaining({ serviceTime: expect.anything() }),
+      expect.anything()
+    );
     expect(increment).toHaveBeenCalledTimes(1);
     expect(createMessage).toHaveBeenCalledWith(
       expect.objectContaining({

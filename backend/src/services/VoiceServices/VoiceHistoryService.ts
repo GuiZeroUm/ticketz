@@ -1,4 +1,3 @@
-import moment from "moment";
 import { Op } from "sequelize";
 import sequelize from "../../database";
 import { getIO } from "../../libs/socket";
@@ -86,8 +85,7 @@ export const startVoiceHistory = async (
         whatsappId: current.whatsappId,
         userId: current.userId,
         queuedAt: current.startedAt,
-        startedAt,
-        waitTime: moment(startedAt).diff(moment(current.startedAt), "seconds")
+        startedAt
       },
       { transaction }
     );
@@ -164,7 +162,6 @@ export const finishVoiceHistory = async (call: VoiceCall): Promise<void> => {
       await tracking.update(
         {
           finishedAt: endedAt,
-          serviceTime: call.durationSeconds,
           userId: call.userId
         },
         { transaction }
