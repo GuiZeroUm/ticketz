@@ -51,6 +51,12 @@ jobs:
       DB_PASS: postgres
       DB_NAME: ticketz_test
       DB_TIMEZONE: +00:00
+      # Jest isolates each suite and therefore instantiates multiple Sequelize
+      # pools. Keep test pools lazy/small so they cannot exhaust PostgreSQL's
+      # connection limit even as the suite count grows.
+      DB_MIN_CONNECTIONS: "0"
+      DB_MAX_CONNECTIONS: "5"
+      DB_IDLE: "1000"
       REDIS_URI: redis://127.0.0.1:6379
       ADMIN_PASSWORD: ci-only-password
       EMAIL_ADDRESS: ci@espacowhats.invalid
