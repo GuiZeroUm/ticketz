@@ -28,6 +28,9 @@ jest.mock("../../../models/VoiceCall");
 jest.mock("../../MessageServices/CreateMessageService");
 jest.mock("../../CounterServices/IncrementCounter");
 jest.mock("../../TicketServices/ShowTicketService");
+jest.mock("../VoiceContactService", () => ({
+  resolveVoiceContact: jest.fn()
+}));
 jest.mock("../../../libs/socket", () => ({ getIO: () => socket }));
 
 const callFindByPk = VoiceCall.findByPk as jest.MockedFunction<

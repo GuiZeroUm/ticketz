@@ -5,9 +5,11 @@ import { getIO } from "../../libs/socket";
 import Ticket from "../../models/Ticket";
 import TicketTraking from "../../models/TicketTraking";
 import VoiceCall from "../../models/VoiceCall";
+import { logger } from "../../utils/logger";
 import CreateMessageService from "../MessageServices/CreateMessageService";
 import { incrementCounter } from "../CounterServices/IncrementCounter";
 import ShowTicketService from "../TicketServices/ShowTicketService";
+import { resolveVoiceContact } from "./VoiceContactService";
 
 const durationLabel = (seconds: number): string => {
   const safe = Math.max(0, Number(seconds) || 0);
@@ -197,9 +199,23 @@ export const recoverVoiceHistories = async (): Promise<void> => {
   });
   await calls.reduce(async (previous, call) => {
     await previous;
-    if (call.ticketId && call.ticket?.status === "closed") return;
-    const withTicket = await startVoiceHistory(call);
-    if (withTicket.ticketId) await finishVoiceHistory(withTicket);
+    try {
+      if (call.ticketId && call.ticket?.status === "closed") return;
+      if (!call.contactId && call.number) {
+        const { contact } = await resolveVoiceContact(
+          call.companyId,
+          call.number
+        );
+        await call.update({ contactId: contact.id });
+      }
+      const withTicket = await startVoiceHistory(call);
+      if (withTicket.ticketId) await finishVoiceHistory(withTicket);
+    } catch (error) {
+      logger.error(
+        { error, voiceCallId: call.id },
+        "Unable to recover voice ticket history"
+      );
+    }
   }, Promise.resolve());
 };
 
