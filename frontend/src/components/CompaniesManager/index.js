@@ -103,6 +103,8 @@ export function CompanyForm(props) {
     campaignsEnabled: false,
     voiceCallsEnabled: false,
     dueDate: initialDueDate(),
+    trialDays: 0,
+    dueDay: Number(moment(initialDueDate()).format("D")),
     recurrence: "MENSAL",
     slug: "",
     partnerId: "",
@@ -143,7 +145,11 @@ export function CompanyForm(props) {
       return {
         ...prev,
         ...initialValue,
-        dueDate
+        dueDate,
+        trialDays: initialValue.trialDays ?? 0,
+        dueDay:
+          initialValue.dueDay ??
+          (dueDate ? Number(moment(dueDate).format("D")) : 1)
       };
     });
   }, [initialValue]);
@@ -172,6 +178,8 @@ export function CompanyForm(props) {
       normalizedData.introMonths === "" || normalizedData.introMonths === null
         ? null
         : Number(normalizedData.introMonths);
+    normalizedData.trialDays = Number(normalizedData.trialDays);
+    normalizedData.dueDay = Number(normalizedData.dueDay);
     onSubmit(normalizedData);
     setRecord({ ...initialValue, dueDate: "" });
   };
@@ -402,6 +410,34 @@ export function CompanyForm(props) {
                     margin="dense"
                   />
                 </FormControl>
+              </Grid>
+              <Grid xs={12} sm={6} md={2} item>
+                <Field
+                  as={TextField}
+                  label={i18n.t("billing.trialDays")}
+                  helperText={i18n.t("billing.trialDaysHelp")}
+                  type="number"
+                  name="trialDays"
+                  inputProps={{ min: 0, max: 3650, step: 1 }}
+                  variant="outlined"
+                  fullWidth
+                  margin="dense"
+                  required
+                />
+              </Grid>
+              <Grid xs={12} sm={6} md={2} item>
+                <Field
+                  as={TextField}
+                  label={i18n.t("billing.dueDay")}
+                  helperText={i18n.t("billing.dueDayHelp")}
+                  type="number"
+                  name="dueDay"
+                  inputProps={{ min: 1, max: 31, step: 1 }}
+                  variant="outlined"
+                  fullWidth
+                  margin="dense"
+                  required
+                />
               </Grid>
               <Grid xs={12} sm={6} md={2} item>
                 <FormControl margin="dense" variant="outlined" fullWidth>
@@ -720,6 +756,8 @@ export default function CompaniesManager() {
     campaignsEnabled: false,
     voiceCallsEnabled: false,
     dueDate: initialDueDate(),
+    trialDays: 0,
+    dueDay: Number(moment(initialDueDate()).format("D")),
     recurrence: "MENSAL",
     slug: "",
     partnerId: "",
@@ -802,6 +840,8 @@ export default function CompaniesManager() {
       campaignsEnabled: false,
       voiceCallsEnabled: false,
       dueDate: initialDueDate(),
+      trialDays: 0,
+      dueDay: Number(moment(initialDueDate()).format("D")),
       recurrence: "MENSAL",
       partnerId: "",
       saleValue: "",
@@ -840,6 +880,10 @@ export default function CompaniesManager() {
       campaignsEnabled,
       voiceCallsEnabled,
       dueDate: data.dueDate || "",
+      trialDays: data.trialDays ?? 0,
+      dueDay:
+        data.dueDay ??
+        (data.dueDate ? Number(moment(data.dueDate).format("D")) : 1),
       recurrence: data.recurrence || "",
       slug: data.slug || "",
       partnerId: data.partnerId || "",

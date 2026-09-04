@@ -2,17 +2,12 @@ import React, { useCallback, useContext, useEffect, useState } from "react";
 import {
   Button,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   makeStyles,
   Paper,
-  TextField,
   Typography,
   useTheme
 } from "@material-ui/core";
-import { DateRange, Settings } from "@material-ui/icons";
+import { Add, DateRange, Settings } from "@material-ui/icons";
 import {
   KeyboardDatePicker,
   MuiPickersUtilsProvider
@@ -37,12 +32,15 @@ import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
 import MainHeaderButtonsWrapper from "../../components/MainHeaderButtonsWrapper";
 import Title from "../../components/Title";
+import { UsersFilter } from "../../components/UsersFilter";
 import toastError from "../../errors/toastError";
 import { i18nToast } from "../../helpers/i18nToast";
 import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
 import KanbanColumn from "./KanbanColumn";
 import TaskBoardSettingsDialog from "./TaskBoardSettingsDialog";
+import TaskDetailsDrawer from "./TaskDetailsDrawer";
+import TaskDialog from "./TaskDialog";
 import { optimisticMove, tasksInColumn } from "./taskBoardState";
 
 const useStyles = makeStyles(theme => ({
@@ -123,13 +121,13 @@ const ToDoList = () => {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
-  const [newTask, setNewTask] = useState("");
-  const [savingTask, setSavingTask] = useState(false);
   const [completedFrom, setCompletedFrom] = useState(null);
   const [completedTo, setCompletedTo] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
-  const [editingTitle, setEditingTitle] = useState("");
+  const [creatingTask, setCreatingTask] = useState(false);
+  const [detailTaskId, setDetailTaskId] = useState(null);
+  const [filterUserId, setFilterUserId] = useState(null);
   const [taskToDelete, setTaskToDelete] = useState(null);
   const [activeTask, setActiveTask] = useState(null);
 
@@ -146,6 +144,7 @@ const ToDoList = () => {
       if (showLoading) setLoading(true);
       try {
         const params = {};
+        if (filterUserId) params.userId = filterUserId;
         if (completedFrom && isValid(completedFrom)) {
           params.completedFrom = startOfDay(completedFrom).toISOString();
         }
@@ -163,7 +162,7 @@ const ToDoList = () => {
         if (showLoading) setLoading(false);
       }
     },
-    [completedFrom, completedTo]
+    [completedFrom, completedTo, filterUserId]
   );
 
   useEffect(() => {
@@ -180,37 +179,6 @@ const ToDoList = () => {
       socket.off("wsRefreshRequired", reload);
     };
   }, [socketManager, fetchBoard]);
-
-  const createTask = async event => {
-    event?.preventDefault();
-    if (!newTask.trim() || savingTask) return;
-    setSavingTask(true);
-    try {
-      await api.post("/task-board/tasks", { title: newTask.trim() });
-      setNewTask("");
-      await fetchBoard(false);
-      i18nToast.success("todolist.toasts.taskCreated");
-    } catch (err) {
-      toastError(err);
-    } finally {
-      setSavingTask(false);
-    }
-  };
-
-  const saveEditedTask = async () => {
-    if (!editingTask || !editingTitle.trim()) return;
-    try {
-      await api.put(`/task-board/tasks/${editingTask.id}`, {
-        title: editingTitle.trim()
-      });
-      setEditingTask(null);
-      setEditingTitle("");
-      await fetchBoard(false);
-      i18nToast.success("todolist.toasts.taskSaved");
-    } catch (err) {
-      toastError(err);
-    }
-  };
 
   const confirmDeleteTask = async () => {
     if (!taskToDelete) return;
@@ -272,7 +240,8 @@ const ToDoList = () => {
     try {
       await api.put(`/task-board/tasks/${taskId}/move`, {
         columnId: destinationColumn.id,
-        position: destinationPosition
+        position: destinationPosition,
+        version: moving.version
       });
     } catch (err) {
       setTasks(previous);
@@ -295,6 +264,16 @@ const ToDoList = () => {
           {user?.profile === "admin" && (
             <Button
               color="primary"
+              variant="contained"
+              startIcon={<Add />}
+              onClick={() => setCreatingTask(true)}
+            >
+              {i18n.t("todolist.buttons.newTask")}
+            </Button>
+          )}
+          {user?.profile === "admin" && (
+            <Button
+              color="primary"
               variant="outlined"
               startIcon={<Settings />}
               onClick={() => setSettingsOpen(true)}
@@ -307,25 +286,15 @@ const ToDoList = () => {
 
       <Paper className={classes.mainPaper} variant="outlined">
         <div className={classes.controls}>
-          <form className={classes.addForm} onSubmit={createTask}>
-            <TextField
-              className={classes.taskInput}
-              size="small"
-              variant="outlined"
-              label={i18n.t("todolist.form.name")}
-              value={newTask}
-              inputProps={{ maxLength: 255 }}
-              onChange={event => setNewTask(event.target.value)}
-            />
-            <Button
-              type="submit"
-              color="primary"
-              variant="contained"
-              disabled={savingTask || !newTask.trim()}
-            >
-              {i18n.t("todolist.buttons.add")}
-            </Button>
-          </form>
+          {user?.profile === "admin" && (
+            <div style={{ minWidth: 240, flex: "1 1 300px" }}>
+              <UsersFilter
+                onFiltered={selected =>
+                  setFilterUserId(selected[0]?.id || null)
+                }
+              />
+            </div>
+          )}
 
           <MuiPickersUtilsProvider utils={DateFnsUtils}>
             <div className={classes.filters}>
@@ -406,9 +375,10 @@ const ToDoList = () => {
                   tasks={tasksInColumn(tasks, column.id)}
                   onEditTask={task => {
                     setEditingTask(task);
-                    setEditingTitle(task.title);
                   }}
                   onDeleteTask={setTaskToDelete}
+                  onOpenTask={task => setDetailTaskId(task.id)}
+                  canAdminister={user?.profile === "admin"}
                 />
               ))}
             </div>
@@ -421,40 +391,20 @@ const ToDoList = () => {
         )}
       </Paper>
 
-      <Dialog
-        open={!!editingTask}
-        onClose={() => setEditingTask(null)}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle>{i18n.t("todolist.editTaskTitle")}</DialogTitle>
-        <DialogContent dividers>
-          <TextField
-            autoFocus
-            fullWidth
-            multiline
-            rowsMin={2}
-            variant="outlined"
-            label={i18n.t("todolist.form.name")}
-            value={editingTitle}
-            inputProps={{ maxLength: 255 }}
-            onChange={event => setEditingTitle(event.target.value)}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEditingTask(null)}>
-            {i18n.t("common.cancel")}
-          </Button>
-          <Button
-            color="primary"
-            variant="contained"
-            disabled={!editingTitle.trim()}
-            onClick={saveEditedTask}
-          >
-            {i18n.t("common.save")}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <TaskDialog
+        open={creatingTask || !!editingTask}
+        task={editingTask}
+        onClose={() => {
+          setCreatingTask(false);
+          setEditingTask(null);
+        }}
+        onSaved={() => fetchBoard(false)}
+      />
+
+      <TaskDetailsDrawer
+        taskId={detailTaskId}
+        onClose={() => setDetailTaskId(null)}
+      />
 
       <ConfirmationModal
         open={!!taskToDelete}

@@ -422,6 +422,16 @@ const messages = {
           titleFileList: "Lista dei file"
         }
       },
+      billing: {
+        trialDays: "Giorni di prova gratuita",
+        trialDaysHelp: "0 significa nessuna prova gratuita",
+        dueDay: "Giorno di scadenza",
+        dueDayHelp: "Mensile; i mesi brevi usano l’ultimo giorno",
+        prorata: "Pro rata",
+        trialEndsIn: "La prova termina tra {{days}} giorni.",
+        noActiveTrial: "Nessuna prova attiva",
+        period: "Periodo: {{start}} - {{end}}"
+      },
       todolist: {
         title: "Bacheca attività",
         loading: "Caricamento bacheca...",
@@ -431,12 +441,42 @@ const messages = {
         dragTaskLabel: "Sposta attività {{title}}",
         completedAt: "Completata il {{date}}",
         editTaskTitle: "Modifica attività",
+        newTaskTitle: "Nuova attività",
+        targets: { global: "Globale", user: "Utente", queue: "Coda" },
+        deadline: {
+          ok: "In tempo",
+          warning: "Scadenza vicina",
+          overdue: "In ritardo"
+        },
+        details: {
+          noDescription: "Nessuna descrizione",
+          state: "Stato",
+          createdBy: "Creata da",
+          target: "Destinazione",
+          createdAt: "Creata",
+          dueAt: "Scadenza",
+          completedAt: "Completata",
+          history: "Cronologia"
+        },
+        events: {
+          CREATED: "Creata",
+          EDITED: "Modificata",
+          MOVED: "Spostata",
+          COMPLETED: "Completata",
+          REOPENED: "Riaperta"
+        },
         form: {
           name: "Nome attività",
-          columnName: "Nome colonna"
+          columnName: "Nome colonna",
+          description: "Descrizione",
+          targetType: "Destinazione",
+          assignee: "Utente assegnato",
+          queue: "Coda assegnata",
+          dueAt: "Scadenza"
         },
         buttons: {
           add: "Aggiungi",
+          newTask: "Nuova attività",
           save: "Salva",
           configure: "Configura colonne",
           clearFilter: "Cancella filtro",
@@ -1267,6 +1307,12 @@ const messages = {
           "Il backend si sta avviando e non è ancora pronto. Nuovo tentativo automatico."
       },
       backendErrors: {
+        ERR_INVALID_TRIAL_DAYS:
+          "I giorni di prova devono essere un intero tra 0 e 3650.",
+        ERR_INVALID_DUE_DAY:
+          "Il giorno di scadenza deve essere un intero tra 1 e 31.",
+        ERR_TRIAL_ALREADY_STARTED:
+          "La prova gratuita non può essere modificata dopo l’inizio della fatturazione.",
         ERR_TASK_BOARD_INVALID_TITLE: "Inserisci un titolo valido.",
         ERR_TASK_BOARD_INVALID_COLOR: "Inserisci un colore esadecimale valido.",
         ERR_TASK_BOARD_COLUMN_NOT_FOUND: "Colonna non trovata.",

@@ -66,7 +66,14 @@ const useStyles = makeStyles(theme => ({
   }
 }));
 
-const KanbanColumn = ({ column, tasks, onEditTask, onDeleteTask }) => {
+const KanbanColumn = ({
+  column,
+  tasks,
+  onEditTask,
+  onDeleteTask,
+  onOpenTask,
+  canAdminister
+}) => {
   const classes = useStyles();
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${column.id}`,
@@ -107,6 +114,8 @@ const KanbanColumn = ({ column, tasks, onEditTask, onDeleteTask }) => {
               task={task}
               onEdit={onEditTask}
               onDelete={onDeleteTask}
+              onOpen={onOpenTask}
+              canAdminister={canAdminister}
             />
           ))}
         </div>

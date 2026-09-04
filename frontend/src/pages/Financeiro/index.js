@@ -17,6 +17,8 @@ import { safeValueFormat } from "../../helpers/safeValueFormat";
 import toastError from "../../errors/toastError";
 
 import moment from "moment";
+import { Chip, Typography } from "@material-ui/core";
+import { i18n } from "../../translate/i18n";
 
 const reducer = (state, action) => {
   if (action.type === "LOAD_INVOICES") {
@@ -192,7 +194,29 @@ const Invoices = () => {
               {invoices.map(invoices => (
                 <TableRow style={rowStyle(invoices)} key={invoices.id}>
                   <TableCell align="center">{invoices.id}</TableCell>
-                  <TableCell align="center">{invoices.detail}</TableCell>
+                  <TableCell align="center">
+                    {invoices.detail}
+                    {invoices.billingType === "initial_prorata" && (
+                      <>
+                        <Chip
+                          size="small"
+                          color="primary"
+                          label={i18n.t("billing.prorata")}
+                          style={{ marginLeft: 8 }}
+                        />
+                        {invoices.periodStart && invoices.periodEnd && (
+                          <Typography variant="caption" display="block">
+                            {i18n.t("billing.period", {
+                              start: moment(invoices.periodStart).format("L"),
+                              end: moment(invoices.periodEnd)
+                                .subtract(1, "day")
+                                .format("L")
+                            })}
+                          </Typography>
+                        )}
+                      </>
+                    )}
+                  </TableCell>
                   <TableCell style={{ fontWeight: "bold" }} align="center">
                     {safeValueFormat(invoices.value, invoices.currency)}
                   </TableCell>

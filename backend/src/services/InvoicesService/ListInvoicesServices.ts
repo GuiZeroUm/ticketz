@@ -38,6 +38,9 @@ const ListInvoicesServices = async ({
       "currency",
       "dueDate",
       "status",
+      "billingType",
+      "periodStart",
+      "periodEnd",
       "createdAt",
       "updatedAt"
     ],

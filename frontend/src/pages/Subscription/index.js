@@ -12,6 +12,7 @@ import Title from "../../components/Title";
 import MainContainer from "../../components/MainContainer";
 
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { i18n } from "../../translate/i18n";
 
 const useStyles = makeStyles(theme => ({
   mainPaper: {
@@ -25,8 +26,8 @@ const useStyles = makeStyles(theme => ({
 const _formatDate = date => {
   const now = new Date();
   const past = new Date(date);
-  const diff = Math.abs(now.getTime() - past.getTime());
-  const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+  const diff = past.getTime() - now.getTime();
+  const days = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 
   return days;
 };
@@ -85,7 +86,13 @@ const Contacts = () => {
             <TextField
               id="outlined-full-width"
               label="Período de teste"
-              defaultValue={`Seu período de teste termina em ${_formatDate(user?.company?.trialExpiration)} dias!`}
+              defaultValue={
+                user?.company?.trialEndsAt
+                  ? i18n.t("billing.trialEndsIn", {
+                      days: _formatDate(user.company.trialEndsAt)
+                    })
+                  : i18n.t("billing.noActiveTrial")
+              }
               fullWidth
               margin="normal"
               InputLabelProps={{

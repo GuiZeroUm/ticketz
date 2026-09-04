@@ -49,6 +49,15 @@ class Company extends Model<Company> {
   @Column
   dueDate: string;
 
+  @Column(DataType.INTEGER)
+  trialDays: number;
+
+  @Column(DataType.DATEONLY)
+  trialEndsAt: string;
+
+  @Column(DataType.SMALLINT)
+  dueDay: number;
+
   @Column
   recurrence: string;
 

@@ -6,6 +6,15 @@ import Setting from "../../models/Setting";
 import normalizeSlug from "../../helpers/normalizeSlug";
 import replicateMasterSuperAdmins from "../../helpers/replicateMasterSuperAdmins";
 import { Transaction } from "sequelize";
+import moment from "moment";
+import {
+  assertDueDay,
+  assertTrialDays
+} from "../BillingServices/BillingConfigService";
+import {
+  firstBillableDueDate,
+  resolveTrialEndsAt
+} from "../BillingServices/BillingDateService";
 
 interface CompanyData {
   name: string;
@@ -16,6 +25,8 @@ interface CompanyData {
   planId?: number;
   campaignsEnabled?: boolean;
   dueDate?: string | null;
+  trialDays?: number;
+  dueDay?: number;
   recurrence?: string;
   language?: string;
   slug?: string;
@@ -55,6 +66,16 @@ const CreateCompanyService = async (
   // three-day initial period already used by public signup when no date was
   // supplied explicitly.
   const effectiveDueDate = dueDate || defaultDueDate.toISOString().slice(0, 10);
+  const trialDays = assertTrialDays(companyData.trialDays ?? 0);
+  const dueDay = assertDueDay(
+    companyData.dueDay ?? moment.utc(effectiveDueDate).date()
+  );
+  const anchor = moment.utc().format("YYYY-MM-DD");
+  const trialEndsAt = resolveTrialEndsAt(anchor, trialDays);
+  const billableDueDate =
+    trialDays > 0
+      ? firstBillableDueDate(trialEndsAt, dueDay)
+      : effectiveDueDate;
 
   const companySchema = Yup.object().shape({
     name: Yup.string()
@@ -107,7 +128,10 @@ const CreateCompanyService = async (
       email,
       status: status !== false,
       planId,
-      dueDate: effectiveDueDate,
+      dueDate: billableDueDate,
+      trialDays,
+      trialEndsAt,
+      dueDay,
       recurrence: recurrence || "MENSAL",
       language,
       slug: slug || null,

@@ -424,6 +424,16 @@ const messages = {
           titleFileList: "Liste des fichiers"
         }
       },
+      billing: {
+        trialDays: "Jours d’essai gratuit",
+        trialDaysHelp: "0 signifie aucun essai gratuit",
+        dueDay: "Jour d’échéance",
+        dueDayHelp: "Mensuel ; les mois courts utilisent leur dernier jour",
+        prorata: "Prorata",
+        trialEndsIn: "Votre essai se termine dans {{days}} jours.",
+        noActiveTrial: "Aucun essai actif",
+        period: "Période : {{start}} à {{end}}"
+      },
       todolist: {
         title: "Tableau des tâches",
         loading: "Chargement du tableau...",
@@ -433,12 +443,42 @@ const messages = {
         dragTaskLabel: "Déplacer la tâche {{title}}",
         completedAt: "Terminée le {{date}}",
         editTaskTitle: "Modifier la tâche",
+        newTaskTitle: "Nouvelle tâche",
+        targets: { global: "Global", user: "Utilisateur", queue: "File" },
+        deadline: {
+          ok: "Dans les temps",
+          warning: "Échéance proche",
+          overdue: "En retard"
+        },
+        details: {
+          noDescription: "Sans description",
+          state: "État",
+          createdBy: "Créée par",
+          target: "Destination",
+          createdAt: "Créée le",
+          dueAt: "Échéance",
+          completedAt: "Terminée le",
+          history: "Historique"
+        },
+        events: {
+          CREATED: "Créée",
+          EDITED: "Modifiée",
+          MOVED: "Déplacée",
+          COMPLETED: "Terminée",
+          REOPENED: "Rouverte"
+        },
         form: {
           name: "Nom de la tâche",
-          columnName: "Nom de la colonne"
+          columnName: "Nom de la colonne",
+          description: "Description",
+          targetType: "Destination",
+          assignee: "Utilisateur assigné",
+          queue: "File assignée",
+          dueAt: "Échéance"
         },
         buttons: {
           add: "Ajouter",
+          newTask: "Nouvelle tâche",
           save: "Enregistrer",
           configure: "Configurer les colonnes",
           clearFilter: "Effacer le filtre",
@@ -1275,6 +1315,12 @@ const messages = {
           "Le backend démarre et n'est pas encore prêt. Nouvelle tentative automatique."
       },
       backendErrors: {
+        ERR_INVALID_TRIAL_DAYS:
+          "Les jours d’essai doivent être un entier entre 0 et 3650.",
+        ERR_INVALID_DUE_DAY:
+          "Le jour d’échéance doit être un entier entre 1 et 31.",
+        ERR_TRIAL_ALREADY_STARTED:
+          "L’essai gratuit ne peut plus être modifié après le début de la facturation.",
         ERR_TASK_BOARD_INVALID_TITLE: "Saisissez un titre valide.",
         ERR_TASK_BOARD_INVALID_COLOR:
           "Saisissez une couleur hexadécimale valide.",

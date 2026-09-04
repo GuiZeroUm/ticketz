@@ -343,7 +343,8 @@ export const abacateCreateSubscription = async (
   }
 
   try {
-    const invoice = await Invoices.findByPk(invoiceId, {
+    const invoice = await Invoices.findOne({
+      where: { id: invoiceId, companyId: req.user.companyId },
       include: { model: Company, as: "company" }
     });
     if (!invoice) {
@@ -418,12 +419,9 @@ export const abacateCreateSubscription = async (
     }
 
     // cartão -> checkout hospedado (parcelamento definido no AbacatePay)
-    const checkout = await createHostedCheckout(
-      client,
-      invoice,
-      grossed,
-      ["CARD"]
-    );
+    const checkout = await createHostedCheckout(client, invoice, grossed, [
+      "CARD"
+    ]);
 
     await invoice.update({
       txId: checkout.id,
@@ -684,12 +682,7 @@ export const abacateSimulatePayment = async (
 // ---------------------------------------------------------------------------
 
 export type PixKeyType =
-  | "CPF"
-  | "CNPJ"
-  | "PHONE"
-  | "EMAIL"
-  | "RANDOM"
-  | "BR_CODE";
+  "CPF" | "CNPJ" | "PHONE" | "EMAIL" | "RANDOM" | "BR_CODE";
 
 export const PIX_KEY_TYPES: PixKeyType[] = [
   "CPF",

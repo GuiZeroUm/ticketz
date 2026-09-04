@@ -16,6 +16,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { i18n } from "../../translate/i18n";
 import { useDate } from "../../hooks/useDate";
+import { deadlineState } from "./taskBoardV2";
 
 const useStyles = makeStyles(theme => ({
   card: {
@@ -57,10 +58,20 @@ const useStyles = makeStyles(theme => ({
     fontSize: 11
   },
   completedIcon: { fontSize: 14 },
-  actions: { display: "flex", flex: "none", marginTop: -5, marginRight: -5 }
+  actions: { display: "flex", flex: "none", marginTop: -5, marginRight: -5 },
+  deadline: {
+    display: "inline-block",
+    marginTop: theme.spacing(0.75),
+    padding: theme.spacing(0.25, 0.75),
+    borderRadius: 999,
+    fontSize: 11
+  },
+  ok: { backgroundColor: "#E8F5E9", color: "#2E7D32" },
+  warning: { backgroundColor: "#FFF8E1", color: "#A05A00" },
+  overdue: { backgroundColor: "#FFEBEE", color: "#C62828" }
 }));
 
-const TaskCard = ({ task, onEdit, onDelete }) => {
+const TaskCard = ({ task, onEdit, onDelete, onOpen, canAdminister }) => {
   const classes = useStyles();
   const { datetimeToClient } = useDate();
   const {
@@ -74,6 +85,7 @@ const TaskCard = ({ task, onEdit, onDelete }) => {
     id: `task-${task.id}`,
     data: { type: "task", taskId: task.id, columnId: task.columnId }
   });
+  const deadline = deadlineState(task);
 
   return (
     <Paper
@@ -81,6 +93,7 @@ const TaskCard = ({ task, onEdit, onDelete }) => {
       variant="outlined"
       className={`${classes.card} ${isDragging ? classes.dragging : ""}`}
       style={{ transform: CSS.Transform.toString(transform), transition }}
+      onClick={() => onOpen(task)}
     >
       <Tooltip title={i18n.t("todolist.dragTask")}>
         <IconButton
@@ -89,6 +102,7 @@ const TaskCard = ({ task, onEdit, onDelete }) => {
           {...attributes}
           {...listeners}
           aria-label={i18n.t("todolist.dragTaskLabel", { title: task.title })}
+          onClick={event => event.stopPropagation()}
         >
           <DragIndicator fontSize="small" />
         </IconButton>
@@ -99,25 +113,35 @@ const TaskCard = ({ task, onEdit, onDelete }) => {
         {task.completedAt && (
           <div className={classes.completed}>
             <CheckCircleOutline className={classes.completedIcon} />
-            {i18n.t("todolist.completedAt", {
-              date: datetimeToClient(task.completedAt)
-            })}
+            <span>{i18n.t("todolist.details.completedAt")}</span>
+            <span>{datetimeToClient(task.completedAt)}</span>
+          </div>
+        )}
+        {task.dueAt && !task.completedAt && (
+          <div className={`${classes.deadline} ${classes[deadline]}`}>
+            {i18n.t(`todolist.deadline.${deadline}`)} ·{" "}
+            {datetimeToClient(task.dueAt)}
           </div>
         )}
       </div>
 
-      <div className={classes.actions}>
-        <Tooltip title={i18n.t("todolist.buttons.editTask")}>
-          <IconButton size="small" onClick={() => onEdit(task)}>
-            <EditOutlined fontSize="small" />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title={i18n.t("todolist.buttons.deleteTask")}>
-          <IconButton size="small" onClick={() => onDelete(task)}>
-            <DeleteOutline fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      </div>
+      {canAdminister && (
+        <div
+          className={classes.actions}
+          onClick={event => event.stopPropagation()}
+        >
+          <Tooltip title={i18n.t("todolist.buttons.editTask")}>
+            <IconButton size="small" onClick={() => onEdit(task)}>
+              <EditOutlined fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={i18n.t("todolist.buttons.deleteTask")}>
+            <IconButton size="small" onClick={() => onDelete(task)}>
+              <DeleteOutline fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </div>
+      )}
     </Paper>
   );
 };

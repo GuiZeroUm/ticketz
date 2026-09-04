@@ -9,8 +9,15 @@ import {
   moveTask,
   reorderColumns,
   updateColumn,
-  updateTask
-} from "../services/TaskBoardServices/TaskBoardService";
+  updateTask,
+  showTask
+} from "../services/TaskBoardServices/TaskBoardV2Service";
+
+const actorFrom = (req: Request) => ({
+  companyId: req.user.companyId,
+  userId: Number(req.user.id),
+  profile: req.user.profile
+});
 
 const notify = (companyId: number): void => {
   getIO()
@@ -20,11 +27,17 @@ const notify = (companyId: number): void => {
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const board = await listBoard({
-    companyId: req.user.companyId,
+    ...actorFrom(req),
+    filterUserId: req.query.userId ? Number(req.query.userId) : undefined,
     completedFrom: req.query.completedFrom as string,
     completedTo: req.query.completedTo as string
   });
   return res.status(200).json(board);
+};
+
+export const show = async (req: Request, res: Response): Promise<Response> => {
+  const task = await showTask(req.params.id, actorFrom(req));
+  return res.status(200).json(task);
 };
 
 export const storeColumn = async (
@@ -75,7 +88,14 @@ export const storeTask = async (
   res: Response
 ): Promise<Response> => {
   const { companyId } = req.user;
-  const task = await createTask(companyId, req.body.title);
+  const task = await createTask(actorFrom(req), {
+    title: req.body.title,
+    description: req.body.description,
+    targetType: req.body.targetType,
+    assignedUserId: req.body.assignedUserId,
+    assignedQueueId: req.body.assignedQueueId,
+    dueAt: req.body.dueAt
+  });
   notify(companyId);
   return res.status(201).json(task);
 };
@@ -85,7 +105,15 @@ export const editTask = async (
   res: Response
 ): Promise<Response> => {
   const { companyId } = req.user;
-  const task = await updateTask(req.params.id, companyId, req.body.title);
+  const task = await updateTask(req.params.id, actorFrom(req), {
+    title: req.body.title,
+    description: req.body.description,
+    targetType: req.body.targetType,
+    assignedUserId: req.body.assignedUserId,
+    assignedQueueId: req.body.assignedQueueId,
+    dueAt: req.body.dueAt,
+    version: req.body.version
+  });
   notify(companyId);
   return res.status(200).json(task);
 };
@@ -94,9 +122,10 @@ export const move = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   await moveTask({
     id: req.params.id,
-    companyId,
+    actor: actorFrom(req),
     destinationColumnId: req.body.columnId,
-    position: Number(req.body.position)
+    position: Number(req.body.position),
+    version: req.body.version
   });
   notify(companyId);
   return res.status(204).send();
@@ -107,7 +136,7 @@ export const removeTask = async (
   res: Response
 ): Promise<Response> => {
   const { companyId } = req.user;
-  await deleteTask(req.params.id, companyId);
+  await deleteTask(req.params.id, actorFrom(req));
   notify(companyId);
   return res.status(204).send();
 };

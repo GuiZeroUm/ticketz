@@ -18,11 +18,18 @@ const UpdateInvoiceService = async (
     throw new AppError("ERR_NO_PLAN_FOUND", 404);
   }
 
-  if (status === "paid" && invoice.status !== "paid") {
+  if (invoice.status !== "open") {
+    if (invoice.status === status) return invoice;
+    throw new AppError("ERR_INVALID_INVOICE_TRANSITION", 409);
+  }
+
+  if (status === "paid") {
     await processInvoicePaid(invoice);
     await invoice.reload();
-  } else {
+  } else if (status === "cancelled") {
     await invoice.update({ status });
+  } else {
+    throw new AppError("ERR_INVALID_INVOICE_TRANSITION", 409);
   }
 
   return invoice;

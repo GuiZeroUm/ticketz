@@ -3,9 +3,11 @@ import {
   assertTaskBoardDateRange,
   clampTaskPosition,
   cleanTaskBoardColor,
+  cleanTaskBoardDescription,
   cleanTaskBoardTitle,
   completedAtForDestination,
-  parseTaskBoardDate
+  parseTaskBoardDate,
+  parseTaskBoardTarget
 } from "../taskBoardRules";
 
 describe("task board rules", () => {
@@ -20,6 +22,19 @@ describe("task board rules", () => {
   it("rejects invalid titles and colors", () => {
     expect(() => cleanTaskBoardTitle("   ", 255)).toThrow(AppError);
     expect(() => cleanTaskBoardColor("blue")).toThrow(AppError);
+  });
+
+  it("validates descriptions and the three approved target types", () => {
+    expect(cleanTaskBoardDescription("  Detalhes  ")).toBe("Detalhes");
+    expect(parseTaskBoardTarget(undefined)).toBe("GLOBAL");
+    expect(parseTaskBoardTarget("user")).toBe("USER");
+    expect(parseTaskBoardTarget("QUEUE")).toBe("QUEUE");
+    expect(() => parseTaskBoardTarget("COMPANY")).toThrow(
+      "ERR_TASK_BOARD_INVALID_TARGET"
+    );
+    expect(() => cleanTaskBoardDescription("x".repeat(10001))).toThrow(
+      "ERR_TASK_BOARD_INVALID_DESCRIPTION"
+    );
   });
 
   it("validates completion date ranges", () => {

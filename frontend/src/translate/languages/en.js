@@ -535,6 +535,16 @@ const messages = {
           titleFileList: "List of file(s)"
         }
       },
+      billing: {
+        trialDays: "Free trial days",
+        trialDaysHelp: "0 means no free trial",
+        dueDay: "Due day",
+        dueDayHelp: "Monthly; shorter months use their last day",
+        prorata: "Prorated",
+        trialEndsIn: "Your trial ends in {{days}} days!",
+        noActiveTrial: "No active trial",
+        period: "Period: {{start}} to {{end}}"
+      },
       todolist: {
         title: "Task board",
         loading: "Loading board...",
@@ -544,12 +554,38 @@ const messages = {
         dragTaskLabel: "Move task {{title}}",
         completedAt: "Completed on {{date}}",
         editTaskTitle: "Edit task",
+        newTaskTitle: "New task",
+        targets: { global: "Global", user: "User", queue: "Queue" },
+        deadline: { ok: "On track", warning: "Due soon", overdue: "Overdue" },
+        details: {
+          noDescription: "No description",
+          state: "State",
+          createdBy: "Created by",
+          target: "Target",
+          createdAt: "Created at",
+          dueAt: "Due at",
+          completedAt: "Completed at",
+          history: "History"
+        },
+        events: {
+          CREATED: "Created",
+          EDITED: "Edited",
+          MOVED: "Moved",
+          COMPLETED: "Completed",
+          REOPENED: "Reopened"
+        },
         form: {
           name: "Task name",
-          columnName: "Column name"
+          columnName: "Column name",
+          description: "Description",
+          targetType: "Target",
+          assignee: "Assigned user",
+          queue: "Assigned queue",
+          dueAt: "Due at"
         },
         buttons: {
           add: "Add",
+          newTask: "New task",
           save: "Save",
           configure: "Configure columns",
           clearFilter: "Clear filter",
@@ -1622,6 +1658,10 @@ const messages = {
           "Backend is starting up and not ready yet. Retrying automatically."
       },
       backendErrors: {
+        ERR_INVALID_TRIAL_DAYS: "Trial days must be an integer from 0 to 3650.",
+        ERR_INVALID_DUE_DAY: "Due day must be an integer from 1 to 31.",
+        ERR_TRIAL_ALREADY_STARTED:
+          "The free trial cannot be changed after billing starts.",
         ERR_TASK_BOARD_INVALID_TITLE: "Enter a valid title.",
         ERR_TASK_BOARD_INVALID_COLOR: "Enter a valid hexadecimal color.",
         ERR_TASK_BOARD_COLUMN_NOT_FOUND: "Column not found.",

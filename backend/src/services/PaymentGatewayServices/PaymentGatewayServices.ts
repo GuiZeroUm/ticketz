@@ -57,6 +57,7 @@ import SendPartnerPayoutsService from "../PartnerServices/SendPartnerPayoutsServ
 import { logger } from "../../utils/logger";
 import sequelize from "../../database";
 import { enqueueWebhook } from "../PlatformServices/PlatformWebhookService";
+import { nextRecurringDueDate } from "../BillingServices/BillingDateService";
 
 export const payGatewayInitialize = async () => {
   // AbacatePay não requer inicialização de webhook via API (configurado no
@@ -126,27 +127,12 @@ export const processInvoicePaid = async (invoice: Invoices) => {
 
     if (!company) return;
 
-    const currentDueDate = moment(company.dueDate);
-    let { dueDate } = company;
-
-    switch (company.recurrence) {
-      case "BIMESTRAL":
-        dueDate = currentDueDate.add(2, "month").format("YYYY-MM-DD");
-        break;
-      case "TRIMESTRAL":
-        dueDate = currentDueDate.add(3, "month").format("YYYY-MM-DD");
-        break;
-      case "SEMESTRAL":
-        dueDate = currentDueDate.add(6, "month").format("YYYY-MM-DD");
-        break;
-      case "ANUAL":
-        dueDate = currentDueDate.add(12, "month").format("YYYY-MM-DD");
-        break;
-      case "MENSAL":
-      default:
-        dueDate = currentDueDate.add(1, "month").format("YYYY-MM-DD");
-        break;
-    }
+    const dueDay = company.dueDay || moment.utc(company.dueDate).date();
+    const dueDate = nextRecurringDueDate(
+      company.dueDate,
+      dueDay,
+      company.recurrence
+    );
 
     await company.update({ dueDate }, { transaction });
     await lockedInvoice.update(

@@ -132,6 +132,11 @@ export const createPlatformTenant = async (
   const trialDays = Math.max(0, Number(body.trial_dias || 0));
   if (!Number.isInteger(trialDays))
     validationError({ trial_dias: body.trial_dias });
+  const dueDay = Number(
+    body.dia_vencimento || addDays(new Date(), trialDays).getUTCDate()
+  );
+  if (!Number.isInteger(dueDay) || dueDay < 1 || dueDay > 31)
+    validationError({ dia_vencimento: body.dia_vencimento });
 
   return sequelize.transaction(async transaction => {
     const generatedPassword = !body.senha_admin;
@@ -146,6 +151,8 @@ export const createPlatformTenant = async (
         status: true,
         planId: plan.id,
         dueDate: addDays(new Date(), trialDays).toISOString().slice(0, 10),
+        trialDays,
+        dueDay,
         recurrence: cycle.toUpperCase()
       },
       { transaction }
@@ -208,6 +215,20 @@ export const updatePlatformTenant = async (
   if (!plan) throw new PlatformApiError("invalid_plan", "Plano inválido.", 422);
   if (body.ciclo && !CYCLES.includes(body.ciclo))
     validationError({ ciclo: body.ciclo });
+  const trialDays =
+    body.trial_dias === undefined ? undefined : Number(body.trial_dias);
+  const dueDay =
+    body.dia_vencimento === undefined ? undefined : Number(body.dia_vencimento);
+  if (
+    trialDays !== undefined &&
+    (!Number.isInteger(trialDays) || trialDays < 0 || trialDays > 3650)
+  )
+    validationError({ trial_dias: body.trial_dias });
+  if (
+    dueDay !== undefined &&
+    (!Number.isInteger(dueDay) || dueDay < 1 || dueDay > 31)
+  )
+    validationError({ dia_vencimento: body.dia_vencimento });
 
   await sequelize.transaction(async transaction => {
     await UpdateCompanyService(
@@ -218,6 +239,8 @@ export const updatePlatformTenant = async (
           body.email_admin === undefined ? company.email : body.email_admin,
         phone: body.telefone === undefined ? company.phone : body.telefone,
         planId: plan.id,
+        ...(trialDays === undefined ? {} : { trialDays }),
+        ...(dueDay === undefined ? {} : { dueDay }),
         recurrence: body.ciclo ? body.ciclo.toUpperCase() : company.recurrence
       },
       { transaction }

@@ -31,13 +31,12 @@ export const createSubscription = async (
 
 // Retorna a cotação (valor + taxa por método) de uma fatura, para exibir os
 // totais na tela de pagamento.
-export const quote = async (
-  req: Request,
-  res: Response
-): Promise<Response> => {
+export const quote = async (req: Request, res: Response): Promise<Response> => {
   const { invoiceId } = req.params;
 
-  const invoice = await Invoices.findByPk(invoiceId);
+  const invoice = await Invoices.findOne({
+    where: { id: invoiceId, companyId: req.user.companyId }
+  });
   if (!invoice) {
     throw new AppError("Invoice not found", 404);
   }
@@ -53,7 +52,9 @@ export const simulate = async (
 ): Promise<Response> => {
   const { invoiceId } = req.params;
 
-  const invoice = await Invoices.findByPk(invoiceId);
+  const invoice = await Invoices.findOne({
+    where: { id: invoiceId, companyId: req.user.companyId }
+  });
   if (!invoice || !invoice.txId) {
     throw new AppError("Invoice not found or without charge", 404);
   }

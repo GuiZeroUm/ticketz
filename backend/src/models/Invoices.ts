@@ -73,6 +73,15 @@ class Invoices extends Model<Invoices> {
   @Column
   dueDate: string;
 
+  @Column
+  billingType: "regular" | "initial_prorata";
+
+  @Column(DataType.DATEONLY)
+  periodStart: string;
+
+  @Column(DataType.DATEONLY)
+  periodEnd: string;
+
   @ForeignKey(() => Company)
   @Column
   companyId: number;

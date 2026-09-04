@@ -59,6 +59,7 @@ import PlatformWebhookOutbox from "../models/PlatformWebhookOutbox";
 import PlatformAccessToken from "../models/PlatformAccessToken";
 import TaskBoardColumn from "../models/TaskBoardColumn";
 import TaskBoardTask from "../models/TaskBoardTask";
+import TaskBoardEvent from "../models/TaskBoardEvent";
 import VoiceConnection from "../models/VoiceConnection";
 import VoiceCall from "../models/VoiceCall";
 
@@ -128,6 +129,7 @@ const models = [
   PlatformAccessToken,
   TaskBoardColumn,
   TaskBoardTask,
+  TaskBoardEvent,
   VoiceConnection,
   VoiceCall
 ];

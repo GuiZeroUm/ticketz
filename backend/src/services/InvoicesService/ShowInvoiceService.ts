@@ -2,9 +2,11 @@ import Invoice from "../../models/Invoices";
 import AppError from "../../errors/AppError";
 
 const ShowInvoceService = async (
-  Invoiceid: string | number
+  Invoiceid: string | number,
+  companyId: number
 ): Promise<Invoice> => {
-  const invoice = await Invoice.findByPk(Invoiceid, {
+  const invoice = await Invoice.findOne({
+    where: { id: Invoiceid, companyId },
     attributes: [
       "id",
       "detail",
@@ -12,6 +14,9 @@ const ShowInvoceService = async (
       "currency",
       "dueDate",
       "status",
+      "billingType",
+      "periodStart",
+      "periodEnd",
       "createdAt",
       "updatedAt"
     ]

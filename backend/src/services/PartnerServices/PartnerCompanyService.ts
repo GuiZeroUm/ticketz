@@ -211,6 +211,8 @@ export const CreatePartnerCompany = async (
     status: true,
     recurrence: data.recurrence || "MENSAL",
     dueDate: moment().add(TRIAL_DAYS, "days").format("YYYY-MM-DD"),
+    trialDays: TRIAL_DAYS,
+    dueDay: moment().add(TRIAL_DAYS, "days").date(),
     partnerId,
     saleValue,
     introValue: intro.introValue,
@@ -242,7 +244,7 @@ export const UpdatePartnerCompany = async (
   if (saleValue !== undefined || intro !== undefined || planChanged) {
     const effectiveSaleValue = saleValue ?? (Number(company.saleValue) || 0);
     const effectiveIntroValue =
-      intro !== undefined ? intro.introValue : company.introValue ?? null;
+      intro !== undefined ? intro.introValue : (company.introValue ?? null);
 
     ({ cost } = await assertAboveFloor(
       planId,

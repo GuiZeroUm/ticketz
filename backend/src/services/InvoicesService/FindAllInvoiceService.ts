@@ -9,6 +9,9 @@ const FindAllPlanService = async (companyId: number): Promise<Invoices[]> => {
       "currency",
       "dueDate",
       "status",
+      "billingType",
+      "periodStart",
+      "periodEnd",
       "createdAt",
       "updatedAt"
     ],

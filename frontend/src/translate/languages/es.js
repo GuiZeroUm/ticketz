@@ -490,6 +490,16 @@ const messages = {
           titleFileList: "Lista de archivo(s)"
         }
       },
+      billing: {
+        trialDays: "Días de prueba gratis",
+        trialDaysHelp: "0 significa sin prueba gratis",
+        dueDay: "Día de vencimiento",
+        dueDayHelp: "Mensual; meses más cortos usan el último día",
+        prorata: "Prorrata",
+        trialEndsIn: "Tu prueba termina en {{days}} días.",
+        noActiveTrial: "Sin prueba activa",
+        period: "Período: {{start}} a {{end}}"
+      },
       todolist: {
         title: "Tablero de tareas",
         loading: "Cargando el tablero...",
@@ -499,12 +509,42 @@ const messages = {
         dragTaskLabel: "Mover tarea {{title}}",
         completedAt: "Completada el {{date}}",
         editTaskTitle: "Editar tarea",
+        newTaskTitle: "Nueva tarea",
+        targets: { global: "Global", user: "Usuario", queue: "Cola" },
+        deadline: {
+          ok: "A tiempo",
+          warning: "Plazo próximo",
+          overdue: "Atrasada"
+        },
+        details: {
+          noDescription: "Sin descripción",
+          state: "Estado",
+          createdBy: "Creada por",
+          target: "Destino",
+          createdAt: "Creada",
+          dueAt: "Plazo",
+          completedAt: "Completada",
+          history: "Historial"
+        },
+        events: {
+          CREATED: "Creada",
+          EDITED: "Editada",
+          MOVED: "Movida",
+          COMPLETED: "Completada",
+          REOPENED: "Reabierta"
+        },
         form: {
           name: "Nombre de la tarea",
-          columnName: "Nombre de la columna"
+          columnName: "Nombre de la columna",
+          description: "Descripción",
+          targetType: "Destino",
+          assignee: "Usuario responsable",
+          queue: "Cola responsable",
+          dueAt: "Plazo"
         },
         buttons: {
           add: "Añadir",
+          newTask: "Nueva tarea",
           save: "Guardar",
           configure: "Configurar columnas",
           clearFilter: "Limpiar filtro",
@@ -1395,6 +1435,12 @@ const messages = {
           "El backend se está iniciando y aún no está listo. Reintentando automáticamente."
       },
       backendErrors: {
+        ERR_INVALID_TRIAL_DAYS:
+          "Los días de prueba deben ser un entero entre 0 y 3650.",
+        ERR_INVALID_DUE_DAY:
+          "El día de vencimiento debe ser un entero entre 1 y 31.",
+        ERR_TRIAL_ALREADY_STARTED:
+          "La prueba gratis no puede cambiarse después del inicio de la facturación.",
         ERR_TASK_BOARD_INVALID_TITLE: "Introduce un título válido.",
         ERR_TASK_BOARD_INVALID_COLOR: "Introduce un color hexadecimal válido.",
         ERR_TASK_BOARD_COLUMN_NOT_FOUND: "Columna no encontrada.",

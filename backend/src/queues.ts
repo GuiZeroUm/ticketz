@@ -13,7 +13,6 @@ import GetDefaultWhatsApp from "./helpers/GetDefaultWhatsApp";
 import GetWhatsappWbot from "./helpers/GetWhatsappWbot";
 import User from "./models/User";
 import Company from "./models/Company";
-import Plan from "./models/Plan";
 import TicketTraking from "./models/TicketTraking";
 import { GetCompanySetting } from "./helpers/CheckSettings";
 import { getWbot } from "./libs/wbot";
@@ -21,7 +20,6 @@ import Ticket from "./models/Ticket";
 import QueueModel from "./models/Queue";
 import UpdateTicketService from "./services/TicketServices/UpdateTicketService";
 import { handleMessage } from "./services/WbotServices/wbotMessageListener";
-import Invoices from "./models/Invoices";
 import formatBody from "./helpers/Mustache";
 import Setting from "./models/Setting";
 import { parseToMilliseconds } from "./helpers/parseToMilliseconds";
@@ -50,13 +48,8 @@ import {
 } from "./services/ScheduleServices/cadence";
 import SendPartnerPayoutsService from "./services/PartnerServices/SendPartnerPayoutsService";
 import ReconcilePartnerPayoutsService from "./services/PartnerServices/ReconcilePartnerPayoutsService";
-import { priceForDueDate } from "./services/PartnerServices/PartnerPricing";
-import sequelize from "./database";
-import {
-  enqueueWebhook,
-  processPlatformWebhooks
-} from "./services/PlatformServices/PlatformWebhookService";
-import { serializeInvoice } from "./services/PlatformServices/PlatformSerializers";
+import { processPlatformWebhooks } from "./services/PlatformServices/PlatformWebhookService";
+import CreateCompanyInvoiceService from "./services/InvoicesService/CreateCompanyInvoiceService";
 
 const connection = process.env.REDIS_URI || "";
 export const userMonitor = new Queue("UserMonitor", connection);
@@ -836,55 +829,7 @@ const createInvoices = new CronJob("0 * * * * *", async () => {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays < 20) {
-      const plan = await Plan.findByPk(c.planId);
-
-      const invoiceCount = await Invoices.count({
-        where: {
-          companyId: c.id,
-          origem: { [Op.ne]: "plataforma" },
-          externalRef: null,
-          dueDate: {
-            [Op.like]: `${dueDate.toISOString().split("T")[0]}%`
-          }
-        }
-      });
-
-      if (invoiceCount === 0) {
-        await sequelize.transaction(async transaction => {
-          await Invoices.destroy({
-            where: {
-              companyId: c.id,
-              status: "open",
-              origem: { [Op.ne]: "plataforma" },
-              externalRef: null
-            },
-            transaction
-          });
-          const invoice = await Invoices.create(
-            {
-              detail: plan.name,
-              status: "open",
-              // Empresa vendida por parceiro cobra o preco negociado por ele,
-              // respeitando o periodo inicial quando houver.
-              value: c.partnerId
-                ? (priceForDueDate(c, dueDate) ?? plan.value)
-                : (c.saleValue ?? plan.value),
-              currency: plan.currency || "",
-              dueDate: dueDate.toISOString().split("T")[0],
-              companyId: c.id,
-              origem: "sistema",
-              externalRef: null
-            },
-            { transaction }
-          );
-          await enqueueWebhook(
-            "fatura.criada",
-            c.id,
-            serializeInvoice(invoice),
-            transaction
-          );
-        });
-      }
+      await CreateCompanyInvoiceService(c.id);
     }
   }
 });

@@ -32,6 +32,8 @@ type CompanyData = {
   campaignsEnabled?: boolean;
   voiceCallsEnabled?: boolean;
   dueDate?: string | null;
+  trialDays?: number;
+  dueDay?: number;
   recurrence?: string;
   slug?: string;
   partnerId?: number | null;
@@ -44,6 +46,47 @@ type CompanyData = {
 type SchedulesData = {
   schedules: OpenHoursData;
 };
+
+const companySchema = Yup.object()
+  .shape({
+    name: Yup.string().min(2).required(),
+    phone: Yup.string().nullable(),
+    email: Yup.string().email().nullable(),
+    password: Yup.string(),
+    status: Yup.boolean(),
+    planId: Yup.number().integer().positive().nullable(),
+    campaignsEnabled: Yup.boolean(),
+    voiceCallsEnabled: Yup.boolean(),
+    dueDate: Yup.string()
+      .nullable()
+      .test(
+        "valid-due-date",
+        "ERR_COMPANY_INVALID_DUE_DATE",
+        value => !value || moment(value, moment.ISO_8601, true).isValid()
+      ),
+    trialDays: Yup.number()
+      .strict(true)
+      .integer("ERR_INVALID_TRIAL_DAYS")
+      .min(0, "ERR_INVALID_TRIAL_DAYS")
+      .max(3650, "ERR_INVALID_TRIAL_DAYS"),
+    dueDay: Yup.number()
+      .strict(true)
+      .integer("ERR_INVALID_DUE_DAY")
+      .min(1, "ERR_INVALID_DUE_DAY")
+      .max(31, "ERR_INVALID_DUE_DAY"),
+    recurrence: Yup.string(),
+    language: Yup.string(),
+    slug: Yup.string().nullable(),
+    partnerId: Yup.number().integer().positive().nullable(),
+    saleValue: Yup.number().nullable(),
+    introValue: Yup.number().nullable(),
+    introMonths: Yup.number().integer().nullable(),
+    platformCost: Yup.number().nullable(),
+    captchaToken: Yup.string(),
+    passwordConfigured: Yup.boolean()
+  })
+  .noUnknown(true, "ERR_UNKNOWN_FIELD")
+  .strict(true);
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const { searchParam, pageNumber } = req.query as IndexQuery;
@@ -59,19 +102,8 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const newCompany: CompanyData = req.body;
 
-  const schema = Yup.object().shape({
-    name: Yup.string().required(),
-    dueDate: Yup.string()
-      .nullable()
-      .test(
-        "valid-due-date",
-        "ERR_COMPANY_INVALID_DUE_DATE",
-        value => !value || moment(value, moment.ISO_8601, true).isValid()
-      )
-  });
-
   try {
-    await schema.validate(newCompany);
+    await companySchema.validate(newCompany);
   } catch (err) {
     throw new AppError(err.message);
   }
@@ -103,6 +135,8 @@ export const signup = async (
   }
 
   req.body.dueDate = moment().add(3, "day").format();
+  req.body.trialDays = 3;
+  req.body.dueDay = moment().add(3, "day").date();
 
   return store(req, res);
 };
@@ -133,19 +167,10 @@ export const update = async (
 ): Promise<Response> => {
   const companyData: CompanyData = req.body;
 
-  const schema = Yup.object().shape({
-    name: Yup.string(),
-    dueDate: Yup.string()
-      .nullable()
-      .test(
-        "valid-due-date",
-        "ERR_COMPANY_INVALID_DUE_DATE",
-        value => !value || moment(value, moment.ISO_8601, true).isValid()
-      )
-  });
-
   try {
-    await schema.validate(companyData);
+    await companySchema
+      .concat(Yup.object({ name: Yup.string().min(2) }))
+      .validate(companyData);
   } catch (err) {
     throw new AppError(err.message);
   }

@@ -7,6 +7,15 @@ import normalizeSlug from "../../helpers/normalizeSlug";
 import { revokeCompanyMcpGrants } from "../McpServices/RevokeMcpGrantsService";
 import { assertVoiceCompanyAllowlisted } from "../VoiceServices/VoiceAccessService";
 import { disableCompanyVoiceConnections } from "../VoiceServices/VoiceService";
+import moment from "moment";
+import {
+  assertDueDay,
+  assertTrialDays
+} from "../BillingServices/BillingConfigService";
+import {
+  firstBillableDueDate,
+  resolveTrialEndsAt
+} from "../BillingServices/BillingDateService";
 
 interface CompanyData {
   name: string;
@@ -18,6 +27,8 @@ interface CompanyData {
   campaignsEnabled?: boolean;
   voiceCallsEnabled?: boolean;
   dueDate?: string | null;
+  trialDays?: number;
+  dueDay?: number;
   recurrence?: string;
   language?: string;
   slug?: string;
@@ -62,6 +73,47 @@ const UpdateCompanyService = async (
   const hasIntroValue = companyData.introValue !== undefined;
   const hasIntroMonths = companyData.introMonths !== undefined;
   const hasPlatformCost = companyData.platformCost !== undefined;
+  const hasTrialDays = companyData.trialDays !== undefined;
+  const hasDueDay = companyData.dueDay !== undefined;
+  const trialDays = hasTrialDays
+    ? assertTrialDays(companyData.trialDays)
+    : company.trialDays;
+  let dueDay = hasDueDay ? assertDueDay(companyData.dueDay) : company.dueDay;
+  if (
+    dueDate !== undefined &&
+    dueDate !== null &&
+    dueDate !== company.dueDate
+  ) {
+    dueDay = assertDueDay(moment.utc(dueDate).date());
+  }
+  let trialEndsAt = company.trialEndsAt;
+  let nextDueDate = dueDate;
+  if (hasTrialDays && trialDays !== company.trialDays) {
+    const billed = await Invoices.count({
+      where:
+        company.trialEndsAt === null
+          ? { companyId: company.id }
+          : { companyId: company.id, billingType: "initial_prorata" },
+      transaction
+    });
+    if (billed > 0) throw new AppError("ERR_TRIAL_ALREADY_STARTED", 409);
+    trialEndsAt = resolveTrialEndsAt(
+      moment.utc().format("YYYY-MM-DD"),
+      trialDays
+    );
+    nextDueDate = firstBillableDueDate(trialEndsAt, dueDay);
+  } else if (
+    hasDueDay &&
+    trialEndsAt &&
+    (dueDate === undefined || dueDate === company.dueDate)
+  ) {
+    const initialIssued = await Invoices.count({
+      where: { companyId: company.id, billingType: "initial_prorata" },
+      transaction
+    });
+    if (initialIssued === 0)
+      nextDueDate = firstBillableDueDate(trialEndsAt, dueDay);
+  }
 
   const hasSlug = companyData.slug !== undefined;
   const slug = hasSlug ? normalizeSlug(companyData.slug) : undefined;
@@ -84,7 +136,9 @@ const UpdateCompanyService = async (
       email,
       status,
       planId,
-      dueDate,
+      dueDate: nextDueDate,
+      ...(hasTrialDays ? { trialDays, trialEndsAt } : {}),
+      ...(hasDueDay || dueDate !== undefined ? { dueDay } : {}),
       recurrence,
       language,
       ...(hasSlug ? { slug: slug || null } : {}),
@@ -166,9 +220,11 @@ const UpdateCompanyService = async (
       where: {
         companyId: company.id,
         status: "open",
+        billingType: "regular",
         dueDate: { [Op.lte]: dueDate },
         origem: { [Op.ne]: "plataforma" },
-        externalRef: null
+        externalRef: null,
+        [Op.or]: [{ txId: null }, { txId: "" }]
       },
       transaction
     });
@@ -190,8 +246,10 @@ const UpdateCompanyService = async (
       where: {
         companyId: company.id,
         status: "open",
+        billingType: "regular",
         origem: { [Op.ne]: "plataforma" },
-        externalRef: null
+        externalRef: null,
+        [Op.or]: [{ txId: null }, { txId: "" }]
       },
       transaction
     });
@@ -202,8 +260,10 @@ const UpdateCompanyService = async (
       where: {
         companyId: company.id,
         status: "open",
+        billingType: "regular",
         origem: { [Op.ne]: "plataforma" },
-        externalRef: null
+        externalRef: null,
+        [Op.or]: [{ txId: null }, { txId: "" }]
       },
       transaction
     });

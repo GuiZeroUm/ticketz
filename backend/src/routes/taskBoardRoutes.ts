@@ -6,6 +6,7 @@ import * as TaskBoardController from "../controllers/TaskBoardController";
 const routes = Router();
 
 routes.get("/task-board", isAuth, TaskBoardController.index);
+routes.get("/task-board/tasks/:id", isAuth, TaskBoardController.show);
 
 routes.post(
   "/task-board/columns",
@@ -32,9 +33,24 @@ routes.delete(
   TaskBoardController.removeColumn
 );
 
-routes.post("/task-board/tasks", isAuth, TaskBoardController.storeTask);
-routes.put("/task-board/tasks/:id", isAuth, TaskBoardController.editTask);
+routes.post(
+  "/task-board/tasks",
+  isAuth,
+  isAdmin,
+  TaskBoardController.storeTask
+);
+routes.put(
+  "/task-board/tasks/:id",
+  isAuth,
+  isAdmin,
+  TaskBoardController.editTask
+);
 routes.put("/task-board/tasks/:id/move", isAuth, TaskBoardController.move);
-routes.delete("/task-board/tasks/:id", isAuth, TaskBoardController.removeTask);
+routes.delete(
+  "/task-board/tasks/:id",
+  isAuth,
+  isAdmin,
+  TaskBoardController.removeTask
+);
 
 export default routes;

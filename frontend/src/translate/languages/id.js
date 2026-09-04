@@ -431,6 +431,16 @@ const messages = {
           titleFileList: "Daftar file(s)"
         }
       },
+      billing: {
+        trialDays: "Hari uji coba gratis",
+        trialDaysHelp: "0 berarti tanpa uji coba gratis",
+        dueDay: "Hari jatuh tempo",
+        dueDayHelp: "Bulanan; bulan pendek memakai hari terakhir",
+        prorata: "Prorata",
+        trialEndsIn: "Uji coba berakhir dalam {{days}} hari.",
+        noActiveTrial: "Tidak ada uji coba aktif",
+        period: "Periode: {{start}} hingga {{end}}"
+      },
       todolist: {
         title: "Papan tugas",
         loading: "Memuat papan...",
@@ -440,12 +450,42 @@ const messages = {
         dragTaskLabel: "Pindahkan tugas {{title}}",
         completedAt: "Selesai pada {{date}}",
         editTaskTitle: "Edit tugas",
+        newTaskTitle: "Tugas baru",
+        targets: { global: "Global", user: "Pengguna", queue: "Antrean" },
+        deadline: {
+          ok: "Tepat waktu",
+          warning: "Segera jatuh tempo",
+          overdue: "Terlambat"
+        },
+        details: {
+          noDescription: "Tanpa deskripsi",
+          state: "Status",
+          createdBy: "Dibuat oleh",
+          target: "Tujuan",
+          createdAt: "Dibuat",
+          dueAt: "Tenggat",
+          completedAt: "Selesai",
+          history: "Riwayat"
+        },
+        events: {
+          CREATED: "Dibuat",
+          EDITED: "Diedit",
+          MOVED: "Dipindah",
+          COMPLETED: "Selesai",
+          REOPENED: "Dibuka kembali"
+        },
         form: {
           name: "Nama tugas",
-          columnName: "Nama kolom"
+          columnName: "Nama kolom",
+          description: "Deskripsi",
+          targetType: "Tujuan",
+          assignee: "Pengguna yang ditugaskan",
+          queue: "Antrean yang ditugaskan",
+          dueAt: "Tenggat"
         },
         buttons: {
           add: "Tambah",
+          newTask: "Tugas baru",
           save: "Simpan",
           configure: "Atur kolom",
           clearFilter: "Hapus filter",
@@ -1292,6 +1332,12 @@ const messages = {
           "Backend sedang memulai dan belum siap. Mencoba lagi secara otomatis."
       },
       backendErrors: {
+        ERR_INVALID_TRIAL_DAYS:
+          "Hari uji coba harus berupa bilangan bulat antara 0 dan 3650.",
+        ERR_INVALID_DUE_DAY:
+          "Hari jatuh tempo harus berupa bilangan bulat antara 1 dan 31.",
+        ERR_TRIAL_ALREADY_STARTED:
+          "Uji coba gratis tidak dapat diubah setelah penagihan dimulai.",
         ERR_TASK_BOARD_INVALID_TITLE: "Masukkan judul yang valid.",
         ERR_TASK_BOARD_INVALID_COLOR: "Masukkan warna heksadesimal yang valid.",
         ERR_TASK_BOARD_COLUMN_NOT_FOUND: "Kolom tidak ditemukan.",

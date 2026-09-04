@@ -1,6 +1,11 @@
 /** @jest-environment node */
 
 import { optimisticMove, tasksInColumn } from "./taskBoardState";
+import {
+  DEADLINE_WARNING_RATIO,
+  deadlineState,
+  toTaskIsoDate
+} from "./taskBoardV2";
 
 const columns = {
   todo: { id: 1, isDone: false },
@@ -33,5 +38,36 @@ describe("task board optimistic movement", () => {
 
     const reopened = optimisticMove(completed, 1, columns.todo, 0);
     expect(tasksInColumn(reopened, 1)[0].completedAt).toBeNull();
+  });
+});
+
+describe("task board v2 rules", () => {
+  const task = {
+    createdAt: "2026-09-04T10:00:00.000Z",
+    dueAt: "2026-09-04T14:00:00.000Z",
+    completedAt: null
+  };
+
+  it("uses the named 75% deadline boundary", () => {
+    expect(DEADLINE_WARNING_RATIO).toBe(0.75);
+    expect(deadlineState(task, new Date("2026-09-04T12:59:59.000Z"))).toBe(
+      "ok"
+    );
+    expect(deadlineState(task, new Date("2026-09-04T13:00:00.000Z"))).toBe(
+      "warning"
+    );
+    expect(deadlineState(task, new Date("2026-09-04T14:00:01.000Z"))).toBe(
+      "overdue"
+    );
+  });
+
+  it("does not flag completed or undated tasks", () => {
+    expect(deadlineState({ ...task, completedAt: task.dueAt })).toBe("none");
+    expect(deadlineState({ ...task, dueAt: null })).toBe("none");
+  });
+
+  it("converts datetime-local values to absolute ISO instants", () => {
+    expect(toTaskIsoDate("2026-09-04T14:30")).toMatch(/^2026-09-04T/);
+    expect(toTaskIsoDate("")).toBeNull();
   });
 });

@@ -427,6 +427,16 @@ const messages = {
           titleFileList: "Dateiliste"
         }
       },
+      billing: {
+        trialDays: "Kostenlose Testtage",
+        trialDaysHelp: "0 bedeutet keine kostenlose Testphase",
+        dueDay: "Fälligkeitstag",
+        dueDayHelp: "Monatlich; kurze Monate nutzen den letzten Tag",
+        prorata: "Anteilig",
+        trialEndsIn: "Ihre Testphase endet in {{days}} Tagen.",
+        noActiveTrial: "Keine aktive Testphase",
+        period: "Zeitraum: {{start}} bis {{end}}"
+      },
       todolist: {
         title: "Aufgabenboard",
         loading: "Board wird geladen...",
@@ -436,12 +446,42 @@ const messages = {
         dragTaskLabel: "Aufgabe {{title}} verschieben",
         completedAt: "Abgeschlossen am {{date}}",
         editTaskTitle: "Aufgabe bearbeiten",
+        newTaskTitle: "Neue Aufgabe",
+        targets: { global: "Global", user: "Benutzer", queue: "Warteschlange" },
+        deadline: {
+          ok: "Im Zeitplan",
+          warning: "Bald fällig",
+          overdue: "Überfällig"
+        },
+        details: {
+          noDescription: "Keine Beschreibung",
+          state: "Status",
+          createdBy: "Erstellt von",
+          target: "Ziel",
+          createdAt: "Erstellt",
+          dueAt: "Fällig",
+          completedAt: "Abgeschlossen",
+          history: "Verlauf"
+        },
+        events: {
+          CREATED: "Erstellt",
+          EDITED: "Bearbeitet",
+          MOVED: "Verschoben",
+          COMPLETED: "Abgeschlossen",
+          REOPENED: "Wieder geöffnet"
+        },
         form: {
           name: "Aufgabenname",
-          columnName: "Spaltenname"
+          columnName: "Spaltenname",
+          description: "Beschreibung",
+          targetType: "Ziel",
+          assignee: "Zugewiesener Benutzer",
+          queue: "Zugewiesene Warteschlange",
+          dueAt: "Fällig"
         },
         buttons: {
           add: "Hinzufügen",
+          newTask: "Neue Aufgabe",
           save: "Speichern",
           configure: "Spalten konfigurieren",
           clearFilter: "Filter löschen",
@@ -1278,6 +1318,12 @@ const messages = {
           "Das Backend startet noch und ist noch nicht bereit. Automatischer neuer Versuch."
       },
       backendErrors: {
+        ERR_INVALID_TRIAL_DAYS:
+          "Testtage müssen eine ganze Zahl zwischen 0 und 3650 sein.",
+        ERR_INVALID_DUE_DAY:
+          "Der Fälligkeitstag muss zwischen 1 und 31 liegen.",
+        ERR_TRIAL_ALREADY_STARTED:
+          "Die Testphase kann nach Rechnungsbeginn nicht geändert werden.",
         ERR_TASK_BOARD_INVALID_TITLE: "Geben Sie einen gültigen Titel ein.",
         ERR_TASK_BOARD_INVALID_COLOR: "Geben Sie eine gültige Hex-Farbe ein.",
         ERR_TASK_BOARD_COLUMN_NOT_FOUND: "Spalte nicht gefunden.",

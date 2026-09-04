@@ -25,6 +25,7 @@ export const optimisticMove = (
     0,
     {
       ...moving,
+      version: Number(moving.version || 0) + 1,
       columnId: destinationColumn.id,
       completedAt: destinationColumn.isDone
         ? moving.completedAt || new Date().toISOString()

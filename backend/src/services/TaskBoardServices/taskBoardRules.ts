@@ -19,6 +19,24 @@ export const cleanTaskBoardColor = (color: unknown): string | null => {
   return color.toUpperCase();
 };
 
+export const cleanTaskBoardDescription = (description: unknown): string => {
+  if (description === undefined || description === null) return "";
+  if (typeof description !== "string" || description.length > 10000) {
+    throw new AppError("ERR_TASK_BOARD_INVALID_DESCRIPTION");
+  }
+  return description.trim();
+};
+
+export const parseTaskBoardTarget = (
+  target: unknown
+): "GLOBAL" | "USER" | "QUEUE" => {
+  const value = String(target || "GLOBAL").toUpperCase();
+  if (!["GLOBAL", "USER", "QUEUE"].includes(value)) {
+    throw new AppError("ERR_TASK_BOARD_INVALID_TARGET");
+  }
+  return value as "GLOBAL" | "USER" | "QUEUE";
+};
+
 export const parseTaskBoardDate = (value?: string): Date | undefined => {
   if (!value) return undefined;
   const date = new Date(value);
