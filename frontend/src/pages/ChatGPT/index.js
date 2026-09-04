@@ -37,7 +37,7 @@ import { i18n } from "../../translate/i18n";
 
 const CHATGPT_PLUGIN_URL =
   "https://chatgpt.com/plugins/plugin_asdk_app_6a7f43d763d8819194733163f90a8d7b";
-const MARKETPLACE_REPOSITORY = "https://github.com/GuiZeroUm/ticketz";
+// const MARKETPLACE_REPOSITORY = "https://github.com/GuiZeroUm/ticketz";
 
 const useStyles = makeStyles(theme => ({
   root: { flex: 1 },
@@ -45,11 +45,6 @@ const useStyles = makeStyles(theme => ({
   tabs: { borderBottom: `1px solid ${theme.palette.divider}` },
   tabPanel: { padding: theme.spacing(3) },
   card: { padding: theme.spacing(3), height: "100%" },
-  warning: {
-    padding: theme.spacing(2),
-    borderLeft: `4px solid ${theme.palette.warning.main}`,
-    background: theme.palette.type === "dark" ? "#3b2f1d" : "#fff8e1"
-  },
   urlRow: {
     display: "flex",
     gap: theme.spacing(1),
@@ -132,10 +127,12 @@ const ChatGPT = () => {
     toast.success(i18n.t("chatgpt.toasts.copied"));
   };
 
+  /*
   const copyRepository = async () => {
     await navigator.clipboard.writeText(MARKETPLACE_REPOSITORY);
     toast.success(i18n.t("chatgpt.toasts.repositoryCopied"));
   };
+  */
 
   const revoke = async () => {
     try {
@@ -148,17 +145,6 @@ const ChatGPT = () => {
       toastError(error);
     }
   };
-
-  const renderWarning = () => (
-    <Grid item xs={12}>
-      <Box className={classes.warning}>
-        <Typography variant="subtitle1">
-          <strong>{i18n.t("chatgpt.warningTitle")}</strong>
-        </Typography>
-        <Typography variant="body2">{i18n.t("chatgpt.warning")}</Typography>
-      </Box>
-    </Grid>
-  );
 
   const renderConnections = () => (
     <Grid item xs={12}>
@@ -274,7 +260,6 @@ const ChatGPT = () => {
         ) : tab === 0 ? (
           <Box className={classes.tabPanel}>
             <Grid container spacing={3}>
-              {renderWarning()}
               <Grid item xs={12} md={7}>
                 <Paper variant="outlined" className={classes.card}>
                   <div className={classes.pluginHeader}>
@@ -339,7 +324,7 @@ const ChatGPT = () => {
                   </Stepper>
                 </Paper>
               </Grid>
-              <Grid item xs={12}>
+              {/* <Grid item xs={12}>
                 <Paper variant="outlined" className={classes.card}>
                   <Typography variant="h6">
                     {i18n.t("chatgpt.plugin.marketplace.title")}
@@ -372,14 +357,13 @@ const ChatGPT = () => {
                     </Button>
                   </div>
                 </Paper>
-              </Grid>
+              </Grid> */}
               {renderConnections()}
             </Grid>
           </Box>
         ) : (
           <Box className={classes.tabPanel}>
             <Grid container spacing={3}>
-              {renderWarning()}
               <Grid item xs={12} md={7}>
                 <Paper variant="outlined" className={classes.card}>
                   <Typography variant="h6">
