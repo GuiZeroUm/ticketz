@@ -13,6 +13,7 @@ interface Request {
 interface Response {
   whatsappId: number;
   connectionChanged: boolean;
+  conflictingTicketId: number | null;
 }
 
 const ResolveTicketTransferService = async ({
@@ -28,6 +29,7 @@ const ResolveTicketTransferService = async ({
   }
 
   const connectionChanged = targetWhatsappId !== ticket.whatsappId;
+  let conflictingTicketId: number | null = null;
 
   const targetConnection = await Whatsapp.findOne({
     where: {
@@ -66,7 +68,11 @@ const ResolveTicketTransferService = async ({
     });
 
     if (conflictingTicket) {
-      throw new AppError("ERR_OTHER_OPEN_TICKET", 400);
+      // A contact can legitimately have pending conversations on more than
+      // one connection. The explicit transfer must win: the caller closes
+      // this destination ticket before moving the selected conversation so
+      // incoming replies keep resolving to a single active ticket.
+      conflictingTicketId = conflictingTicket.id;
     }
   }
 
@@ -97,7 +103,11 @@ const ResolveTicketTransferService = async ({
     }
   }
 
-  return { whatsappId: targetWhatsappId, connectionChanged };
+  return {
+    whatsappId: targetWhatsappId,
+    connectionChanged,
+    conflictingTicketId
+  };
 };
 
 export default ResolveTicketTransferService;

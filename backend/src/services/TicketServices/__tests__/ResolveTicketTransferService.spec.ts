@@ -57,7 +57,11 @@ describe("ResolveTicketTransferService", () => {
         whatsappId: 2,
         queueId: 5
       })
-    ).resolves.toEqual({ whatsappId: 2, connectionChanged: true });
+    ).resolves.toEqual({
+      whatsappId: 2,
+      connectionChanged: true,
+      conflictingTicketId: null
+    });
 
     expect(ticketFindOne).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -78,7 +82,11 @@ describe("ResolveTicketTransferService", () => {
         whatsappId: 2,
         queueId: 5
       })
-    ).resolves.toEqual({ whatsappId: 2, connectionChanged: true });
+    ).resolves.toEqual({
+      whatsappId: 2,
+      connectionChanged: true,
+      conflictingTicketId: null
+    });
   });
 
   it.each([
@@ -112,7 +120,7 @@ describe("ResolveTicketTransferService", () => {
     ).rejects.toMatchObject({ message: errorCode });
   });
 
-  it("rejects a destination that already has an active ticket", async () => {
+  it("returns the active destination ticket for automatic consolidation", async () => {
     ticketFindOne.mockResolvedValue({ id: 99 } as Ticket);
 
     await expect(
@@ -121,7 +129,11 @@ describe("ResolveTicketTransferService", () => {
         whatsappId: 2,
         queueId: 5
       })
-    ).rejects.toMatchObject({ message: "ERR_OTHER_OPEN_TICKET" });
+    ).resolves.toEqual({
+      whatsappId: 2,
+      connectionChanged: true,
+      conflictingTicketId: 99
+    });
   });
 
   it("rejects a queue scoped to another connection", async () => {

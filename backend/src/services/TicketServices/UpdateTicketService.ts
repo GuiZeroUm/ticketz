@@ -122,7 +122,11 @@ const UpdateTicketService = async ({
             whatsappId: ticketData.whatsappId,
             queueId
           })
-        : { whatsappId: ticket.whatsappId, connectionChanged: false };
+        : {
+            whatsappId: ticket.whatsappId,
+            connectionChanged: false,
+            conflictingTicketId: null
+          };
 
     if (user && ticket.status !== "pending") {
       if (user.profile !== "admin" && ticket.userId !== user.id) {
@@ -283,6 +287,14 @@ const UpdateTicketService = async ({
       ticketTraking.chatbotendAt = moment().toDate();
     }
 
+    if (transferTarget.conflictingTicketId) {
+      await UpdateTicketService({
+        ticketData: { status: "closed", justClose: true },
+        ticketId: transferTarget.conflictingTicketId,
+        companyId
+      });
+    }
+
     await ticket.update({
       status,
       queueId,
@@ -292,6 +304,9 @@ const UpdateTicketService = async ({
       queueOptionId
     });
 
+    const transferred =
+      oldQueueId !== queueId || transferTarget.connectionChanged;
+
     if (oldStatus !== status) {
       if (oldStatus === "closed" && status === "open") {
         await incrementCounter(companyId, "ticket-reopen");
@@ -299,12 +314,11 @@ const UpdateTicketService = async ({
         await incrementCounter(companyId, "ticket-accept");
       } else if (status === "closed") {
         await incrementCounter(companyId, "ticket-close");
-      } else if (
-        status === "pending" &&
-        (oldQueueId !== queueId || transferTarget.connectionChanged)
-      ) {
-        await incrementCounter(companyId, "ticket-transfer");
       }
+    }
+
+    if (status === "pending" && transferred) {
+      await incrementCounter(companyId, "ticket-transfer");
     }
 
     await ticket.reload();
