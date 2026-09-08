@@ -233,8 +233,16 @@ services:
         delay: 5s
         max_attempts: 5
         window: 120s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
+      - "traefik.http.routers.espacowhats-dev-wildcard-http.rule=HostRegexp(`[a-z0-9-]+\\.dev\\.espacowhats\\.com\\.br`)"
+      - "traefik.http.routers.espacowhats-dev-wildcard-http.entrypoints=web"
+      - "traefik.http.routers.espacowhats-dev-wildcard-http.service=espacowhats-dev-frontend"
+      - "traefik.http.services.espacowhats-dev-frontend.loadbalancer.server.port=80"
     networks:
       - internal
+      - dokploy-network
 
 networks:
   internal:
@@ -242,6 +250,8 @@ networks:
     # default bridge network remains private and is attachable by the service
     # containers, unlike a non-attachable Swarm overlay network.
     driver: bridge
+  dokploy-network:
+    external: true
 
 volumes:
   postgres_data_v18:
