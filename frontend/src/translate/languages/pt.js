@@ -2186,10 +2186,16 @@ const messages = {
 
       contactDrawer: {
         header: "Dados do contato",
+        groupHeader: "Dados do grupo",
         buttons: {
           edit: "Editar contato"
         },
-        extraInfo: "Outras informações"
+        extraInfo: "Outras informações",
+        participants: "Participantes",
+        participantsUnavailable: "Não foi possível carregar os participantes",
+        you: "você",
+        admin: "Admin",
+        owner: "Criador"
       },
       ticketOptionsMenu: {
         schedule: "Agendamento",

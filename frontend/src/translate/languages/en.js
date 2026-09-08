@@ -1584,10 +1584,16 @@ const messages = {
 
       contactDrawer: {
         header: "Contact Information",
+        groupHeader: "Group information",
         buttons: {
           edit: "Edit Contact"
         },
-        extraInfo: "Other information"
+        extraInfo: "Other information",
+        participants: "Participants",
+        participantsUnavailable: "Unable to load participants",
+        you: "you",
+        admin: "Admin",
+        owner: "Owner"
       },
       ticketOptionsMenu: {
         schedule: "Schedule",

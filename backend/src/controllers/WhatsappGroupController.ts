@@ -3,6 +3,8 @@ import ListGroupsService from "../services/WhatsappGroupServices/ListGroupsServi
 import UpdateGroupService from "../services/WhatsappGroupServices/UpdateGroupService";
 import { assertGroupAccess } from "../services/WhatsappGroupServices/GroupAccessService";
 import { markGroupRead } from "../services/WhatsappGroupServices/GroupUnreadService";
+import ListGroupParticipantsService from "../services/WhatsappGroupServices/ListGroupParticipantsService";
+import GetGroupUnreadCountService from "../services/WhatsappGroupServices/GetGroupUnreadCountService";
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const mode = req.query.mode === "ticket" ? "ticket" : "conversation";
@@ -40,4 +42,27 @@ export const read = async (req: Request, res: Response): Promise<Response> => {
   await assertGroupAccess(ticketId, req.user);
   await markGroupRead(ticketId, Number(req.user.id), req.user.companyId);
   return res.status(204).send();
+};
+
+export const unreadCount = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const count = await GetGroupUnreadCountService(
+    Number(req.user.id),
+    req.user.companyId,
+    req.user.profile
+  );
+  return res.json({ count });
+};
+
+export const participants = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const result = await ListGroupParticipantsService(
+    Number(req.params.ticketId),
+    req.user
+  );
+  return res.json(result);
 };

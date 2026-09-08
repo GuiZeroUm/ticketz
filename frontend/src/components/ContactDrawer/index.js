@@ -6,10 +6,15 @@ import IconButton from "@material-ui/core/IconButton";
 import CloseIcon from "@material-ui/icons/Close";
 import Drawer from "@material-ui/core/Drawer";
 import Link from "@material-ui/core/Link";
-import InputLabel from "@material-ui/core/InputLabel";
 import Avatar from "@material-ui/core/Avatar";
 import Button from "@material-ui/core/Button";
 import Paper from "@material-ui/core/Paper";
+import CircularProgress from "@material-ui/core/CircularProgress";
+import List from "@material-ui/core/List";
+import ListItem from "@material-ui/core/ListItem";
+import ListItemAvatar from "@material-ui/core/ListItemAvatar";
+import ListItemText from "@material-ui/core/ListItemText";
+import Chip from "@material-ui/core/Chip";
 
 import { i18n } from "../../translate/i18n";
 import {
@@ -26,6 +31,7 @@ import { generateColor } from "../../helpers/colorGenerator";
 import { getInitials } from "../../helpers/getInitials";
 import { TagsContainer } from "../TagsContainer";
 import useSettings from "../../hooks/useSettings";
+import api from "../../services/api";
 
 const drawerWidth = 320;
 
@@ -98,6 +104,26 @@ const useStyles = makeStyles(theme => ({
   contactExtraInfo: {
     marginTop: 4,
     padding: 6
+  },
+  participants: {
+    marginTop: 8,
+    padding: 8
+  },
+  participantsHeader: {
+    padding: theme.spacing(0, 1, 1)
+  },
+  participantItem: {
+    borderTop: "1px solid rgba(0, 0, 0, 0.08)"
+  },
+  participantRole: {
+    height: 22,
+    fontSize: 11
+  },
+  participantsStatus: {
+    display: "flex",
+    justifyContent: "center",
+    padding: theme.spacing(3),
+    color: theme.palette.text.secondary
   }
 }));
 
@@ -111,11 +137,16 @@ const ContactDrawer = ({
   const classes = useStyles();
   const { getSetting } = useSettings();
   const formattedContactName = formatWhatsappContactName(contact, ticket);
+  const isWhatsappGroup = !!ticket.isGroup;
   const isGroupConversation = ticket.isGroup && contact?.groupMode !== "ticket";
 
   const [modalOpen, setModalOpen] = useState(false);
   const [openForm, setOpenForm] = useState(false);
   const [showTags, setShowTags] = useState(false);
+  const [participants, setParticipants] = useState([]);
+  const [participantsLoading, setParticipantsLoading] = useState(false);
+  const [participantsError, setParticipantsError] = useState(false);
+  const [participantContactId, setParticipantContactId] = useState(null);
 
   useEffect(() => {
     getSetting("tagsMode").then(res => {
@@ -124,6 +155,33 @@ const ContactDrawer = ({
 
     setOpenForm(false);
   }, [open, contact]);
+
+  useEffect(() => {
+    if (!open || !isWhatsappGroup || !ticket?.id) {
+      setParticipants([]);
+      setParticipantsError(false);
+      return undefined;
+    }
+
+    let active = true;
+    setParticipantsLoading(true);
+    setParticipantsError(false);
+    api
+      .get(`/whatsapp-groups/${ticket.id}/participants`)
+      .then(({ data }) => {
+        if (active) setParticipants(data.participants || []);
+      })
+      .catch(() => {
+        if (active) setParticipantsError(true);
+      })
+      .finally(() => {
+        if (active) setParticipantsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [open, isWhatsappGroup, ticket?.id]);
 
   return (
     <>
@@ -147,7 +205,11 @@ const ContactDrawer = ({
             <CloseIcon />
           </IconButton>
           <Typography style={{ justifySelf: "center" }}>
-            {i18n.t("contactDrawer.header")}
+            {i18n.t(
+              isWhatsappGroup
+                ? "contactDrawer.groupHeader"
+                : "contactDrawer.header"
+            )}
           </Typography>
         </div>
         {loading ? (
@@ -205,6 +267,75 @@ const ContactDrawer = ({
                 ))}
               </div>
             )}
+            {isWhatsappGroup && (
+              <Paper square variant="outlined" className={classes.participants}>
+                <Typography
+                  variant="subtitle1"
+                  className={classes.participantsHeader}
+                >
+                  {i18n.t("contactDrawer.participants")} ({participants.length})
+                </Typography>
+                {participantsLoading ? (
+                  <div className={classes.participantsStatus}>
+                    <CircularProgress size={24} />
+                  </div>
+                ) : participantsError ? (
+                  <Typography className={classes.participantsStatus}>
+                    {i18n.t("contactDrawer.participantsUnavailable")}
+                  </Typography>
+                ) : (
+                  <List disablePadding>
+                    {participants.map(participant => (
+                      <ListItem
+                        className={classes.participantItem}
+                        key={participant.id}
+                        button={!!participant.contactId}
+                        onClick={() => {
+                          if (!participant.contactId) return;
+                          setParticipantContactId(participant.contactId);
+                          setModalOpen(true);
+                        }}
+                      >
+                        <ListItemAvatar>
+                          <Avatar
+                            src={participant.profilePicUrl}
+                            style={{
+                              backgroundColor: generateColor(
+                                participant.number
+                              ),
+                              color: "white",
+                              fontWeight: "bold"
+                            }}
+                          >
+                            {getInitials(participant.name)}
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={`${participant.name}${
+                            participant.isMe
+                              ? ` (${i18n.t("contactDrawer.you")})`
+                              : ""
+                          }`}
+                          secondary={formatWhatsappContactNumber(participant)}
+                        />
+                        {participant.admin && (
+                          <Chip
+                            className={classes.participantRole}
+                            variant="outlined"
+                            color="primary"
+                            label={i18n.t(
+                              participant.admin === "superadmin"
+                                ? "contactDrawer.owner"
+                                : "contactDrawer.admin"
+                            )}
+                          />
+                        )}
+                      </ListItem>
+                    ))}
+                  </List>
+                )}
+              </Paper>
+            )}
             {!isGroupConversation && (
               <Button
                 variant="outlined"
@@ -229,8 +360,11 @@ const ContactDrawer = ({
             )}
             <ContactModal
               open={modalOpen}
-              onClose={() => setModalOpen(false)}
-              contactId={contact.id}
+              onClose={() => {
+                setModalOpen(false);
+                setParticipantContactId(null);
+              }}
+              contactId={participantContactId || contact.id}
             ></ContactModal>
           </div>
         )}

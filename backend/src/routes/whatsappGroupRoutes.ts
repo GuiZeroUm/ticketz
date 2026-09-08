@@ -11,6 +11,18 @@ routes.get(
   isCompliant,
   WhatsappGroupController.index
 );
+routes.get(
+  "/whatsapp-groups/unread-count",
+  isAuth,
+  isCompliant,
+  WhatsappGroupController.unreadCount
+);
+routes.get(
+  "/whatsapp-groups/:ticketId/participants",
+  isAuth,
+  isCompliant,
+  WhatsappGroupController.participants
+);
 routes.put(
   "/whatsapp-groups/:ticketId",
   isAuth,

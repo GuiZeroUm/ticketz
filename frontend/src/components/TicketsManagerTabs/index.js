@@ -1,4 +1,10 @@
-import React, { useContext, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState
+} from "react";
 import { useHistory } from "react-router-dom";
 
 import { makeStyles } from "@material-ui/core/styles";
@@ -29,6 +35,8 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPeopleGroup } from "@fortawesome/free-solid-svg-icons";
 import useSettings from "../../hooks/useSettings";
 import { ContactSelect } from "../ContactSelect";
+import api from "../../services/api";
+import { SocketContext } from "../../context/Socket/SocketContext";
 
 const useStyles = makeStyles(theme => ({
   ticketsWrapper: {
@@ -123,6 +131,8 @@ const TicketsManagerTabs = () => {
 
   const [openCount, setOpenCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
+  const [groupUnreadCount, setGroupUnreadCount] = useState(0);
+  const groupUnreadRequestRef = useRef(0);
 
   const userQueueIds = user.queues.map(q => q.id);
   const [selectedQueueIds, setSelectedQueueIds] = useState(userQueueIds || []);
@@ -134,6 +144,19 @@ const TicketsManagerTabs = () => {
   const [showTabGroups, setShowTabGroups] = useState(false);
   const [groupMode, setGroupMode] = useState("conversation");
   const [groupTicketStatus, setGroupTicketStatus] = useState("pending");
+  const socketManager = useContext(SocketContext);
+
+  const refreshGroupUnreadCount = useCallback(async () => {
+    const requestId = ++groupUnreadRequestRef.current;
+    try {
+      const { data } = await api.get("/whatsapp-groups/unread-count");
+      if (requestId === groupUnreadRequestRef.current) {
+        setGroupUnreadCount(Number(data.count) || 0);
+      }
+    } catch {
+      // Preserve the last known count during a transient connection failure.
+    }
+  }, []);
 
   useEffect(() => {
     Promise.all([getSetting("CheckMsgIsGroup"), getSetting("groupsTab")]).then(
@@ -144,6 +167,41 @@ const TicketsManagerTabs = () => {
       }
     );
   }, []);
+
+  useEffect(() => {
+    if (!showTabGroups) {
+      setGroupUnreadCount(0);
+      return undefined;
+    }
+
+    refreshGroupUnreadCount();
+    const companyId = localStorage.getItem("companyId");
+    const socket = socketManager.GetSocket(companyId);
+    const onConnect = () => socket.emit("joinNotification");
+    const onMessage = data => {
+      if (data.action === "create" && data.ticket?.isGroup) {
+        refreshGroupUnreadCount();
+      }
+    };
+    const onTicket = data => {
+      if (
+        data.action === "updateUnread" ||
+        (data.action === "update" && data.ticket?.isGroup)
+      ) {
+        refreshGroupUnreadCount();
+      }
+    };
+    const onRefresh = refreshRequired => {
+      if (refreshRequired) refreshGroupUnreadCount();
+    };
+
+    socketManager.onConnect(onConnect);
+    socket.on(`company-${companyId}-appMessage`, onMessage);
+    socket.on(`company-${companyId}-ticket`, onTicket);
+    socket.on("wsRefreshRequired", onRefresh);
+
+    return () => socket.disconnect();
+  }, [showTabGroups, socketManager, refreshGroupUnreadCount]);
 
   useEffect(() => {
     if (user.profile.toUpperCase() === "ADMIN") {
@@ -231,10 +289,16 @@ const TicketsManagerTabs = () => {
             <Tab
               value={"groups"}
               icon={
-                <FontAwesomeIcon
-                  className={classes.icon24}
-                  icon={faPeopleGroup}
-                />
+                <Badge
+                  badgeContent={groupUnreadCount}
+                  color="secondary"
+                  max={999}
+                >
+                  <FontAwesomeIcon
+                    className={classes.icon24}
+                    icon={faPeopleGroup}
+                  />
+                </Badge>
               }
               label={i18n.t("tickets.tabs.groups.title")}
               classes={{ root: classes.tabWithGroups }}

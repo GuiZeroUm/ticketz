@@ -1259,10 +1259,16 @@ const messages = {
 
       contactDrawer: {
         header: "Informasi Kontak",
+        groupHeader: "Informasi grup",
         buttons: {
           edit: "Edit Kontak"
         },
-        extraInfo: "Informasi lainnya"
+        extraInfo: "Informasi lainnya",
+        participants: "Peserta",
+        participantsUnavailable: "Tidak dapat memuat peserta",
+        you: "Anda",
+        admin: "Admin",
+        owner: "Pembuat"
       },
       ticketOptionsMenu: {
         schedule: "Jadwal",

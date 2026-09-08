@@ -1357,10 +1357,16 @@ const messages = {
       },
       contactDrawer: {
         header: "Datos de contacto",
+        groupHeader: "Datos del grupo",
         buttons: {
           edit: "Editar contacto"
         },
-        extraInfo: "Otra información"
+        extraInfo: "Otra información",
+        participants: "Participantes",
+        participantsUnavailable: "No se pudieron cargar los participantes",
+        you: "tú",
+        admin: "Admin",
+        owner: "Creador"
       },
       ticketOptionsMenu: {
         schedule: "Agendamiento",

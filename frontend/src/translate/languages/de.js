@@ -1243,10 +1243,16 @@ const messages = {
       },
       contactDrawer: {
         header: "Kontaktdaten",
+        groupHeader: "Gruppeninformationen",
         buttons: {
           edit: "Kontakt bearbeiten"
         },
-        extraInfo: "Weitere Informationen"
+        extraInfo: "Weitere Informationen",
+        participants: "Teilnehmer",
+        participantsUnavailable: "Teilnehmer konnten nicht geladen werden",
+        you: "Sie",
+        admin: "Admin",
+        owner: "Ersteller"
       },
       ticketOptionsMenu: {
         schedule: "Planung",

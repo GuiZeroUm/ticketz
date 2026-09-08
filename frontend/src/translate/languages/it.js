@@ -1237,10 +1237,16 @@ const messages = {
       },
       contactDrawer: {
         header: "Dati del contatto",
+        groupHeader: "Informazioni sul gruppo",
         buttons: {
           edit: "Modifica contatto"
         },
-        extraInfo: "Altre informazioni"
+        extraInfo: "Altre informazioni",
+        participants: "Partecipanti",
+        participantsUnavailable: "Impossibile caricare i partecipanti",
+        you: "tu",
+        admin: "Admin",
+        owner: "Creatore"
       },
       ticketOptionsMenu: {
         schedule: "Pianificazione",

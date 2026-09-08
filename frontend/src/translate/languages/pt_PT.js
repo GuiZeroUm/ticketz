@@ -1291,10 +1291,16 @@ const messages = {
       },
       contactDrawer: {
         header: "Dados do contacto",
+        groupHeader: "Dados do grupo",
         buttons: {
           edit: "Editar contacto"
         },
-        extraInfo: "Outras informações"
+        extraInfo: "Outras informações",
+        participants: "Participantes",
+        participantsUnavailable: "Não foi possível carregar os participantes",
+        you: "você",
+        admin: "Administrador",
+        owner: "Criador"
       },
       ticketOptionsMenu: {
         schedule: "Agendamento",

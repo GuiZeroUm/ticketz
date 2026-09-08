@@ -1240,10 +1240,16 @@ const messages = {
       },
       contactDrawer: {
         header: "Informations du contact",
+        groupHeader: "Informations du groupe",
         buttons: {
           edit: "Modifier le contact"
         },
-        extraInfo: "Autres informations"
+        extraInfo: "Autres informations",
+        participants: "Participants",
+        participantsUnavailable: "Impossible de charger les participants",
+        you: "vous",
+        admin: "Admin",
+        owner: "Créateur"
       },
       ticketOptionsMenu: {
         schedule: "Planification",
