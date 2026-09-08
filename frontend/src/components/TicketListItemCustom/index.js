@@ -172,6 +172,20 @@ const TicketListItemCustom = ({ ticket, setTabOpen, groupActionButtons }) => {
   const { profile } = user;
   const isGroupConversation =
     ticket.isGroup && ticket.contact?.groupMode !== "ticket";
+  const lastMessage =
+    typeof ticket.lastMessage === "string" ? ticket.lastMessage : "";
+  const lastMessagePrefix = isGroupConversation
+    ? ticket.lastSenderFromMe
+      ? `${i18n.t("whatsappGroups.you")}: `
+      : ticket.lastSenderName
+        ? `${ticket.lastSenderName}: `
+        : ""
+    : "";
+  const lastMessagePreview = `${lastMessagePrefix}${
+    lastMessage.startsWith('{"ticketzvCard"')
+      ? "🪪"
+      : lastMessage.split("\n")[0]
+  }`;
 
   useEffect(() => {
     if (ticket.userId && ticket.user) {
@@ -556,19 +570,10 @@ const TicketListItemCustom = ({ ticket, setTabOpen, groupActionButtons }) => {
                   </span>
                 ) : (
                   <>
-                    {ticket.lastMessage?.includes("data:image/png;base64") ? (
+                    {lastMessage.includes("data:image/png;base64") ? (
                       <div>Localização</div>
                     ) : (
-                      <WhatsMarked oneline>
-                        {isGroupConversation && ticket.lastSenderFromMe
-                          ? `${i18n.t("whatsappGroups.you")}: `
-                          : isGroupConversation && ticket.lastSenderName
-                            ? `${ticket.lastSenderName}: `
-                            : ""}
-                        {ticket.lastMessage.startsWith('{"ticketzvCard"')
-                          ? "🪪"
-                          : ticket.lastMessage.split("\n")[0]}
-                      </WhatsMarked>
+                      <WhatsMarked oneline>{lastMessagePreview}</WhatsMarked>
                     )}
                   </>
                 )}

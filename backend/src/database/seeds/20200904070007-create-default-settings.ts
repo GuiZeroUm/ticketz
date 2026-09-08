@@ -1,5 +1,4 @@
 import { QueryInterface } from "sequelize";
-import { hash } from "bcryptjs";
 
 module.exports = {
   up: (queryInterface: QueryInterface) => {
@@ -31,7 +30,21 @@ module.exports = {
             },
             {
               key: "CheckMsgIsGroup",
+              value: "disabled",
+              companyId: 1,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            },
+            {
+              key: "groupsTab",
               value: "enabled",
+              companyId: 1,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            },
+            {
+              key: "soundGroupNotifications",
+              value: "disabled",
               companyId: 1,
               createdAt: new Date(),
               updatedAt: new Date()
