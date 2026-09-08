@@ -52,7 +52,6 @@ import Campaign from "../../models/Campaign";
 import CampaignShipping from "../../models/CampaignShipping";
 import { campaignQueue } from "../../queues/campaign";
 import User from "../../models/User";
-import Setting from "../../models/Setting";
 import { debounce } from "../../helpers/Debounce";
 import { getMessageFileOptions, MediaInfo } from "./SendWhatsAppMedia";
 import { makeRandomId } from "../../helpers/MakeRandomId";
@@ -73,6 +72,11 @@ import saveMediaToFile from "../../helpers/saveMediaFile";
 import { _t } from "../TranslationServices/i18nService";
 import WhatsappLidMap from "../../models/WhatsappLidMap";
 import normalizePhone from "../../helpers/NormalizePhone";
+import EnsureGroupQueuesService from "../WhatsappGroupServices/EnsureGroupQueuesService";
+import {
+  getGroupContactCacheKey,
+  resolveGroupIdentity
+} from "../WhatsappGroupServices/ResolveGroupIdentity";
 
 export interface ImessageUpsert {
   messages: proto.IWebMessageInfo[];
@@ -170,7 +174,6 @@ const processMention = async (body: string, mention: string) => {
     payload.name = contact.name;
     payload.number = contact.number;
   } else {
-    // eslint-disable-next-line prefer-destructuring
     payload.number = mention.split("@")[0];
   }
 
@@ -248,8 +251,9 @@ export const getBodyMessage = async (msg: proto.IMessage): Promise<string> => {
     }
 
     // eslint-disable-next-line no-restricted-syntax
-    for (const mention of (msg[type] as any)?.contextInfo?.mentionedJid ?? []) {
-      // eslint-disable-next-line no-await-in-loop
+    for (const mention of (
+      msg[type] as unknown as { contextInfo?: { mentionedJid?: string[] } }
+    )?.contextInfo?.mentionedJid ?? []) {
       body = await processMention(body, mention);
     }
 
@@ -495,7 +499,6 @@ const downloadMedia = async (
 
       sendMsg.message.extendedTextMessage.text = `${autoMessage}: ${limitInstructions}.`;
 
-      // eslint-disable-next-line no-use-before-define
       await verifyMessage(sendMsg, ticket, ticket.contact);
     }
     throw new Error("ERR_FILESIZE_OVER_LIMIT");
@@ -515,11 +518,10 @@ const downloadMedia = async (
         tmpMessage.url = "";
       }
 
-      // eslint-disable-next-line no-await-in-loop
       stream = await downloadContentFromMessage(tmpMessage, messageType);
-    } catch (error) {
+    } catch {
       contDownload += 1;
-      // eslint-disable-next-line no-await-in-loop, no-loop-func
+
       await new Promise(resolve => {
         setTimeout(resolve, 1000 * contDownload * 2);
       });
@@ -583,13 +585,11 @@ const storeQuotedMessage = async (
 
   let mediaUrl = null;
   if (media) {
-    // eslint-disable-next-line no-use-before-define
     mediaUrl = await saveMediaToFile(media, { destination: ticket });
   }
 
   let thumbnailUrl = null;
   if (thumbnailMedia) {
-    // eslint-disable-next-line no-use-before-define
     thumbnailUrl = await saveMediaToFile(thumbnailMedia, {
       destination: ticket
     });
@@ -1618,14 +1618,13 @@ const handleMessage = async (
     const isGroup = msg.key.remoteJid?.endsWith("@g.us");
 
     if (isGroup) {
-      const msgIsGroupBlock = await Setting.findOne({
-        where: {
-          companyId,
-          key: "CheckMsgIsGroup"
-        }
-      });
+      const ignoreGroupMessages = await GetCompanySetting(
+        companyId,
+        "CheckMsgIsGroup",
+        "disabled"
+      );
 
-      if (!msgIsGroupBlock || msgIsGroupBlock.value === "enabled") {
+      if (ignoreGroupMessages === "enabled") {
         return;
       }
     }
@@ -1653,18 +1652,28 @@ const handleMessage = async (
 
     if (isGroup) {
       groupContact = await wbotMutex.runExclusive(async () => {
-        let result = groupContactCache.get(msg.key.remoteJid);
+        const cacheKey = getGroupContactCacheKey(
+          companyId,
+          wbot.id!,
+          msg.key.remoteJid
+        );
+        let result = groupContactCache.get(cacheKey);
         if (!result) {
-          const groupMetadata = await wbot.groupMetadata(msg.key.remoteJid);
-          const msgGroupContact = {
-            id: groupMetadata.id,
-            name: groupMetadata.subject
-          };
+          const msgGroupContact = await resolveGroupIdentity(
+            msg.key.remoteJid,
+            () => wbot.groupMetadata(msg.key.remoteJid),
+            error =>
+              logger.warn(
+                { error, remoteJid: msg.key.remoteJid, companyId },
+                "Could not load group metadata; using a temporary name"
+              )
+          );
           result = await verifyContact(msgGroupContact, wbot, companyId);
-          groupContactCache.set(msg.key.remoteJid, result);
+          groupContactCache.set(cacheKey, result);
         }
         return result;
       });
+      await EnsureGroupQueuesService(groupContact.id, wbot.id!, companyId);
     }
 
     const whatsapp = await ShowWhatsAppService(wbot.id!);
@@ -1932,7 +1941,7 @@ const handleMessage = async (
         await ticket.reload();
       }
       if (justCreated && newMessage) {
-        websocketCreateMessage(newMessage);
+        await websocketCreateMessage(newMessage);
       }
       return;
     }
@@ -2023,7 +2032,7 @@ const handleMessage = async (
 
     if (justCreated && newMessage) {
       await newMessage.reload();
-      websocketCreateMessage(newMessage);
+      await websocketCreateMessage(newMessage);
     }
 
     const dontReadTheFirstQuestion = ticket.queue === null;
@@ -2286,12 +2295,14 @@ const wbotMessageListener = async (
       });
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     wbot.ev.on("message-receipt.update", async (messageReceipt: any) => {
       logger.trace(
         { messageReceipt },
         "wbotMessageListener: message-receipt.update"
       );
       if (messageReceipt.length === 0) return;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       messageReceipt.forEach(async (receipt: any) => {
         await ackMutex.runExclusive(async () => {
           handleMsgAck(receipt.key.id, wbot.id, { status: 2 });

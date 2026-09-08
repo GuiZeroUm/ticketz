@@ -6,6 +6,9 @@ import OldMessage from "../../models/OldMessage";
 import Ticket from "../../models/Ticket";
 import Whatsapp from "../../models/Whatsapp";
 import { logger } from "../../utils/logger";
+import GroupQueue from "../../models/GroupQueue";
+import { incrementGroupUnread } from "../WhatsappGroupServices/GroupUnreadService";
+import { emitContact } from "../ContactServices/CreateOrUpdateContactService";
 
 interface MessageData {
   id: string;
@@ -20,6 +23,7 @@ interface MessageData {
   ack?: number;
   queueId?: number;
   channel?: string;
+  userId?: number;
 }
 interface Request {
   messageData: MessageData;
@@ -27,19 +31,38 @@ interface Request {
   skipWebsocket?: boolean;
 }
 
-export const websocketCreateMessage = (message: Message) => {
+export const websocketCreateMessage = async (message: Message) => {
   const io = getIO();
+  const payload = {
+    action: "create",
+    message,
+    ticket: message.ticket,
+    contact: message.ticket.contact
+  };
+  if (
+    message.ticket.isGroup &&
+    message.ticket.contact?.groupMode !== "ticket"
+  ) {
+    const queues = await GroupQueue.findAll({
+      where: { groupContactId: message.ticket.contactId },
+      attributes: ["queueId"]
+    });
+    let recipients = io
+      .to(message.ticketId.toString())
+      .to(`company-${message.companyId}-admin`);
+    queues.forEach(item => {
+      recipients = recipients.to(`queue-${item.queueId}-notification`);
+    });
+    recipients.emit(`company-${message.companyId}-appMessage`, payload);
+    return;
+  }
+
   io.to(message.ticketId.toString())
     .to(`company-${message.companyId}-${message.ticket.status}`)
     .to(`company-${message.companyId}-notification`)
     .to(`queue-${message.ticket.queueId}-${message.ticket.status}`)
     .to(`queue-${message.ticket.queueId}-notification`)
-    .emit(`company-${message.companyId}-appMessage`, {
-      action: "create",
-      message,
-      ticket: message.ticket,
-      contact: message.ticket.contact
-    });
+    .emit(`company-${message.companyId}-appMessage`, payload);
 };
 
 const CreateMessageService = async ({
@@ -47,6 +70,9 @@ const CreateMessageService = async ({
   companyId,
   skipWebsocket
 }: Request): Promise<Message> => {
+  const existed = await Message.count({
+    where: { id: messageData.id, ticketId: messageData.ticketId }
+  });
   await Message.upsert({ ...messageData, companyId });
 
   const message = await Message.findOne({
@@ -95,6 +121,10 @@ const CreateMessageService = async ({
     ]
   });
 
+  if (!message) {
+    throw new Error("ERR_CREATING_MESSAGE");
+  }
+
   await message.ticket.contact.update({ presence: "available" });
   await message.ticket.contact.reload();
 
@@ -102,27 +132,19 @@ const CreateMessageService = async ({
     await message.update({ queueId: message.ticket.queueId });
   }
 
-  if (!message) {
-    throw new Error("ERR_CREATING_MESSAGE");
+  if (!existed) {
+    await incrementGroupUnread(message.ticket, messageData.userId);
   }
 
   if (!(await checkCompanyCompliant(companyId))) {
     return message;
   }
 
-  const io = getIO();
-
   if (!skipWebsocket) {
-    websocketCreateMessage(message);
+    await websocketCreateMessage(message);
   }
 
-  io.to(`company-${companyId}-mainchannel`).emit(
-    `company-${companyId}-contact`,
-    {
-      action: "update",
-      contact: message.ticket.contact
-    }
-  );
+  await emitContact(message.ticket.contact, "update");
   logger.debug(
     {
       company: companyId,

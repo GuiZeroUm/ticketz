@@ -29,9 +29,11 @@ const ShowTicketService = async (
           "profileHiresPictureUrl",
           "presence",
           "disableBot",
-          "language"
+          "language",
+          "isGroup",
+          "groupMode"
         ],
-        include: ["tags", "extraInfo"]
+        include: ["tags", "extraInfo", "groupQueues"]
       },
       {
         model: User,

@@ -34,6 +34,8 @@ const internalFindOrCreateTicketService = async (
   }: FindOrCreateTicketOptions = {}
 ): Promise<{ ticket: Ticket; justCreated: boolean }> => {
   let justCreated = false;
+  const isGroupConversation =
+    !!groupContact && groupContact.groupMode !== "ticket";
   const result = await sequelize.transaction(async () => {
     let ticket = await Ticket.findOne({
       where: {
@@ -41,12 +43,13 @@ const internalFindOrCreateTicketService = async (
           [Op.or]: ["open", "pending"]
         },
         contactId: groupContact ? groupContact.id : contact.id,
-        whatsappId
+        whatsappId,
+        companyId
       },
       order: [["id", "DESC"]]
     });
 
-    if (ticket && incrementUnread) {
+    if (ticket && incrementUnread && !isGroupConversation) {
       await ticket.increment("unreadMessages");
       ticket = await ticket.reload();
     }
@@ -55,26 +58,32 @@ const internalFindOrCreateTicketService = async (
       ticket = await Ticket.findOne({
         where: {
           contactId: groupContact.id,
-          whatsappId
+          whatsappId,
+          companyId
         },
         order: [["updatedAt", "DESC"]]
       });
 
       if (ticket) {
         await ticket.update({
-          status: "pending",
+          status: isGroupConversation ? "open" : "pending",
           userId: null,
-          unreadMessages: incrementUnread
-            ? ticket.unreadMessages + 1
-            : ticket.unreadMessages,
+          queueId: isGroupConversation ? null : ticket.queueId,
+          unreadMessages: isGroupConversation
+            ? 0
+            : incrementUnread
+              ? ticket.unreadMessages + 1
+              : ticket.unreadMessages,
           companyId
         });
-        await FindOrCreateATicketTrakingService({
-          ticketId: ticket.id,
-          companyId,
-          whatsappId: ticket.whatsappId,
-          userId: ticket.userId
-        });
+        if (!isGroupConversation) {
+          await FindOrCreateATicketTrakingService({
+            ticketId: ticket.id,
+            companyId,
+            whatsappId: ticket.whatsappId,
+            userId: ticket.userId
+          });
+        }
       }
     }
 
@@ -94,7 +103,8 @@ const internalFindOrCreateTicketService = async (
               ]
             },
             contactId: contact.id,
-            whatsappId
+            whatsappId,
+            companyId
           },
           order: [["updatedAt", "DESC"]]
         }));
@@ -119,7 +129,7 @@ const internalFindOrCreateTicketService = async (
 
     let queueId = queue?.id || null;
 
-    if (groupContact) {
+    if (groupContact && !isGroupConversation) {
       const whatsapp = await Whatsapp.findByPk(whatsappId, {
         include: ["queues"]
       });
@@ -136,22 +146,24 @@ const internalFindOrCreateTicketService = async (
     if (!ticket) {
       ticket = await Ticket.create({
         contactId: groupContact ? groupContact.id : contact.id,
-        status: "pending",
+        status: isGroupConversation ? "open" : "pending",
         isGroup: !!groupContact,
-        unreadMessages: incrementUnread ? 1 : 0,
+        unreadMessages: isGroupConversation || !incrementUnread ? 0 : 1,
         whatsappId,
-        queueId,
+        queueId: isGroupConversation ? null : queueId,
         companyId
       });
 
       justCreated = true;
 
-      await FindOrCreateATicketTrakingService({
-        ticketId: ticket.id,
-        companyId,
-        whatsappId,
-        userId: ticket.userId
-      });
+      if (!isGroupConversation) {
+        await FindOrCreateATicketTrakingService({
+          ticketId: ticket.id,
+          companyId,
+          whatsappId,
+          userId: ticket.userId
+        });
+      }
     }
 
     ticket = await ShowTicketService(ticket.id, companyId);
@@ -159,8 +171,8 @@ const internalFindOrCreateTicketService = async (
     return { ticket, justCreated };
   });
 
-  if (result.justCreated) {
-    incrementCounter(companyId, "ticket-create");
+  if (result.justCreated && !isGroupConversation) {
+    await incrementCounter(companyId, "ticket-create");
   }
 
   return result;

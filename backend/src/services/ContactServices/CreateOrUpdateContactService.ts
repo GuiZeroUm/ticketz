@@ -1,6 +1,7 @@
 import { getIO } from "../../libs/socket";
 import Contact from "../../models/Contact";
 import ContactCustomField from "../../models/ContactCustomField";
+import GroupQueue from "../../models/GroupQueue";
 
 interface ExtraInfo extends ContactCustomField {
   name: string;
@@ -19,7 +20,28 @@ interface ContactData {
   channel?: string;
   disableBot?: boolean;
   language?: string;
+  groupMode?: "conversation" | "ticket" | null;
 }
+
+export const emitContact = async (
+  contact: Contact,
+  action: "create" | "update"
+): Promise<void> => {
+  const io = getIO();
+  let recipients = contact.isGroup
+    ? io.to(`company-${contact.companyId}-admin`)
+    : io.to(`company-${contact.companyId}-mainchannel`);
+  if (contact.isGroup) {
+    const groupQueues = await GroupQueue.findAll({
+      where: { groupContactId: contact.id },
+      attributes: ["queueId"]
+    });
+    groupQueues.forEach(groupQueue => {
+      recipients = recipients.to(`queue-${groupQueue.queueId}-notification`);
+    });
+  }
+  recipients.emit(`company-${contact.companyId}-contact`, { action, contact });
+};
 
 export const updateContact = async (
   contact: Contact,
@@ -27,14 +49,7 @@ export const updateContact = async (
 ) => {
   await contact.update(contactData);
 
-  const io = getIO();
-  io.to(`company-${contact.companyId}-mainchannel`).emit(
-    `company-${contact.companyId}-contact`,
-    {
-      action: "update",
-      contact
-    }
-  );
+  await emitContact(contact, "update");
   return contact;
 };
 
@@ -49,9 +64,9 @@ const CreateOrUpdateContactService = async ({
   extraInfo = [],
   channel = "whatsapp",
   disableBot = false,
-  language
+  language,
+  groupMode = isGroup ? "conversation" : null
 }: ContactData): Promise<Contact> => {
-  const io = getIO();
   let contact: Contact | null;
 
   try {
@@ -66,20 +81,15 @@ const CreateOrUpdateContactService = async ({
       companyId,
       channel,
       disableBot,
-      language
+      language,
+      groupMode
     });
 
     await contact.reload({
       include: ["tags", "extraInfo"]
     });
 
-    io.to(`company-${companyId}-mainchannel`).emit(
-      `company-${companyId}-contact`,
-      {
-        action: "create",
-        contact
-      }
-    );
+    await emitContact(contact, "create");
   } catch (createError) {
     if (createError.name === "SequelizeUniqueConstraintError") {
       contact = await Contact.findOne({
@@ -91,7 +101,15 @@ const CreateOrUpdateContactService = async ({
       });
 
       if (contact) {
-        updateContact(contact, { profilePicUrl, profileHiresPictureUrl });
+        await updateContact(contact, {
+          name,
+          profilePicUrl,
+          profileHiresPictureUrl,
+          isGroup,
+          groupMode: isGroup
+            ? contact.groupMode || groupMode || "conversation"
+            : contact.groupMode
+        });
       }
     } else {
       console.error("Error creating contact:", createError);

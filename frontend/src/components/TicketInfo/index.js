@@ -18,6 +18,7 @@ const TicketInfo = ({ contact, ticket, onClick }) => {
     document.body.offsetWidth < 600 && contactName.length > 10
       ? contactName.substring(0, 10) + "..."
       : contactName;
+  const isGroupConversation = ticket.isGroup && contact?.groupMode !== "ticket";
 
   useEffect(() => {
     if (user && contact) {
@@ -60,8 +61,12 @@ const TicketInfo = ({ contact, ticket, onClick }) => {
             {getInitials(contactName)}
           </Avatar>
         }
-        title={`${truncatedContactName} #${ticket.id}`}
-        subheader={ticket.user && `${userName}`}
+        title={
+          isGroupConversation
+            ? truncatedContactName
+            : `${truncatedContactName} #${ticket.id}`
+        }
+        subheader={!isGroupConversation && ticket.user && `${userName}`}
       />
     </>
   );

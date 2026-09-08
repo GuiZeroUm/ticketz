@@ -62,6 +62,8 @@ import TaskBoardTask from "../models/TaskBoardTask";
 import TaskBoardEvent from "../models/TaskBoardEvent";
 import VoiceConnection from "../models/VoiceConnection";
 import VoiceCall from "../models/VoiceCall";
+import GroupQueue from "../models/GroupQueue";
+import GroupReadState from "../models/GroupReadState";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const dbConfig = require("../config/database");
@@ -131,7 +133,9 @@ const models = [
   TaskBoardTask,
   TaskBoardEvent,
   VoiceConnection,
-  VoiceCall
+  VoiceCall,
+  GroupQueue,
+  GroupReadState
 ];
 
 sequelize.addModels(models);

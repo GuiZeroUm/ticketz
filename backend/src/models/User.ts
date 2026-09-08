@@ -22,6 +22,7 @@ import UserQueue from "./UserQueue";
 import Company from "./Company";
 import QuickMessage from "./QuickMessage";
 import UserSocketSession from "./UserSocketSession"; // Importação da nova model
+import GroupReadState from "./GroupReadState";
 
 @Table
 class User extends Model<User> {
@@ -88,6 +89,9 @@ class User extends Model<User> {
     onDelete: "CASCADE"
   })
   socketSessions: UserSocketSession[]; // Nova associação
+
+  @HasMany(() => GroupReadState)
+  groupReadStates: GroupReadState[];
 
   @BeforeUpdate
   @BeforeCreate

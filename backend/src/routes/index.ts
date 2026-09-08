@@ -44,12 +44,14 @@ import partnerAdminRoutes from "./partnerAdminRoutes";
 import platformRoutes from "./platformRoutes";
 import taskBoardRoutes from "./taskBoardRoutes";
 import voiceRoutes from "./voiceRoutes";
+import whatsappGroupRoutes from "./whatsappGroupRoutes";
 
 const routes = Router();
 
 routes.use(platformRoutes);
 routes.use(taskBoardRoutes);
 routes.use(voiceRoutes);
+routes.use(whatsappGroupRoutes);
 routes.use(oauthRoutes);
 routes.use(mcpRoutes);
 routes.use(chatGptRoutes);

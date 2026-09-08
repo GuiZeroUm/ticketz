@@ -111,6 +111,7 @@ const ContactDrawer = ({
   const classes = useStyles();
   const { getSetting } = useSettings();
   const formattedContactName = formatWhatsappContactName(contact, ticket);
+  const isGroupConversation = ticket.isGroup && contact?.groupMode !== "ticket";
 
   const [modalOpen, setModalOpen] = useState(false);
   const [openForm, setOpenForm] = useState(false);
@@ -204,20 +205,28 @@ const ContactDrawer = ({
                 ))}
               </div>
             )}
-            <Button
-              variant="outlined"
-              color="primary"
-              onClick={() => setModalOpen(!openForm)}
-              style={{ fontSize: 12, marginTop: 8 }}
-            >
-              {i18n.t("contactDrawer.buttons.edit")}
-            </Button>
-            <Paper square variant="outlined" className={classes.contactDetails}>
-              <Typography variant="subtitle1" style={{ marginBottom: 10 }}>
-                {i18n.t("ticketOptionsMenu.appointmentsModal.title")}
-              </Typography>
-              <TicketNotes ticket={ticket} />
-            </Paper>
+            {!isGroupConversation && (
+              <Button
+                variant="outlined"
+                color="primary"
+                onClick={() => setModalOpen(!openForm)}
+                style={{ fontSize: 12, marginTop: 8 }}
+              >
+                {i18n.t("contactDrawer.buttons.edit")}
+              </Button>
+            )}
+            {!isGroupConversation && (
+              <Paper
+                square
+                variant="outlined"
+                className={classes.contactDetails}
+              >
+                <Typography variant="subtitle1" style={{ marginBottom: 10 }}>
+                  {i18n.t("ticketOptionsMenu.appointmentsModal.title")}
+                </Typography>
+                <TicketNotes ticket={ticket} />
+              </Paper>
+            )}
             <ContactModal
               open={modalOpen}
               onClose={() => setModalOpen(false)}

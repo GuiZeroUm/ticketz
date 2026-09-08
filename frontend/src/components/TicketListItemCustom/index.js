@@ -170,6 +170,8 @@ const TicketListItemCustom = ({ ticket, setTabOpen, groupActionButtons }) => {
   const { setCurrentTicket } = useContext(TicketsContext);
   const { user } = useContext(AuthContext);
   const { profile } = user;
+  const isGroupConversation =
+    ticket.isGroup && ticket.contact?.groupMode !== "ticket";
 
   useEffect(() => {
     if (ticket.userId && ticket.user) {
@@ -219,6 +221,8 @@ const TicketListItemCustom = ({ ticket, setTabOpen, groupActionButtons }) => {
   };
 
   const renderTicketInfo = () => {
+    if (isGroupConversation) return null;
+
     if (ticketUser && ticket.status !== "pending") {
       return (
         <>
@@ -490,16 +494,18 @@ const TicketListItemCustom = ({ ticket, setTabOpen, groupActionButtons }) => {
           [classes.pendingTicket]: ticket.status === "pending"
         })}
       >
-        <Tooltip
-          arrow
-          placement="right"
-          title={ticket.queue?.name || "Sem fila"}
-        >
-          <span
-            style={{ backgroundColor: ticket.queue?.color || "#7C7C7C" }}
-            className={classes.ticketQueueColor}
-          ></span>
-        </Tooltip>
+        {!isGroupConversation && (
+          <Tooltip
+            arrow
+            placement="right"
+            title={ticket.queue?.name || "Sem fila"}
+          >
+            <span
+              style={{ backgroundColor: ticket.queue?.color || "#7C7C7C" }}
+              className={classes.ticketQueueColor}
+            ></span>
+          </Tooltip>
+        )}
         <ListItemAvatar>
           <Avatar
             style={{
@@ -554,6 +560,11 @@ const TicketListItemCustom = ({ ticket, setTabOpen, groupActionButtons }) => {
                       <div>Localização</div>
                     ) : (
                       <WhatsMarked oneline>
+                        {isGroupConversation && ticket.lastSenderFromMe
+                          ? `${i18n.t("whatsappGroups.you")}: `
+                          : isGroupConversation && ticket.lastSenderName
+                            ? `${ticket.lastSenderName}: `
+                            : ""}
                         {ticket.lastMessage.startsWith('{"ticketzvCard"')
                           ? "🪪"
                           : ticket.lastMessage.split("\n")[0]}
@@ -562,7 +573,7 @@ const TicketListItemCustom = ({ ticket, setTabOpen, groupActionButtons }) => {
                   </>
                 )}
               </Typography>
-              <TagsLine ticket={ticket} />
+              {!isGroupConversation && <TagsLine ticket={ticket} />}
               <ListItemSecondaryAction style={{ left: 73 }}>
                 <Box className={classes.ticketInfo1}>{renderTicketInfo()}</Box>
               </ListItemSecondaryAction>

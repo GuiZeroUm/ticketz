@@ -16,7 +16,9 @@
     "posttest": "NODE_ENV=test sequelize db:migrate:undo:all",
     "lint": "eslint src/**/*.ts",
     "mark-seeds": "node dist/database/markSeedsAsExecuted.js",
-    "generate:i18nkeys": "ts-node src/scripts/extractTranslationKeys.ts"
+    "generate:i18nkeys": "ts-node src/scripts/extractTranslationKeys.ts",
+    "groups:activate": "node dist/scripts/ActivateWhatsappGroups.js activate",
+    "groups:rollback": "node dist/scripts/ActivateWhatsappGroups.js rollback"
   },
   "author": "",
   "license": "MIT",

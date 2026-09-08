@@ -22,6 +22,7 @@ import Schedule from "./Schedule";
 import ContactTag from "./ContactTag";
 import Tag from "./Tag";
 import WhatsappLidMap from "./WhatsappLidMap";
+import GroupQueue from "./GroupQueue";
 
 @Table
 class Contact extends Model {
@@ -69,6 +70,9 @@ class Contact extends Model {
   @Column
   isGroup: boolean;
 
+  @Column
+  groupMode: "conversation" | "ticket" | null;
+
   @Default(false)
   @Column
   disableBot: boolean;
@@ -114,6 +118,9 @@ class Contact extends Model {
 
   @BelongsToMany(() => Tag, () => ContactTag)
   tags: Tag[];
+
+  @HasMany(() => GroupQueue)
+  groupQueues: GroupQueue[];
 }
 
 export default Contact;

@@ -51,7 +51,7 @@ import Ticket from "../models/Ticket";
 import authConfig from "../config/auth";
 import { CounterManager } from "./counter";
 import UserSocketSession from "../models/UserSocketSession";
-import { GetCompanySetting } from "../helpers/CheckSettings";
+import GroupQueue from "../models/GroupQueue";
 import { DecoupledDriverServices } from "../services/DecoupledDriverServices/DecoupledDriverServices";
 import { corsOrigin } from "../helpers/corsOrigin";
 import Company from "../models/Company";
@@ -229,33 +229,28 @@ export const initIO = (httpServer: Server): SocketIO => {
       }
       Ticket.findByPk(ticketId).then(
         async ticket => {
-          if (
-            ticket &&
-            ticket.companyId === user.companyId &&
-            (ticket.userId === user.id || user.profile === "admin")
-          ) {
+          if (!ticket || ticket.companyId !== user.companyId) {
+            logger.info(
+              `Invalid attempt to join channel of ticket ${ticketId} by user ${user.id}`
+            );
+            return;
+          }
+
+          let allowed = ticket.userId === user.id || user.profile === "admin";
+          if (!allowed && ticket.isGroup) {
+            const userQueueIds = user.queues.map(queue => queue.id);
+            allowed = Boolean(
+              await GroupQueue.count({
+                where: {
+                  groupContactId: ticket.contactId,
+                  queueId: userQueueIds
+                }
+              })
+            );
+          }
+
+          if (allowed) {
             joinTicketChannel(socket, ticketId, user, counters);
-          } else if (
-            ticket.isGroup &&
-            (await GetCompanySetting(
-              user.companyId,
-              "groupsTab",
-              "disabled"
-            )) === "enabled"
-          ) {
-            let queueFound = false;
-            user.queues.forEach(queue => {
-              if (queue.id === ticket.queueId) {
-                queueFound = true;
-              }
-            });
-            if (queueFound) {
-              joinTicketChannel(socket, ticketId, user, counters);
-            } else {
-              logger.info(
-                `Invalid attempt to join channel of ticket ${ticketId} by user ${user.id}`
-              );
-            }
           } else {
             logger.info(
               `Invalid attempt to join channel of ticket ${ticketId} by user ${user.id}`

@@ -17,6 +17,7 @@ import { incrementCounter } from "../CounterServices/IncrementCounter";
 import { getJidOf } from "../WbotServices/getJidOf";
 import { _t } from "../TranslationServices/i18nService";
 import ResolveTicketTransferService from "./ResolveTicketTransferService";
+import GroupQueue from "../../models/GroupQueue";
 
 export interface UpdateTicketData {
   status?: string;
@@ -58,6 +59,22 @@ const sendFormattedMessage = async (
 
 export function websocketUpdateTicket(ticket: Ticket, moreChannels?: string[]) {
   const io = getIO();
+  if (ticket.isGroup || ticket.contact?.isGroup) {
+    let groupRecipients = io
+      .to(ticket.id.toString())
+      .to(`company-${ticket.companyId}-admin`);
+    ticket.contact?.groupQueues?.forEach(groupQueue => {
+      groupRecipients = groupRecipients
+        .to(`queue-${groupQueue.queueId}-notification`)
+        .to(`queue-${groupQueue.queueId}-${ticket.status}`);
+    });
+    groupRecipients.emit(`company-${ticket.companyId}-ticket`, {
+      action: "update",
+      ticket
+    });
+    return;
+  }
+
   let ioStack = io
     .to(ticket.id.toString())
     .to(`user-${ticket?.userId}`)
@@ -127,6 +144,15 @@ const UpdateTicketService = async ({
             connectionChanged: false,
             conflictingTicketId: null
           };
+
+    if (isGroup && queueId !== undefined && queueId !== null) {
+      const queueAllowed = await GroupQueue.count({
+        where: { groupContactId: ticket.contactId, queueId }
+      });
+      if (!queueAllowed) {
+        throw new AppError("ERR_GROUP_SERVICE_QUEUE_REQUIRED", 400);
+      }
+    }
 
     if (user && ticket.status !== "pending") {
       if (user.profile !== "admin" && ticket.userId !== user.id) {
@@ -332,13 +358,19 @@ const UpdateTicketService = async ({
         ticketTraking.startedAt = null;
         ticketTraking.userId = null;
       }
-      io.to(`company-${companyId}-mainchannel`).emit(
-        `company-${companyId}-ticket`,
-        {
-          action: "removeFromList",
-          ticketId: ticket?.id
-        }
-      );
+      const pendingRecipients = isGroup
+        ? io
+            .to(`company-${companyId}-admin`)
+            .to(
+              ticket.contact.groupQueues.map(
+                groupQueue => `queue-${groupQueue.queueId}-notification`
+              )
+            )
+        : io.to(`company-${companyId}-mainchannel`);
+      pendingRecipients.emit(`company-${companyId}-ticket`, {
+        action: "removeFromList",
+        ticketId: ticket?.id
+      });
     }
 
     if (status !== undefined && ["open"].indexOf(status) > -1) {
@@ -349,26 +381,30 @@ const UpdateTicketService = async ({
         ticketTraking.whatsappId = ticket.whatsappId;
         ticketTraking.userId = ticket.userId;
       }
-      io.to(`company-${companyId}-mainchannel`).emit(
-        `company-${companyId}-ticket`,
-        {
-          action: "removeFromList",
-          ticketId: ticket?.id
-        }
-      );
+      const openRecipients = isGroup
+        ? io
+            .to(`company-${companyId}-admin`)
+            .to(
+              ticket.contact.groupQueues.map(
+                groupQueue => `queue-${groupQueue.queueId}-notification`
+              )
+            )
+        : io.to(`company-${companyId}-mainchannel`);
+      openRecipients.emit(`company-${companyId}-ticket`, {
+        action: "removeFromList",
+        ticketId: ticket?.id
+      });
 
-      io.to(`company-${companyId}-mainchannel`).emit(
-        `company-${companyId}-ticket`,
-        {
-          action: "updateUnread",
-          ticketId: ticket?.id
-        }
-      );
+      openRecipients.emit(`company-${companyId}-ticket`, {
+        action: "updateUnread",
+        ticketId: ticket?.id
+      });
     }
 
     ticketTraking.save();
 
     if (
+      !isGroup &&
       !dontRunChatbot &&
       !ticket.userId &&
       ticket.queueId &&
@@ -429,13 +465,19 @@ const UpdateTicketService = async ({
     }
 
     if (justClose && status === "closed") {
-      io.to(`company-${companyId}-mainchannel`).emit(
-        `company-${companyId}-ticket`,
-        {
-          action: "removeFromList",
-          ticketId: ticket?.id
-        }
-      );
+      const closeRecipients = isGroup
+        ? io
+            .to(`company-${companyId}-admin`)
+            .to(
+              ticket.contact.groupQueues.map(
+                groupQueue => `queue-${groupQueue.queueId}-notification`
+              )
+            )
+        : io.to(`company-${companyId}-mainchannel`);
+      closeRecipients.emit(`company-${companyId}-ticket`, {
+        action: "removeFromList",
+        ticketId: ticket?.id
+      });
     } else if (ticket.status === "closed" && ticket.status !== oldStatus) {
       io.to(`company-${companyId}-${oldStatus}`)
         .to(`queue-${ticket.queueId}-${oldStatus}`)

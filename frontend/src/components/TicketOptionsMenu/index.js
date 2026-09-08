@@ -10,6 +10,7 @@ import TransferTicketModalCustom from "../TransferTicketModalCustom";
 import toastError from "../../errors/toastError";
 import { Can } from "../Can";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import GroupConfigModal from "../GroupConfigModal";
 
 import ScheduleModal from "../ScheduleModal";
 
@@ -27,6 +28,9 @@ const TicketOptionsMenu = ({
 
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [contactId, setContactId] = useState(null);
+  const [groupConfigOpen, setGroupConfigOpen] = useState(false);
+  const isGroupConversation =
+    ticket.isGroup && ticket.contact?.groupMode !== "ticket";
 
   useEffect(() => {
     return () => {
@@ -87,23 +91,37 @@ const TicketOptionsMenu = ({
         open={menuOpen}
         onClose={handleClose}
       >
-        <MenuItem onClick={handleOpenScheduleModal}>
-          {i18n.t("ticketOptionsMenu.schedule")}
-        </MenuItem>
-        {(!ticket.isGroup || !showTabGroups || user.profile === "admin") && (
+        {ticket.isGroup && (
+          <MenuItem
+            onClick={() => {
+              handleClose();
+              setGroupConfigOpen(true);
+            }}
+          >
+            {i18n.t("whatsappGroups.configure")}
+          </MenuItem>
+        )}
+        {!ticket.isGroup && (
+          <MenuItem onClick={handleOpenScheduleModal}>
+            {i18n.t("ticketOptionsMenu.schedule")}
+          </MenuItem>
+        )}
+        {!isGroupConversation && (
           <MenuItem onClick={handleOpenTransferModal}>
             {i18n.t("ticketOptionsMenu.transfer")}
           </MenuItem>
         )}
-        <Can
-          role={user.profile}
-          perform="ticket-options:deleteTicket"
-          yes={() => (
-            <MenuItem onClick={handleOpenConfirmationModal}>
-              {i18n.t("ticketOptionsMenu.delete")}
-            </MenuItem>
-          )}
-        />
+        {!isGroupConversation && (
+          <Can
+            role={user.profile}
+            perform="ticket-options:deleteTicket"
+            yes={() => (
+              <MenuItem onClick={handleOpenConfirmationModal}>
+                {i18n.t("ticketOptionsMenu.delete")}
+              </MenuItem>
+            )}
+          />
+        )}
       </Menu>
       <ConfirmationModal
         title={`${i18n.t("ticketOptionsMenu.confirmationModal.title")} #${
@@ -119,13 +137,18 @@ const TicketOptionsMenu = ({
         modalOpen={transferTicketModalOpen}
         onClose={handleCloseTransferTicketModal}
         ticketid={ticket.id}
-        hideUserSelection={showTabGroups && ticket.isGroup}
+        hideUserSelection={isGroupConversation}
       />
       <ScheduleModal
         open={scheduleModalOpen}
         onClose={handleCloseScheduleModal}
         aria-labelledby="form-dialog-title"
         contactId={contactId}
+      />
+      <GroupConfigModal
+        open={groupConfigOpen}
+        onClose={() => setGroupConfigOpen(false)}
+        ticket={ticket}
       />
     </>
   );

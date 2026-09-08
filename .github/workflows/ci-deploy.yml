@@ -1,4 +1,4 @@
-name: Validate and release to Dokploy
+name: Validate production candidate
 
 on:
   push:
@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   backend:
@@ -144,15 +144,3 @@ jobs:
           WACALLS_PUBLIC_IP: 127.0.0.1
           WACALLS_UDP_PORT_RANGE: 50000-50020
         run: docker compose -f docker-compose.dokploy.yml config --quiet
-
-  release:
-    name: Release approved commit
-    needs: [backend, frontend, wacalls, compose]
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Advance deployment branch
-        run: git push origin "${GITHUB_SHA}:refs/heads/deploy" --force-with-lease

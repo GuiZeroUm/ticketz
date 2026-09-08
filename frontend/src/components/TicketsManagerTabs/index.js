@@ -132,6 +132,8 @@ const TicketsManagerTabs = () => {
 
   const { getSetting } = useSettings();
   const [showTabGroups, setShowTabGroups] = useState(false);
+  const [groupMode, setGroupMode] = useState("conversation");
+  const [groupTicketStatus, setGroupTicketStatus] = useState("pending");
 
   useEffect(() => {
     Promise.all([getSetting("CheckMsgIsGroup"), getSetting("groupsTab")]).then(
@@ -375,12 +377,59 @@ const TicketsManagerTabs = () => {
         />
       </TabPanel>
       <TabPanel value={tab} name="groups" className={classes.ticketsWrapper}>
-        <TicketsList
-          groups={true}
-          showAll={true}
-          selectedQueueIds={selectedQueueIds}
-          showTabGroups={showTabGroups}
-        />
+        <Tabs
+          value={groupMode}
+          onChange={(_, value) => setGroupMode(value)}
+          indicatorColor="primary"
+          textColor="primary"
+          variant="fullWidth"
+        >
+          <Tab
+            value="conversation"
+            label={i18n.t("tickets.tabs.groups.conversations")}
+          />
+          <Tab
+            value="ticket"
+            label={i18n.t("tickets.tabs.groups.attendances")}
+          />
+        </Tabs>
+        {groupMode === "conversation" ? (
+          <TicketsList
+            groups={true}
+            groupMode="conversation"
+            showAll={true}
+            selectedQueueIds={selectedQueueIds}
+            showTabGroups={showTabGroups}
+          />
+        ) : (
+          <>
+            <Tabs
+              value={groupTicketStatus}
+              onChange={(_, value) => setGroupTicketStatus(value)}
+              indicatorColor="secondary"
+              textColor="primary"
+              variant="fullWidth"
+            >
+              <Tab
+                value="pending"
+                label={i18n.t("tickets.tabs.groups.pending")}
+              />
+              <Tab value="open" label={i18n.t("tickets.tabs.groups.open")} />
+              <Tab
+                value="closed"
+                label={i18n.t("tickets.tabs.groups.closed")}
+              />
+            </Tabs>
+            <TicketsList
+              groups={true}
+              groupMode="ticket"
+              status={groupTicketStatus}
+              showAll={true}
+              selectedQueueIds={selectedQueueIds}
+              showTabGroups={showTabGroups}
+            />
+          </>
+        )}
       </TabPanel>
       <TabPanel value={tab} name="search" className={classes.ticketsWrapper}>
         <Box style={{ paddingRight: 10, paddingLeft: 10 }}>

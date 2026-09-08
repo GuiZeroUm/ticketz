@@ -18,7 +18,9 @@ import { GetCompanySetting } from "./helpers/CheckSettings";
 import { getWbot } from "./libs/wbot";
 import Ticket from "./models/Ticket";
 import QueueModel from "./models/Queue";
-import UpdateTicketService from "./services/TicketServices/UpdateTicketService";
+import UpdateTicketService, {
+  UpdateTicketData
+} from "./services/TicketServices/UpdateTicketService";
 import { handleMessage } from "./services/WbotServices/wbotMessageListener";
 import formatBody from "./helpers/Mustache";
 import Setting from "./models/Setting";
@@ -533,10 +535,6 @@ async function handleNoQueueTimeout(
     }
   }
 
-  const groupsTab =
-    (await GetCompanySetting(company.id, "groupsTab", "disabled")) ===
-    "enabled";
-
   const where: WhereOptions<Ticket> = {
     status: "pending",
     companyId: company.id,
@@ -546,11 +544,15 @@ async function handleNoQueueTimeout(
     }
   };
 
-  if (groupsTab) {
-    where.isGroup = false;
-  }
+  where[Op.or] = [
+    { isGroup: false },
+    { isGroup: true, "$contact.groupMode$": "ticket" }
+  ];
 
-  const tickets = await Ticket.findAll({ where });
+  const tickets = await Ticket.findAll({
+    where,
+    include: [{ model: Contact, as: "contact", attributes: [], required: true }]
+  });
 
   logger.debug(
     { expiredCount: tickets.length },
@@ -647,7 +649,7 @@ async function handleChatbotTicketTimeout(
     "handleChatbotTicketTimeout -> tickets"
   );
 
-  const ticketData: any = {
+  const ticketData: UpdateTicketData = {
     status: action ? "pending" : "closed"
   };
 
@@ -696,10 +698,15 @@ async function handleOpenTicketTimeout(
     where: {
       status: "open",
       companyId: company.id,
+      [Op.or]: [
+        { isGroup: false },
+        { isGroup: true, "$contact.groupMode$": "ticket" }
+      ],
       updatedAt: {
         [Op.lt]: subMinutes(new Date(), timeout)
       }
-    }
+    },
+    include: [{ model: Contact, as: "contact", attributes: [], required: true }]
   });
 
   // eslint-disable-next-line no-restricted-syntax
@@ -773,7 +780,7 @@ async function handleTicketTimeouts() {
 
 async function handleEveryMinute(job: Job) {
   const now = Date.now();
-  const delay = now - ((job.opts as any).prevMillis || now);
+  const delay = now - ((job.opts as { prevMillis?: number }).prevMillis || now);
 
   // only start jobs that are up to 10s after its scheduled time
   if (delay > 10 * 1000) {

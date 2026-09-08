@@ -24,6 +24,8 @@ import ForwardMessageService from "../services/MessageServices/ForwardMessageSer
 import { getWbot } from "../libs/wbot";
 import { verifyMessage } from "../services/WbotServices/wbotMessageListener";
 import { getJidOf } from "../services/WbotServices/getJidOf";
+import { assertGroupAccess } from "../services/WhatsappGroupServices/GroupAccessService";
+import { markGroupRead } from "../services/WhatsappGroupServices/GroupUnreadService";
 import ShowContactService from "../services/ContactServices/ShowContactService";
 import { verifyContact } from "../services/WbotServices/verifyContact";
 
@@ -46,7 +48,15 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
   const { companyId, profile } = req.user;
   const queues: number[] = [];
 
-  if (profile !== "admin") {
+  const requestedTicket = await Ticket.findOne({
+    where: { id: ticketId, companyId },
+    attributes: ["id", "isGroup"]
+  });
+  if (requestedTicket?.isGroup) {
+    await assertGroupAccess(ticketId, req.user);
+  }
+
+  if (profile !== "admin" && !requestedTicket?.isGroup) {
     const user = await User.findByPk(req.user.id, {
       include: [{ model: Queue, as: "queues" }]
     });
@@ -70,7 +80,11 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
   });
 
   if (ticket.channel === "whatsapp" && markAsRead === "true") {
-    SetTicketMessagesAsRead(ticket);
+    if (ticket.isGroup && ticket.contact?.groupMode !== "ticket") {
+      await markGroupRead(Number(ticketId), Number(req.user.id), companyId);
+    } else {
+      SetTicketMessagesAsRead(ticket);
+    }
   }
 
   return res.json({ count, messages, ticket, hasMore, nextId: responseNextId });
@@ -111,6 +125,10 @@ export const historyByMessageId = async (
 
   const ticket = message.ticket as Ticket;
 
+  if (ticket.isGroup) {
+    await assertGroupAccess(ticket.id, req.user);
+  }
+
   if (ticket.companyId !== companyId) {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
@@ -133,6 +151,12 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   const userId = Number(req.user.id) || null;
 
   const ticket = await ShowTicketService(ticketId, companyId);
+  if (ticket.isGroup) {
+    await assertGroupAccess(ticketId, req.user);
+    if (ticket.contact?.groupMode !== "ticket") {
+      await markGroupRead(Number(ticketId), Number(req.user.id), companyId);
+    }
+  }
   const { channel } = ticket;
   if (channel === "whatsapp") {
     await SetTicketMessagesAsRead(ticket);
@@ -182,6 +206,9 @@ export const react = async (req: Request, res: Response): Promise<Response> => {
   }
 
   const ticket = await ShowTicketService(ticketId, companyId);
+  if (ticket.isGroup) {
+    await assertGroupAccess(ticketId, req.user);
+  }
   const wbot = getWbot(ticket.whatsappId);
 
   if (!wbot) {
@@ -211,6 +238,14 @@ export const edit = async (req: Request, res: Response): Promise<Response> => {
   const userId = Number(req.user.id) || null;
   const { body }: MessageData = req.body;
 
+  const original = await Message.findOne({
+    where: { id: messageId, companyId },
+    include: [{ model: Ticket, as: "ticket", attributes: ["id", "isGroup"] }]
+  });
+  if (original?.ticket?.isGroup) {
+    await assertGroupAccess(original.ticket.id, req.user);
+  }
+
   const { ticketId, message } = await EditWhatsAppMessage({
     messageId,
     companyId,
@@ -234,6 +269,14 @@ export const remove = async (
   const { messageId } = req.params;
   const { companyId } = req.user;
 
+  const original = await Message.findOne({
+    where: { id: messageId, companyId },
+    include: [{ model: Ticket, as: "ticket", attributes: ["id", "isGroup"] }]
+  });
+  if (original?.ticket?.isGroup) {
+    await assertGroupAccess(original.ticket.id, req.user);
+  }
+
   const message = await DeleteWhatsAppMessage(messageId);
 
   const io = getIO();
@@ -255,6 +298,14 @@ export const forward = async (
   const user = await User.findByPk(req.user.id, {
     include: [{ model: Queue, as: "queues" }]
   });
+
+  const sourceTicket = await Ticket.findOne({
+    where: { id: ticketId, companyId },
+    attributes: ["id", "isGroup"]
+  });
+  if (sourceTicket?.isGroup) {
+    await assertGroupAccess(sourceTicket.id, req.user);
+  }
 
   if (
     user.profile !== "admin" &&

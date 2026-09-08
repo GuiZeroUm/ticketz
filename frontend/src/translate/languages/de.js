@@ -52,6 +52,7 @@ const messages = {
         delete: "Löschen",
         cancel: "Abbrechen",
         save: "Speichern",
+        you: "Sie",
         confirm: "Bestätigen",
         close: "Schließen",
         error: "Fehler",
@@ -208,6 +209,18 @@ const messages = {
       },
       internalChat: {
         title: "Interner Chat"
+      },
+      whatsappGroups: {
+        configure: "Gruppe konfigurieren",
+        mode: "Gruppenmodus",
+        conversation: "Unterhaltung",
+        attendance: "Betreuung",
+        allowedQueues: "Berechtigte Warteschlangen",
+        serviceQueue: "Service-Warteschlange",
+        cancel: "Abbrechen",
+        save: "Speichern",
+        confirmConversation:
+          "Diese Gruppe aus dem Betreuungsvorgang entfernen? Die aktive Betreuung wird ohne Bewertung beendet."
       },
       whatsappModal: {
         title: {
@@ -543,7 +556,14 @@ const messages = {
         tabs: {
           open: { title: "Offen" },
           closed: { title: "Gelöst" },
-          groups: { title: "Gruppen" },
+          groups: {
+            title: "Gruppen",
+            conversations: "Unterhaltungen",
+            attendances: "Betreuungen",
+            pending: "Ausstehend",
+            open: "In Bearbeitung",
+            closed: "Abgeschlossen"
+          },
           search: { title: "Suche" }
         },
         search: {
@@ -1376,6 +1396,13 @@ const messages = {
           "Die ausgewählte Verbindung ist mit diesem Ticket nicht kompatibel.",
         ERR_TICKET_GROUP_CONNECTION_TRANSFER:
           "Ein Gruppenticket kann nicht zu einer anderen Verbindung wechseln.",
+        ERR_INVALID_GROUP_MODE: "Der ausgewählte Gruppenmodus ist ungültig.",
+        ERR_GROUP_QUEUE_REQUIRED:
+          "Wählen Sie mindestens eine berechtigte Warteschlange für die Gruppe aus.",
+        ERR_GROUP_SERVICE_QUEUE_REQUIRED:
+          "Wählen Sie eine berechtigte Service-Warteschlange aus.",
+        ERR_GROUP_CONVERSATION_NOT_TICKET:
+          "Diese Gruppe befindet sich im Unterhaltungsmodus und erlaubt keine Betreuungsaktionen.",
         ERR_TICKET_CONNECTION_NOT_CONNECTED:
           "Die Zielverbindung muss verbunden sein.",
         ERR_TICKET_TRANSFER_QUEUE_REQUIRED:

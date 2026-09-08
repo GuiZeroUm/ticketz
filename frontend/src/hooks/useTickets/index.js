@@ -13,6 +13,7 @@ const useTickets = ({
   nextTicketId,
   status,
   groups,
+  groupMode,
   date,
   updatedAt,
   showAll,
@@ -30,7 +31,8 @@ const useTickets = ({
     const delayDebounceFn = setTimeout(() => {
       const fetchTickets = async () => {
         try {
-          const { data } = await api.get("/tickets", {
+          const endpoint = groups ? "/whatsapp-groups" : "/tickets";
+          const { data } = await api.get(endpoint, {
             params: {
               isSearch,
               searchParam,
@@ -41,6 +43,7 @@ const useTickets = ({
               users,
               status,
               groups,
+              mode: groupMode,
               date,
               updatedAt,
               showAll,
@@ -50,7 +53,7 @@ const useTickets = ({
               all
             }
           });
-          setTickets(data.tickets);
+          setTickets(groups ? data.groups : data.tickets);
           setLoading(false);
         } catch (err) {
           setLoading(false);
@@ -69,6 +72,7 @@ const useTickets = ({
     nextTicketId,
     status,
     groups,
+    groupMode,
     date,
     updatedAt,
     showAll,
@@ -86,7 +90,8 @@ const useTickets = ({
 
   const fetchSince = useCallback(
     async minUpdatedAt => {
-      const { data } = await api.get("/tickets", {
+      const endpoint = groups ? "/whatsapp-groups" : "/tickets";
+      const { data } = await api.get(endpoint, {
         params: {
           isSearch,
           searchParam,
@@ -95,6 +100,7 @@ const useTickets = ({
           users,
           status,
           groups,
+          mode: groupMode,
           date,
           updatedAt,
           showAll,
@@ -105,7 +111,7 @@ const useTickets = ({
           minUpdatedAt
         }
       });
-      return data.tickets;
+      return groups ? data.groups : data.tickets;
     },
     [
       isSearch,
@@ -115,6 +121,7 @@ const useTickets = ({
       users,
       status,
       groups,
+      groupMode,
       date,
       updatedAt,
       showAll,

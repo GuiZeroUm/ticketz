@@ -11,8 +11,7 @@ import {
   AutoIncrement,
   Default,
   BeforeCreate,
-  BelongsToMany,
-  HasOne
+  BelongsToMany
 } from "sequelize-typescript";
 import { v4 as uuidv4 } from "uuid";
 
@@ -26,6 +25,7 @@ import QueueOption from "./QueueOption";
 import Tag from "./Tag";
 import TicketTag from "./TicketTag";
 import TicketTraking from "./TicketTraking";
+import GroupReadState from "./GroupReadState";
 
 @Table
 class Ticket extends Model<Ticket> {
@@ -121,6 +121,9 @@ class Ticket extends Model<Ticket> {
 
   @HasMany(() => TicketTraking)
   ticketTrakings: TicketTraking;
+
+  @HasMany(() => GroupReadState)
+  groupReadStates: GroupReadState[];
 }
 
 export default Ticket;

@@ -23,9 +23,11 @@ const ShowTicketUUIDService = async (uuid: string): Promise<Ticket> => {
           "profilePicUrl",
           "profileHiresPictureUrl",
           "presence",
-          "disableBot"
+          "disableBot",
+          "isGroup",
+          "groupMode"
         ],
-        include: ["tags", "extraInfo"]
+        include: ["tags", "extraInfo", "groupQueues"]
       },
       {
         model: User,

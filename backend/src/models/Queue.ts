@@ -24,6 +24,7 @@ import WhatsappQueue from "./WhatsappQueue";
 import QueueOption from "./QueueOption";
 import Ticket from "./Ticket";
 import { OpenHoursData } from "../helpers/checkOpenHours";
+import GroupQueue from "./GroupQueue";
 
 @Table
 class Queue extends Model {
@@ -94,6 +95,9 @@ class Queue extends Model {
 
   @HasMany(() => Ticket)
   tickets: Ticket[];
+
+  @HasMany(() => GroupQueue)
+  groupQueues: GroupQueue[];
 }
 
 export default Queue;

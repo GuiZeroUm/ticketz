@@ -191,17 +191,33 @@ const CreateCompanyService = async (
     },
     defaults: {
       companyId: company.id,
-      key: "enabled",
-      value: ""
+      key: "CheckMsgIsGroup",
+      value: "disabled"
     },
     transaction
   });
 
-  // CheckMsgIsGroup
+  await Setting.findOrCreate({
+    where: { companyId: company.id, key: "groupsTab" },
+    defaults: { companyId: company.id, key: "groupsTab", value: "enabled" },
+    transaction
+  });
+
+  await Setting.findOrCreate({
+    where: { companyId: company.id, key: "soundGroupNotifications" },
+    defaults: {
+      companyId: company.id,
+      key: "soundGroupNotifications",
+      value: "disabled"
+    },
+    transaction
+  });
+
+  // call
   await Setting.findOrCreate({
     where: {
       companyId: company.id,
-      key: ""
+      key: "call"
     },
     defaults: {
       companyId: company.id,

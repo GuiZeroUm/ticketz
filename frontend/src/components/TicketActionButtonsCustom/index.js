@@ -47,6 +47,8 @@ const TicketActionButtonsCustom = ({ ticket, showTabGroups }) => {
   const { user } = useContext(AuthContext);
   const { setCurrentTicket } = useContext(TicketsContext);
   const phoneContext = useContext(PhoneCallContext);
+  const isGroupConversation =
+    ticket.isGroup && ticket.contact?.groupMode !== "ticket";
 
   const customTheme = createTheme({
     palette: {
@@ -104,7 +106,7 @@ const TicketActionButtonsCustom = ({ ticket, showTabGroups }) => {
 
   return (
     <div className={classes.actionButtons}>
-      {ticket.status === "closed" && (!showTabGroups || !ticket.isGroup) && (
+      {ticket.status === "closed" && !isGroupConversation && (
         <>
           <Tooltip title={i18n.t("ticketsManager.buttons.newTicket")}>
             <IconButton
@@ -130,9 +132,10 @@ const TicketActionButtonsCustom = ({ ticket, showTabGroups }) => {
           )}
         </>
       )}
-      {(ticket.status === "open" || (showTabGroups && ticket.isGroup)) && (
+      {(ticket.status === "open" || isGroupConversation) && (
         <>
-          {wavoipAvailable() &&
+          {!isGroupConversation &&
+            wavoipAvailable() &&
             phoneContext &&
             !phoneContext.currentCall &&
             ticket.whatsapp.wavoip?.token &&
@@ -156,7 +159,7 @@ const TicketActionButtonsCustom = ({ ticket, showTabGroups }) => {
               </Tooltip>
             )}
 
-          {(!showTabGroups || !ticket.isGroup) && (
+          {!isGroupConversation && (
             <>
               <Tooltip title={i18n.t("messagesList.header.buttons.return")}>
                 <IconButton
@@ -192,7 +195,7 @@ const TicketActionButtonsCustom = ({ ticket, showTabGroups }) => {
           />
         </>
       )}
-      {ticket.status === "pending" && (!showTabGroups || !ticket.isGroup) && (
+      {ticket.status === "pending" && !isGroupConversation && (
         <ButtonWithSpinner
           loading={loading}
           size="small"

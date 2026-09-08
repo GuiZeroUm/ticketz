@@ -52,6 +52,7 @@ const messages = {
         delete: "Supprimer",
         cancel: "Annuler",
         save: "Enregistrer",
+        you: "Vous",
         confirm: "Confirmer",
         close: "Fermer",
         error: "Erreur",
@@ -207,6 +208,18 @@ const messages = {
       },
       internalChat: {
         title: "Chat Interne"
+      },
+      whatsappGroups: {
+        configure: "Configurer le groupe",
+        mode: "Mode du groupe",
+        conversation: "Conversation",
+        attendance: "Prise en charge",
+        allowedQueues: "Files autorisées",
+        serviceQueue: "File de service",
+        cancel: "Annuler",
+        save: "Enregistrer",
+        confirmConversation:
+          "Retirer ce groupe du flux de prise en charge ? La prise en charge active sera terminée sans évaluation."
       },
       whatsappModal: {
         title: {
@@ -540,7 +553,14 @@ const messages = {
         tabs: {
           open: { title: "Ouverts" },
           closed: { title: "Résolus" },
-          groups: { title: "Groupes" },
+          groups: {
+            title: "Groupes",
+            conversations: "Conversations",
+            attendances: "Prises en charge",
+            pending: "En attente",
+            open: "En cours",
+            closed: "Terminées"
+          },
           search: { title: "Recherche" }
         },
         search: {
@@ -1372,6 +1392,13 @@ const messages = {
           "La connexion sélectionnée n'est pas compatible avec ce ticket.",
         ERR_TICKET_GROUP_CONNECTION_TRANSFER:
           "Un ticket de groupe ne peut pas changer de connexion.",
+        ERR_INVALID_GROUP_MODE: "Le mode de groupe sélectionné est invalide.",
+        ERR_GROUP_QUEUE_REQUIRED:
+          "Sélectionnez au moins une file autorisée pour le groupe.",
+        ERR_GROUP_SERVICE_QUEUE_REQUIRED:
+          "Sélectionnez une file de prise en charge autorisée.",
+        ERR_GROUP_CONVERSATION_NOT_TICKET:
+          "Ce groupe est en mode conversation et n'accepte pas les actions de prise en charge.",
         ERR_TICKET_CONNECTION_NOT_CONNECTED:
           "La connexion de destination doit être connectée.",
         ERR_TICKET_TRANSFER_QUEUE_REQUIRED:

@@ -8,15 +8,17 @@ interface Params {
   whatsappId?: number;
   userId?: number;
   channel?: string;
+  transaction?: Transaction;
 }
 
 const FindOrCreateATicketTrakingService = async ({
   ticketId,
   companyId,
   whatsappId,
-  userId
+  userId,
+  transaction: externalTransaction
 }: Params): Promise<TicketTraking> => {
-  return sequelize.transaction(async (transaction: Transaction) => {
+  const execute = async (transaction: Transaction): Promise<TicketTraking> => {
     const ticketTraking = await TicketTraking.findOne({
       where: {
         ticketId,
@@ -44,7 +46,11 @@ const FindOrCreateATicketTrakingService = async ({
     );
 
     return newRecord;
-  });
+  };
+
+  return externalTransaction
+    ? execute(externalTransaction)
+    : sequelize.transaction(execute);
 };
 
 export default FindOrCreateATicketTrakingService;

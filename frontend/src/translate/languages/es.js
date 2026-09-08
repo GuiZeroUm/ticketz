@@ -56,6 +56,7 @@ const messages = {
         delete: "Eliminar",
         cancel: "Cancelar",
         save: "Guardar",
+        you: "Tú",
         confirm: "Confirmar",
         confirmation: "Confirmación",
         areyousure: "¿Estás seguro?",
@@ -270,6 +271,18 @@ const messages = {
       },
       internalChat: {
         title: "Chat Interno"
+      },
+      whatsappGroups: {
+        configure: "Configurar grupo",
+        mode: "Modo del grupo",
+        conversation: "Conversación",
+        attendance: "Atención",
+        allowedQueues: "Filas autorizadas",
+        serviceQueue: "Fila de atención",
+        cancel: "Cancelar",
+        save: "Guardar",
+        confirmConversation:
+          "¿Quitar este grupo del flujo de atención? La atención activa finalizará sin evaluación."
       },
       whatsappModal: {
         title: {
@@ -606,7 +619,14 @@ const messages = {
         tabs: {
           open: { title: "Abiertas" },
           closed: { title: "Resueltos" },
-          groups: { title: "Grupos" },
+          groups: {
+            title: "Grupos",
+            conversations: "Conversaciones",
+            attendances: "Atenciones",
+            pending: "Pendientes",
+            open: "En atención",
+            closed: "Finalizadas"
+          },
           search: { title: "Búsqueda" }
         },
         search: {
@@ -1494,6 +1514,13 @@ const messages = {
           "La conexión seleccionada no es compatible con este ticket.",
         ERR_TICKET_GROUP_CONNECTION_TRANSFER:
           "No se puede cambiar la conexión de un ticket de grupo.",
+        ERR_INVALID_GROUP_MODE: "El modo de grupo seleccionado no es válido.",
+        ERR_GROUP_QUEUE_REQUIRED:
+          "Seleccione al menos una fila autorizada para el grupo.",
+        ERR_GROUP_SERVICE_QUEUE_REQUIRED:
+          "Seleccione una fila de atención autorizada.",
+        ERR_GROUP_CONVERSATION_NOT_TICKET:
+          "Este grupo está en modo conversación y no admite acciones de atención.",
         ERR_TICKET_CONNECTION_NOT_CONNECTED:
           "La conexión de destino debe estar conectada.",
         ERR_TICKET_TRANSFER_QUEUE_REQUIRED:

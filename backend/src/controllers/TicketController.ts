@@ -11,6 +11,8 @@ import ShowTicketService from "../services/TicketServices/ShowTicketService";
 import UpdateTicketService from "../services/TicketServices/UpdateTicketService";
 import GetTicketTransferOptionsService from "../services/TicketServices/GetTicketTransferOptionsService";
 import ListTicketsServiceKanban from "../services/TicketServices/ListTicketsServiceKanban";
+import { assertGroupAccess } from "../services/WhatsappGroupServices/GroupAccessService";
+import AppError from "../errors/AppError";
 
 type IndexQuery = {
   isSearch?: string;
@@ -190,6 +192,10 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
 
   const contact = await ShowTicketService(ticketId, companyId);
 
+  if (contact.isGroup) {
+    await assertGroupAccess(ticketId, req.user);
+  }
+
   return res.status(200).json(contact);
 };
 
@@ -201,6 +207,10 @@ export const showFromUUID = async (
 
   const ticket: Ticket = await ShowTicketUUIDService(uuid);
 
+  if (ticket.isGroup) {
+    await assertGroupAccess(ticket.id, req.user);
+  }
+
   return res.status(200).json(ticket);
 };
 
@@ -209,6 +219,14 @@ export const update = async (
   res: Response
 ): Promise<Response> => {
   const { ticketId } = req.params;
+
+  const current = await ShowTicketService(ticketId, req.user.companyId);
+  if (current.isGroup) {
+    await assertGroupAccess(ticketId, req.user);
+    if (current.contact?.groupMode !== "ticket") {
+      throw new AppError("ERR_GROUP_CONVERSATION_NOT_TICKET", 400);
+    }
+  }
 
   const { ticket } = await updateMutex.runExclusive(async () => {
     const result = await UpdateTicketService({
@@ -229,6 +247,14 @@ export const transferOptions = async (
   const { ticketId } = req.params;
   const { companyId } = req.user;
 
+  const current = await ShowTicketService(ticketId, companyId);
+  if (current.isGroup) {
+    await assertGroupAccess(ticketId, req.user);
+    if (current.contact?.groupMode !== "ticket") {
+      throw new AppError("ERR_GROUP_CONVERSATION_NOT_TICKET", 400);
+    }
+  }
+
   const options = await GetTicketTransferOptionsService({
     ticketId,
     companyId
@@ -244,7 +270,13 @@ export const remove = async (
   const { ticketId } = req.params;
   const { companyId } = req.user;
 
-  await ShowTicketService(ticketId, companyId);
+  const current = await ShowTicketService(ticketId, companyId);
+  if (current.isGroup) {
+    await assertGroupAccess(ticketId, req.user);
+    if (current.contact?.groupMode !== "ticket") {
+      throw new AppError("ERR_GROUP_CONVERSATION_NOT_TICKET", 400);
+    }
+  }
 
   const ticket = await DeleteTicketService(ticketId);
 

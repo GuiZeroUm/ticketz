@@ -1,10 +1,10 @@
 import { Op, fn, col, WhereOptions, literal, QueryTypes } from "sequelize";
 import Ticket from "../../models/Ticket";
 import Queue from "../../models/Queue";
-import { GetCompanySetting } from "../../helpers/CheckSettings";
 import User from "../../models/User";
 import TicketTraking from "../../models/TicketTraking";
 import sequelize from "../../database";
+import Contact from "../../models/Contact";
 import {
   listCounterSerie,
   TicketCounterSeries
@@ -128,17 +128,21 @@ export async function ticketsStatusSummary(companyId: number) {
     }
   };
 
-  const groupsEnabled =
-    (await GetCompanySetting(companyId, "groupsTab", "disabled")) === "enabled";
-
-  if (groupsEnabled) {
-    where.isGroup = false;
-  }
+  where[Op.or] = [
+    { isGroup: false },
+    { isGroup: true, "$contact.groupMode$": "ticket" }
+  ];
 
   const ticketsSummary = await Ticket.findAll({
     attributes: ["status", "queueId", [fn("COUNT", "*"), "count"]],
     where,
     include: [
+      {
+        model: Contact,
+        as: "contact",
+        attributes: [],
+        required: true
+      },
       {
         model: Queue,
         attributes: ["id", "name", "color"],

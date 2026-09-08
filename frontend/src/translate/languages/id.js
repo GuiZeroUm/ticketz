@@ -51,6 +51,7 @@ const messages = {
         delete: "Hapus",
         cancel: "Batal",
         save: "Simpan",
+        you: "Anda",
         confirm: "Konfirmasi",
         close: "Tutup",
         error: "Kesalahan",
@@ -211,6 +212,18 @@ const messages = {
       },
       internalChat: {
         title: "Obrolan Internal"
+      },
+      whatsappGroups: {
+        configure: "Konfigurasi grup",
+        mode: "Mode grup",
+        conversation: "Percakapan",
+        attendance: "Layanan",
+        allowedQueues: "Antrean yang diizinkan",
+        serviceQueue: "Antrean layanan",
+        cancel: "Batal",
+        save: "Simpan",
+        confirmConversation:
+          "Keluarkan grup ini dari alur layanan? Layanan aktif akan berakhir tanpa penilaian."
       },
       whatsappModal: {
         title: {
@@ -552,7 +565,12 @@ const messages = {
             title: "Tutup"
           },
           groups: {
-            title: "Grup"
+            title: "Grup",
+            conversations: "Percakapan",
+            attendances: "Layanan",
+            pending: "Menunggu",
+            open: "Sedang dilayani",
+            closed: "Selesai"
           },
           search: {
             title: "Cari"
@@ -1387,6 +1405,13 @@ const messages = {
           "Koneksi yang dipilih tidak kompatibel dengan tiket ini.",
         ERR_TICKET_GROUP_CONNECTION_TRANSFER:
           "Tiket grup tidak dapat dipindahkan ke koneksi lain.",
+        ERR_INVALID_GROUP_MODE: "Mode grup yang dipilih tidak valid.",
+        ERR_GROUP_QUEUE_REQUIRED:
+          "Pilih setidaknya satu antrean yang diizinkan untuk grup.",
+        ERR_GROUP_SERVICE_QUEUE_REQUIRED:
+          "Pilih antrean layanan yang diizinkan.",
+        ERR_GROUP_CONVERSATION_NOT_TICKET:
+          "Grup ini berada dalam mode percakapan dan tidak menerima tindakan layanan.",
         ERR_TICKET_CONNECTION_NOT_CONNECTED: "Koneksi tujuan harus tersambung.",
         ERR_TICKET_TRANSFER_QUEUE_REQUIRED:
           "Pilih antrean saat mengganti koneksi.",

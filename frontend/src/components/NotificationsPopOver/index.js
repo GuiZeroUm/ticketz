@@ -148,6 +148,7 @@ const NotificationsPopOver = props => {
         data.action === "create" &&
         !data.message.read &&
         (data.ticket.userId === user?.id ||
+          (data.ticket.isGroup && !data.ticket.userId) ||
           (!data.ticket.userId &&
             (queueIds.includes(data.ticket.queueId) ||
               (!data.ticket.queueId && profile === "admin"))))

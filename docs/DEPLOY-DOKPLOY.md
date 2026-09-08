@@ -1,10 +1,11 @@
 # Deploy do Espaço Whats no Dokploy
 
 O ambiente de produção do Dokploy acompanha a branch `deploy`, nunca a branch
-`main` diretamente. O workflow `Validate and release to Dokploy` executa os
-testes e builds de backend e frontend, valida o Compose e só então avança a
-branch `deploy` para o commit aprovado. O GitHub App do Dokploy inicia o deploy
-quando essa branch é atualizada.
+`main` diretamente. O workflow `Validate production candidate` executa os
+testes e builds de backend e frontend e valida o Compose. Ele não altera a
+branch de produção. A liberação é feita separadamente pelo workflow manual
+`Release validated candidate to Dokploy`, que aceita somente o HEAD já validado
+de `main` e possui trava de horário no fuso `America/Rio_Branco`.
 
 ## Garantias do deploy
 
@@ -18,14 +19,33 @@ quando essa branch é atualizada.
 
 ## Fluxo normal
 
-1. Envie o commit para `main`.
-2. Aguarde o workflow `Validate and release to Dokploy` concluir.
-3. O workflow atualiza `deploy`.
-4. O Dokploy constrói a nova versão, mantém a anterior atendendo enquanto a nova
-   passa pelo health check e troca o tráfego somente depois disso.
+1. Envie o commit para `main` e conclua backups, testes e builds antes de 11:50.
+2. Aguarde `Validate production candidate` terminar com sucesso para o HEAD de
+   `main`.
+3. Entre 11:50:00 e 11:59:59 em Rio Branco, o executor dispara
+   `Release validated candidate to Dokploy`, informando o SHA completo.
+4. O workflow avança `deploy`; o Dokploy mantém a versão anterior atendendo
+   enquanto a nova passa pelo health check.
+5. Depois de backend e frontend saudáveis, o executor realiza a ativação
+   transacional específica da versão, dentro do container do backend:
 
-Se qualquer verificação falhar, `deploy` não é alterada e nenhuma implantação é
-iniciada.
+   ```sh
+   npm run groups:activate -- <sha-completo>
+   ```
+
+6. Às 12:15 ocorre o checkpoint obrigatório. Havendo risco, a branch `deploy`
+   volta ao SHA anterior e as configurações são restauradas com:
+
+   ```sh
+   npm run groups:rollback -- <sha-completo>
+   ```
+
+7. Às 12:30 não pode existir build, migração, reinício ou deploy em andamento.
+   A versão nova deve estar saudável ou o rollback deve ter terminado.
+
+O workflow recusa qualquer disparo fora da janela. Se a janela for perdida, o
+release fica para o dia seguinte. Se qualquer verificação falhar, `deploy` não é
+alterada e nenhuma implantação é iniciada.
 
 ## Banco de dados
 
@@ -33,6 +53,11 @@ O backend executa migrações Sequelize durante a inicialização. Migrações j
 publicadas não devem ser editadas; mudanças de schema devem ser aditivas e
 compatíveis com a versão anterior, porque ela permanece ativa até a nova ficar
 saudável.
+
+A ativação dos grupos registra em `GroupSettingSnapshots` os valores anteriores
+de `CheckMsgIsGroup`, `groupsTab` e `soundGroupNotifications`. O som nunca é
+alterado pela ativação. Use o mesmo identificador (o SHA completo) na ativação e
+no rollback.
 
 Antes da primeira carga, restaure o dump com `--no-owner --no-acl`. Depois da
 restauração, inicie o backend para aplicar somente as migrações ainda pendentes.
@@ -42,4 +67,8 @@ restauração, inicie o backend para aplicar somente as migrações ainda penden
 - `GET /backend/api/platform/v1/health` deve retornar `status: ok`.
 - A página inicial e o login devem responder pelo hostname técnico.
 - O tenant `Teste` deve abrir no hostname técnico com o prefixo `teste.`.
+- A aba Grupos deve receber uma mensagem real, permitir resposta e preservar o
+  isolamento entre dois usuários de filas diferentes.
+- A conversão Conversa → Atendimento → Conversa deve preservar as mensagens e
+  criar/encerrar o tracking somente no trecho de atendimento.
 - PostgreSQL e Redis não devem publicar portas diretamente na internet.

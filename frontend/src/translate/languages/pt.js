@@ -650,6 +650,7 @@ const messages = {
         delete: "Excluir",
         cancel: "Cancelar",
         save: "Salvar",
+        you: "Você",
         confirm: "Confirmar",
         confirmation: "Confirmação",
         areyousure: "Você tem certeza?",
@@ -867,6 +868,18 @@ const messages = {
       },
       internalChat: {
         title: "Chat Interno"
+      },
+      whatsappGroups: {
+        configure: "Configurar grupo",
+        mode: "Modo do grupo",
+        conversation: "Conversa",
+        attendance: "Atendimento",
+        allowedQueues: "Filas autorizadas",
+        serviceQueue: "Fila do atendimento",
+        cancel: "Cancelar",
+        save: "Salvar",
+        confirmConversation:
+          "Retirar este grupo do fluxo de atendimento? O atendimento ativo será encerrado sem avaliação."
       },
       whatsappModal: {
         title: {
@@ -1246,7 +1259,14 @@ const messages = {
         tabs: {
           open: { title: "Abertas" },
           closed: { title: "Resolvidos" },
-          groups: { title: "Grupos" },
+          groups: {
+            title: "Grupos",
+            conversations: "Conversas",
+            attendances: "Atendimentos",
+            pending: "Pendentes",
+            open: "Em atendimento",
+            closed: "Finalizados"
+          },
           search: { title: "Busca" }
         },
         search: {
@@ -2337,6 +2357,13 @@ const messages = {
           "A conexão selecionada não é compatível com este atendimento.",
         ERR_TICKET_GROUP_CONNECTION_TRANSFER:
           "Não é possível trocar a conexão de um atendimento em grupo.",
+        ERR_INVALID_GROUP_MODE: "O modo de grupo informado é inválido.",
+        ERR_GROUP_QUEUE_REQUIRED:
+          "Selecione pelo menos uma fila autorizada para o grupo.",
+        ERR_GROUP_SERVICE_QUEUE_REQUIRED:
+          "Selecione uma fila de atendimento autorizada.",
+        ERR_GROUP_CONVERSATION_NOT_TICKET:
+          "Este grupo está no modo conversa e não aceita ações de atendimento.",
         ERR_TICKET_CONNECTION_NOT_CONNECTED:
           "A conexão de destino precisa estar conectada.",
         ERR_TICKET_TRANSFER_QUEUE_REQUIRED:

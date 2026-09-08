@@ -54,6 +54,7 @@ const messages = {
         delete: "Delete",
         cancel: "Cancel",
         save: "Save",
+        you: "You",
         confirm: "Confirm",
         confirmation: "Confirmation",
         areyousure: "Are you sure?",
@@ -271,6 +272,18 @@ const messages = {
       },
       internalChat: {
         title: "Internal Chat"
+      },
+      whatsappGroups: {
+        configure: "Configure group",
+        mode: "Group mode",
+        conversation: "Conversation",
+        attendance: "Attendance",
+        allowedQueues: "Allowed queues",
+        serviceQueue: "Service queue",
+        cancel: "Cancel",
+        save: "Save",
+        confirmConversation:
+          "Remove this group from the service flow? The active service will end without a rating."
       },
       whatsappModal: {
         title: {
@@ -647,7 +660,14 @@ const messages = {
         tabs: {
           open: { title: "Open" },
           closed: { title: "Closed" },
-          groups: { title: "Groups" },
+          groups: {
+            title: "Groups",
+            conversations: "Conversations",
+            attendances: "Attendances",
+            pending: "Pending",
+            open: "In service",
+            closed: "Closed"
+          },
           search: { title: "Search" }
         },
         search: {
@@ -1732,6 +1752,12 @@ const messages = {
           "The selected connection is not compatible with this ticket.",
         ERR_TICKET_GROUP_CONNECTION_TRANSFER:
           "A group ticket cannot be moved to another connection.",
+        ERR_INVALID_GROUP_MODE: "The selected group mode is invalid.",
+        ERR_GROUP_QUEUE_REQUIRED:
+          "Select at least one allowed queue for the group.",
+        ERR_GROUP_SERVICE_QUEUE_REQUIRED: "Select an allowed service queue.",
+        ERR_GROUP_CONVERSATION_NOT_TICKET:
+          "This group is in conversation mode and does not accept service actions.",
         ERR_TICKET_CONNECTION_NOT_CONNECTED:
           "The destination connection must be connected.",
         ERR_TICKET_TRANSFER_QUEUE_REQUIRED:

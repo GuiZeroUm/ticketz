@@ -111,7 +111,11 @@ const Ticket = () => {
           const { queues, profile } = user;
 
           const queueAllowed = queues.find(q => q.id === queueId);
-          if (queueAllowed === undefined && profile !== "admin") {
+          if (
+            queueAllowed === undefined &&
+            profile !== "admin" &&
+            !data.isGroup
+          ) {
             toast.error("Acesso não permitido");
             history.push("/tickets");
             return;

@@ -179,6 +179,7 @@ const TicketsListCustom = props => {
   const {
     status,
     groups,
+    groupMode,
     isSearch,
     searchParam,
     contactId,
@@ -219,7 +220,8 @@ const TicketsListCustom = props => {
     contactId,
     tags,
     users,
-    selectedQueueIds
+    selectedQueueIds,
+    groupMode
   ]);
 
   const {
@@ -237,6 +239,7 @@ const TicketsListCustom = props => {
     searchParam,
     status,
     groups,
+    groupMode,
     showAll,
     contactId,
     tags: JSON.stringify(tags),
@@ -250,12 +253,12 @@ const TicketsListCustom = props => {
       t => queueIds.indexOf(t.queueId) > -1
     );
 
-    if (profile === "user") {
+    if (profile === "user" && !groups) {
       dispatch({ type: "LOAD_TICKETS", payload: filteredTickets });
     } else {
       dispatch({ type: "LOAD_TICKETS", payload: tickets });
     }
-  }, [tickets, queues, profile]);
+  }, [tickets, queues, profile, groups]);
 
   useEffect(() => {
     const companyId = localStorage.getItem("companyId");
@@ -281,7 +284,9 @@ const TicketsListCustom = props => {
       ticket.queueId && selectedQueueIds.indexOf(ticket.queueId) === -1;
 
     const onConnectTicketList = () => {
-      if (status) {
+      if (groups) {
+        socket.emit("joinNotification");
+      } else if (status) {
         socket.emit("joinTickets", status);
       } else {
         socket.emit("joinNotification");
@@ -289,6 +294,10 @@ const TicketsListCustom = props => {
     };
 
     const onCompanyTicket = data => {
+      if (groups && data.ticket?.isGroup && data.action === "update") {
+        refetchTickets();
+        return;
+      }
       if (data.action === "updateUnread") {
         dispatch({
           type: "RESET_UNREAD",
@@ -333,6 +342,10 @@ const TicketsListCustom = props => {
     };
 
     const onCompanyAppMessage = data => {
+      if (groups && data.ticket?.isGroup) {
+        refetchTickets();
+        return;
+      }
       console.debug("appMessage event received", data);
       if (showTabGroups && !!data.ticket?.isGroup !== !!groups) {
         return;
@@ -341,6 +354,7 @@ const TicketsListCustom = props => {
       const queueIds = queues.map(q => q.id);
       if (
         profile === "user" &&
+        !groups &&
         (queueIds.indexOf(data.ticket?.queue?.id) === -1 ||
           data.ticket.queue === null)
       ) {
@@ -408,7 +422,9 @@ const TicketsListCustom = props => {
     });
 
     return () => {
-      if (status) {
+      if (groups) {
+        socket.emit("leaveNotification");
+      } else if (status) {
         socket.emit("leaveTickets", status);
       } else {
         socket.emit("leaveNotification");
@@ -421,6 +437,7 @@ const TicketsListCustom = props => {
     searchParam,
     showAll,
     groups,
+    groupMode,
     showTabGroups,
     user,
     selectedQueueIds,
@@ -491,7 +508,7 @@ const TicketsListCustom = props => {
                   ticket={ticket}
                   setTabOpen={setTabOpen}
                   key={ticket.id}
-                  groupActionButtons={!groups && !showTabGroups}
+                  groupActionButtons={!groups || groupMode === "ticket"}
                 />
               ))}
             </>
