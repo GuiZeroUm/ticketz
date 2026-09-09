@@ -28,7 +28,6 @@ import { parseToMilliseconds } from "./helpers/parseToMilliseconds";
 import { startCampaignQueues } from "./queues/campaign";
 import OutOfTicketMessage from "./models/OutOfTicketMessages";
 import { getJidOf } from "./services/WbotServices/getJidOf";
-import { _t } from "./services/TranslationServices/i18nService";
 import { makeRandomId } from "./helpers/MakeRandomId";
 import McpAudit from "./models/McpAudit";
 import ScheduleDelivery from "./models/ScheduleDelivery";
@@ -52,6 +51,7 @@ import SendPartnerPayoutsService from "./services/PartnerServices/SendPartnerPay
 import ReconcilePartnerPayoutsService from "./services/PartnerServices/ReconcilePartnerPayoutsService";
 import { processPlatformWebhooks } from "./services/PlatformServices/PlatformWebhookService";
 import CreateCompanyInvoiceService from "./services/InvoicesService/CreateCompanyInvoiceService";
+import getCompletionMessage from "./helpers/GetCompletionMessage";
 
 const connection = process.env.REDIS_URI || "";
 export const userMonitor = new Queue("UserMonitor", connection);
@@ -434,15 +434,17 @@ async function setRatingExpired(tracking: TicketTraking, threshold: Date) {
     return;
   }
 
-  const wbot = getWbot(tracking.whatsapp.id);
+  const completionMessage = getCompletionMessage(
+    tracking.whatsapp.complationMessage
+  );
 
-  const complationMessage =
-    tracking.whatsapp.complationMessage.trim() ||
-    _t("Service completed", tracking.whatsapp);
+  if (completionMessage) {
+    const wbot = getWbot(tracking.whatsapp.id);
 
-  await wbot.sendMessage(getJidOf(tracking.ticket), {
-    text: formatBody(`\u200e${complationMessage}`, tracking.ticket)
-  });
+    await wbot.sendMessage(getJidOf(tracking.ticket), {
+      text: formatBody(`\u200e${completionMessage}`, tracking.ticket)
+    });
+  }
 
   logger.debug({ tracking }, "rating timedout");
 }

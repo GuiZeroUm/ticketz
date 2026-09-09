@@ -77,6 +77,7 @@ import {
   getGroupContactCacheKey,
   resolveGroupIdentity
 } from "../WhatsappGroupServices/ResolveGroupIdentity";
+import getCompletionMessage from "../../helpers/GetCompletionMessage";
 
 export interface ImessageUpsert {
   messages: proto.IWebMessageInfo[];
@@ -1390,10 +1391,16 @@ const handleRating = async (
     rate: finalRate
   });
 
-  const complationMessage =
-    whatsapp.complationMessage.trim() || _t("Service completed", ticket);
+  const completionMessage = getCompletionMessage(whatsapp.complationMessage);
 
-  const text = formatBody(`\u200e${complationMessage}`, ticket);
+  if (!completionMessage) {
+    await ticketTraking.update({
+      rated: true
+    });
+    return;
+  }
+
+  const text = formatBody(`\u200e${completionMessage}`, ticket);
 
   wbot
     .sendMessage(getJidOf(ticket), {
