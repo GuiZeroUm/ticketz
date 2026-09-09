@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import {
   Button,
   Dialog,
@@ -17,33 +17,36 @@ import api from "../../services/api";
 import toastError from "../../errors/toastError";
 import { i18n } from "../../translate/i18n";
 import { i18nToast } from "../../helpers/i18nToast";
+import { AuthContext } from "../../context/Auth/AuthContext";
 import { toTaskInputDate, toTaskIsoDate } from "./taskBoardV2";
 
 const TaskDialog = ({ open, task, onClose, onSaved }) => {
+  const { user } = useContext(AuthContext);
   const [users, setUsers] = useState([]);
   const [queues, setQueues] = useState([]);
+  const canAssignTasks = user?.profile === "admin";
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !canAssignTasks) return;
     Promise.all([api.get("/users/list"), api.get("/queue")])
       .then(([userResponse, queueResponse]) => {
         setUsers(userResponse.data || []);
         setQueues(queueResponse.data || []);
       })
       .catch(toastError);
-  }, [open]);
+  }, [open, canAssignTasks]);
 
   const initialValues = useMemo(
     () => ({
       title: task?.title || "",
       description: task?.description || "",
-      targetType: task?.targetType || "GLOBAL",
-      assignedUserId: task?.assignedUserId || "",
+      targetType: task?.targetType || (canAssignTasks ? "GLOBAL" : "USER"),
+      assignedUserId: task?.assignedUserId || (canAssignTasks ? "" : user?.id),
       assignedQueueId: task?.assignedQueueId || "",
       dueAt: toTaskInputDate(task?.dueAt),
       version: task?.version
     }),
-    [task]
+    [task, canAssignTasks, user?.id]
   );
 
   const schema = Yup.object().shape({
@@ -70,18 +73,18 @@ const TaskDialog = ({ open, task, onClose, onSaved }) => {
         initialValues={initialValues}
         validationSchema={schema}
         onSubmit={async (values, actions) => {
+          const targetType = canAssignTasks ? values.targetType : "USER";
           const payload = {
             ...values,
+            targetType,
             title: values.title.trim(),
             description: values.description.trim(),
             assignedUserId:
-              values.targetType === "USER"
-                ? Number(values.assignedUserId)
+              targetType === "USER"
+                ? Number(canAssignTasks ? values.assignedUserId : user?.id)
                 : null,
             assignedQueueId:
-              values.targetType === "QUEUE"
-                ? Number(values.assignedQueueId)
-                : null,
+              targetType === "QUEUE" ? Number(values.assignedQueueId) : null,
             dueAt: toTaskIsoDate(values.dueAt)
           };
           try {
@@ -123,26 +126,28 @@ const TaskDialog = ({ open, task, onClose, onSaved }) => {
                 rows={4}
                 fullWidth
               />
-              <FormControl variant="outlined" fullWidth>
-                <InputLabel>{i18n.t("todolist.form.targetType")}</InputLabel>
-                <Select
-                  name="targetType"
-                  value={values.targetType}
-                  onChange={handleChange}
-                  label={i18n.t("todolist.form.targetType")}
-                >
-                  <MenuItem value="GLOBAL">
-                    {i18n.t("todolist.targets.global")}
-                  </MenuItem>
-                  <MenuItem value="USER">
-                    {i18n.t("todolist.targets.user")}
-                  </MenuItem>
-                  <MenuItem value="QUEUE">
-                    {i18n.t("todolist.targets.queue")}
-                  </MenuItem>
-                </Select>
-              </FormControl>
-              {values.targetType === "USER" && (
+              {canAssignTasks && (
+                <FormControl variant="outlined" fullWidth>
+                  <InputLabel>{i18n.t("todolist.form.targetType")}</InputLabel>
+                  <Select
+                    name="targetType"
+                    value={values.targetType}
+                    onChange={handleChange}
+                    label={i18n.t("todolist.form.targetType")}
+                  >
+                    <MenuItem value="GLOBAL">
+                      {i18n.t("todolist.targets.global")}
+                    </MenuItem>
+                    <MenuItem value="USER">
+                      {i18n.t("todolist.targets.user")}
+                    </MenuItem>
+                    <MenuItem value="QUEUE">
+                      {i18n.t("todolist.targets.queue")}
+                    </MenuItem>
+                  </Select>
+                </FormControl>
+              )}
+              {canAssignTasks && values.targetType === "USER" && (
                 <FormControl
                   variant="outlined"
                   fullWidth
@@ -163,7 +168,7 @@ const TaskDialog = ({ open, task, onClose, onSaved }) => {
                   </Select>
                 </FormControl>
               )}
-              {values.targetType === "QUEUE" && (
+              {canAssignTasks && values.targetType === "QUEUE" && (
                 <FormControl
                   variant="outlined"
                   fullWidth

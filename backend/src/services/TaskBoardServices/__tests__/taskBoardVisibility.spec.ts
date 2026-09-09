@@ -1,6 +1,9 @@
 import { Op } from "sequelize";
 import UserQueue from "../../../models/UserQueue";
-import { taskVisibilityWhere } from "../TaskBoardV2Service";
+import {
+  isPersonalTaskOwnedBy,
+  taskVisibilityWhere
+} from "../TaskBoardV2Service";
 
 describe("task board visibility predicate", () => {
   beforeEach(() => jest.restoreAllMocks());
@@ -26,5 +29,19 @@ describe("task board visibility predicate", () => {
     jest.spyOn(UserQueue, "findAll").mockResolvedValue([]);
     const where = (await taskVisibilityWhere(5)) as Record<symbol, unknown[]>;
     expect(where[Op.or]).toHaveLength(2);
+  });
+
+  it("recognizes personal tasks only for their creator and assignee", () => {
+    const task = {
+      targetType: "USER" as const,
+      assignedUserId: 42,
+      createdById: 42
+    };
+
+    expect(isPersonalTaskOwnedBy(task, 42)).toBe(true);
+    expect(isPersonalTaskOwnedBy(task, 7)).toBe(false);
+    expect(isPersonalTaskOwnedBy({ ...task, targetType: "GLOBAL" }, 42)).toBe(
+      false
+    );
   });
 });

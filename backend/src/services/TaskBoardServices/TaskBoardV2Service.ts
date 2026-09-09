@@ -116,6 +116,20 @@ const assertVisible = async (
   throw new AppError("ERR_TASK_BOARD_TASK_NOT_FOUND", 404);
 };
 
+export const isPersonalTaskOwnedBy = (
+  task: Pick<TaskBoardTask, "targetType" | "assignedUserId" | "createdById">,
+  userId: number
+): boolean =>
+  task.targetType === "USER" &&
+  task.assignedUserId === userId &&
+  task.createdById === userId;
+
+const assertTaskCanBeManaged = (task: TaskBoardTask, actor: Actor): void => {
+  if (actor.profile === "admin" || isPersonalTaskOwnedBy(task, actor.userId))
+    return;
+  throw new AppError("ERR_TASK_BOARD_TASK_NOT_FOUND", 404);
+};
+
 const normalizeTarget = async (
   companyId: number,
   input: TaskInput,
@@ -426,7 +440,14 @@ export const createTask = async (
       lock: transaction.LOCK.UPDATE
     });
     if (!column) throw new AppError("ERR_TASK_BOARD_COLUMN_NOT_FOUND", 404);
-    const target = await normalizeTarget(actor.companyId, input, transaction);
+    const target =
+      actor.profile === "admin"
+        ? await normalizeTarget(actor.companyId, input, transaction)
+        : {
+            targetType: "USER" as const,
+            assignedUserId: actor.userId,
+            assignedQueueId: null
+          };
     const maxPosition = await TaskBoardTask.max("position", {
       where: { companyId: actor.companyId, columnId: column.id },
       transaction
@@ -462,8 +483,17 @@ export const updateTask = async (
 ): Promise<TaskBoardTask> =>
   sequelize.transaction(async transaction => {
     const task = await getTask(id, actor.companyId, transaction);
+    await assertVisible(task, actor, transaction);
+    assertTaskCanBeManaged(task, actor);
     assertVersion(task, input.version);
-    const target = await normalizeTarget(actor.companyId, input, transaction);
+    const target =
+      actor.profile === "admin"
+        ? await normalizeTarget(actor.companyId, input, transaction)
+        : {
+            targetType: "USER" as const,
+            assignedUserId: actor.userId,
+            assignedQueueId: null
+          };
     await task.update(
       {
         title: cleanTaskBoardTitle(input.title, 255),
@@ -582,6 +612,8 @@ export const deleteTask = async (
 ): Promise<void> => {
   await sequelize.transaction(async transaction => {
     const task = await getTask(id, actor.companyId, transaction);
+    await assertVisible(task, actor, transaction);
+    assertTaskCanBeManaged(task, actor);
     const columnId = task.columnId;
     await task.destroy({ transaction });
     const remaining = await TaskBoardTask.findAll({

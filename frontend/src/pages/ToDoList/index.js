@@ -261,16 +261,14 @@ const ToDoList = () => {
       <MainHeader>
         <Title>{i18n.t("todolist.title")}</Title>
         <MainHeaderButtonsWrapper>
-          {user?.profile === "admin" && (
-            <Button
-              color="primary"
-              variant="contained"
-              startIcon={<Add />}
-              onClick={() => setCreatingTask(true)}
-            >
-              {i18n.t("todolist.buttons.newTask")}
-            </Button>
-          )}
+          <Button
+            color="primary"
+            variant="contained"
+            startIcon={<Add />}
+            onClick={() => setCreatingTask(true)}
+          >
+            {i18n.t("todolist.buttons.newTask")}
+          </Button>
           {user?.profile === "admin" && (
             <Button
               color="primary"
