@@ -4,12 +4,14 @@ import {
   Breadcrumbs,
   Card,
   CardActionArea,
+  Chip,
   Link,
   Typography,
   makeStyles
 } from "@material-ui/core";
 import DescriptionIcon from "@material-ui/icons/Description";
 import PlayCircleOutlineIcon from "@material-ui/icons/PlayCircleOutline";
+import LockOutlinedIcon from "@material-ui/icons/LockOutlined";
 
 import { i18n } from "../../translate/i18n";
 import { getIconComponent } from "../IconPicker/icons";
@@ -82,6 +84,12 @@ const useStyles = makeStyles(theme => ({
   },
   empty: {
     color: theme.palette.text.secondary
+  },
+  titleRow: {
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: theme.spacing(1)
   }
 }));
 
@@ -157,7 +165,17 @@ const CategoryDetail = ({ group, onBack, onOpenArticle }) => {
           <Icon fontSize="large" />
         </Box>
         <Box>
-          <Typography variant="h5">{group.title}</Typography>
+          <Box className={classes.titleRow}>
+            <Typography variant="h5">{group.title}</Typography>
+            {group.adminOnly ? (
+              <Chip
+                size="small"
+                color="primary"
+                icon={<LockOutlinedIcon />}
+                label={i18n.t("helps.adminOnly")}
+              />
+            ) : null}
+          </Box>
           {group.subtitle ? (
             <Typography variant="body2" className={classes.meta}>
               {group.subtitle}
@@ -182,7 +200,17 @@ const CategoryDetail = ({ group, onBack, onOpenArticle }) => {
                     classes={classes}
                   />
                   <Box className={classes.cardBody}>
-                    <Typography variant="subtitle1">{video.title}</Typography>
+                    <Box className={classes.titleRow}>
+                      <Typography variant="subtitle1">{video.title}</Typography>
+                      {video.adminOnly ? (
+                        <Chip
+                          size="small"
+                          color="primary"
+                          icon={<LockOutlinedIcon />}
+                          label={i18n.t("helps.adminOnly")}
+                        />
+                      ) : null}
+                    </Box>
                     {video.description ? (
                       <Typography variant="body2" className={classes.meta}>
                         {video.description}
@@ -212,7 +240,19 @@ const CategoryDetail = ({ group, onBack, onOpenArticle }) => {
               <Card key={article.id} variant="outlined">
                 <CardActionArea onClick={() => onOpenArticle(article)}>
                   <Box className={classes.articleCard}>
-                    <Typography variant="subtitle1">{article.title}</Typography>
+                    <Box className={classes.titleRow}>
+                      <Typography variant="subtitle1">
+                        {article.title}
+                      </Typography>
+                      {article.adminOnly ? (
+                        <Chip
+                          size="small"
+                          color="primary"
+                          icon={<LockOutlinedIcon />}
+                          label={i18n.t("helps.adminOnly")}
+                        />
+                      ) : null}
+                    </Box>
                     {article.description ? (
                       <Typography variant="body2" className={classes.meta}>
                         {article.description}

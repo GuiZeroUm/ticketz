@@ -1045,7 +1045,15 @@ const messages = {
         }
       },
       helps: {
-        title: "Centro de Ayuda"
+        title: "Centro de Ayuda",
+        adminOnly: "Solo administradores",
+        groupModal: {
+          adminOnlyHelper:
+            "Esta tarjeta y todo su contenido quedan ocultos para los usuarios comunes."
+        },
+        contentModal: {
+          adminOnly: "Visible solo para administradores"
+        }
       },
       about: {
         aboutthe: "Acerca de",

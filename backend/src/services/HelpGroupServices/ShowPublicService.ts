@@ -6,6 +6,7 @@ interface Request {
   groupId: string | number;
   audience: string;
   companyId?: number;
+  isAdmin?: boolean;
 }
 
 export interface PublicHelpGroupDetail {
@@ -14,6 +15,7 @@ export interface PublicHelpGroupDetail {
   subtitle: string;
   icon: string;
   isGlobal: boolean;
+  adminOnly: boolean;
   videos: Help[];
   articles: Help[];
 }
@@ -28,7 +30,8 @@ export interface PublicHelpGroupDetail {
 const ShowPublicService = async ({
   groupId,
   audience,
-  companyId
+  companyId,
+  isAdmin = false
 }: Request): Promise<PublicHelpGroupDetail> => {
   const group = await HelpGroup.findByPk(groupId);
 
@@ -36,6 +39,7 @@ const ShowPublicService = async ({
     group &&
     group.isActive &&
     group.audience === audience &&
+    (audience !== "company" || isAdmin || !group.adminOnly) &&
     (group.isGlobal || group.companyId === companyId);
 
   if (!visible) {
@@ -43,7 +47,11 @@ const ShowPublicService = async ({
   }
 
   const contents = await Help.findAll({
-    where: { groupId: group.id, isActive: true },
+    where: {
+      groupId: group.id,
+      isActive: true,
+      ...(audience === "company" && !isAdmin ? { adminOnly: false } : {})
+    },
     order: [
       ["order", "ASC"],
       ["id", "ASC"]
@@ -56,6 +64,7 @@ const ShowPublicService = async ({
     subtitle: group.subtitle,
     icon: group.icon,
     isGlobal: group.isGlobal,
+    adminOnly: group.adminOnly,
     videos: contents.filter(content => content.type !== "article"),
     articles: contents.filter(content => content.type === "article")
   };

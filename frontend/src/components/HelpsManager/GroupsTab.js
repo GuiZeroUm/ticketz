@@ -126,6 +126,13 @@ const BucketList = ({ bucket, onEdit, onDelete, onReorder }) => {
               {!group.isActive ? (
                 <Chip size="small" label={i18n.t("helps.inactive")} />
               ) : null}
+              {group.adminOnly ? (
+                <Chip
+                  size="small"
+                  color="primary"
+                  label={i18n.t("helps.adminOnly")}
+                />
+              ) : null}
               {manageable ? (
                 <>
                   <IconButton onClick={() => onEdit(group)}>

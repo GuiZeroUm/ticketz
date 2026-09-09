@@ -5,7 +5,7 @@ O ambiente de produção do Dokploy acompanha a branch `deploy`, nunca a branch
 testes e builds de backend e frontend e valida o Compose. Ele não altera a
 branch de produção. A liberação é feita separadamente pelo workflow manual
 `Release validated candidate to Dokploy`, que aceita somente o HEAD já validado
-de `main` e possui trava de horário no fuso `America/Rio_Branco`.
+de `main`.
 
 ## Garantias do deploy
 
@@ -19,11 +19,11 @@ de `main` e possui trava de horário no fuso `America/Rio_Branco`.
 
 ## Fluxo normal
 
-1. Envie o commit para `main` e conclua backups, testes e builds antes de 11:50.
+1. Envie o commit para `main` e conclua backups, testes e builds.
 2. Aguarde `Validate production candidate` terminar com sucesso para o HEAD de
    `main`.
-3. Entre 11:50:00 e 11:59:59 em Rio Branco, o executor dispara
-   `Release validated candidate to Dokploy`, informando o SHA completo.
+3. O executor dispara `Release validated candidate to Dokploy`, informando o
+   SHA completo.
 4. O workflow avança `deploy`; o Dokploy mantém a versão anterior atendendo
    enquanto a nova passa pelo health check.
 5. Depois de backend e frontend saudáveis, o executor realiza a ativação
@@ -33,19 +33,19 @@ de `main` e possui trava de horário no fuso `America/Rio_Branco`.
    npm run groups:activate -- <sha-completo>
    ```
 
-6. Às 12:15 ocorre o checkpoint obrigatório. Havendo risco, a branch `deploy`
-   volta ao SHA anterior e as configurações são restauradas com:
+6. No checkpoint posterior ao deploy, havendo risco, a branch `deploy` volta ao
+   SHA anterior e as configurações são restauradas com:
 
    ```sh
    npm run groups:rollback -- <sha-completo>
    ```
 
-7. Às 12:30 não pode existir build, migração, reinício ou deploy em andamento.
-   A versão nova deve estar saudável ou o rollback deve ter terminado.
+7. Ao encerrar o release, não pode existir build, migração, reinício ou deploy
+   em andamento. A versão nova deve estar saudável ou o rollback deve ter
+   terminado.
 
-O workflow recusa qualquer disparo fora da janela. Se a janela for perdida, o
-release fica para o dia seguinte. Se qualquer verificação falhar, `deploy` não é
-alterada e nenhuma implantação é iniciada.
+Se qualquer verificação falhar, `deploy` não é alterada e nenhuma implantação é
+iniciada.
 
 ## Banco de dados
 

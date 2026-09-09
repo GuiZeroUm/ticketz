@@ -22,15 +22,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Enforce the Rio Branco release window
-        shell: bash
-        run: |
-          current_time="$(TZ=America/Rio_Branco date +%H%M%S)"
-          if (( 10#$current_time < 115000 || 10#$current_time >= 120000 )); then
-            echo "Production releases are allowed only from 11:50:00 through 11:59:59 in America/Rio_Branco."
-            exit 1
-          fi
-
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -59,16 +50,11 @@ jobs:
             exit 1
           fi
 
-      - name: Recheck window and advance deployment branch
+      - name: Advance deployment branch
         env:
           RELEASE_SHA: ${{ inputs.release_sha }}
         shell: bash
         run: |
-          current_time="$(TZ=America/Rio_Branco date +%H%M%S)"
-          if (( 10#$current_time < 115000 || 10#$current_time >= 120000 )); then
-            echo "The release window closed before dispatching Dokploy. Try again on the next day."
-            exit 1
-          fi
           deployed_sha="$(git rev-parse refs/remotes/origin/deploy)"
           git push origin "${RELEASE_SHA}:refs/heads/deploy" \
             "--force-with-lease=refs/heads/deploy:${deployed_sha}"

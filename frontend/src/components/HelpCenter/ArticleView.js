@@ -2,18 +2,24 @@ import React from "react";
 import {
   Box,
   Breadcrumbs,
+  Chip,
   Link,
   Typography,
   makeStyles
 } from "@material-ui/core";
 
 import { i18n } from "../../translate/i18n";
+import LockOutlinedIcon from "@material-ui/icons/LockOutlined";
 
 const useStyles = makeStyles(theme => ({
   root: {
     padding: theme.spacing(2)
   },
   title: {
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: theme.spacing(1),
     marginTop: theme.spacing(2),
     marginBottom: theme.spacing(2)
   },
@@ -67,9 +73,17 @@ const ArticleView = ({ group, article, onBack, onBackToGroup }) => {
         <Typography color="textPrimary">{article.title}</Typography>
       </Breadcrumbs>
 
-      <Typography variant="h5" className={classes.title}>
-        {article.title}
-      </Typography>
+      <Box className={classes.title}>
+        <Typography variant="h5">{article.title}</Typography>
+        {article.adminOnly ? (
+          <Chip
+            size="small"
+            color="primary"
+            icon={<LockOutlinedIcon />}
+            label={i18n.t("helps.adminOnly")}
+          />
+        ) : null}
+      </Box>
 
       <div
         className={classes.content}

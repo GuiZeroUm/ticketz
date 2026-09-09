@@ -984,7 +984,15 @@ const messages = {
         }
       },
       helps: {
-        title: "Pusat Bantuan"
+        title: "Pusat Bantuan",
+        adminOnly: "Hanya administrator",
+        groupModal: {
+          adminOnlyHelper:
+            "Kartu ini dan seluruh isinya disembunyikan dari pengguna biasa."
+        },
+        contentModal: {
+          adminOnly: "Hanya terlihat oleh administrator"
+        }
       },
       about: {
         aboutthe: "Tentang",

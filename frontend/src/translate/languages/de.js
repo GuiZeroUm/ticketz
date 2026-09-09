@@ -978,7 +978,15 @@ const messages = {
         }
       },
       helps: {
-        title: "Hilfezentrum"
+        title: "Hilfezentrum",
+        adminOnly: "Nur Administratoren",
+        groupModal: {
+          adminOnlyHelper:
+            "Diese Karte und alle Inhalte sind für normale Benutzer ausgeblendet."
+        },
+        contentModal: {
+          adminOnly: "Nur für Administratoren sichtbar"
+        }
       },
       about: {
         aboutthe: "Über",

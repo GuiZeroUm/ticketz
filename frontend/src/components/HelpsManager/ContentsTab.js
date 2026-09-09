@@ -87,7 +87,10 @@ const GroupBlock = ({
   const handleMove = (from, to) =>
     onReorder(group.id, move(contents, from, to));
 
-  const listRef = useSortableList(handleMove, manageable && contents.length > 1);
+  const listRef = useSortableList(
+    handleMove,
+    manageable && contents.length > 1
+  );
 
   return (
     <Box className={classes.groupBlock}>
@@ -137,6 +140,13 @@ const GroupBlock = ({
               </Box>
               {!content.isActive ? (
                 <Chip size="small" label={i18n.t("helps.inactive")} />
+              ) : null}
+              {content.adminOnly ? (
+                <Chip
+                  size="small"
+                  color="primary"
+                  label={i18n.t("helps.adminOnly")}
+                />
               ) : null}
               {manageable ? (
                 <>

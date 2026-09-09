@@ -48,6 +48,7 @@ const ListService = async ({
           "audience",
           "order",
           "isGlobal",
+          "adminOnly",
           "companyId"
         ]
       }

@@ -39,6 +39,7 @@ type StoreData = {
   duration?: string;
   link?: string;
   isActive?: boolean;
+  adminOnly?: boolean;
 };
 
 const CONTENT_TYPES = ["video", "article"];
@@ -82,10 +83,11 @@ const pickFields = ({
   description,
   duration,
   link,
-  isActive
+  isActive,
+  adminOnly
 }: StoreData) =>
   omitBy(
-    { title, description, duration, link, isActive },
+    { title, description, duration, link, isActive, adminOnly },
     isUndefined
   ) as Partial<StoreData>;
 
@@ -153,7 +155,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     groupId: group.id,
     type: data.type,
     video: data.video,
-    content: data.content
+    content: data.content,
+    adminOnly: group.audience === "company" ? !!data.adminOnly : false
   });
 
   notify("create", group, { record });
@@ -191,7 +194,8 @@ export const update = async (
     groupId: group.id,
     type: data.type,
     video: data.video,
-    content: data.content
+    content: data.content,
+    adminOnly: group.audience === "company" ? !!data.adminOnly : false
   });
 
   notify("update", origin, { record });
@@ -244,7 +248,10 @@ export const findList = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  const records = await FindService(req.user.companyId);
+  const records = await FindService(
+    req.user.companyId,
+    req.user.profile === "admin"
+  );
 
   return res.status(200).json(records);
 };
@@ -256,7 +263,8 @@ export const showGroupContents = async (
   const group = await ShowPublicService({
     groupId: req.params.id,
     audience: "company",
-    companyId: req.user.companyId
+    companyId: req.user.companyId,
+    isAdmin: req.user.profile === "admin"
   });
 
   return res.status(200).json(group);

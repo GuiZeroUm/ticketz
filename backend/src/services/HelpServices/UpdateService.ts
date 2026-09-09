@@ -13,6 +13,7 @@ interface Data {
   duration?: string;
   link?: string;
   isActive?: boolean;
+  adminOnly?: boolean;
 }
 
 const UpdateService = async (data: Data): Promise<Help> => {

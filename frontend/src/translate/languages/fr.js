@@ -976,7 +976,15 @@ const messages = {
         }
       },
       helps: {
-        title: "Centre d'Aide"
+        title: "Centre d'Aide",
+        adminOnly: "Administrateurs uniquement",
+        groupModal: {
+          adminOnlyHelper:
+            "Cette carte et tout son contenu sont masqués pour les utilisateurs ordinaires."
+        },
+        contentModal: {
+          adminOnly: "Visible uniquement par les administrateurs"
+        }
       },
       about: {
         aboutthe: "À propos de",

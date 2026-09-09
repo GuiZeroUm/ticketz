@@ -1013,7 +1013,15 @@ const messages = {
         }
       },
       helps: {
-        title: "Central de Ajuda"
+        title: "Central de Ajuda",
+        adminOnly: "Só administradores",
+        groupModal: {
+          adminOnlyHelper:
+            "Este cartão e todo o conteúdo ficam ocultos para utilizadores comuns."
+        },
+        contentModal: {
+          adminOnly: "Visível apenas para administradores"
+        }
       },
       about: {
         aboutthe: "Sobre o",

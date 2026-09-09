@@ -972,7 +972,15 @@ const messages = {
         }
       },
       helps: {
-        title: "Centro di Aiuto"
+        title: "Centro di Aiuto",
+        adminOnly: "Solo amministratori",
+        groupModal: {
+          adminOnlyHelper:
+            "Questa scheda e tutti i contenuti sono nascosti agli utenti comuni."
+        },
+        contentModal: {
+          adminOnly: "Visibile solo agli amministratori"
+        }
       },
       about: {
         aboutthe: "Informazioni su",

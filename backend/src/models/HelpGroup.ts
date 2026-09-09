@@ -80,6 +80,13 @@ class HelpGroup extends Model<HelpGroup> {
   @Column
   isActive: boolean;
 
+  // Quando true, o card e todos os seus conteudos aparecem somente para
+  // administradores do tenant. A checagem tambem acontece na API publica.
+  @AllowNull(false)
+  @Default(false)
+  @Column
+  adminOnly: boolean;
+
   @CreatedAt
   createdAt: Date;
 
