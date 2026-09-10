@@ -25,6 +25,7 @@ import { green } from "@material-ui/core/colors";
 import { PhoneCallContext } from "../../context/PhoneCall/PhoneCallContext";
 import { wavoipAvailable, wavoipCall } from "../../helpers/wavoipCallManager";
 import { toBeChecked } from "@testing-library/jest-dom/matchers";
+import canReopenTicket from "./canReopenTicket";
 
 const useStyles = makeStyles(theme => ({
   actionButtons: {
@@ -121,7 +122,7 @@ const TicketActionButtonsCustom = ({ ticket, showTabGroups }) => {
               <AddBoxIcon />
             </IconButton>
           </Tooltip>
-          {user.profile === "admin" && (
+          {canReopenTicket(user, ticket) && (
             <Tooltip title={i18n.t("messagesList.header.buttons.reopen")}>
               <IconButton
                 onClick={e => handleUpdateTicketStatus(e, "open", user?.id)}
