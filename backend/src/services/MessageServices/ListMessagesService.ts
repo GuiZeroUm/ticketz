@@ -36,10 +36,38 @@ const ListMessagesService = async ({
   }
 
   const limit = 100;
+  let messageTicketIds = [ticket.id];
+
+  // Keep closed tickets as immutable conversation snapshots. Active one-to-one
+  // tickets may read older snapshots for context, but messages remain assigned
+  // to their original ticket so the resolved list stays correctly segmented.
+  if (["open", "pending"].includes(ticket.status) && !ticket.isGroup) {
+    const conversationTickets = await Ticket.findAll({
+      attributes: ["id"],
+      where: {
+        id: { [Op.lte]: ticket.id },
+        contactId: ticket.contactId,
+        whatsappId: ticket.whatsappId,
+        companyId: ticket.companyId,
+        channel: ticket.channel,
+        isGroup: false
+      },
+      order: [["id", "DESC"]]
+    });
+
+    messageTicketIds = Array.from(
+      new Set([ticket.id, ...conversationTickets.map(item => item.id)])
+    );
+  }
+
+  const ticketIdFilter =
+    messageTicketIds.length === 1
+      ? messageTicketIds[0]
+      : { [Op.in]: messageTicketIds };
 
   const options: FindOptions = {
     where: {
-      ticketId,
+      ticketId: ticketIdFilter,
       companyId,
       mediaType: {
         [Op.or]: {
@@ -77,7 +105,7 @@ const ListMessagesService = async ({
     const cursorMessage = await Message.findOne({
       where: {
         id: nextId,
-        ticketId,
+        ticketId: ticketIdFilter,
         companyId
       },
       attributes: ["id", "createdAt"]
@@ -110,7 +138,7 @@ const ListMessagesService = async ({
         model: Message,
         as: "replies",
         where: {
-          ticketId: ticket.id
+          ticketId: ticketIdFilter
         },
         include: ["contact"],
         required: false

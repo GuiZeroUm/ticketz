@@ -1,8 +1,8 @@
-name: Validate production candidate
+name: Validate deployment candidate
 
 on:
   push:
-    branches: [main]
+    branches: [dev, main]
   workflow_dispatch:
 
 concurrency:
