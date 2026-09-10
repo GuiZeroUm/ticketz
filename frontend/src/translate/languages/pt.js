@@ -47,6 +47,58 @@ const messages = {
         }
       },
       landing: {
+        story: {
+          skip: "Pular para o conteúdo",
+          login: "Entrar",
+          start: "Começar agora",
+          createAccount: "Criar minha conta",
+          source: "Código-fonte · AGPL",
+          heroEyebrow: "Seu WhatsApp. Um novo espaço de trabalho.",
+          heroTitle: "Mais conversa.",
+          heroHighlight: "Menos caos.",
+          heroAside: "Perto do cliente. Junto da equipe.",
+          heroDescription:
+            "Reúna conversas, pessoas e contexto em uma única central. Seu time atende junto. Seu cliente se sente lembrado.",
+          demo: "Demonstração ilustrativa",
+          connected: "Tudo conectado",
+          introEyebrow: "Espaço para atender melhor",
+          introTitle: "O cliente continua a conversa.",
+          introHighlight: "Sua equipe também.",
+          introDescription:
+            "Do primeiro oi ao próximo atendimento, cada pessoa encontra o que precisa para seguir. Sem procurar mensagens em vários celulares.",
+          eyebrow: "Uma conversa. Toda a jornada.",
+          title: "Chegou uma mensagem.",
+          highlight: "O próximo passo já tem lugar.",
+          scrollHint:
+            "Role para acompanhar a conversa ou escolha uma etapa abaixo.",
+          clickHint: "Escolha uma etapa para explorar o atendimento.",
+          steps: [
+            {
+              label: "Receba",
+              title: "Toda conversa tem seu espaço.",
+              description:
+                "Veja quem está aguardando e quem já está em atendimento. Tudo em uma central compartilhada."
+            },
+            {
+              label: "Direcione",
+              title: "A pessoa certa. Na hora certa.",
+              description:
+                "Organize filas e distribua conversas entre os setores. Cada atendimento tem um responsável."
+            },
+            {
+              label: "Continue",
+              title: "Troque o atendente. Preserve o contexto.",
+              description:
+                "Histórico, tags e próximos passos acompanham o cliente. Sua equipe continua de onde parou."
+            }
+          ],
+          featuresTitle: "Uma central. Muitas formas de cuidar.",
+          ctaEyebrow: "Seu próximo atendimento começa aqui",
+          ctaTitle: "Dê espaço ao que importa.",
+          ctaHighlight: "A conversa.",
+          ctaDescription:
+            "Organize sua operação e aproxime sua equipe de cada cliente."
+        },
         meta: {
           title: "Espaço Whats — Atendimento profissional pelo WhatsApp",
           description:
