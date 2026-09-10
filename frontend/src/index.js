@@ -75,9 +75,11 @@ async function renderApp() {
 
 async function renderPublicLanding() {
   document.getElementById("splash-background")?.remove();
-  document.documentElement.style.backgroundColor = "#080d1c";
+  document.documentElement.style.backgroundColor = "#f6f8fb";
   const { default: LandingPage } = await import("./pages/LandingPage");
-  ReactDOM.render(<LandingPage />, document.getElementById("root"));
+  ReactDOM.render(<LandingPage />, document.getElementById("root"), () => {
+    window.finishProgress();
+  });
 }
 
 async function probeBackendAndRender(config, attempt = 1) {

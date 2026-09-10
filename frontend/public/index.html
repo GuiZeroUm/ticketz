@@ -370,35 +370,43 @@
               "--primary",
               theme === "dark" ? "#39ACE7" : "#00f"
             );
-          });
+          })
+          .catch(() => {});
 
         Promise.all([
           fetch(settingsBaseUrl + "/appLogoDark" + q),
           fetch(settingsBaseUrl + "/appLogoLight" + q)
-        ]).then(async responses => {
-          const appLogo = document.getElementById("app-logo");
+        ])
+          .then(async responses => {
+            const appLogo = document.getElementById("app-logo");
+            // The public landing can finish before branding requests resolve.
+            if (!appLogo) return;
 
-          const logoSrc =
-            (await (theme === "dark" ? responses[0] : responses[1]).json()) ||
-            (await (theme === "dark" ? responses[1] : responses[0]).json());
+            const logoSrc =
+              (await (theme === "dark" ? responses[0] : responses[1]).json()) ||
+              (await (theme === "dark" ? responses[1] : responses[0]).json());
 
-          if (!logoSrc) {
-            appLogo.src =
-              theme === "dark"
-                ? "/branding/logo-dark.png"
-                : "/branding/logo-light.png";
-          } else {
-            appLogo.src = backendUrl + "/public/" + (logoSrc || logoAltSrc);
-          }
-          const appLogoDiv = document.getElementById("app-logo-div");
-          appLogoDiv.style.display = "block";
-        });
+            if (!logoSrc) {
+              appLogo.src =
+                theme === "dark"
+                  ? "/branding/logo-dark.png"
+                  : "/branding/logo-light.png";
+            } else {
+              appLogo.src = backendUrl + "/public/" + (logoSrc || logoAltSrc);
+            }
+            const appLogoDiv = document.getElementById("app-logo-div");
+            if (appLogoDiv) appLogoDiv.style.display = "block";
+          })
+          .catch(() => {});
 
         fetch(settingsBaseUrl + "/appName" + q)
           .then(response => response.json())
           .then(data => {
-            document.title = data || "Espaço Whats";
-          });
+            if (document.getElementById("splash-background")) {
+              document.title = data || "Espaço Whats";
+            }
+          })
+          .catch(() => {});
       };
 
       fetch("/config.json").then(async response => {
@@ -422,7 +430,7 @@
           clearInterval(interval);
           setTimeout(() => {
             const splashScreen = document.getElementById("splash-background");
-            splashScreen.remove();
+            splashScreen?.remove();
           }, 500);
         }
       }, 1000);
