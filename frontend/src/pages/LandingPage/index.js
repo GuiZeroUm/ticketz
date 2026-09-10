@@ -21,16 +21,28 @@ import {
 } from "@material-ui/icons";
 import config, { getBackendURL } from "../../services/config";
 import { i18n } from "../../translate/i18n";
+import useLandingMotion from "./useLandingMotion";
 import "./styles.css";
 
 const t = key => i18n.t(`landing.${key}`);
 const list = key => i18n.t(`landing.${key}`, { returnObjects: true });
 const stageIcons = [ForumOutlined, AccountTreeOutlined, HistoryRounded];
 
+const brandIcon = `${process.env.PUBLIC_URL || ""}/branding/espaco-whats-icon.png`;
+const BrandIcon = () => (
+  <img
+    className="lp-brand-icon"
+    src={brandIcon}
+    alt=""
+    width="48"
+    height="48"
+  />
+);
+
 const Brand = () => (
   <span className="lp-logo">
     <span>
-      <ForumOutlined />
+      <BrandIcon />
     </span>
     <strong>
       Espaço<span>Whats</span>
@@ -169,7 +181,7 @@ const Journey = () => {
   return (
     <section className="lp-journey" id="como-funciona" ref={areaRef}>
       <div className="lp-journey-sticky lp-wrap">
-        <div className="lp-section-heading">
+        <div className="lp-section-heading" data-lp-motion>
           <div>
             <span className="lp-kicker">{t("story.eyebrow")}</span>
             <h2>
@@ -179,7 +191,7 @@ const Journey = () => {
           </div>
           <p>{t(scrollEnabled ? "story.scrollHint" : "story.clickHint")}</p>
         </div>
-        <div className="lp-demo">
+        <div className="lp-demo" data-lp-motion>
           <div className="lp-demo-toolbar">
             <Brand />
             <span>
@@ -284,7 +296,7 @@ const Journey = () => {
             })}
           </div>
         </div>
-        <div className="lp-step-caption">
+        <div className="lp-step-caption" key={`caption-${active}`}>
           <span>0{active + 1} / 03</span>
           <div>
             <h3>{steps[active].title}</h3>
@@ -297,6 +309,7 @@ const Journey = () => {
 };
 
 const LandingPage = () => {
+  const pageRef = useLandingMotion();
   const [menuOpen, setMenuOpen] = useState(false);
   const [brand, setBrand] = useState({
     primaryColorLight: "#0000FF",
@@ -351,6 +364,7 @@ const LandingPage = () => {
   return (
     <div
       className="landing-page"
+      ref={pageRef}
       style={{
         "--lp-primary": brand.primaryColorLight,
         "--lp-accent": brand.primaryColorDark,
@@ -363,6 +377,8 @@ const LandingPage = () => {
       <Helmet>
         <title>{t("meta.title")}</title>
         <meta name="description" content={t("meta.description")} />
+        <link rel="icon" type="image/png" href={brandIcon} />
+        <link rel="shortcut icon" type="image/png" href={brandIcon} />
       </Helmet>
       <a className="lp-skip" href="#inicio">
         {t("story.skip")}
@@ -411,13 +427,13 @@ const LandingPage = () => {
             <i />
             {t("story.heroEyebrow")}
           </span>
-          <div className="lp-hero-grid">
+          <div className="lp-hero-grid" data-lp-motion>
             <h1>
               {t("story.heroTitle")}
               <em>
                 {t("story.heroHighlight")}
                 <span className="lp-title-arrow" aria-hidden="true">
-                  <ArrowForwardRounded />
+                  <BrandIcon />
                 </span>
               </em>
             </h1>
@@ -436,10 +452,10 @@ const LandingPage = () => {
               </div>
             </div>
           </div>
-          <div className="lp-hero-product">
+          <div className="lp-hero-product" data-lp-motion>
             <div className="lp-product-label">
               <span>
-                <WhatsApp />
+                <BrandIcon />
                 {t("mock.workspace")}
               </span>
               <span>{t("story.demo")}</span>
@@ -462,7 +478,7 @@ const LandingPage = () => {
             ))}
           </div>
         </section>
-        <section className="lp-intro lp-wrap">
+        <section className="lp-intro lp-wrap" data-lp-motion>
           <span className="lp-kicker">{t("story.introEyebrow")}</span>
           <h2>
             {t("story.introTitle")}
@@ -479,7 +495,7 @@ const LandingPage = () => {
         </section>
         <Journey />
         <section className="lp-features lp-wrap" id="recursos">
-          <div className="lp-section-heading">
+          <div className="lp-section-heading" data-lp-motion>
             <div>
               <span className="lp-kicker">{t("features.eyebrow")}</span>
               <h2>{t("story.featuresTitle")}</h2>
@@ -491,7 +507,11 @@ const LandingPage = () => {
               const feature = list("features.items")[featureIndex];
               const Icon = featureIcons[index];
               return (
-                <article key={feature.title}>
+                <article
+                  key={feature.title}
+                  data-lp-motion
+                  style={{ "--lp-delay": `${(index % 3) * 100}ms` }}
+                >
                   <div>
                     <Icon />
                     <span>0{index + 1}</span>
@@ -503,7 +523,7 @@ const LandingPage = () => {
             })}
           </div>
         </section>
-        <section className="lp-faq lp-wrap">
+        <section className="lp-faq lp-wrap" data-lp-motion>
           <div>
             <span className="lp-kicker">{t("faq.eyebrow")}</span>
             <h2>{t("faq.title")}</h2>
@@ -521,7 +541,7 @@ const LandingPage = () => {
           </div>
         </section>
         <section className="lp-cta" id="contato">
-          <div className="lp-wrap">
+          <div className="lp-wrap" data-lp-motion>
             <span className="lp-kicker">{t("story.ctaEyebrow")}</span>
             <h2>
               {t("story.ctaTitle")}

@@ -288,6 +288,7 @@
   background: white;
   box-shadow: 0 12px 35px #17243515;
   animation: lp-float 7s ease-in-out infinite;
+  animation-play-state: paused;
 }
 .lp-floating-note > svg {
   color: var(--lp-primary);
@@ -1570,6 +1571,170 @@
     font-size: 10px;
   }
 }
+.lp-logo > span,
+.lp-title-arrow {
+  overflow: hidden;
+  background: white;
+}
+.lp-brand-icon {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.lp-product-label .lp-brand-icon {
+  width: 27px;
+  height: 27px;
+  border-radius: 8px;
+}
+/* One entrance per element, with idle motion paused outside the viewport.
+   Only transform and opacity animate; content is visible without JS support. */
+@media (prefers-reduced-motion: no-preference) {
+  .lp-motion-enabled .lp-revealed {
+    animation: lp-card-arrive 850ms cubic-bezier(0.16, 1, 0.3, 1)
+      var(--lp-delay, 0ms) backwards;
+  }
+  .lp-motion-enabled .lp-hero-grid.lp-revealed .lp-hero-copy {
+    animation: lp-card-arrive 900ms cubic-bezier(0.16, 1, 0.3, 1) 180ms
+      backwards;
+  }
+  .lp-motion-enabled .lp-in-view .lp-floating-note {
+    animation-play-state: running;
+  }
+  .lp-motion-enabled .lp-in-view .lp-title-arrow {
+    animation: lp-brand-settle 1100ms cubic-bezier(0.16, 1, 0.3, 1) 200ms
+      backwards;
+  }
+  .lp-motion-enabled .lp-revealed .lp-messages p,
+  .lp-motion-enabled .lp-revealed .lp-inbox-row,
+  .lp-motion-enabled .lp-revealed .lp-team-grid > div,
+  .lp-motion-enabled .lp-revealed .lp-timeline > div {
+    animation: lp-card-arrive 650ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+  .lp-motion-enabled .lp-revealed .lp-inbox-row:nth-child(4),
+  .lp-motion-enabled .lp-revealed .lp-team-grid > div:nth-child(2),
+  .lp-motion-enabled .lp-revealed .lp-timeline > div:nth-child(2) {
+    animation-delay: 120ms;
+  }
+  .lp-motion-enabled .lp-revealed .lp-inbox-row:nth-child(5),
+  .lp-motion-enabled .lp-revealed .lp-team-grid > div:nth-child(3),
+  .lp-motion-enabled .lp-revealed .lp-timeline > div:nth-child(3) {
+    animation-delay: 240ms;
+  }
+  .lp-motion-enabled .lp-revealed .lp-inbox-row:nth-child(6) {
+    animation-delay: 360ms;
+  }
+  .lp-motion-enabled .lp-revealed .lp-messages p {
+    animation-delay: 250ms;
+  }
+  .lp-motion-enabled .lp-revealed .lp-messages p.is-sent {
+    animation-delay: 550ms;
+  }
+  .lp-route-message,
+  .lp-step-caption > div {
+    animation: lp-card-arrive 650ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+  .lp-route-connector {
+    transform-origin: top center;
+    animation: lp-connect 600ms ease 150ms backwards;
+  }
+  .lp-demo-controls button > svg:last-child,
+  .lp-button svg,
+  .lp-feature-grid article > div > svg {
+    transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .lp-demo-controls button[aria-pressed="true"] > svg:last-child {
+    transform: translateX(5px);
+  }
+  .lp-cta-tiles span {
+    animation: lp-tile-drift 6s ease-in-out infinite;
+    animation-play-state: paused;
+  }
+  .lp-cta-tiles span:nth-child(2) {
+    animation-delay: -2s;
+  }
+  .lp-cta-tiles span:nth-child(3) {
+    animation-delay: -4s;
+  }
+  .lp-motion-enabled .lp-in-view .lp-cta-tiles span {
+    animation-play-state: running;
+  }
+  .lp-typing i {
+    animation-play-state: paused;
+  }
+  .lp-in-view .lp-typing i {
+    animation-play-state: running;
+  }
+}
+@media (min-width: 601px) and (prefers-reduced-motion: no-preference) {
+  .lp-motion-enabled .lp-hero-product.lp-revealed {
+    animation-name: lp-product-unfold;
+    animation-duration: 1200ms;
+  }
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .lp-feature-grid article:hover {
+    transform: translateY(-9px) rotate(-1deg);
+    box-shadow: 0 20px 40px -18px #17243535;
+  }
+  .lp-feature-grid article:hover > div > svg {
+    transform: rotate(-10deg) scale(1.16);
+  }
+  .lp-button:hover svg,
+  .lp-button:focus-visible svg {
+    transform: translateX(4px);
+  }
+}
+@keyframes lp-card-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(38px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes lp-product-unfold {
+  from {
+    opacity: 0;
+    transform: perspective(1600px) translateY(65px) rotateX(16deg)
+      rotateY(-7deg) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: perspective(1600px) rotateX(5deg) rotateY(-3deg);
+  }
+}
+@keyframes lp-brand-settle {
+  from {
+    opacity: 0;
+    transform: translateY(20px) rotate(20deg) scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(-12deg);
+  }
+}
+@keyframes lp-connect {
+  from {
+    opacity: 0;
+    transform: scaleY(0);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+@keyframes lp-tile-drift {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-3deg);
+  }
+  50% {
+    transform: translateY(-24px) rotate(3deg);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   #root.landing-root {
     scroll-behavior: auto;
@@ -1582,6 +1747,8 @@
     scroll-behavior: auto !important;
   }
   .lp-hero-product,
+  .lp-feature-grid article:hover,
+  .lp-button:hover,
   .lp-profile {
     transform: none;
   }
