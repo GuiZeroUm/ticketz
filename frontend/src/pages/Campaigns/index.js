@@ -1,3 +1,4 @@
+import NavegacaoEnvios from "../../components/NavegacaoEnvios";
 /* eslint-disable no-unused-vars */
 
 import React, { useState, useEffect, useReducer, useContext } from "react";
@@ -290,6 +291,7 @@ const Campaigns = () => {
           {i18n.t("campaigns.buttons.add")}
         </Button>
       </MainHeader>
+      <NavegacaoEnvios />
       <div className={classes.barraBusca}>
         <TextField
           variant="outlined"

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
+import CentralConfiguracoes from "../../components/Settings/CentralConfiguracoes";
+import { ArrowLeft } from "lucide-react";
 import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
 import CabecalhoPagina from "../../components/CabecalhoPagina";
-import { makeStyles, Paper, Tabs, Tab, Button, Grid } from "@material-ui/core";
+import { makeStyles, Paper, Button, Grid } from "@material-ui/core";
 
 import TabPanel from "../../components/TabPanel";
 
@@ -74,7 +76,7 @@ const useStyles = makeStyles(theme => ({
 
 const SettingsCustom = () => {
   const classes = useStyles();
-  const [tab, setTab] = useState("options");
+  const [tab, setTab] = useState("central");
   const [schedules, setSchedules] = useState({});
   const [company, setCompany] = useState({});
   const [loading, setLoading] = useState(false);
@@ -182,61 +184,33 @@ const SettingsCustom = () => {
           descricao={i18n.t("redesign.descricaoConfiguracoes")}
         />
       </MainHeader>
-      <Paper className={classes.mainPaper} elevation={1}>
-        <Tabs
-          value={tab}
-          indicatorColor="primary"
-          textColor="primary"
-          scrollButtons="on"
-          variant="scrollable"
-          onChange={handleTabChange}
-          className={classes.tab}
+      <Paper
+        className={classes.mainPaper}
+        elevation={0}
+        style={{ background: "transparent" }}
+      >
+        {tab === "central" ? (
+          <CentralConfiguracoes
+            selecionar={valor => handleTabChange(null, valor)}
+            superusuario={isSuper()}
+            administrador={isAdmin()}
+            horarios={schedulesEnabled}
+            voz={voiceAvailable}
+          />
+        ) : (
+          <Button
+            startIcon={<ArrowLeft size={16} />}
+            onClick={() => setTab("central")}
+            style={{ marginBottom: 16 }}
+          >
+            {i18n.t("centralConfig.voltar")}
+          </Button>
+        )}
+        <Paper
+          className={classes.paper}
+          elevation={0}
+          style={{ display: tab === "central" ? "none" : "flex" }}
         >
-          <Tab label={i18n.t("settings.Options.title")} value={"options"} />
-          {schedulesEnabled && (
-            <Tab
-              label={i18n.t("settings.schedules.title")}
-              value={"schedules"}
-            />
-          )}
-          {isSuper() ? (
-            <Tab
-              label={i18n.t("settings.Companies.title")}
-              value={"companies"}
-            />
-          ) : null}
-          {isSuper() ? (
-            <Tab label={i18n.t("settings.Plans.title")} value={"plans"} />
-          ) : null}
-          {/* Admin da empresa tambem publica ajuda, so que restrita aos
-              proprios colaboradores. */}
-          {isAdmin() ? (
-            <Tab label={i18n.t("settings.Help.title")} value={"helps"} />
-          ) : null}
-          {isSuper() ? <Tab label="Parceiros" value={"partners"} /> : null}
-          {isAdmin() ? (
-            <Tab
-              label={i18n.t("settings.Whitelabel.title")}
-              value={"whitelabel"}
-            />
-          ) : null}
-          {isAdmin() && voiceAvailable ? (
-            <Tab
-              label={i18n.t("voiceCalls.settingsTab")}
-              value={"voiceCalls"}
-            />
-          ) : null}
-          {isSuper() ? (
-            <Tab
-              label={i18n.t("settings.PaymentGateways.title")}
-              value={"paymentGateway"}
-            />
-          ) : null}
-          {isSuper() ? (
-            <Tab label={i18n.t("settings.i18nSettings.title")} value={"i18n"} />
-          ) : null}
-        </Tabs>
-        <Paper className={classes.paper} elevation={0}>
           <TabPanel
             className={classes.container}
             value={tab}

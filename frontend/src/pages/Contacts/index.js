@@ -1,3 +1,6 @@
+import * as Tabs from "@radix-ui/react-tabs";
+import { Users, UsersRound } from "lucide-react";
+import { useIdentidade } from "../../components/interface";
 import React, { useState, useEffect, useReducer, useContext } from "react";
 
 import { toast } from "react-toastify";
@@ -141,6 +144,8 @@ const Contacts = () => {
   const [loading, setLoading] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
   const [searchParam, setSearchParam] = useState("");
+  const [segmento, setSegmento] = useState("contatos");
+  const identidade = useIdentidade();
   const [contacts, dispatch] = useReducer(reducer, []);
   const [selectedContactId, setSelectedContactId] = useState(null);
   const [contactModalOpen, setContactModalOpen] = useState(false);
@@ -167,34 +172,46 @@ const Contacts = () => {
   useEffect(() => {
     dispatch({ type: "RESET" });
     setPageNumber(1);
-  }, [searchParam]);
+  }, [searchParam, segmento]);
 
   useEffect(() => {
+    let ativo = true;
     setLoading(true);
     const delayDebounceFn = setTimeout(() => {
       const fetchContacts = async () => {
         try {
           const { data } = await api.get("/contacts/", {
-            params: { searchParam, pageNumber }
+            params: { searchParam, pageNumber, isGroup: segmento === "grupos" }
           });
+          if (!ativo) return;
           dispatch({ type: "LOAD_CONTACTS", payload: data.contacts });
           setHasMore(data.hasMore);
           setLoading(false);
         } catch (err) {
-          toastError(err);
+          if (ativo) {
+            toastError(err);
+            setLoading(false);
+          }
         }
       };
       fetchContacts();
     }, 500);
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchParam, pageNumber]);
+    return () => {
+      ativo = false;
+      clearTimeout(delayDebounceFn);
+    };
+  }, [searchParam, pageNumber, segmento]);
 
   useEffect(() => {
     const companyId = localStorage.getItem("companyId");
     const socket = socketManager.GetSocket(companyId);
 
     const onContact = data => {
-      if (!searchParam && ["update", "create"].includes(data.action)) {
+      if (
+        !searchParam &&
+        ["update", "create"].includes(data.action) &&
+        !!data.contact.isGroup === (segmento === "grupos")
+      ) {
         dispatch({ type: "UPDATE_CONTACTS", payload: data.contact });
       }
 
@@ -208,7 +225,7 @@ const Contacts = () => {
     return () => {
       socket.disconnect();
     };
-  }, [socketManager, searchParam]);
+  }, [socketManager, searchParam, segmento]);
 
   const handleSearch = event => {
     setSearchParam(event.target.value.toLowerCase());
@@ -407,6 +424,26 @@ const Contacts = () => {
           </Button>
         </MainHeaderButtonsWrapper>
       </MainHeader>
+      <Tabs.Root
+        value={segmento}
+        onValueChange={setSegmento}
+        className="ew-ui"
+        style={identidade}
+      >
+        <Tabs.List
+          className="ew-tabs"
+          aria-label={i18n.t("contexto.segmentos")}
+        >
+          <Tabs.Trigger value="contatos" className="ew-tab">
+            <Users size={15} />
+            {i18n.t("contacts.title")}
+          </Tabs.Trigger>
+          <Tabs.Trigger value="grupos" className="ew-tab">
+            <UsersRound size={15} />
+            {i18n.t("contexto.grupos")}
+          </Tabs.Trigger>
+        </Tabs.List>
+      </Tabs.Root>
       <div className={classes.barraBusca}>
         <TextField
           variant="outlined"

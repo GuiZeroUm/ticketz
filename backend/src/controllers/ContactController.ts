@@ -63,7 +63,13 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
   const { contacts, count, hasMore } = await ListContactsService({
     searchParam,
     pageNumber,
-    companyId
+    companyId,
+    isGroup:
+      req.query.isGroup === "true"
+        ? true
+        : req.query.isGroup === "false"
+          ? false
+          : undefined
   });
 
   return res.json({ contacts, count, hasMore });

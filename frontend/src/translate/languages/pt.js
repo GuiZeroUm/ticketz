@@ -1,6 +1,205 @@
 const messages = {
   pt: {
     translations: {
+      envios: {
+        titulo: "Campanhas e envios",
+        massivo: "Envio massivo",
+        agendamentos: "Agendamentos",
+        publicos: "Públicos e listas",
+        configuracao: "Configuração dos envios"
+      },
+      contexto: {
+        segmentos: "Tipos de contato",
+        grupos: "Grupos",
+        titulo: "Contexto",
+        contato: "Contato",
+        atendimento: "Atendimento",
+        historico: "Histórico",
+        carregando: "Carregando histórico…",
+        erroHistorico: "Não foi possível consultar o histórico.",
+        semHistorico: "Nenhum atendimento anterior disponível.",
+        semFila: "Sem fila",
+        verConversa: "Ver conversa",
+        protocolo: "Protocolo",
+        responsavel: "Responsável",
+        fila: "Fila"
+      },
+      centralConfig: {
+        secoes: "Áreas de configuração",
+        atendimento: "Atendimento",
+        equipe: "Equipe e recursos",
+        canais: "Canais e integrações",
+        administracao: "Administração",
+        voltar: "Voltar às configurações",
+        itens: {
+          filas: {
+            titulo: "Filas de atendimento",
+            descricao: "Organize os times, canais e horários de cada fila."
+          },
+          fluxos: {
+            titulo: "Fluxos de conversa",
+            descricao:
+              "Desenhe o atendimento com blocos conectados e teste cada caminho."
+          },
+          horarios: {
+            titulo: "Horário de atendimento",
+            descricao:
+              "Defina expediente, exceções e disponibilidade da equipe."
+          },
+          mensagens: {
+            titulo: "Mensagens rápidas",
+            descricao: "Respostas reutilizáveis e atalhos para os atendentes."
+          },
+          aparencia: {
+            titulo: "Personalizar aparência",
+            descricao:
+              "Cores, logos, banners e tela de login da sua organização."
+          },
+          opcoes: {
+            titulo: "Regras de atendimento",
+            descricao:
+              "Avaliações, transferências, tempos de espera e políticas do chatbot."
+          },
+          usuarios: {
+            titulo: "Membros da equipe",
+            descricao:
+              "Gerencie os usuários, permissões e filas de cada pessoa."
+          },
+          ajuda: {
+            titulo: "Central de ajuda",
+            descricao: "Publique orientações e conteúdos para sua equipe."
+          },
+          conexoes: {
+            titulo: "Canais de comunicação",
+            descricao: "Conecte e gerencie as contas usadas nos atendimentos."
+          },
+          integracoes: {
+            titulo: "ChatGPT e integrações",
+            descricao: "Conecte o ChatGPT e gerencie os acessos autorizados."
+          },
+          voz: {
+            titulo: "Canal de voz",
+            descricao: "Gerencie as configurações e conexões de chamadas."
+          },
+          empresas: {
+            titulo: "Organizações",
+            descricao: "Administre as empresas cadastradas na plataforma."
+          },
+          planos: {
+            titulo: "Planos e recursos",
+            descricao: "Configure os limites e recursos disponíveis por plano."
+          },
+          parceiros: {
+            titulo: "Parceiros",
+            descricao: "Gerencie a operação e os acessos dos parceiros."
+          },
+          pagamentos: {
+            titulo: "Meios de pagamento",
+            descricao: "Configure os provedores de cobrança da plataforma."
+          },
+          traducoes: {
+            titulo: "Idiomas e traduções",
+            descricao: "Personalize os textos e idiomas da plataforma."
+          }
+        }
+      },
+      fluxos: {
+        titulo: "Fluxos e automação",
+        editor: "Editor de fluxo",
+        canvas: "Canvas",
+        blocos: "Blocos",
+        conversa: "Conversa",
+        atendimento: "Atendimento",
+        fechar: "Fechar",
+        entrada: "Entrada do bloco",
+        saida: "Saída do bloco",
+        pausado: "Pausado",
+        semMensagem: "Configure a mensagem no inspetor",
+        nomeBloco: "Nome da opção",
+        tipoBloco: "Tipo de bloco",
+        mensagem: "Mensagem",
+        variaveis:
+          "Variáveis: {{name}}, {{firstname}}, {{queue}}. O cliente escolhe as opções pelo número.",
+        filaDestino: "Fila de destino",
+        selecionarFila: "Selecione uma fila",
+        descricaoHumano:
+          "Interrompe o chatbot e mantém o atendimento disponível para a equipe humana.",
+        midia: "Anexo",
+        anexar: "Selecionar arquivo",
+        removerMidia: "Remover anexo",
+        opcoes: "Próximas opções",
+        subir: "Mover opção para cima",
+        descer: "Mover opção para baixo",
+        adicionarOpcao: "Adicionar opção",
+        conectadoA: "Bloco anterior",
+        semConexao: "Sem conexão",
+        blocoAtivo: "Bloco ativo",
+        desconectar: "Desconectar",
+        excluir: "Excluir",
+        carregando: "Carregando fluxo…",
+        erroCarregar: "Não foi possível carregar o fluxo.",
+        tentarNovamente: "Tentar novamente",
+        rascunhoAntigo:
+          "Existe um rascunho antigo neste navegador. Foi carregada a versão atual do servidor.",
+        erroRascunho:
+          "Não foi possível guardar o rascunho neste navegador. Publique antes de sair.",
+        publicado: "Fluxo publicado com sucesso.",
+        sairRascunho:
+          "Há alterações não publicadas. Deseja sair do editor? Anexos pendentes precisam ser selecionados novamente.",
+        rascunho: "Rascunho · não publicado",
+        emUso: "Publicado",
+        contagem: "{{count}} bloco",
+        contagem_plural: "{{count}} blocos",
+        testar: "Testar percurso",
+        publicar: "Publicar",
+        buscarBloco: "Buscar bloco",
+        dicaPaleta:
+          "Arraste um bloco para o canvas ou clique para adicioná-lo. Conecte os pontos para mudar o caminho da conversa.",
+        desfazer: "Desfazer",
+        refazer: "Refazer",
+        minimapa: "Minimapa do fluxo",
+        ajudaTeclado:
+          "Selecione um bloco para editar. Use o campo Bloco anterior para conectar pelo teclado.",
+        reduzirZoom: "Reduzir zoom",
+        aumentarZoom: "Aumentar zoom",
+        enquadrar: "Enquadrar fluxo",
+        organizar: "Organizar blocos",
+        pendencias:
+          "{{count}} bloco precisa de nome, conexão ou fila de destino.",
+        pendencias_plural:
+          "{{count}} blocos precisam de nome, conexão ou fila de destino.",
+        pronto:
+          "Todas as conexões estão válidas. As alterações entram em uso ao publicar.",
+        simulacaoDescricao:
+          "Percorra as opções como seu cliente. Esta prévia não envia mensagens nem altera atendimentos.",
+        simulacaoHumano:
+          "O chatbot para e a equipe humana continua o atendimento.",
+        simulacaoTransferencia: "A conversa segue para a fila {{fila}}.",
+        simulacaoFim: "Aguardando uma nova mensagem do cliente.",
+        reiniciar: "Reiniciar teste",
+        excluirBloco: "Excluir bloco?",
+        excluirDescricao:
+          "Os blocos seguintes serão mantidos, sem conexão. Reconecte-os antes de publicar.",
+        selecionarFluxo: "Selecionar fluxo",
+        novoFluxo: "Criar fluxo",
+        secoes: "Seções de automação",
+        filasCanais: "Filas e canais",
+        integracoes: "Integrações",
+        primeiroFluxo: "Desenhe sua primeira conversa",
+        descricaoInicio:
+          "Crie uma fila, adicione os blocos e conecte as etapas do atendimento.",
+        descricaoEditor:
+          "Crie, conecte e teste os blocos em um canvas com visão completa da conversa.",
+        abrirEditor: "Abrir canvas",
+        tipos: {
+          inicio: "Início da conversa",
+          mensagem: "Enviar mensagem",
+          menu: "Menu de opções",
+          midia: "Enviar mídia",
+          transferir: "Transferir para fila",
+          humano: "Atendimento humano"
+        }
+      },
       redesign: {
         importarCsv: "Importar arquivo CSV",
         exportarCsv: "Exportar contatos em CSV",
@@ -2361,6 +2560,17 @@ const messages = {
           "O backend está iniciando e ainda não está pronto. Tentando novamente automaticamente."
       },
       backendErrors: {
+        ERR_FLOW_INVALID: "O fluxo tem dados inválidos. Revise os blocos.",
+        ERR_FLOW_CONNECTION:
+          "Esta conexão não é permitida. Blocos de transferência e atendimento humano encerram o fluxo.",
+        ERR_FLOW_QUEUE_REQUIRED:
+          "Selecione uma fila de destino válida e diferente da atual.",
+        ERR_FLOW_DISCONNECTED:
+          "Conecte todos os blocos ao início sem criar ciclos.",
+        ERR_FLOW_CONFLICT:
+          "O fluxo foi alterado em outra sessão. Recarregue a página antes de publicar.",
+        ERR_FLOW_IN_USE:
+          "Um bloco removido está em uso por um atendimento ativo. Desative-o ou aguarde a conclusão antes de excluir.",
         ERR_INVALID_TRIAL_DAYS:
           "Os dias de teste devem ser um inteiro entre 0 e 3650.",
         ERR_INVALID_DUE_DAY:

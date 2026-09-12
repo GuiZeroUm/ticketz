@@ -256,6 +256,11 @@ const MainListItems = props => {
       itens: [
         ...(administrador
           ? [
+              {
+                to: "/fluxos",
+                chave: "fluxos.titulo",
+                icone: <AccountTreeOutlinedIcon />
+              },
               item("/queues", "queues", <AccountTreeOutlinedIcon />),
               item("/chatgpt", "chatgpt", <ChatOutlinedIcon />)
             ]
