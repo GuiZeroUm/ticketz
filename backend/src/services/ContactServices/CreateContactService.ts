@@ -67,7 +67,10 @@ const CreateContactService = async ({
       name,
       number,
       email,
-      extraInfo,
+      extraInfo: extraInfo.map(info => ({
+        name: info.name,
+        value: info.value
+      })),
       companyId,
       disableBot,
       language,

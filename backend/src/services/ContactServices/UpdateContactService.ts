@@ -6,6 +6,7 @@ import ContactCustomField from "../../models/ContactCustomField";
 
 interface ExtraInfo {
   id?: number;
+  managedBy?: string;
   name: string;
   value: string;
 }
@@ -95,8 +96,27 @@ const UpdateContactService = async ({
 
   if (extraInfo) {
     await Promise.all(
-      extraInfo.map(async (info: any) => {
-        await ContactCustomField.upsert({ ...info, contactId: contact.id });
+      extraInfo.map(async info => {
+        const existing = contact.extraInfo.find(
+          field => field.id === Number(info.id)
+        );
+        // Never trust client-supplied ownership or allow stale forms to overwrite SGA.
+        if (info.managedBy || existing?.managedBy) return;
+        if (info.id && !existing) throw new AppError("ERR_NO_PERMISSION", 403);
+        if (existing) {
+          await ContactCustomField.update(
+            { name: info.name, value: info.value },
+            {
+              where: { id: existing.id, contactId: contact.id, managedBy: null }
+            }
+          );
+        } else {
+          await ContactCustomField.create({
+            name: info.name,
+            value: info.value,
+            contactId: contact.id
+          });
+        }
       })
     );
 
@@ -104,8 +124,10 @@ const UpdateContactService = async ({
       contact.extraInfo.map(async oldInfo => {
         const stillExists = extraInfo.findIndex(info => info.id === oldInfo.id);
 
-        if (stillExists === -1) {
-          await ContactCustomField.destroy({ where: { id: oldInfo.id } });
+        if (stillExists === -1 && !oldInfo.managedBy) {
+          await ContactCustomField.destroy({
+            where: { id: oldInfo.id, contactId: contact.id, managedBy: null }
+          });
         }
       })
     );

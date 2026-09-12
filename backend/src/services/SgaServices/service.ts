@@ -1,5 +1,5 @@
 /* eslint-disable no-restricted-syntax -- Paginated Hinova calls run sequentially to limit upstream load. */
-import { QueryTypes } from "sequelize";
+import { QueryTypes, Transaction } from "sequelize";
 import sequelize from "../../database";
 import Company from "../../models/Company";
 import Contact from "../../models/Contact";
@@ -7,6 +7,7 @@ import ContactCustomField from "../../models/ContactCustomField";
 import AppError from "../../errors/AppError";
 import { logger } from "../../utils/logger";
 import { sgaPages, sgaRequest } from "./client";
+import { desiredContactFields, reconcileContactFields } from "./contactFields";
 import {
   Bill,
   Member,
@@ -52,11 +53,12 @@ export const assertSgaTenant = async (companyId: number): Promise<void> => {
     throw new AppError("ERR_SGA_DISABLED", 404);
 };
 export const snapshot = async (
-  companyId: number
+  companyId: number,
+  transaction?: Transaction
 ): Promise<Snapshot | undefined> => {
   const rows = await sequelize.query<Snapshot>(
     'SELECT * FROM "SgaSnapshots" WHERE "companyId" = :companyId',
-    { replacements: { companyId }, type: QueryTypes.SELECT }
+    { replacements: { companyId }, type: QueryTypes.SELECT, transaction }
   );
   return rows[0];
 };
@@ -142,10 +144,22 @@ export const syncSga = async (companyId: number): Promise<void> => {
         bills: [...bills.values()],
         billStatuses
       };
-      await sequelize.query(
-        'UPDATE "SgaSnapshots" SET data = CAST(:data AS jsonb), "syncedAt" = NOW(), status = \'ready\', error = NULL WHERE "companyId" = :companyId',
-        { replacements: { companyId, data: JSON.stringify(data) }, transaction }
-      );
+      // Savepoint rolls back BOTH the snapshot and contact fields if publication fails.
+      await sequelize.transaction({ transaction }, async publication => {
+        await sequelize.query(
+          'UPDATE "SgaSnapshots" SET data = CAST(:data AS jsonb), "syncedAt" = clock_timestamp(), status = \'ready\', error = NULL WHERE "companyId" = :companyId',
+          {
+            replacements: { companyId, data: JSON.stringify(data) },
+            transaction: publication
+          }
+        );
+        const linked = await loadSga(companyId, publication);
+        await reconcileContactFields(
+          companyId,
+          desiredContactFields(linked.members, linked.vehicles),
+          publication
+        );
+      });
       logger.info(
         {
           companyId,
@@ -170,12 +184,13 @@ export const syncSga = async (companyId: number): Promise<void> => {
   });
 };
 
-export const loadSga = async (companyId: number) => {
-  const stored = await snapshot(companyId);
+export const loadSga = async (companyId: number, transaction?: Transaction) => {
+  const stored = await snapshot(companyId, transaction);
   if (!stored?.syncedAt) throw new AppError("ERR_SGA_NOT_SYNCED", 409);
   const contacts = (
     await Contact.findAll({
       where: { companyId, isGroup: false },
+      transaction,
       attributes: ["id", "name", "number", "email"],
       include: [
         {
@@ -191,7 +206,7 @@ export const loadSga = async (companyId: number) => {
     contactId: number | null;
   }>(
     'SELECT "memberId", "contactId" FROM "SgaContactLinks" WHERE "companyId" = :companyId',
-    { replacements: { companyId }, type: QueryTypes.SELECT }
+    { replacements: { companyId }, type: QueryTypes.SELECT, transaction }
   );
   const manual = new Map(links.map(l => [l.memberId, l.contactId]));
   const contactsById = new Map(contacts.map(c => [c.id, c]));
@@ -333,6 +348,7 @@ export const setSgaLink = async (
   contactId: unknown,
   userId: number
 ) => {
+  await assertSgaTenant(companyId);
   const stored = await snapshot(companyId);
   if (!stored?.data.members?.some(m => m.id === memberId))
     throw new AppError("ERR_SGA_MEMBER_NOT_FOUND", 404);
@@ -344,17 +360,30 @@ export const setSgaLink = async (
       })))
   )
     throw new AppError("ERR_SGA_CONTACT_INVALID", 400);
-  await sequelize.query(
-    'INSERT INTO "SgaContactLinks" ("companyId", "memberId", "contactId", "updatedBy", "updatedAt") VALUES (:companyId, :memberId, :contactId, :userId, NOW()) ON CONFLICT ("companyId", "memberId") DO UPDATE SET "contactId" = EXCLUDED."contactId", "updatedBy" = EXCLUDED."updatedBy", "updatedAt" = NOW()',
-    {
-      replacements: {
-        companyId,
-        memberId,
-        contactId: contactId === null ? null : Number(contactId),
-        userId
+  await sequelize.transaction(async transaction => {
+    await sequelize.query("SELECT pg_advisory_xact_lock(73421, :companyId)", {
+      replacements: { companyId },
+      transaction
+    });
+    await sequelize.query(
+      'INSERT INTO "SgaContactLinks" ("companyId", "memberId", "contactId", "updatedBy", "updatedAt") VALUES (:companyId, :memberId, :contactId, :userId, NOW()) ON CONFLICT ("companyId", "memberId") DO UPDATE SET "contactId" = EXCLUDED."contactId", "updatedBy" = EXCLUDED."updatedBy", "updatedAt" = NOW()',
+      {
+        transaction,
+        replacements: {
+          companyId,
+          memberId,
+          contactId: contactId === null ? null : Number(contactId),
+          userId
+        }
       }
-    }
-  );
+    );
+    const linked = await loadSga(companyId, transaction);
+    await reconcileContactFields(
+      companyId,
+      desiredContactFields(linked.members, linked.vehicles),
+      transaction
+    );
+  });
 };
 
 export const startSgaSync = (): void => {

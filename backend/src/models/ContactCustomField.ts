@@ -24,6 +24,9 @@ class ContactCustomField extends Model<ContactCustomField> {
   @Column
   value: string;
 
+  @Column
+  managedBy: string;
+
   @ForeignKey(() => Contact)
   @Column
   contactId: number;

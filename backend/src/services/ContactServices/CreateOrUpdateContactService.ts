@@ -77,7 +77,10 @@ const CreateOrUpdateContactService = async ({
       profileHiresPictureUrl,
       email,
       isGroup,
-      extraInfo,
+      extraInfo: extraInfo.map(info => ({
+        name: info.name,
+        value: info.value
+      })),
       companyId,
       channel,
       disableBot,

@@ -23,6 +23,26 @@ o dev AC Norte mantém as conexões desconectadas por padrão.
 No atendimento, o painel do contato também mostra suas placas vinculadas e um
 atalho para consultar pendências.
 
+### Informações adicionais automáticas nos contatos
+
+Após cada sincronização completa, os contatos vinculados recebem **Com boletos
+vencidos** (`Sim — R$ …` ou `Não`) e **Placa**, ou **Placa 1**, **Placa 2** etc.
+As placas são únicas, ordenadas, e refletem os veículos atribuídos ao associado
+na tela Placas (incluindo seu histórico de situações). Veículos removidos ou
+transferidos no SGA deixam de constar na próxima sincronização bem-sucedida.
+Sem veículos, o campo informa `Nenhuma placa vinculada no SGA`.
+
+Esses campos são salvos em `ContactCustomFields`, identificados por
+`managedBy=acnorte-sga` e somente leitura no formulário. Campos manuais, mesmo
+com nomes iguais, são preservados. Escolhas manuais de vínculo atualizam os
+campos imediatamente; novos contatos/correções de identificadores são cruzados
+na próxima sincronização. Perda ou ambiguidade do vínculo remove somente os
+campos gerados pelo SGA, sem afirmar que um contato desvinculado está sem dívida.
+
+Snapshot e campos são publicados na mesma transação. Falhas na API ou na
+publicação preservam ambos. A quitação é refletida quando a Hinova deixa de
+retornar o boleto como aberto/não pago; valores são nominais, sem juros/multas.
+
 ## Sincronização e financeiro
 
 Sincronização na inicialização, a cada hora e sob demanda por administrador.
