@@ -3,6 +3,7 @@ import { Request, Response, NextFunction } from "express";
 import AppError from "../errors/AppError";
 import authConfig from "../config/auth";
 import Company from "../models/Company";
+import { assertRuntimeCompany } from "../helpers/tenantRuntime";
 
 interface TokenPayload {
   id: string;
@@ -15,6 +16,7 @@ interface TokenPayload {
 }
 
 const ensureCompanyActive = async (companyId: number): Promise<void> => {
+  assertRuntimeCompany(companyId);
   const company = await Company.findByPk(companyId, {
     attributes: ["status", "platformStatus"]
   });
