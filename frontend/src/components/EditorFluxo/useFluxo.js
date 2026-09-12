@@ -165,7 +165,14 @@ export default function useFluxo(queueId, companyId) {
     publicar,
     arquivos,
     anexar: (id, arquivo) => {
-      setArquivos(atual => ({ ...atual, [id]: arquivo }));
+      if (arquivo === undefined) return;
+      setArquivos(atual => {
+        const proximo = { ...atual };
+        const original = referencia.current.nodes.find(no => no.id === id);
+        if (arquivo === null && !original?.mediaName) delete proximo[id];
+        else proximo[id] = arquivo;
+        return proximo;
+      });
       setAlterado(true);
     }
   };

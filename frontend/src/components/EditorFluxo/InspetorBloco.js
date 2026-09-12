@@ -28,6 +28,7 @@ export default function InspetorBloco({
   removerMidia
 }) {
   const filhos = filhosDe(fluxo, no.id);
+  const nomeMidia = arquivo === null ? "" : arquivo?.name || no.mediaName;
   const pai = fluxo.edges.find(aresta => aresta.target === no.id)?.source || "";
   return (
     <aside className="fluxo-painel fluxo-inspetor">
@@ -117,14 +118,14 @@ export default function InspetorBloco({
             <h4>{i18n.t("fluxos.midia")}</h4>
             <label className="ew-button fluxo-anexar">
               <Paperclip size={15} />
-              {arquivo?.name || no.mediaName || i18n.t("fluxos.anexar")}
+              {nomeMidia || i18n.t("fluxos.anexar")}
               <input
                 type="file"
                 aria-label={i18n.t("fluxos.anexar")}
                 onChange={event => anexar(event.target.files[0])}
               />
             </label>
-            {(arquivo || no.mediaName) && (
+            {nomeMidia && (
               <Botao variante="ghost" onClick={removerMidia}>
                 {i18n.t("fluxos.removerMidia")}
               </Botao>

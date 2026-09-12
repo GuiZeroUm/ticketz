@@ -446,15 +446,7 @@ export default function EditorFluxo({ queueId, filas }) {
             fechar={() => setSelecionado(null)}
             arquivo={editor.arquivos[no.id]}
             anexar={arquivo => editor.anexar(no.id, arquivo)}
-            removerMidia={() => {
-              editor.anexar(no.id, null);
-              atualizar({
-                ...fluxo,
-                nodes: fluxo.nodes.map(item =>
-                  item.id === no.id ? { ...item, mediaName: null } : item
-                )
-              });
-            }}
+            removerMidia={() => editor.anexar(no.id, null)}
           />
         )}
       </fieldset>
