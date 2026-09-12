@@ -2,12 +2,14 @@ name: Validate deployment candidate
 
 on:
   push:
-    branches: [dev, main]
+    branches: [dev, main, acnorte]
+  pull_request:
+    branches: [main, acnorte]
   workflow_dispatch:
 
 concurrency:
-  group: espaco-whats-production
-  cancel-in-progress: false
+  group: espaco-whats-validation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -112,11 +114,11 @@ jobs:
         working-directory: wacalls
 
   compose:
-    name: Production manifest check
+    name: Deployment manifest check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validate Docker Compose
+      - name: Validate shared Docker Compose
         env:
           POSTGRES_DB: ci
           POSTGRES_USER: ci
@@ -144,3 +146,21 @@ jobs:
           WACALLS_PUBLIC_IP: 127.0.0.1
           WACALLS_UDP_PORT_RANGE: 50000-50020
         run: docker compose -f docker-compose.dokploy.yml config --quiet
+
+      - name: Validate AC Norte Docker Compose
+        env:
+          ACNORTE_EMAIL_ADDRESS: ci@acnorte.invalid
+          ACNORTE_HOST: acnorte.dev.espacowhats.example.invalid
+          ACNORTE_BASE_DOMAIN: dev.espacowhats.example.invalid
+          ACNORTE_POSTGRES_DB: acnorte_ci
+          ACNORTE_POSTGRES_USER: acnorte_ci
+          ACNORTE_POSTGRES_PASSWORD: acnorte-ci-password
+          ACNORTE_REDIS_PASSWORD: acnorte-ci-password
+          ACNORTE_ADMIN_PASSWORD: acnorte-ci-password
+          ACNORTE_VERIFY_TOKEN: acnorte-ci-token
+          ACNORTE_PLATFORM_API_KEY: 111111111111111111111111111111111111111111111111
+          ACNORTE_PLATFORM_WEBHOOK_SECRET: acnorte-ci-webhook-secret
+          ACNORTE_MCP_PRIVATE_KEY: acnorte-ci-private-key
+          ACNORTE_MCP_PUBLIC_KEY: acnorte-ci-public-key
+          ACNORTE_MCP_CURSOR_SECRET: acnorte-ci-cursor
+        run: docker compose -f docker-compose.acnorte.dokploy.yml config --quiet
