@@ -20,6 +20,8 @@ services:
       DB_PASS: ${POSTGRES_PASSWORD}
       DB_NAME: ${POSTGRES_DB}
       DB_TIMEZONE: ${DB_TIMEZONE:--05:00}
+      DB_MAX_CONNECTIONS: "20"
+      DB_MIN_CONNECTIONS: "1"
       REDIS_URI: redis://:${REDIS_PASSWORD}@espaco-whats-7oyzgd-redis-1:6379
       QUEUE_PREFIX: acnorte-production
       TENANT_RUNTIME_COMPANY_ID: "9"
