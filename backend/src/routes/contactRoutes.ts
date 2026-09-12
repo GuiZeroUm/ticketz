@@ -1,4 +1,5 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
 import multer from "multer";
 import isAuth from "../middleware/isAuth";
 import isAdmin from "../middleware/isAdmin";
@@ -10,6 +11,17 @@ import apiTokenAuth from "../middleware/apiTokenAuth";
 
 const contactRoutes = express.Router();
 const upload = multer(uploadConfig);
+
+contactRoutes.post(
+  "/contacts/:contactId/picture/refresh",
+  isAuth,
+  rateLimit({
+    windowMs: 60_000,
+    limit: 120,
+    keyGenerator: req => String(req.user.companyId)
+  }),
+  ContactController.refreshPicture
+);
 
 contactRoutes.post(
   "/contacts/import",

@@ -24,7 +24,17 @@ import Tooltip from "@material-ui/core/Tooltip";
 import { green } from "@material-ui/core/colors";
 import { PhoneCallContext } from "../../context/PhoneCall/PhoneCallContext";
 import { wavoipAvailable, wavoipCall } from "../../helpers/wavoipCallManager";
-import { toBeChecked } from "@testing-library/jest-dom/matchers";
+import {
+  ArrowRightLeft,
+  CalendarClock,
+  Tags,
+  History,
+  StickyNote,
+  Files,
+  Users,
+  Printer
+} from "lucide-react";
+import { BotaoIcone } from "../interface";
 import canReopenTicket from "./canReopenTicket";
 
 const useStyles = makeStyles(theme => ({
@@ -39,7 +49,13 @@ const useStyles = makeStyles(theme => ({
   }
 }));
 
-const TicketActionButtonsCustom = ({ ticket, showTabGroups }) => {
+const TicketActionButtonsCustom = ({
+  ticket,
+  showTabGroups,
+  lateral = false,
+  aoAbrirContexto,
+  aoAbrirArquivos
+}) => {
   const classes = useStyles();
   const history = useHistory();
   const [anchorEl, setAnchorEl] = useState(null);
@@ -106,7 +122,7 @@ const TicketActionButtonsCustom = ({ ticket, showTabGroups }) => {
   };
 
   return (
-    <div className={classes.actionButtons}>
+    <div className={lateral ? "conversa-acoes" : classes.actionButtons}>
       {ticket.status === "closed" && !isGroupConversation && (
         <>
           <Tooltip title={i18n.t("ticketsManager.buttons.newTicket")}>
@@ -139,7 +155,7 @@ const TicketActionButtonsCustom = ({ ticket, showTabGroups }) => {
             wavoipAvailable() &&
             phoneContext &&
             !phoneContext.currentCall &&
-            ticket.whatsapp.wavoip?.token &&
+            ticket.whatsapp?.wavoip?.token &&
             !ticket.contact.isGroup && (
               <Tooltip title={i18n.t("messagesList.header.buttons.call")}>
                 <IconButton onClick={handleCall}>
@@ -184,16 +200,12 @@ const TicketActionButtonsCustom = ({ ticket, showTabGroups }) => {
             </>
           )}
 
-          <IconButton onClick={handleOpenTicketOptionsMenu}>
+          <IconButton
+            aria-label={i18n.t("conversa.maisAcoes")}
+            onClick={handleOpenTicketOptionsMenu}
+          >
             <MoreVert />
           </IconButton>
-          <TicketOptionsMenu
-            ticket={ticket}
-            anchorEl={anchorEl}
-            menuOpen={ticketOptionsMenuOpen}
-            handleClose={handleCloseTicketOptionsMenu}
-            showTabGroups={showTabGroups}
-          />
         </>
       )}
       {ticket.status === "pending" && !isGroupConversation && (
@@ -206,6 +218,81 @@ const TicketActionButtonsCustom = ({ ticket, showTabGroups }) => {
         >
           {i18n.t("messagesList.header.buttons.accept")}
         </ButtonWithSpinner>
+      )}
+      {ticket.contact && (
+        <TicketOptionsMenu
+          ticket={ticket}
+          anchorEl={anchorEl}
+          menuOpen={ticketOptionsMenuOpen}
+          handleClose={handleCloseTicketOptionsMenu}
+          showTabGroups={showTabGroups}
+        >
+          {lateral
+            ? acoes => (
+                <>
+                  <span className="conversa-separador" />
+                  {!isGroupConversation && (
+                    <BotaoIcone
+                      titulo={i18n.t("ticketOptionsMenu.transfer")}
+                      onClick={acoes.transferir}
+                    >
+                      <ArrowRightLeft size={18} />
+                    </BotaoIcone>
+                  )}
+                  {ticket.isGroup && (
+                    <BotaoIcone
+                      titulo={i18n.t("whatsappGroups.configure")}
+                      onClick={acoes.configurarGrupo}
+                    >
+                      <Users size={18} />
+                    </BotaoIcone>
+                  )}
+                  <BotaoIcone
+                    titulo={i18n.t("conversa.etiquetas")}
+                    onClick={() => aoAbrirContexto("atendimento")}
+                  >
+                    <Tags size={18} />
+                  </BotaoIcone>
+                  {!isGroupConversation && (
+                    <BotaoIcone
+                      titulo={i18n.t("conversa.notas")}
+                      onClick={() => aoAbrirContexto("atendimento")}
+                    >
+                      <StickyNote size={18} />
+                    </BotaoIcone>
+                  )}
+                  <span className="conversa-separador" />
+                  <BotaoIcone
+                    titulo={i18n.t("conversa.arquivos")}
+                    onClick={aoAbrirArquivos}
+                  >
+                    <Files size={18} />
+                  </BotaoIcone>
+                  <BotaoIcone
+                    titulo={i18n.t("contexto.historico")}
+                    onClick={() => aoAbrirContexto("historico")}
+                  >
+                    <History size={18} />
+                  </BotaoIcone>
+                  {!ticket.isGroup && (
+                    <BotaoIcone
+                      titulo={i18n.t("ticketOptionsMenu.schedule")}
+                      onClick={acoes.agendar}
+                    >
+                      <CalendarClock size={18} />
+                    </BotaoIcone>
+                  )}
+                  <span className="conversa-separador" />
+                  <BotaoIcone
+                    titulo={i18n.t("conversa.imprimir")}
+                    onClick={() => window.print()}
+                  >
+                    <Printer size={18} />
+                  </BotaoIcone>
+                </>
+              )
+            : null}
+        </TicketOptionsMenu>
       )}
     </div>
   );

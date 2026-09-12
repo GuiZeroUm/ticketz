@@ -1,3 +1,8 @@
+import * as Tabs from "@radix-ui/react-tabs";
+import { UserRound, ClipboardList, History } from "lucide-react";
+import { useIdentidade } from "../interface";
+import HistoricoContato from "./HistoricoContato";
+import "./contexto.css";
 import React, { useEffect, useState } from "react";
 
 import { makeStyles } from "@material-ui/core/styles";
@@ -6,7 +11,7 @@ import IconButton from "@material-ui/core/IconButton";
 import CloseIcon from "@material-ui/icons/Close";
 import Drawer from "@material-ui/core/Drawer";
 import Link from "@material-ui/core/Link";
-import Avatar from "@material-ui/core/Avatar";
+import AvatarContato from "../AvatarContato";
 import Button from "@material-ui/core/Button";
 import Paper from "@material-ui/core/Paper";
 import CircularProgress from "@material-ui/core/CircularProgress";
@@ -27,13 +32,13 @@ import WhatsMarked from "react-whatsmarked";
 import { CardHeader } from "@material-ui/core";
 import ContactModal from "../ContactModal";
 import { TicketNotes } from "../TicketNotes";
-import { generateColor } from "../../helpers/colorGenerator";
+import { corAvatar as generateColor } from "../../helpers/coresAvatar";
 import { getInitials } from "../../helpers/getInitials";
 import { TagsContainer } from "../TagsContainer";
 import useSettings from "../../hooks/useSettings";
 import api from "../../services/api";
 
-const drawerWidth = 320;
+const drawerWidth = 300;
 
 const useStyles = makeStyles(theme => ({
   drawer: {
@@ -54,25 +59,25 @@ const useStyles = makeStyles(theme => ({
   drawerPaper: {
     width: drawerWidth,
     display: "flex",
-    borderTop: "1px solid rgba(0, 0, 0, 0.12)",
-    borderRight: "1px solid rgba(0, 0, 0, 0.12)",
-    borderBottom: "1px solid rgba(0, 0, 0, 0.12)",
-    borderTopRightRadius: 4,
-    borderBottomRightRadius: 4
+    borderTop: `1px solid ${theme.palette.divider}`,
+    borderRight: `1px solid ${theme.palette.divider}`,
+    borderBottom: `1px solid ${theme.palette.divider}`,
+    borderRadius: 16,
+    border: `1px solid ${theme.palette.divider}`
   },
   header: {
     display: "flex",
-    borderBottom: "1px solid rgba(0, 0, 0, 0.12)",
+    borderBottom: `1px solid ${theme.palette.divider}`,
     alignItems: "center",
     padding: theme.spacing(0, 1),
-    minHeight: "73px",
+    minHeight: "54px",
     justifyContent: "flex-start"
   },
   content: {
     display: "flex",
 
     flexDirection: "column",
-    padding: "8px 0px 8px 8px",
+    padding: "16px",
     height: "100%",
     overflowY: "scroll",
     ...theme.scrollbarStyles
@@ -132,9 +137,13 @@ const ContactDrawer = ({
   handleDrawerClose,
   contact,
   ticket,
-  loading
+  loading,
+  aba,
+  aoAlterarAba,
+  versaoNotas = 0
 }) => {
   const classes = useStyles();
+  const identidade = useIdentidade();
   const { getSetting } = useSettings();
   const formattedContactName = formatWhatsappContactName(contact, ticket);
   const isWhatsappGroup = !!ticket.isGroup;
@@ -143,6 +152,7 @@ const ContactDrawer = ({
   const [modalOpen, setModalOpen] = useState(false);
   const [openForm, setOpenForm] = useState(false);
   const [showTags, setShowTags] = useState(false);
+  const [tagsTicket, definirTagsTicket] = useState(true);
   const [participants, setParticipants] = useState([]);
   const [participantsLoading, setParticipantsLoading] = useState(false);
   const [participantsError, setParticipantsError] = useState(false);
@@ -151,6 +161,7 @@ const ContactDrawer = ({
   useEffect(() => {
     getSetting("tagsMode").then(res => {
       setShowTags(["contact", "both"].includes(res));
+      definirTagsTicket(["ticket", "both"].includes(res));
     });
 
     setOpenForm(false);
@@ -201,163 +212,280 @@ const ContactDrawer = ({
         }}
       >
         <div className={classes.header}>
-          <IconButton onClick={handleDrawerClose}>
+          <IconButton
+            aria-label={i18n.t("fluxos.fechar")}
+            onClick={handleDrawerClose}
+            style={{ order: 2, marginLeft: "auto" }}
+          >
             <CloseIcon />
           </IconButton>
           <Typography style={{ justifySelf: "center" }}>
             {i18n.t(
-              isWhatsappGroup
-                ? "contactDrawer.groupHeader"
-                : "contactDrawer.header"
+              isWhatsappGroup ? "contactDrawer.groupHeader" : "visual.contexto"
             )}
           </Typography>
         </div>
         {loading ? (
           <ContactDrawerSkeleton classes={classes} />
         ) : (
-          <div className={classes.content}>
-            <div className={classes.contactHeader}>
-              <CardHeader
-                onClick={() => {}}
-                style={{ cursor: "pointer", width: "100%", padding: 0 }}
-                titleTypographyProps={{ noWrap: true }}
-                subheaderTypographyProps={{ noWrap: true }}
-                avatar={
-                  <Avatar
-                    src={contact.profilePicUrl}
-                    alt="contact_image"
-                    style={{
-                      width: 60,
-                      height: 60,
-                      backgroundColor: generateColor(contact?.number),
-                      color: "white",
-                      fontWeight: "bold"
-                    }}
-                  >
-                    {getInitials(formattedContactName)}
-                  </Avatar>
-                }
-                title={
-                  <>
-                    <Typography>{formattedContactName}</Typography>
-                  </>
-                }
-                subheader={
-                  <>
-                    <Typography style={{ fontSize: 12 }}>
-                      {formatWhatsappContactNumber(contact)}
-                    </Typography>
-                    <Typography style={{ fontSize: 12 }}>
-                      <Link href={`mailto:${contact.email}`}>
-                        {contact.email}
-                      </Link>
-                    </Typography>
-                  </>
-                }
-              />
-            </div>
-            {showTags && <TagsContainer contact={contact} />}
-            {contact?.extraInfo?.length > 0 && (
-              <div className={classes.contactExtraInfo}>
-                <Typography variant="subtitle1">
-                  {i18n.t("contactModal.form.extraInfo")}
-                </Typography>
-                {contact?.extraInfo?.map(info => (
-                  <WhatsMarked>{`*${info?.name}:* ${info?.value}`}</WhatsMarked>
-                ))}
-              </div>
-            )}
-            {isWhatsappGroup && (
-              <Paper square variant="outlined" className={classes.participants}>
-                <Typography
-                  variant="subtitle1"
-                  className={classes.participantsHeader}
-                >
-                  {i18n.t("contactDrawer.participants")} ({participants.length})
-                </Typography>
-                {participantsLoading ? (
-                  <div className={classes.participantsStatus}>
-                    <CircularProgress size={24} />
-                  </div>
-                ) : participantsError ? (
-                  <Typography className={classes.participantsStatus}>
-                    {i18n.t("contactDrawer.participantsUnavailable")}
-                  </Typography>
-                ) : (
-                  <List disablePadding>
-                    {participants.map(participant => (
-                      <ListItem
-                        className={classes.participantItem}
-                        key={participant.id}
-                        button={!!participant.contactId}
-                        onClick={() => {
-                          if (!participant.contactId) return;
-                          setParticipantContactId(participant.contactId);
-                          setModalOpen(true);
+          <div className={`ew-ui ${classes.content}`} style={identidade}>
+            <Tabs.Root
+              value={aba}
+              onValueChange={aoAlterarAba}
+              defaultValue="contato"
+              className="contexto-tabs"
+            >
+              <Tabs.List
+                className="ew-tabs"
+                aria-label={i18n.t("contexto.titulo")}
+              >
+                <Tabs.Trigger className="ew-tab" value="contato">
+                  <UserRound size={14} />
+                  {i18n.t("contexto.contato")}
+                </Tabs.Trigger>
+                <Tabs.Trigger className="ew-tab" value="atendimento">
+                  <ClipboardList size={14} />
+                  {i18n.t("contexto.atendimento")}
+                </Tabs.Trigger>
+                <Tabs.Trigger className="ew-tab" value="historico">
+                  <History size={14} />
+                  {i18n.t("contexto.historico")}
+                </Tabs.Trigger>
+              </Tabs.List>
+              <Tabs.Content value="contato">
+                <div className={`${classes.contactHeader} contexto-perfil`}>
+                  <CardHeader
+                    onClick={() => {}}
+                    style={{ cursor: "pointer", width: "100%", padding: 0 }}
+                    titleTypographyProps={{ noWrap: true }}
+                    subheaderTypographyProps={{ noWrap: true }}
+                    avatar={
+                      <AvatarContato
+                        contact={contact}
+                        alt="contact_image"
+                        style={{
+                          width: 44,
+                          height: 44,
+                          backgroundColor: generateColor(contact?.number),
+                          color: "white",
+                          fontWeight: "bold"
                         }}
                       >
-                        <ListItemAvatar>
-                          <Avatar
-                            src={participant.profilePicUrl}
-                            style={{
-                              backgroundColor: generateColor(
-                                participant.number
-                              ),
-                              color: "white",
-                              fontWeight: "bold"
+                        {getInitials(formattedContactName)}
+                      </AvatarContato>
+                    }
+                    title={
+                      <>
+                        <Typography>{formattedContactName}</Typography>
+                      </>
+                    }
+                    subheader={
+                      <>
+                        <Typography style={{ fontSize: 12 }}>
+                          {formatWhatsappContactNumber(contact)}
+                        </Typography>
+                        <Typography style={{ fontSize: 12 }}>
+                          <Link href={`mailto:${contact.email}`}>
+                            {contact.email}
+                          </Link>
+                        </Typography>
+                      </>
+                    }
+                  />
+                </div>
+
+                {!isGroupConversation && (
+                  <Button
+                    variant="outlined"
+                    color="primary"
+                    onClick={() => setModalOpen(!openForm)}
+                    style={{ fontSize: 12, marginTop: 8 }}
+                  >
+                    {i18n.t("contactDrawer.buttons.edit")}
+                  </Button>
+                )}
+                <section className="contexto-grupo">
+                  <h4>{i18n.t("conversa.cadastro")}</h4>
+                  <dl className="contexto-cadastro">
+                    <div>
+                      <dt>{i18n.t("contactModal.form.number")}</dt>
+                      <dd>{formatWhatsappContactNumber(contact) || "—"}</dd>
+                    </div>
+                    <div>
+                      <dt>{i18n.t("contactModal.form.email")}</dt>
+                      <dd>{contact.email || "—"}</dd>
+                    </div>
+                    {contact.createdAt && (
+                      <div>
+                        <dt>{i18n.t("conversa.cadastradoEm")}</dt>
+                        <dd>
+                          {new Date(contact.createdAt).toLocaleDateString(
+                            i18n.language
+                          )}
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                </section>
+                {showTags && (
+                  <section className="contexto-grupo">
+                    <h4>{i18n.t("conversa.etiquetas")}</h4>
+                    <TagsContainer contact={contact} />
+                  </section>
+                )}
+                {contact?.extraInfo?.length > 0 && (
+                  <div className={classes.contactExtraInfo}>
+                    <Typography variant="subtitle1">
+                      {i18n.t("contactModal.form.extraInfo")}
+                    </Typography>
+                    {contact?.extraInfo?.map(info => (
+                      <WhatsMarked
+                        key={info.id || info.name}
+                      >{`*${info?.name}:* ${info?.value}`}</WhatsMarked>
+                    ))}
+                  </div>
+                )}
+                {isWhatsappGroup && (
+                  <Paper
+                    square
+                    variant="outlined"
+                    className={classes.participants}
+                  >
+                    <Typography
+                      variant="subtitle1"
+                      className={classes.participantsHeader}
+                    >
+                      {i18n.t("contactDrawer.participants")} (
+                      {participants.length})
+                    </Typography>
+                    {participantsLoading ? (
+                      <div className={classes.participantsStatus}>
+                        <CircularProgress size={24} />
+                      </div>
+                    ) : participantsError ? (
+                      <Typography className={classes.participantsStatus}>
+                        {i18n.t("contactDrawer.participantsUnavailable")}
+                      </Typography>
+                    ) : (
+                      <List disablePadding>
+                        {participants.map(participant => (
+                          <ListItem
+                            className={classes.participantItem}
+                            key={participant.id}
+                            button={!!participant.contactId}
+                            onClick={() => {
+                              if (!participant.contactId) return;
+                              setParticipantContactId(participant.contactId);
+                              setModalOpen(true);
                             }}
                           >
-                            {getInitials(participant.name)}
-                          </Avatar>
-                        </ListItemAvatar>
-                        <ListItemText
-                          primary={`${participant.name}${
-                            participant.isMe
-                              ? ` (${i18n.t("contactDrawer.you")})`
-                              : ""
-                          }`}
-                          secondary={formatWhatsappContactNumber(participant)}
-                        />
-                        {participant.admin && (
-                          <Chip
-                            className={classes.participantRole}
-                            variant="outlined"
-                            color="primary"
-                            label={i18n.t(
-                              participant.admin === "superadmin"
-                                ? "contactDrawer.owner"
-                                : "contactDrawer.admin"
+                            <ListItemAvatar>
+                              <AvatarContato
+                                contact={{
+                                  ...participant,
+                                  id: participant.contactId
+                                }}
+                                style={{
+                                  backgroundColor: generateColor(
+                                    participant.number
+                                  ),
+                                  color: "white",
+                                  fontWeight: "bold"
+                                }}
+                              >
+                                {getInitials(participant.name)}
+                              </AvatarContato>
+                            </ListItemAvatar>
+                            <ListItemText
+                              primary={`${participant.name}${
+                                participant.isMe
+                                  ? ` (${i18n.t("contactDrawer.you")})`
+                                  : ""
+                              }`}
+                              secondary={formatWhatsappContactNumber(
+                                participant
+                              )}
+                            />
+                            {participant.admin && (
+                              <Chip
+                                className={classes.participantRole}
+                                variant="outlined"
+                                color="primary"
+                                label={i18n.t(
+                                  participant.admin === "superadmin"
+                                    ? "contactDrawer.owner"
+                                    : "contactDrawer.admin"
+                                )}
+                              />
                             )}
-                          />
-                        )}
-                      </ListItem>
-                    ))}
-                  </List>
+                          </ListItem>
+                        ))}
+                      </List>
+                    )}
+                  </Paper>
                 )}
-              </Paper>
-            )}
-            {!isGroupConversation && (
-              <Button
-                variant="outlined"
-                color="primary"
-                onClick={() => setModalOpen(!openForm)}
-                style={{ fontSize: 12, marginTop: 8 }}
-              >
-                {i18n.t("contactDrawer.buttons.edit")}
-              </Button>
-            )}
-            {!isGroupConversation && (
-              <Paper
-                square
-                variant="outlined"
-                className={classes.contactDetails}
-              >
-                <Typography variant="subtitle1" style={{ marginBottom: 10 }}>
-                  {i18n.t("ticketOptionsMenu.appointmentsModal.title")}
-                </Typography>
-                <TicketNotes ticket={ticket} />
-              </Paper>
-            )}
+              </Tabs.Content>
+              <Tabs.Content value="atendimento">
+                <dl className="contexto-dados">
+                  <div>
+                    <dt>{i18n.t("contexto.protocolo")}</dt>
+                    <dd>#{ticket.id}</dd>
+                  </div>
+                  <div>
+                    <dt>{i18n.t("contexto.responsavel")}</dt>
+                    <dd>{ticket.user?.name || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt>{i18n.t("contexto.fila")}</dt>
+                    <dd>{ticket.queue?.name || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt>{i18n.t("conversa.conexao")}</dt>
+                    <dd>{ticket.whatsapp?.name || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt>{i18n.t("conversa.abertoEm")}</dt>
+                    <dd>
+                      {ticket.createdAt
+                        ? new Date(ticket.createdAt).toLocaleString(
+                            i18n.language
+                          )
+                        : "—"}
+                    </dd>
+                  </div>
+                </dl>
+                {(tagsTicket || showTags) && (
+                  <section className="contexto-grupo">
+                    <h4>{i18n.t("conversa.etiquetas")}</h4>
+                    <TagsContainer
+                      ticket={tagsTicket && ticket}
+                      contact={!tagsTicket && contact}
+                    />
+                  </section>
+                )}
+                {!isGroupConversation && (
+                  <Paper
+                    square
+                    variant="outlined"
+                    className={classes.contactDetails}
+                  >
+                    <Typography
+                      variant="subtitle1"
+                      style={{ marginBottom: 10 }}
+                    >
+                      {i18n.t("ticketOptionsMenu.appointmentsModal.title")}
+                    </Typography>
+                    <TicketNotes
+                      key={`${ticket.id}-${versaoNotas}`}
+                      ticket={ticket}
+                    />
+                  </Paper>
+                )}
+              </Tabs.Content>
+              <Tabs.Content value="historico">
+                <HistoricoContato contactId={contact.id} ticketId={ticket.id} />
+              </Tabs.Content>
+            </Tabs.Root>
             <ContactModal
               open={modalOpen}
               onClose={() => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useRef } from "react";
 
 import * as Yup from "yup";
 import { Formik, Form, Field } from "formik";
@@ -22,9 +22,11 @@ import { i18n } from "../../translate/i18n";
 
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
+import FotoUsuario from "./FotoUsuario";
 import QueueSelect from "../QueueSelect";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { Can } from "../Can";
+import useFocoDialogo from "../../hooks/useFocoDialogo";
 
 const useStyles = makeStyles(theme => ({
   root: {
@@ -67,6 +69,7 @@ const UserSchema = Yup.object().shape({
 
 const UserModal = ({ open, onClose, userId }) => {
   const classes = useStyles();
+  const restaurarFoco = useFocoDialogo(open);
 
   const initialState = {
     name: "",
@@ -77,14 +80,26 @@ const UserModal = ({ open, onClose, userId }) => {
 
   const { user: loggedInUser } = useContext(AuthContext);
 
+  const [foto, definirFoto] = useState(null);
+  const [removerFoto, definirRemoverFoto] = useState(false);
+  const usuarioSalvo = useRef(null);
+  useEffect(() => {
+    if (open) {
+      definirFoto(null);
+      definirRemoverFoto(false);
+      usuarioSalvo.current = userId || null;
+    }
+  }, [open, userId]);
   const [user, setUser] = useState(initialState);
   const [selectedQueueIds, setSelectedQueueIds] = useState([]);
 
   useEffect(() => {
+    let ativo = true;
     const fetchUser = async () => {
-      if (!userId) return;
+      if (!open || !userId) return;
       try {
         const { data } = await api.get(`/users/${userId}`);
+        if (!ativo) return;
         setUser(prevState => {
           return { ...prevState, ...data };
         });
@@ -96,32 +111,47 @@ const UserModal = ({ open, onClose, userId }) => {
     };
 
     fetchUser();
+    return () => {
+      ativo = false;
+    };
   }, [userId, open]);
 
   const handleClose = () => {
     onClose();
     setUser(initialState);
+    setSelectedQueueIds([]);
   };
 
   const handleSaveUser = async values => {
     const userData = { ...values, queueIds: selectedQueueIds };
     try {
-      if (userId) {
-        await api.put(`/users/${userId}`, userData);
+      if (usuarioSalvo.current) {
+        await api.put(`/users/${usuarioSalvo.current}`, userData);
       } else {
-        await api.post("/users", userData);
+        const { data } = await api.post("/users", userData);
+        usuarioSalvo.current = data.id;
       }
+      if (foto) {
+        const formulario = new FormData();
+        formulario.append("photo", foto);
+        await api.post(`/users/${usuarioSalvo.current}/photo`, formulario);
+      } else if (removerFoto) {
+        await api.delete(`/users/${usuarioSalvo.current}/photo`);
+      }
+      handleClose();
       toast.success(i18n.t("userModal.success"));
     } catch (err) {
       toastError(err);
     }
-    handleClose();
   };
 
   return (
     <div className={classes.root}>
       <Dialog
         open={open}
+        aria-labelledby="form-dialog-title"
+        disableRestoreFocus
+        TransitionProps={{ onExited: restaurarFoco }}
         onClose={handleClose}
         maxWidth="xs"
         fullWidth
@@ -136,19 +166,28 @@ const UserModal = ({ open, onClose, userId }) => {
           initialValues={user}
           enableReinitialize={true}
           validationSchema={UserSchema}
-          onSubmit={(values, actions) => {
-            setTimeout(() => {
-              handleSaveUser(values);
-              actions.setSubmitting(false);
-            }, 400);
+          onSubmit={async (values, actions) => {
+            await handleSaveUser(values);
+            actions.setSubmitting(false);
           }}
         >
           {({ touched, errors, isSubmitting }) => (
             <Form>
               <DialogContent dividers>
+                <FotoUsuario
+                  usuario={user}
+                  arquivo={foto}
+                  remover={removerFoto}
+                  desabilitado={isSubmitting}
+                  aoAlterar={(arquivo, remover) => {
+                    definirFoto(arquivo);
+                    definirRemoverFoto(remover);
+                  }}
+                />
                 <div className={classes.multFieldLine}>
                   <Field
                     as={TextField}
+                    id="usuario-nome"
                     label={i18n.t("userModal.form.name")}
                     autoFocus
                     name="name"
@@ -160,6 +199,7 @@ const UserModal = ({ open, onClose, userId }) => {
                   />
                   <Field
                     as={TextField}
+                    id="usuario-senha"
                     label={i18n.t("userModal.form.password")}
                     type="password"
                     name="password"
@@ -176,6 +216,7 @@ const UserModal = ({ open, onClose, userId }) => {
                 <div className={classes.multFieldLine}>
                   <Field
                     as={TextField}
+                    id="usuario-email"
                     label={i18n.t("userModal.form.email")}
                     name="email"
                     error={touched.email && Boolean(errors.email)}
@@ -203,7 +244,7 @@ const UserModal = ({ open, onClose, userId }) => {
                             as={Select}
                             label={i18n.t("userModal.form.profile")}
                             name="profile"
-                            labelId="profile-selection-label"
+                            labelId="profile-selection-input-label"
                             id="profile-selection"
                             required
                           >

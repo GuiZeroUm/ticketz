@@ -4,14 +4,14 @@ import { useHistory, useParams } from "react-router-dom";
 import { parseISO, format, isSameDay } from "date-fns";
 import clsx from "clsx";
 
-import { makeStyles } from "@material-ui/core/styles";
+import { makeStyles, alpha } from "@material-ui/core/styles";
 import { green, grey, red, blue } from "@material-ui/core/colors";
 import ListItem from "@material-ui/core/ListItem";
 import ListItemText from "@material-ui/core/ListItemText";
 import ListItemAvatar from "@material-ui/core/ListItemAvatar";
 import ListItemSecondaryAction from "@material-ui/core/ListItemSecondaryAction";
 import Typography from "@material-ui/core/Typography";
-import Avatar from "@material-ui/core/Avatar";
+import AvatarContato from "../AvatarContato";
 import Divider from "@material-ui/core/Divider";
 import Badge from "@material-ui/core/Badge";
 import Box from "@material-ui/core/Box";
@@ -35,7 +35,7 @@ import VisibilityIcon from "@material-ui/icons/Visibility";
 import TicketMessagesDialog from "../TicketMessagesDialog";
 import DoneIcon from "@material-ui/icons/Done";
 import ClearOutlinedIcon from "@material-ui/icons/ClearOutlined";
-import { generateColor } from "../../helpers/colorGenerator";
+import { corAvatar as generateColor } from "../../helpers/coresAvatar";
 import { getInitials } from "../../helpers/getInitials";
 import pastRelativeDate from "../../helpers/pastRelativeDate";
 import TagsLine from "../TagsLine";
@@ -44,8 +44,13 @@ const useStyles = makeStyles(theme => ({
   ticket: {
     position: "relative",
     height: 98,
-    paddingHorizontal: 10,
-    paddingVertical: 0,
+    paddingLeft: 12,
+    paddingRight: 12,
+    borderLeft: "3px solid transparent",
+    "&.Mui-selected": {
+      borderLeftColor: theme.palette.primary.main,
+      backgroundColor: alpha(theme.palette.primary.main, 0.07)
+    },
     paddingTop: 0,
     paddingBottom: 0
   },
@@ -109,7 +114,7 @@ const useStyles = makeStyles(theme => ({
 
   badgeStyle: {
     color: "white",
-    backgroundColor: green[500],
+    backgroundColor: theme.palette.primary.main,
     right: 0,
     top: 10
   },
@@ -121,7 +126,7 @@ const useStyles = makeStyles(theme => ({
 
   ticketQueueColor: {
     flex: "none",
-    width: "8px",
+    width: "3px",
     height: "100%",
     position: "absolute",
     top: "0%",
@@ -521,16 +526,16 @@ const TicketListItemCustom = ({ ticket, setTabOpen, groupActionButtons }) => {
           </Tooltip>
         )}
         <ListItemAvatar>
-          <Avatar
+          <AvatarContato
             style={{
               backgroundColor: generateColor(ticket?.contact?.number),
               color: "white",
               fontWeight: "bold"
             }}
-            src={ticket?.contact?.profilePicUrl}
+            contact={ticket?.contact}
           >
             {getInitials(ticket?.contact?.name || "")}
-          </Avatar>
+          </AvatarContato>
         </ListItemAvatar>
         <ListItemText
           style={{ paddingBottom: 10 }}

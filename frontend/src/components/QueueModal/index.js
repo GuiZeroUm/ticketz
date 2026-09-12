@@ -514,6 +514,7 @@ const QueueModal = ({ open, onClose, queueId }) => {
         {tab === 1 && (
           <Paper style={{ padding: 20 }}>
             <ChatbotFlow
+              onOpen={handleClose}
               queueId={queueId}
               greetingMessage={queue.greetingMessage}
             />

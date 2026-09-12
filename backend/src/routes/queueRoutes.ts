@@ -4,10 +4,24 @@ import isAuth from "../middleware/isAuth";
 import isAdmin from "../middleware/isAdmin";
 
 import * as QueueController from "../controllers/QueueController";
+import * as QueueFlowController from "../controllers/QueueFlowController";
 import uploadConfig from "../config/upload";
 
 const upload = multer(uploadConfig);
 const queueRoutes = Router();
+
+queueRoutes.get(
+  "/queue/:queueId/flow",
+  isAuth,
+  isAdmin,
+  QueueFlowController.show
+);
+queueRoutes.put(
+  "/queue/:queueId/flow",
+  isAuth,
+  isAdmin,
+  QueueFlowController.update
+);
 
 queueRoutes.get("/queue", isAuth, QueueController.index);
 
