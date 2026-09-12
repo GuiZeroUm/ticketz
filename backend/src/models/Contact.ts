@@ -54,6 +54,10 @@ class Contact extends Model {
   @Column
   email: string;
 
+  // Last native email published by SGA; null means not owned by the integration.
+  @Column
+  sgaEmail: string;
+
   @Default("")
   @Column
   profilePicUrl: string;

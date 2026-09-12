@@ -26,6 +26,36 @@ const contact: ContactRecord = {
 };
 
 describe("SGA identity and debt normalization", () => {
+  it("never uses SGA-generated identity fields to sustain an obsolete match", () => {
+    const generated = {
+      ...contact,
+      email: member.email,
+      sgaEmail: member.email,
+      extraInfo: [
+        { name: "CPF/CNPJ", value: member.document, managedBy: "acnorte-sga" }
+      ]
+    };
+    expect(matchMember(member, [generated]).method).toBe("phone");
+    expect(matchMember({ ...member, phones: [] }, [generated])).toMatchObject({
+      contactId: null,
+      method: "unmatched"
+    });
+    expect(
+      matchMember({ ...member, phones: [], email: "manual@example.com" }, [
+        { ...generated, email: "manual@example.com" }
+      ])
+    ).toMatchObject({ contactId: 10, method: "email" });
+    expect(
+      matchMember({ ...member, phones: [] }, [
+        {
+          ...generated,
+          extraInfo: [
+            { name: "CPF/CNPJ", value: member.document, managedBy: null }
+          ]
+        }
+      ])
+    ).toMatchObject({ contactId: 10, method: "document" });
+  });
   it("matches Brazilian numbers with country code and optional ninth digit", () => {
     expect(phoneKey("+55 (68) 99999-1111")).toBe(phoneKey("68 9999-1111"));
     expect(matchMember(member, [contact])).toMatchObject({
