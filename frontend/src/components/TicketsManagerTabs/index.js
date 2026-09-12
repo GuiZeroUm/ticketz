@@ -64,13 +64,15 @@ const useStyles = makeStyles(theme => ({
   },
 
   tabWithGroups: {
-    minWidth: 90,
-    width: 90
+    minWidth: 0,
+    flex: 1,
+    fontSize: 12,
+    padding: "6px 8px"
   },
 
   tab: {
-    minWidth: 120,
-    width: 120
+    minWidth: 0,
+    flex: 1
   },
 
   ticketOptionsBox: {
