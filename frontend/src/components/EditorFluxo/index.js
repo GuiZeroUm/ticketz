@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import React, { useContext, useMemo, useRef, useState } from "react";
 import { Prompt } from "react-router-dom";
 import {
@@ -167,6 +168,34 @@ export default function EditorFluxo({ queueId, filas }) {
     atualizar({ ...fluxo, nodes: copia });
   };
   const pendencias = problemasFluxo(fluxo);
+  const destinoAcoes = document.getElementById("acoes-pagina");
+  const acoes = (
+    <div className="ew-ui acoes-fluxo" style={identidade}>
+      <span className={`ew-badge ${editor.alterado ? "" : "ew-badge--brand"}`}>
+        {i18n.t(editor.alterado ? "fluxos.rascunho" : "fluxos.emUso")}
+      </span>
+      <div>
+        <Botao onClick={() => setTestando(true)}>
+          <Play size={15} />
+          {i18n.t("fluxos.testar")}
+        </Botao>
+        <Botao
+          variante="primary"
+          disabled={
+            editor.publicando || !editor.alterado || !!pendencias.length
+          }
+          onClick={editor.publicar}
+        >
+          {editor.publicando ? (
+            <Loader2 size={15} className="fluxo-carregando" />
+          ) : (
+            <Check size={15} />
+          )}
+          {i18n.t("fluxos.publicar")}
+        </Botao>
+      </div>
+    </div>
+  );
   return (
     <section
       className="ew-ui fluxo-editor"
@@ -174,41 +203,7 @@ export default function EditorFluxo({ queueId, filas }) {
       aria-label={i18n.t("fluxos.editor")}
     >
       <Prompt when={editor.alterado} message={i18n.t("fluxos.sairRascunho")} />
-      <div className="fluxo-toolbar">
-        <div>
-          <h2>{fluxo.name}</h2>
-          <span
-            className={`ew-badge ${editor.alterado ? "" : "ew-badge--brand"}`}
-          >
-            {editor.alterado
-              ? i18n.t("fluxos.rascunho")
-              : i18n.t("fluxos.emUso")}
-          </span>
-          <span className="ew-muted">
-            {i18n.t("fluxos.contagem", { count: fluxo.nodes.length })}
-          </span>
-        </div>
-        <div>
-          <Botao onClick={() => setTestando(true)}>
-            <Play size={15} />
-            {i18n.t("fluxos.testar")}
-          </Botao>
-          <Botao
-            variante="primary"
-            disabled={
-              editor.publicando || !editor.alterado || !!pendencias.length
-            }
-            onClick={editor.publicar}
-          >
-            {editor.publicando ? (
-              <Loader2 size={15} className="fluxo-carregando" />
-            ) : (
-              <Check size={15} />
-            )}
-            {i18n.t("fluxos.publicar")}
-          </Botao>
-        </div>
-      </div>
+      {destinoAcoes ? createPortal(acoes, destinoAcoes) : acoes}
       <fieldset
         disabled={editor.publicando}
         className={`fluxo-builder ${no ? "com-inspetor" : ""} ${paleta ? "paleta-aberta" : ""}`}
@@ -278,7 +273,10 @@ export default function EditorFluxo({ queueId, filas }) {
             >
               <PanelLeft size={16} />
             </BotaoIcone>
-            <h3>{i18n.t("fluxos.canvas")}</h3>
+            <h3>{fluxo.name}</h3>
+            <span className="ew-badge">
+              {i18n.t("fluxos.contagem", { count: fluxo.nodes.length })}
+            </span>
             <BotaoIcone
               titulo={i18n.t("fluxos.desfazer")}
               disabled={!editor.historico.antes.length}

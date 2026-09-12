@@ -1,6 +1,8 @@
 import React from "react";
 import { useParams } from "react-router-dom";
-import Grid from "@material-ui/core/Grid";
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
+import { MessageCircle } from "lucide-react";
+import "./atendimento.css";
 import Paper from "@material-ui/core/Paper";
 import { makeStyles } from "@material-ui/core/styles";
 
@@ -14,7 +16,7 @@ const useStyles = makeStyles(theme => ({
     flex: 1,
     height: `calc(100% - var(--altura-cabecalho, 60px))`,
     overflowY: "hidden",
-    padding: 12
+    padding: "0 0 0 0"
   },
 
   chatPapper: {
@@ -23,17 +25,7 @@ const useStyles = makeStyles(theme => ({
     height: "100%"
   },
 
-  contactsWrapper: {
-    display: "flex",
-    height: "100%",
-    flexDirection: "column",
-    overflowY: "hidden",
-    width: 360,
-    flex: "0 0 360px",
-    maxWidth: 420,
-    paddingRight: 12,
-    [theme.breakpoints.down("md")]: { width: 320, flexBasis: 320 }
-  },
+  contactsWrapper: { height: "100%", minWidth: 0, overflow: "hidden" },
   messagesWrapper: {
     overflow: "hidden",
     display: "flex",
@@ -43,8 +35,7 @@ const useStyles = makeStyles(theme => ({
     maxWidth: "unset",
     flex: 1,
     minWidth: 0,
-    borderRadius: 12,
-    border: `1px solid ${theme.palette.divider}`
+    borderRadius: 16
   },
   welcomeMsg: {
     display: "flex",
@@ -60,24 +51,39 @@ const TicketsCustom = () => {
   const { ticketId } = useParams();
 
   return (
-    <div className={classes.chatContainer}>
+    <div className={`${classes.chatContainer} atendimento-layout`}>
       <div className={classes.chatPapper}>
-        <Grid container spacing={0}>
-          <Grid item className={classes.contactsWrapper}>
+        <PanelGroup
+          direction="horizontal"
+          autoSaveId="espaco-atendimento-paineis"
+        >
+          <Panel
+            defaultSize={30}
+            minSize={23}
+            maxSize={45}
+            className={classes.contactsWrapper}
+          >
             <TicketsManager />
-          </Grid>
-          <Grid item className={classes.messagesWrapper}>
+          </Panel>
+          <PanelResizeHandle
+            className="atendimento-divisor"
+            aria-label={i18n.t("visual.redimensionar")}
+          />
+          <Panel minSize={45} className={classes.messagesWrapper}>
             {ticketId ? (
               <>
                 <Ticket />
               </>
             ) : (
               <Paper square variant="outlined" className={classes.welcomeMsg}>
-                <span>{i18n.t("chat.noTicketMessage")}</span>
+                <div className="atendimento-vazio">
+                  <MessageCircle size={34} />
+                  <span>{i18n.t("chat.noTicketMessage")}</span>
+                </div>
               </Paper>
             )}
-          </Grid>
-        </Grid>
+          </Panel>
+        </PanelGroup>
       </div>
     </div>
   );

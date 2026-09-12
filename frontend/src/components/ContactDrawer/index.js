@@ -32,13 +32,13 @@ import WhatsMarked from "react-whatsmarked";
 import { CardHeader } from "@material-ui/core";
 import ContactModal from "../ContactModal";
 import { TicketNotes } from "../TicketNotes";
-import { generateColor } from "../../helpers/colorGenerator";
+import { corAvatar as generateColor } from "../../helpers/coresAvatar";
 import { getInitials } from "../../helpers/getInitials";
 import { TagsContainer } from "../TagsContainer";
 import useSettings from "../../hooks/useSettings";
 import api from "../../services/api";
 
-const drawerWidth = 320;
+const drawerWidth = 300;
 
 const useStyles = makeStyles(theme => ({
   drawer: {
@@ -62,22 +62,22 @@ const useStyles = makeStyles(theme => ({
     borderTop: `1px solid ${theme.palette.divider}`,
     borderRight: `1px solid ${theme.palette.divider}`,
     borderBottom: `1px solid ${theme.palette.divider}`,
-    borderTopRightRadius: 4,
-    borderBottomRightRadius: 4
+    borderRadius: 16,
+    border: `1px solid ${theme.palette.divider}`
   },
   header: {
     display: "flex",
     borderBottom: `1px solid ${theme.palette.divider}`,
     alignItems: "center",
     padding: theme.spacing(0, 1),
-    minHeight: "52px",
+    minHeight: "54px",
     justifyContent: "flex-start"
   },
   content: {
     display: "flex",
 
     flexDirection: "column",
-    padding: "12px",
+    padding: "16px",
     height: "100%",
     overflowY: "scroll",
     ...theme.scrollbarStyles
@@ -207,14 +207,16 @@ const ContactDrawer = ({
         }}
       >
         <div className={classes.header}>
-          <IconButton onClick={handleDrawerClose}>
+          <IconButton
+            aria-label={i18n.t("fluxos.fechar")}
+            onClick={handleDrawerClose}
+            style={{ order: 2, marginLeft: "auto" }}
+          >
             <CloseIcon />
           </IconButton>
           <Typography style={{ justifySelf: "center" }}>
             {i18n.t(
-              isWhatsappGroup
-                ? "contactDrawer.groupHeader"
-                : "contactDrawer.header"
+              isWhatsappGroup ? "contactDrawer.groupHeader" : "visual.contexto"
             )}
           </Typography>
         </div>
@@ -222,46 +224,6 @@ const ContactDrawer = ({
           <ContactDrawerSkeleton classes={classes} />
         ) : (
           <div className={`ew-ui ${classes.content}`} style={identidade}>
-            <div className={classes.contactHeader}>
-              <CardHeader
-                onClick={() => {}}
-                style={{ cursor: "pointer", width: "100%", padding: 0 }}
-                titleTypographyProps={{ noWrap: true }}
-                subheaderTypographyProps={{ noWrap: true }}
-                avatar={
-                  <Avatar
-                    src={contact.profilePicUrl}
-                    alt="contact_image"
-                    style={{
-                      width: 60,
-                      height: 60,
-                      backgroundColor: generateColor(contact?.number),
-                      color: "white",
-                      fontWeight: "bold"
-                    }}
-                  >
-                    {getInitials(formattedContactName)}
-                  </Avatar>
-                }
-                title={
-                  <>
-                    <Typography>{formattedContactName}</Typography>
-                  </>
-                }
-                subheader={
-                  <>
-                    <Typography style={{ fontSize: 12 }}>
-                      {formatWhatsappContactNumber(contact)}
-                    </Typography>
-                    <Typography style={{ fontSize: 12 }}>
-                      <Link href={`mailto:${contact.email}`}>
-                        {contact.email}
-                      </Link>
-                    </Typography>
-                  </>
-                }
-              />
-            </div>
             <Tabs.Root defaultValue="contato" className="contexto-tabs">
               <Tabs.List
                 className="ew-tabs"
@@ -281,6 +243,47 @@ const ContactDrawer = ({
                 </Tabs.Trigger>
               </Tabs.List>
               <Tabs.Content value="contato">
+                <div className={`${classes.contactHeader} contexto-perfil`}>
+                  <CardHeader
+                    onClick={() => {}}
+                    style={{ cursor: "pointer", width: "100%", padding: 0 }}
+                    titleTypographyProps={{ noWrap: true }}
+                    subheaderTypographyProps={{ noWrap: true }}
+                    avatar={
+                      <Avatar
+                        src={contact.profilePicUrl}
+                        alt="contact_image"
+                        style={{
+                          width: 44,
+                          height: 44,
+                          backgroundColor: generateColor(contact?.number),
+                          color: "white",
+                          fontWeight: "bold"
+                        }}
+                      >
+                        {getInitials(formattedContactName)}
+                      </Avatar>
+                    }
+                    title={
+                      <>
+                        <Typography>{formattedContactName}</Typography>
+                      </>
+                    }
+                    subheader={
+                      <>
+                        <Typography style={{ fontSize: 12 }}>
+                          {formatWhatsappContactNumber(contact)}
+                        </Typography>
+                        <Typography style={{ fontSize: 12 }}>
+                          <Link href={`mailto:${contact.email}`}>
+                            {contact.email}
+                          </Link>
+                        </Typography>
+                      </>
+                    }
+                  />
+                </div>
+
                 {showTags && <TagsContainer contact={contact} />}
                 {contact?.extraInfo?.length > 0 && (
                   <div className={classes.contactExtraInfo}>

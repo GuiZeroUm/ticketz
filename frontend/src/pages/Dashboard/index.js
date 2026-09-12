@@ -1,23 +1,24 @@
 import React, { useState, useEffect, useContext } from "react";
+import * as Tabs from "@radix-ui/react-tabs";
+import {
+  RefreshCw,
+  LayoutDashboard,
+  Radio,
+  ChartNoAxesCombined
+} from "lucide-react";
+import { Botao, useIdentidade } from "../../components/interface";
+import CabecalhoPagina from "../../components/CabecalhoPagina";
+import FilasAoVivo from "./FilasAoVivo";
+import "./painel.css";
 
-import Paper from "@material-ui/core/Paper";
-import Container from "@material-ui/core/Container";
 import Grid from "@material-ui/core/Grid";
 import MenuItem from "@material-ui/core/MenuItem";
 import FormControl from "@material-ui/core/FormControl";
 import InputLabel from "@material-ui/core/InputLabel";
 import Select from "@material-ui/core/Select";
 import TextField from "@material-ui/core/TextField";
-import Typography from "@material-ui/core/Typography";
-
-// ICONS
-import GroupAddIcon from "@material-ui/icons/GroupAdd";
-import HourglassEmptyIcon from "@material-ui/icons/HourglassEmpty";
-import CheckCircleIcon from "@material-ui/icons/CheckCircle";
-import TimerIcon from "@material-ui/icons/Timer";
 
 import { makeStyles } from "@material-ui/core/styles";
-import { grey, blue } from "@material-ui/core/colors";
 import { toast } from "react-toastify";
 
 import TableAttendantsStatus from "../../components/Dashboard/TableAttendantsStatus";
@@ -35,238 +36,23 @@ import api from "../../services/api.js";
 import { SocketContext } from "../../context/Socket/SocketContext.js";
 import { formatTimeInterval } from "../../helpers/formatTimeInterval.js";
 
-const useStyles = makeStyles(theme => ({
-  container: {
-    paddingTop: theme.spacing(3),
-    paddingBottom: theme.spacing(3)
-  },
-  fixedHeightPaper: {
-    padding: theme.spacing(2),
-    display: "flex",
-    flexDirection: "column",
-    height: 240,
-    overflowY: "auto",
-    ...theme.scrollbarStyles
-  },
-  pixkey: {
-    fontSize: "9pt"
-  },
-  paymentimg: {
-    maxWidth: "75%",
-    marginTop: 10
-  },
-  paymentpix: {
-    maxWidth: "100%",
-    maxHeight: 130,
-    padding: "5px",
-    backgroundColor: "white",
-    borderColor: "black",
-    borderStyle: "solid",
-    borderWidth: "2px"
-  },
-  supportPaper: {
-    padding: theme.spacing(2),
-    display: "flex",
-    flexDirection: "column",
-    overflowY: "clip",
-    height: 300,
-    backgroundColor: theme.palette.secondary.main,
-    color: theme.palette.secondary.contrastText,
-    ...theme.scrollbarStyles
-  },
-  supportBox: {
-    backgroundColor: theme.palette.secondary.light,
-    borderRadius: "10px",
-    textAlign: "center",
-    borderColor: theme.palette.secondary.main,
-    borderWidth: "3px",
-    borderStyle: "solid",
-    transition: "max-height 0.5s ease",
-    overflow: "clip"
-  },
-  cardAvatar: {
-    fontSize: "55px",
-    color: grey[500],
-    backgroundColor: "#ffffff",
-    width: theme.spacing(7),
-    height: theme.spacing(7)
-  },
-  cardTitle: {
-    fontSize: "18px",
-    color: blue[700]
-  },
-  cardSubtitle: {
-    color: grey[600],
-    fontSize: "14px"
-  },
-  alignRight: {
-    textAlign: "right"
-  },
-  fullWidth: {
-    width: "100%"
-  },
-  selectContainer: {
-    width: "100%",
-    textAlign: "left"
-  },
-  cardSolid: {
-    padding: theme.spacing(2),
-    display: "flex",
-    overflow: "hidden",
-    flexDirection: "row",
-    height: "100%",
-    backgroundColor: theme.palette.background.paper,
-    color: theme.palette.text.primary,
-    border: `1px solid ${theme.palette.divider}`
-  },
-  cardGray: {
-    padding: theme.spacing(2),
-    display: "flex",
-    overflow: "hidden",
-    flexDirection: "row",
-    height: "100%",
-    color: theme.palette.text.primary,
-    border: `1px solid ${theme.palette.divider}`
-  },
-  cardData: {
-    display: "block",
-    width: "100%",
-    zIndex: 1
-  },
-  cardIcon: {
-    width: 48,
-    color: theme.palette.primary.light,
-    position: "sticky",
-    opacity: 0.4,
-    right: 0
-  },
-  cardRingGraph: {
-    width: 100,
-    position: "sticky",
-    right: 0
-  },
-  ticketzProPaper: {
-    padding: theme.spacing(2),
-    display: "flex",
-    flexDirection: "column",
-    overflowY: "auto",
-    minHeight: 180,
-    backgroundColor: theme.palette.ticketzproad.main,
-    color: theme.palette.ticketzproad.contrastText,
-    [theme.breakpoints.down("sm")]: {
-      minHeight: 260
-    },
-    ...theme.scrollbarStyles
-  },
-  ticketzRegistryPaper: {
-    padding: theme.spacing(2),
-    display: "flex",
-    flexDirection: "column",
-    overflowY: "auto",
-    backgroundColor: theme.palette.background.main,
-    color: theme.palette.background.contrastText,
-    borderColor: theme.palette.primary.main,
-    borderWidth: "3px",
-    borderStyle: "solid",
-    marginBottom: "1em",
-    ...theme.scrollbarStyles
-  },
-  ticketzProBox: {
-    textAlign: "center",
-    alignContent: "center"
-  },
-  ticketzProTextBox: {
-    textAlign: "left",
-    [theme.breakpoints.down("sm")]: {
-      textAlign: "center"
-    }
-  },
-  ticketzProTitle: {
-    fontWeight: "bold"
-  },
-  ticketzProScreen: {
-    maxHeight: "160px",
-    width: "100%",
-    objectFit: "contain",
-    [theme.breakpoints.down("sm")]: {
-      maxHeight: "220px"
-    },
-    maxWidth: "100%"
-  },
-  ticketzProFeatures: {
-    padding: 0,
-    margin: 0,
-    listStyleType: "none",
-    display: "flex",
-    flexWrap: "wrap",
-    gap: theme.spacing(1),
-    justifyContent: "flex-start",
-    [theme.breakpoints.down("sm")]: {
-      justifyContent: "center"
-    }
-  },
-  ticketzProCommand: {
-    fontFamily: "monospace",
-    backgroundColor: "#00000080"
-  },
-  clickpointer: {
-    cursor: "pointer"
-  }
+const useStyles = makeStyles(() => ({
+  selectContainer: { width: "100%" },
+  fullWidth: { width: "100%" }
 }));
 
-const InfoCard = ({ title, value, icon }) => {
-  const classes = useStyles();
-
+function Indicador({ titulo, valor }) {
   return (
-    <Grid item xs={12} sm={6} md={3}>
-      <Paper className={classes.cardGray} elevation={0}>
-        <div className={classes.cardData}>
-          <Typography
-            component="h3"
-            variant="body2"
-            color="textSecondary"
-            paragraph
-          >
-            {title}
-          </Typography>
-          <Typography component="p" variant="h4">
-            {value}
-          </Typography>
-        </div>
-        <div className={classes.cardIcon}>{icon}</div>
-      </Paper>
-    </Grid>
+    <div className="painel-indicador">
+      <span>{titulo}</span>
+      <strong>{valor}</strong>
+    </div>
   );
-};
-
-const InfoRingCard = ({ title, value, graph }) => {
-  const classes = useStyles();
-  return (
-    <Grid item xs={12} sm={4}>
-      <Paper className={classes.cardSolid} elevation={0}>
-        <div className={classes.cardData}>
-          <Typography
-            component="h3"
-            variant="body2"
-            color="textSecondary"
-            paragraph
-          >
-            {title}
-          </Typography>
-          <Typography component="p" variant="h4">
-            {value}
-          </Typography>
-        </div>
-        <div className={classes.cardRingGraph}>
-          <div style={{ width: "100px", height: "100px" }}>{graph}</div>
-        </div>
-      </Paper>
-    </Grid>
-  );
-};
+}
 
 const Dashboard = () => {
   const classes = useStyles();
+  const identidade = useIdentidade();
   const [period, setPeriod] = useState(0);
   const [currentUser, setCurrentUser] = useState({});
   const [dateFrom, setDateFrom] = useState(
@@ -279,7 +65,6 @@ const Dashboard = () => {
 
   const [usersOnlineTotal, setUsersOnlineTotal] = useState(0);
   const [usersOfflineTotal, setUsersOfflineTotal] = useState(0);
-  const [usersStatusChartData, setUsersStatusChartData] = useState([]);
   const [pendingTotal, setPendingTotal] = useState(0);
   const [pendingChartData, setPendingChartData] = useState([]);
   const [openedTotal, setOpenedTotal] = useState(0);
@@ -338,19 +123,6 @@ const Dashboard = () => {
             usersOfflineTotal++;
           }
         });
-
-        setUsersStatusChartData([
-          {
-            name: "Online",
-            value: usersOnlineTotal,
-            color: "#16803A"
-          },
-          {
-            name: "Offline",
-            value: usersOfflineTotal,
-            color: "#D4D4D8"
-          }
-        ]);
 
         setUsersOnlineTotal(usersOnlineTotal);
         setUsersOfflineTotal(usersOfflineTotal);
@@ -434,10 +206,10 @@ const Dashboard = () => {
       .then(result => {
         if (result?.data) {
           setUsersData(result.data);
-          setLoadingUsers(false);
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoadingUsers(false));
   }
 
   useEffect(() => {
@@ -447,7 +219,7 @@ const Dashboard = () => {
   function renderFilters() {
     return (
       <>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={4}>
           <FormControl className={classes.selectContainer}>
             <InputLabel id="period-selector-label">
               {i18n.t("dashboard.filter.period")}
@@ -479,7 +251,7 @@ const Dashboard = () => {
         </Grid>
         {!period && (
           <>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={12} sm={6} md={4}>
               <TextField
                 label={i18n.t("dashboard.date.start")}
                 type="datetime-local"
@@ -492,7 +264,7 @@ const Dashboard = () => {
                 }}
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={12} sm={6} md={4}>
               <TextField
                 label={i18n.t("dashboard.date.end")}
                 type="datetime-local"
@@ -507,7 +279,6 @@ const Dashboard = () => {
             </Grid>
           </>
         )}
-        <Grid item xs={12} sm={6} md={period ? 9 : 3} />
       </>
     );
   }
@@ -517,91 +288,146 @@ const Dashboard = () => {
   }
 
   return (
-    <div>
-      <Container maxWidth={false} className={classes.container}>
-        <Typography component="h1" variant="h5" gutterBottom>
-          {i18n.t("redesign.visaoGeral")}
-        </Typography>
-        <Typography color="textSecondary" style={{ marginBottom: 24 }}>
-          {i18n.t("redesign.descricaoPainel")}
-        </Typography>
-        <Grid container spacing={2} justifyContent="flex-start">
-          {renderFilters()}
-          {/* USUARIOS ONLINE */}
-          <InfoRingCard
-            title={i18n.t("dashboard.usersOnline")}
-            value={`${usersOnlineTotal}/${usersOnlineTotal + usersOfflineTotal}`}
-            graph={<SmallPie chartData={usersStatusChartData} />}
-          />
-
-          {/* ATENDIMENTOS PENDENTES */}
-          <InfoRingCard
-            title={i18n.t("dashboard.ticketsWaiting")}
-            value={pendingTotal}
-            graph={<SmallPie chartData={pendingChartData} />}
-          />
-
-          {/* ATENDIMENTOS ACONTECENDO */}
-          <InfoRingCard
-            title={i18n.t("dashboard.ticketsOpen")}
-            value={openedTotal}
-            graph={<SmallPie chartData={openedChartData} />}
-          />
-
-          {/* ATENDIMENTOS REALIZADOS */}
-          <InfoCard
-            title={i18n.t("dashboard.ticketsDone")}
-            value={ticketsData.ticketStatistics?.totalClosed || 0}
-            icon={<CheckCircleIcon style={{ fontSize: 40 }} />}
-          />
-
-          {/* NOVOS CONTATOS */}
-          <InfoCard
-            title={i18n.t("dashboard.newContacts")}
-            value={ticketsData.ticketStatistics?.newContacts || 0}
-            icon={<GroupAddIcon style={{ fontSize: 40 }} />}
-          />
-
-          {/* T.M. DE ATENDIMENTO */}
-          <InfoCard
-            title={i18n.t("dashboard.avgServiceTime")}
-            value={formatTimeInterval(
-              ticketsData.ticketStatistics?.avgServiceTime
-            )}
-            icon={<TimerIcon style={{ fontSize: 40 }} />}
-          />
-
-          {/* T.M. DE ESPERA */}
-          <InfoCard
-            title={i18n.t("dashboard.avgWaitTime")}
-            value={formatTimeInterval(
-              ticketsData.ticketStatistics?.avgWaitTime
-            )}
-            icon={<HourglassEmptyIcon style={{ fontSize: 40 }} />}
-          />
-
-          {/* DASHBOARD ATENDIMENTOS NO PERÍODO */}
-          <Grid item xs={12}>
-            <Paper className={classes.fixedHeightPaper}>
+    <div className="ew-ui pagina-painel" style={identidade}>
+      <header className="painel-cabecalho">
+        <CabecalhoPagina
+          titulo={i18n.t("redesign.visaoGeral")}
+          descricao={i18n.t("redesign.descricaoPainel")}
+        />
+        <Botao
+          onClick={() => {
+            fetchData();
+            updateStatus();
+          }}
+        >
+          <RefreshCw size={16} />
+          {i18n.t("visual.atualizar")}
+        </Botao>
+      </header>
+      <Tabs.Root defaultValue="resumo">
+        <Tabs.List className="ew-tabs" aria-label={i18n.t("visual.resumo")}>
+          <Tabs.Trigger className="ew-tab" value="resumo">
+            <LayoutDashboard size={15} />
+            {i18n.t("visual.resumo")}
+          </Tabs.Trigger>
+          <Tabs.Trigger className="ew-tab" value="aoVivo">
+            <Radio size={15} />
+            {i18n.t("visual.aoVivo")}
+          </Tabs.Trigger>
+          <Tabs.Trigger className="ew-tab" value="desempenho">
+            <ChartNoAxesCombined size={15} />
+            {i18n.t("visual.desempenho")}
+          </Tabs.Trigger>
+        </Tabs.List>
+        <section
+          className="painel-card painel-filtros"
+          aria-label={i18n.t("visual.periodo")}
+        >
+          <Grid container spacing={3}>
+            {renderFilters()}
+          </Grid>
+        </section>
+        <Tabs.Content value="resumo">
+          <div className="painel-indicadores">
+            <Indicador
+              titulo={i18n.t("dashboard.ticketsOpen")}
+              valor={openedTotal}
+            />
+            <Indicador
+              titulo={i18n.t("dashboard.ticketsWaiting")}
+              valor={pendingTotal}
+            />
+            <Indicador
+              titulo={i18n.t("dashboard.ticketsDone")}
+              valor={ticketsData.ticketStatistics?.totalClosed ?? "—"}
+            />
+            <Indicador
+              titulo={i18n.t("dashboard.newContacts")}
+              valor={ticketsData.ticketStatistics?.newContacts ?? "—"}
+            />
+            <Indicador
+              titulo={i18n.t("dashboard.avgServiceTime")}
+              valor={formatTimeInterval(
+                ticketsData.ticketStatistics?.avgServiceTime
+              )}
+            />
+            <Indicador
+              titulo={i18n.t("dashboard.avgWaitTime")}
+              valor={formatTimeInterval(
+                ticketsData.ticketStatistics?.avgWaitTime
+              )}
+            />
+          </div>
+          <div className="painel-graficos">
+            <section className="painel-card painel-grafico">
               <TicketCountersChart
                 ticketCounters={ticketsData.ticketCounters}
               />
-            </Paper>
-          </Grid>
-
-          {/* USER REPORT */}
-          <Grid item xs={12}>
-            {usersData.userReport?.length ? (
-              <TableAttendantsStatus
-                attendants={usersData.userReport}
-                loading={loadingUsers}
-              />
-            ) : null}
-          </Grid>
-        </Grid>
-      </Container>
+            </section>
+            <section className="painel-card">
+              <h2>{i18n.t("visual.filasAgora")}</h2>
+              <p>{i18n.t("visual.distribuicaoFilas")}</p>
+              <div className="painel-rosca">
+                <SmallPie chartData={openedChartData} size={160} />
+                <strong>{openedTotal}</strong>
+              </div>
+              <div className="painel-legenda">
+                {openedChartData.map((fila, indice) => (
+                  <div key={`${fila.name}-${indice}`}>
+                    <i style={{ background: fila.color }} />
+                    <span>{fila.name}</span>
+                    <b>{fila.value}</b>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+          <section className="painel-card painel-tabela">
+            <h2>{i18n.t("visual.desempenho")}</h2>
+            <TableAttendantsStatus
+              attendants={usersData.userReport || []}
+              loading={loadingUsers}
+            />
+          </section>
+        </Tabs.Content>
+        <Tabs.Content value="aoVivo">
+          <div className="painel-indicadores painel-indicadores--tres">
+            <Indicador
+              titulo={i18n.t("dashboard.usersOnline")}
+              valor={`${usersOnlineTotal}/${usersOnlineTotal + usersOfflineTotal}`}
+            />
+            <Indicador
+              titulo={i18n.t("dashboard.ticketsWaiting")}
+              valor={pendingTotal}
+            />
+            <Indicador
+              titulo={i18n.t("dashboard.ticketsOpen")}
+              valor={openedTotal}
+            />
+          </div>
+          <FilasAoVivo abertas={openedChartData} pendentes={pendingChartData} />
+          <section className="painel-card painel-tabela">
+            <h2>{i18n.t("visual.atendentes")}</h2>
+            <TableAttendantsStatus
+              attendants={usersData.userReport || []}
+              loading={loadingUsers}
+            />
+          </section>
+        </Tabs.Content>
+        <Tabs.Content value="desempenho">
+          <section className="painel-card painel-tabela">
+            <h2>{i18n.t("visual.desempenho")}</h2>
+            <TableAttendantsStatus
+              attendants={usersData.userReport || []}
+              loading={loadingUsers}
+            />
+          </section>
+          <section className="painel-card painel-grafico">
+            <TicketCountersChart ticketCounters={ticketsData.ticketCounters} />
+          </section>
+        </Tabs.Content>
+      </Tabs.Root>
     </div>
   );
 };
-
 export default Dashboard;

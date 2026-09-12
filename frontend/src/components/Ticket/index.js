@@ -21,8 +21,6 @@ import { TagsContainer } from "../TagsContainer";
 import { SocketContext } from "../../context/Socket/SocketContext";
 import useSettings from "../../hooks/useSettings";
 
-const drawerWidth = 320;
-
 const useStyles = makeStyles(theme => ({
   root: {
     display: "flex",
@@ -37,9 +35,8 @@ const useStyles = makeStyles(theme => ({
     display: "flex",
     flexDirection: "column",
     overflow: "hidden",
-    borderTopLeftRadius: 0,
-    borderBottomLeftRadius: 0,
-    borderLeft: "0",
+    borderRadius: 16,
+    border: `1px solid ${theme.palette.divider}`,
     transition: theme.transitions.create("margin", {
       easing: theme.transitions.easing.sharp,
       duration: theme.transitions.duration.leavingScreen
@@ -47,13 +44,13 @@ const useStyles = makeStyles(theme => ({
   },
 
   mainWrapperShift: {
-    borderTopRightRadius: 0,
-    borderBottomRightRadius: 0,
+    borderTopRightRadius: 16,
+    borderBottomRightRadius: 16,
     transition: theme.transitions.create("margin", {
       easing: theme.transitions.easing.easeOut,
       duration: theme.transitions.duration.enteringScreen
     }),
-    marginRight: 0
+    marginRight: 10
   },
   drawerShade: {
     display: "none",

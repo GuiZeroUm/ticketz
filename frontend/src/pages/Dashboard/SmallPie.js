@@ -3,11 +3,11 @@ import React from "react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import CustomTooltip from "./CustomTooltip";
 
-export function SmallPie({ chartData }) {
+export function SmallPie({ chartData, size = 100 }) {
   const theme = useTheme();
 
   return (
-    <div style={{ width: "100px", height: "100px" }}>
+    <div style={{ width: size, height: size }}>
       <ResponsiveContainer>
         <PieChart>
           <Pie

@@ -35,7 +35,7 @@ import VisibilityIcon from "@material-ui/icons/Visibility";
 import TicketMessagesDialog from "../TicketMessagesDialog";
 import DoneIcon from "@material-ui/icons/Done";
 import ClearOutlinedIcon from "@material-ui/icons/ClearOutlined";
-import { generateColor } from "../../helpers/colorGenerator";
+import { corAvatar as generateColor } from "../../helpers/coresAvatar";
 import { getInitials } from "../../helpers/getInitials";
 import pastRelativeDate from "../../helpers/pastRelativeDate";
 import TagsLine from "../TagsLine";
@@ -114,7 +114,7 @@ const useStyles = makeStyles(theme => ({
 
   badgeStyle: {
     color: "white",
-    backgroundColor: green[500],
+    backgroundColor: theme.palette.primary.main,
     right: 0,
     top: 10
   },
@@ -126,7 +126,7 @@ const useStyles = makeStyles(theme => ({
 
   ticketQueueColor: {
     flex: "none",
-    width: "8px",
+    width: "3px",
     height: "100%",
     position: "absolute",
     top: "0%",

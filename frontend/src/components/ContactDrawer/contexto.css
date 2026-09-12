@@ -1,9 +1,10 @@
 .contexto-tabs {
-  margin-top: 16px;
+  margin-top: 0;
 }
 .contexto-tabs .ew-tabs {
   width: 100%;
   padding: 3px;
+  margin-bottom: 12px;
   gap: 2px;
   flex-wrap: nowrap;
 }
@@ -68,4 +69,26 @@
   color: var(--ew-primary);
   font-size: 11px;
   text-decoration: none;
+}
+
+.contexto-perfil {
+  margin: 8px 0 16px;
+  text-align: center;
+}
+.contexto-perfil .MuiCardHeader-root {
+  flex-direction: column;
+}
+.contexto-perfil .MuiCardHeader-avatar {
+  margin: 0 0 12px;
+}
+.contexto-perfil .MuiCardHeader-content {
+  width: 100%;
+}
+.contexto-perfil .MuiCardHeader-title .MuiTypography-root {
+  font-size: 15px;
+  font-weight: 600;
+}
+.contexto-perfil .MuiCardHeader-subheader {
+  margin-top: 6px;
+  color: var(--ew-muted);
 }

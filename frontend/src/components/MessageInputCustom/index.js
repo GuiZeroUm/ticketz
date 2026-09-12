@@ -64,25 +64,30 @@ const useStyles = makeStyles(theme => ({
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    borderTop: "1px solid rgba(0, 0, 0, 0.12)"
+    borderTop: `1px solid ${theme.palette.divider}`
   },
 
   newMessageBox: {
-    width: "100%",
+    width: "calc(100% - 24px)",
+    margin: "12px",
     display: "flex",
-    padding: "7px",
-    alignItems: "center"
-  },
-
-  messageInputWrapper: {
-    padding: 6,
-    marginRight: 7,
-    //background: "#fff",
+    flexWrap: "wrap",
+    padding: "6px",
+    alignItems: "center",
     border: `1px solid ${theme.palette.divider}`,
+    borderRadius: 14,
     backgroundColor: theme.palette.background.paper,
-    display: "flex",
-    borderRadius: 12,
-    flex: 1
+    "& > .MuiIconButton-root": { padding: 8 },
+    "& > label .MuiIconButton-root": { padding: 8 },
+    "& > .MuiIconButton-root:last-child": { marginLeft: "auto" }
+  },
+  messageInputWrapper: {
+    padding: "8px 4px",
+    minWidth: 0,
+    minHeight: 64,
+    order: -1,
+    flexBasis: "100%",
+    display: "flex"
   },
 
   messageInput: {
@@ -115,7 +120,8 @@ const useStyles = makeStyles(theme => ({
 
   emojiBox: {
     position: "absolute",
-    bottom: 63,
+    bottom: 150,
+    zIndex: 5,
     width: 40,
     borderTop: "1px solid #e8e8e8"
   },
@@ -196,8 +202,8 @@ const useStyles = makeStyles(theme => ({
 
   iconSwitch: {
     color: props => (props.value ? theme.palette.primary.main : "gray"),
-    width: 48,
-    height: 48
+    width: 36,
+    height: 36
   },
 
   formatMenu: {
@@ -669,6 +675,7 @@ const CustomInput = props => {
                 placeholder={renderPlaceholder()}
                 multiline
                 className={classes.messageInput}
+                minRows={2}
                 maxRows={5}
                 endAdornment={
                   isMobile() && (

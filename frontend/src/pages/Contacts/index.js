@@ -1,73 +1,44 @@
 import * as Tabs from "@radix-ui/react-tabs";
-import { Users, UsersRound } from "lucide-react";
-import { useIdentidade } from "../../components/interface";
+import {
+  Users,
+  UsersRound,
+  Upload,
+  Download,
+  Plus,
+  MessageCircle
+} from "lucide-react";
+import { Botao, useIdentidade } from "../../components/interface";
 import React, { useState, useEffect, useReducer, useContext } from "react";
 
 import { toast } from "react-toastify";
 import { useHistory } from "react-router-dom";
 
 import { makeStyles } from "@material-ui/core/styles";
-import Table from "@material-ui/core/Table";
-import TableBody from "@material-ui/core/TableBody";
-import TableCell from "@material-ui/core/TableCell";
-import TableHead from "@material-ui/core/TableHead";
-import TableRow from "@material-ui/core/TableRow";
-import Paper from "@material-ui/core/Paper";
-import Button from "@material-ui/core/Button";
-import Avatar from "@material-ui/core/Avatar";
-import WhatsAppIcon from "@material-ui/icons/WhatsApp";
-import SearchIcon from "@material-ui/icons/Search";
-import TextField from "@material-ui/core/TextField";
-import InputAdornment from "@material-ui/core/InputAdornment";
-
-import IconButton from "@material-ui/core/IconButton";
-import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
-import EditIcon from "@material-ui/icons/Edit";
-
 import api from "../../services/api";
-import TableRowSkeleton from "../../components/TableRowSkeleton";
+import TabelaContatos from "./TabelaContatos";
+import MenuAcoes from "../../components/interface/MenuAcoes";
 import ContactModal from "../../components/ContactModal";
 import ConfirmationModal from "../../components/ConfirmationModal/";
 
 import { i18n } from "../../translate/i18n";
 import MainHeader from "../../components/MainHeader";
 import CabecalhoPagina from "../../components/CabecalhoPagina";
-import MainHeaderButtonsWrapper from "../../components/MainHeaderButtonsWrapper";
 import MainContainer from "../../components/MainContainer";
 import toastError from "../../errors/toastError";
 import { AuthContext } from "../../context/Auth/AuthContext";
-import { Can } from "../../components/Can";
 import { SocketContext } from "../../context/Socket/SocketContext";
-import { generateColor } from "../../helpers/colorGenerator";
-import { getInitials } from "../../helpers/getInitials";
 
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCloudArrowUp } from "@fortawesome/free-solid-svg-icons";
-import { faDownload } from "@fortawesome/free-solid-svg-icons";
 import {
   FormControl,
   Grid,
   InputLabel,
   MenuItem,
-  Select,
-  Tooltip
+  Select
 } from "@material-ui/core";
 
 const reducer = (state, action) => {
   if (action.type === "LOAD_CONTACTS") {
-    const contacts = action.payload;
-    const newContacts = [];
-
-    contacts.forEach(contact => {
-      const contactIndex = state.findIndex(c => c.id === contact.id);
-      if (contactIndex !== -1) {
-        state[contactIndex] = contact;
-      } else {
-        newContacts.push(contact);
-      }
-    });
-
-    return [...state, ...newContacts];
+    return action.payload;
   }
 
   if (action.type === "UPDATE_CONTACTS") {
@@ -97,42 +68,8 @@ const reducer = (state, action) => {
   }
 };
 
-const useStyles = makeStyles(theme => ({
-  barraBusca: {
-    padding: 12,
-    marginBottom: 12,
-    border: `1px solid ${theme.palette.divider}`,
-    borderRadius: 12,
-    backgroundColor: theme.palette.background.paper,
-    "& .MuiTextField-root": { maxWidth: 440 }
-  },
-  mainPaper: {
-    flex: 1,
-    padding: theme.spacing(1),
-    overflowY: "scroll",
-    ...theme.scrollbarStyles
-  },
-
-  selectContainer: {
-    width: "100%",
-    textAlign: "left"
-  },
-  tagsdiv: {
-    display: "flex",
-    maxWidth: 350,
-    flexWrap: "wrap"
-  },
-  tag: {
-    marginTop: 3,
-    borderRadius: 15,
-    padding: "2px 15px",
-    marginRight: 5,
-    textWrapMode: "nowrap",
-    maxWidth: 150,
-    overflow: "hidden",
-    textOverflow: "ellipsis"
-  },
-  contactName: {}
+const useStyles = makeStyles(() => ({
+  selectContainer: { width: "100%", textAlign: "left" }
 }));
 
 const Contacts = () => {
@@ -155,13 +92,16 @@ const Contacts = () => {
   const [connections, setConnections] = useState([]);
   const [importConnectionId, setImportConnectionId] = useState("");
   const [hasMore, setHasMore] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [selecao, setSelecao] = useState({});
+  const [atualizacao, setAtualizacao] = useState(0);
 
   const socketManager = useContext(SocketContext);
 
   useEffect(() => {
     api.get("/whatsapp").then(({ data }) => {
       setConnections(data);
-      data.map(connection => {
+      data.forEach(connection => {
         if (connection.channel === "whatsapp" && connection.isDefault) {
           setImportConnectionId(connection.id);
         }
@@ -186,6 +126,7 @@ const Contacts = () => {
           if (!ativo) return;
           dispatch({ type: "LOAD_CONTACTS", payload: data.contacts });
           setHasMore(data.hasMore);
+          setTotal(data.count ?? data.contacts.length);
           setLoading(false);
         } catch (err) {
           if (ativo) {
@@ -200,23 +141,17 @@ const Contacts = () => {
       ativo = false;
       clearTimeout(delayDebounceFn);
     };
-  }, [searchParam, pageNumber, segmento]);
+  }, [searchParam, pageNumber, segmento, atualizacao]);
+
+  useEffect(() => setSelecao({}), [searchParam, pageNumber, segmento]);
 
   useEffect(() => {
     const companyId = localStorage.getItem("companyId");
     const socket = socketManager.GetSocket(companyId);
 
     const onContact = data => {
-      if (
-        !searchParam &&
-        ["update", "create"].includes(data.action) &&
-        !!data.contact.isGroup === (segmento === "grupos")
-      ) {
-        dispatch({ type: "UPDATE_CONTACTS", payload: data.contact });
-      }
-
-      if (data.action === "delete") {
-        dispatch({ type: "DELETE_CONTACT", payload: +data.contactId });
+      if (["update", "create", "delete"].includes(data.action)) {
+        setAtualizacao(valor => valor + 1);
       }
     };
 
@@ -225,7 +160,7 @@ const Contacts = () => {
     return () => {
       socket.disconnect();
     };
-  }, [socketManager, searchParam, segmento]);
+  }, [socketManager]);
 
   const handleSearch = event => {
     setSearchParam(event.target.value.toLowerCase());
@@ -250,6 +185,7 @@ const Contacts = () => {
     try {
       await api.delete(`/contacts/${contactId}`);
       toast.success(i18n.t("contacts.toasts.deleted"));
+      setAtualizacao(valor => valor + 1);
     } catch (err) {
       toastError(err);
     }
@@ -267,18 +203,6 @@ const Contacts = () => {
     }
   };
 
-  const loadMore = () => {
-    setPageNumber(prevState => prevState + 1);
-  };
-
-  const handleScroll = e => {
-    if (!hasMore || loading) return;
-    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-    if (scrollHeight - (scrollTop + 100) < clientHeight) {
-      loadMore();
-    }
-  };
-
   const importCsv = async () => {
     const fileInput = document.createElement("input");
     fileInput.type = "file";
@@ -286,6 +210,7 @@ const Contacts = () => {
     fileInput.click();
     fileInput.onchange = async e => {
       const file = e.target.files[0];
+      if (!file) return;
       const formData = new FormData();
       formData.append("contacts", file);
       try {
@@ -318,6 +243,8 @@ const Contacts = () => {
       link.setAttribute("download", "contacts.csv");
       document.body.appendChild(link);
       link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
     } catch (err) {
       toastError(err);
     }
@@ -381,48 +308,41 @@ const Contacts = () => {
       <MainHeader>
         <CabecalhoPagina
           titulo={i18n.t("contacts.title")}
-          descricao={i18n.t("redesign.descricaoContatos")}
+          descricao={i18n.t("visual.descricaoContatos")}
         />
-        <MainHeaderButtonsWrapper>
+        <div
+          className="ew-ui"
+          style={{ ...identidade, display: "flex", gap: 8 }}
+        >
           {user?.profile === "admin" && (
-            <>
-              <Button
-                variant="outlined"
-                color="primary"
-                aria-label={i18n.t("redesign.importarCsv")}
-                onClick={() => importCsv()}
-              >
-                &nbsp;
-                <FontAwesomeIcon icon={faCloudArrowUp} />
-                &nbsp;
-              </Button>
-              <Button
-                variant="outlined"
-                color="primary"
-                aria-label={i18n.t("redesign.exportarCsv")}
-                onClick={() => exportCsv()}
-              >
-                &nbsp;
-                <FontAwesomeIcon icon={faDownload} />
-                &nbsp;
-              </Button>
-              <Button
-                variant="outlined"
-                color="primary"
-                onClick={() => setImportConfirmOpen(true)}
-              >
-                {i18n.t("contacts.buttons.import")}
-              </Button>
-            </>
+            <MenuAcoes
+              compacto={false}
+              icone={Upload}
+              rotulo={i18n.t("visual.importar")}
+              itens={[
+                {
+                  rotulo: i18n.t("redesign.importarCsv"),
+                  icone: Upload,
+                  aoSelecionar: importCsv
+                },
+                {
+                  rotulo: i18n.t("contacts.buttons.import"),
+                  icone: MessageCircle,
+                  aoSelecionar: () => setImportConfirmOpen(true)
+                },
+                {
+                  rotulo: i18n.t("redesign.exportarCsv"),
+                  icone: Download,
+                  aoSelecionar: exportCsv
+                }
+              ]}
+            />
           )}
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleOpenContactModal}
-          >
-            {i18n.t("contacts.buttons.add")}
-          </Button>
-        </MainHeaderButtonsWrapper>
+          <Botao variante="primary" onClick={handleOpenContactModal}>
+            <Plus size={16} />
+            {i18n.t("visual.novoContato")}
+          </Botao>
+        </div>
       </MainHeader>
       <Tabs.Root
         value={segmento}
@@ -437,152 +357,36 @@ const Contacts = () => {
           <Tabs.Trigger value="contatos" className="ew-tab">
             <Users size={15} />
             {i18n.t("contacts.title")}
+            {segmento === "contatos" && (
+              <span className="ew-badge ew-badge--brand">{total}</span>
+            )}
           </Tabs.Trigger>
           <Tabs.Trigger value="grupos" className="ew-tab">
             <UsersRound size={15} />
             {i18n.t("contexto.grupos")}
+            {segmento === "grupos" && <span className="ew-badge">{total}</span>}
           </Tabs.Trigger>
         </Tabs.List>
       </Tabs.Root>
-      <div className={classes.barraBusca}>
-        <TextField
-          variant="outlined"
-          size="small"
-          fullWidth
-          placeholder={i18n.t("contacts.searchPlaceholder")}
-          type="search"
-          value={searchParam}
-          onChange={handleSearch}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon style={{ color: "gray" }} />
-              </InputAdornment>
-            )
-          }}
-        />
-      </div>
-      <Paper
-        className={classes.mainPaper}
-        variant="outlined"
-        onScroll={handleScroll}
-      >
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell padding="checkbox" />
-              <TableCell className={classes.contactName}>
-                {i18n.t("contacts.table.name")}
-              </TableCell>
-              <TableCell align="center">
-                {i18n.t("contacts.table.whatsapp")}
-              </TableCell>
-              <TableCell align="center">
-                {i18n.t("contacts.table.nickname")}
-              </TableCell>
-              <TableCell align="center">
-                {i18n.t("contacts.table.birthday")}
-              </TableCell>
-              <TableCell align="center">
-                {i18n.t("contacts.table.email")}
-              </TableCell>
-              <TableCell align="center">
-                {i18n.t("contacts.table.actions")}
-              </TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            <>
-              {contacts.map(contact => (
-                <TableRow hover key={contact.id}>
-                  <TableCell style={{ paddingRight: 0 }}>
-                    {
-                      <Avatar
-                        style={{
-                          backgroundColor: generateColor(contact?.number),
-                          fontWeight: "bold",
-                          color: "white"
-                        }}
-                        src={contact.profilePicUrl}
-                      >
-                        {getInitials(contact?.name)}
-                      </Avatar>
-                    }
-                  </TableCell>
-                  <TableCell className={classes.contactName}>
-                    {contact.name}
-                    <div className={classes.tagsdiv}>
-                      {contact.tags.map(tag => (
-                        <Tooltip title={tag.name} placement="top" arrow>
-                          <div
-                            key={tag.id}
-                            className={classes.tag}
-                            style={{
-                              backgroundColor: tag.color
-                            }}
-                          >
-                            {tag.name}
-                          </div>
-                        </Tooltip>
-                      ))}
-                    </div>
-                  </TableCell>
-                  <TableCell align="center">{contact.number}</TableCell>
-                  <TableCell align="center">
-                    {contact.nickname || "—"}
-                  </TableCell>
-                  <TableCell align="center">
-                    {contact.birthdayDay && contact.birthdayMonth
-                      ? `${String(contact.birthdayDay).padStart(2, "0")}/${String(
-                          contact.birthdayMonth
-                        ).padStart(2, "0")}`
-                      : "—"}
-                  </TableCell>
-                  <TableCell align="center">{contact.email}</TableCell>
-                  <TableCell align="center">
-                    {!contact.isGroup && (
-                      <IconButton
-                        size="small"
-                        onClick={() =>
-                          window.mentionClick({
-                            contactId: contact.id,
-                            name: contact?.name,
-                            number: contact?.number
-                          })
-                        }
-                      >
-                        <WhatsAppIcon />
-                      </IconButton>
-                    )}
-                    <IconButton
-                      size="small"
-                      onClick={() => hadleEditContact(contact.id)}
-                    >
-                      <EditIcon />
-                    </IconButton>
-                    <Can
-                      role={user.profile}
-                      perform="contacts-page:deleteContact"
-                      yes={() => (
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            setDeleteConfirmOpen(true);
-                            setDeletingContact(contact);
-                          }}
-                        >
-                          <DeleteOutlineIcon />
-                        </IconButton>
-                      )}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
-              {loading && <TableRowSkeleton avatar columns={5} />}
-            </>
-          </TableBody>
-        </Table>
-      </Paper>
+      <TabelaContatos
+        contatos={contacts}
+        carregando={loading}
+        total={total}
+        pagina={pageNumber}
+        proxima={hasMore}
+        aoPaginar={setPageNumber}
+        busca={searchParam}
+        aoBuscar={handleSearch}
+        aoAtualizar={() => setAtualizacao(valor => valor + 1)}
+        selecao={selecao}
+        aoSelecionar={setSelecao}
+        editar={hadleEditContact}
+        excluir={contact => {
+          setDeletingContact(contact);
+          setDeleteConfirmOpen(true);
+        }}
+        administrador={user.profile === "admin"}
+      />
     </MainContainer>
   );
 };

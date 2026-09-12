@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import CentralConfiguracoes from "../../components/Settings/CentralConfiguracoes";
-import { ArrowLeft } from "lucide-react";
 import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
 import CabecalhoPagina from "../../components/CabecalhoPagina";
@@ -76,7 +75,6 @@ const useStyles = makeStyles(theme => ({
 
 const SettingsCustom = () => {
   const classes = useStyles();
-  const [tab, setTab] = useState("central");
   const [schedules, setSchedules] = useState({});
   const [company, setCompany] = useState({});
   const [loading, setLoading] = useState(false);
@@ -125,35 +123,20 @@ const SettingsCustom = () => {
       .catch(() => setVoiceAvailable(false));
   }, []);
 
-  const handleTabChange = (event, newValue) => {
-    async function findData() {
-      setLoading(true);
-      try {
-        const companyId = localStorage.getItem("companyId");
-        const company = await find(companyId);
-        const settingList = await getAllSettings();
-        setCompany(company);
-        setSchedules(company.schedules);
-        setSettings(settingList);
-
-        if (Array.isArray(settingList)) {
-          const scheduleType = settingList.find(d => d.key === "scheduleType");
-          if (scheduleType) {
-            setSchedulesEnabled(scheduleType.value === "company");
-          }
-        }
-
-        const user = await getCurrentUserInfo();
-        setCurrentUser(user);
-      } catch (e) {
-        toast.error(e);
+  const atualizarConfiguracoes = async () => {
+    try {
+      const lista = await getAllSettings();
+      if (Array.isArray(lista)) {
+        setSettings(lista);
+        setSchedulesEnabled(
+          lista.some(
+            item => item.key === "scheduleType" && item.value === "company"
+          )
+        );
       }
-      setLoading(false);
+    } catch (erro) {
+      toast.error(erro);
     }
-    findData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-
-    setTab(newValue);
   };
 
   const handleSubmitSchedules = async data => {
@@ -176,163 +159,130 @@ const SettingsCustom = () => {
     return currentUser.profile === "admin";
   };
 
+  const renderizarSecao = tab => (
+    <Paper
+      className={classes.paper}
+      elevation={0}
+      style={{ padding: 0, overflow: "visible", border: 0 }}
+    >
+      <TabPanel className={classes.container} value={tab} name={"schedules"}>
+        {isOpenHoursFormat(schedules) ? (
+          <>
+            <OpenHoursEditor value={schedules} onChange={setSchedules} />
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                marginTop: 16
+              }}
+            >
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={() => handleSubmitSchedules(schedules)}
+                disabled={loading}
+              >
+                {loading ? i18n.t("settings.saving") : i18n.t("common.save")}
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <Grid spacing={4} container>
+              <Grid item xs={12}>
+                <div>
+                  <Button
+                    variant="contained"
+                    color="secondary"
+                    onClick={() => setSchedules({})}
+                    disabled={loading}
+                  >
+                    ⚠️ {i18n.t("settings.schedules.updateToNewFormat")}
+                  </Button>
+                </div>
+              </Grid>
+            </Grid>
+            <SchedulesForm
+              loading={loading}
+              onSubmit={handleSubmitSchedules}
+              initialValues={schedules}
+            />
+          </>
+        )}
+      </TabPanel>
+      <TabPanel className={classes.container} value={tab} name={"whitelabel"}>
+        <Whitelabel settings={settings} />
+      </TabPanel>
+      <TabPanel className={classes.container} value={tab} name={"voiceCalls"}>
+        <VoiceSettings />
+      </TabPanel>
+      <TabPanel className={classes.container} value={tab} name={"helps"}>
+        <HelpsManager />
+      </TabPanel>
+      <OnlyForSuperUser
+        user={currentUser}
+        yes={() => (
+          <>
+            <TabPanel
+              className={classes.container}
+              value={tab}
+              name={"paymentGateway"}
+            >
+              <PaymentGateway settings={settings} />
+            </TabPanel>
+            <TabPanel className={classes.container} value={tab} name={"i18n"}>
+              <I18nSettings />
+            </TabPanel>
+            <TabPanel
+              className={classes.container}
+              value={tab}
+              name={"companies"}
+            >
+              <CompaniesManager />
+            </TabPanel>
+            <TabPanel className={classes.container} value={tab} name={"plans"}>
+              <PlansManager />
+            </TabPanel>
+            <TabPanel
+              className={classes.container}
+              value={tab}
+              name={"partners"}
+            >
+              <PartnersManager />
+            </TabPanel>
+          </>
+        )}
+      />
+      <TabPanel className={classes.container} value={tab} name={"options"}>
+        <Options
+          settings={settings}
+          scheduleTypeChanged={value =>
+            setSchedulesEnabled(value === "company")
+          }
+        />
+      </TabPanel>
+    </Paper>
+  );
+
   return (
-    <MainContainer className={classes.root}>
+    <MainContainer>
       <MainHeader>
         <CabecalhoPagina
           titulo={i18n.t("settings.title")}
           descricao={i18n.t("redesign.descricaoConfiguracoes")}
         />
       </MainHeader>
-      <Paper
-        className={classes.mainPaper}
-        elevation={0}
-        style={{ background: "transparent" }}
-      >
-        {tab === "central" ? (
-          <CentralConfiguracoes
-            selecionar={valor => handleTabChange(null, valor)}
-            superusuario={isSuper()}
-            administrador={isAdmin()}
-            horarios={schedulesEnabled}
-            voz={voiceAvailable}
-          />
-        ) : (
-          <Button
-            startIcon={<ArrowLeft size={16} />}
-            onClick={() => setTab("central")}
-            style={{ marginBottom: 16 }}
-          >
-            {i18n.t("centralConfig.voltar")}
-          </Button>
-        )}
-        <Paper
-          className={classes.paper}
-          elevation={0}
-          style={{ display: tab === "central" ? "none" : "flex" }}
-        >
-          <TabPanel
-            className={classes.container}
-            value={tab}
-            name={"schedules"}
-          >
-            {isOpenHoursFormat(schedules) ? (
-              <>
-                <OpenHoursEditor value={schedules} onChange={setSchedules} />
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    marginTop: 16
-                  }}
-                >
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    onClick={() => handleSubmitSchedules(schedules)}
-                    disabled={loading}
-                  >
-                    {loading
-                      ? i18n.t("settings.saving")
-                      : i18n.t("common.save")}
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <Grid spacing={4} container>
-                  <Grid item xs={12}>
-                    <div>
-                      <Button
-                        variant="contained"
-                        color="secondary"
-                        onClick={() => setSchedules({})}
-                        disabled={loading}
-                      >
-                        ⚠️ {i18n.t("settings.schedules.updateToNewFormat")}
-                      </Button>
-                    </div>
-                  </Grid>
-                </Grid>
-                <SchedulesForm
-                  loading={loading}
-                  onSubmit={handleSubmitSchedules}
-                  initialValues={schedules}
-                />
-              </>
-            )}
-          </TabPanel>
-          <TabPanel
-            className={classes.container}
-            value={tab}
-            name={"whitelabel"}
-          >
-            <Whitelabel settings={settings} />
-          </TabPanel>
-          <TabPanel
-            className={classes.container}
-            value={tab}
-            name={"voiceCalls"}
-          >
-            <VoiceSettings />
-          </TabPanel>
-          <TabPanel className={classes.container} value={tab} name={"helps"}>
-            <HelpsManager />
-          </TabPanel>
-          <OnlyForSuperUser
-            user={currentUser}
-            yes={() => (
-              <>
-                <TabPanel
-                  className={classes.container}
-                  value={tab}
-                  name={"paymentGateway"}
-                >
-                  <PaymentGateway settings={settings} />
-                </TabPanel>
-                <TabPanel
-                  className={classes.container}
-                  value={tab}
-                  name={"i18n"}
-                >
-                  <I18nSettings />
-                </TabPanel>
-                <TabPanel
-                  className={classes.container}
-                  value={tab}
-                  name={"companies"}
-                >
-                  <CompaniesManager />
-                </TabPanel>
-                <TabPanel
-                  className={classes.container}
-                  value={tab}
-                  name={"plans"}
-                >
-                  <PlansManager />
-                </TabPanel>
-                <TabPanel
-                  className={classes.container}
-                  value={tab}
-                  name={"partners"}
-                >
-                  <PartnersManager />
-                </TabPanel>
-              </>
-            )}
-          />
-          <TabPanel className={classes.container} value={tab} name={"options"}>
-            <Options
-              settings={settings}
-              scheduleTypeChanged={value =>
-                setSchedulesEnabled(value === "company")
-              }
-            />
-          </TabPanel>
-        </Paper>
-      </Paper>
+      <div style={{ overflow: "auto", flex: 1 }}>
+        <CentralConfiguracoes
+          conteudo={renderizarSecao}
+          aoAlternar={atualizarConfiguracoes}
+          superusuario={isSuper()}
+          administrador={isAdmin()}
+          horarios={schedulesEnabled}
+          voz={voiceAvailable}
+        />
+      </div>
     </MainContainer>
   );
 };
-
 export default SettingsCustom;

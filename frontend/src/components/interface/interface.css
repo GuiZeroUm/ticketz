@@ -252,3 +252,38 @@
   color: var(--ew-primary);
   background: color-mix(in srgb, var(--ew-primary) 8%, transparent);
 }
+
+.ew-tabs {
+  padding: 3px;
+  border: 0;
+  background: var(--ew-bg);
+  gap: 3px;
+  border-radius: 10px;
+  margin-bottom: 24px;
+}
+.ew-tab {
+  min-height: 34px;
+  border: 1px solid transparent;
+  font-size: 12px;
+  padding: 7px 12px;
+}
+.ew-tab[data-state="active"],
+.ew-tab-ativa {
+  background: var(--ew-surface);
+  border-color: var(--ew-border);
+  color: var(--ew-text);
+  box-shadow: 0 1px 3px #00000008;
+}
+.ew-button {
+  border-radius: 10px;
+}
+.ew-badge {
+  font-size: 11px;
+  padding: 3px 7px;
+  border: 0;
+  background: var(--ew-bg);
+}
+.ew-badge--brand {
+  color: var(--ew-primary);
+  background: color-mix(in srgb, var(--ew-primary) 9%, var(--ew-surface));
+}

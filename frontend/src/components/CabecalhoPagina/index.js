@@ -2,7 +2,11 @@ import React from "react";
 import { Typography, makeStyles } from "@material-ui/core";
 
 const useStyles = makeStyles(tema => ({
-  titulo: { minWidth: 0, flex: 1 },
+  titulo: {
+    minWidth: 0,
+    flex: 1,
+    [tema.breakpoints.down("xs")]: { flexBasis: "100%" }
+  },
   descricao: {
     maxWidth: 640,
     marginTop: 4,

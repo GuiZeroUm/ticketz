@@ -1,6 +1,8 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import * as Tabs from "@radix-ui/react-tabs";
+import * as Accordion from "@radix-ui/react-accordion";
+import ResumoFilas from "./ResumoFilas";
 import {
   Workflow,
   Clock,
@@ -15,6 +17,7 @@ import {
   BookOpen,
   SlidersHorizontal,
   Phone,
+  ChevronDown,
   ArrowUpRight
 } from "lucide-react";
 import { i18n } from "../../translate/i18n";
@@ -22,7 +25,8 @@ import { useIdentidade } from "../interface";
 import "./central.css";
 
 export default function CentralConfiguracoes({
-  selecionar,
+  conteudo,
+  aoAlternar,
   superusuario,
   administrador,
   horarios,
@@ -32,6 +36,7 @@ export default function CentralConfiguracoes({
   const grupos = [
     {
       id: "atendimento",
+      icone: MessageSquare,
       itens: [
         { chave: "filas", icone: Workflow, to: "/queues" },
         { chave: "fluxos", icone: Workflow, to: "/fluxos" },
@@ -47,6 +52,7 @@ export default function CentralConfiguracoes({
     },
     {
       id: "equipe",
+      icone: Users,
       itens: [
         { chave: "usuarios", icone: Users, to: "/users" },
         ...(administrador
@@ -56,6 +62,7 @@ export default function CentralConfiguracoes({
     },
     {
       id: "canais",
+      icone: Plug,
       itens: [
         { chave: "conexoes", icone: Plug, to: "/connections" },
         { chave: "integracoes", icone: Plug, to: "/chatgpt" },
@@ -68,6 +75,7 @@ export default function CentralConfiguracoes({
       ? [
           {
             id: "administracao",
+            icone: Building,
             itens: [
               { chave: "empresas", icone: Building, aba: "companies" },
               { chave: "planos", icone: CreditCard, aba: "plans" },
@@ -91,50 +99,58 @@ export default function CentralConfiguracoes({
       >
         {grupos.map(grupo => (
           <Tabs.Trigger key={grupo.id} value={grupo.id} className="ew-tab">
+            <grupo.icone size={15} />
             {i18n.t(`centralConfig.${grupo.id}`)}
           </Tabs.Trigger>
         ))}
       </Tabs.List>
       {grupos.map(grupo => (
         <Tabs.Content key={grupo.id} value={grupo.id}>
-          <div className="central-config-grade">
-            {grupo.itens.map(item => {
-              const Conteudo = (
-                <>
-                  <span className="central-config-icone">
-                    <item.icone size={21} />
-                  </span>
-                  <span className="central-config-texto">
-                    <strong>
-                      {i18n.t(`centralConfig.itens.${item.chave}.titulo`)}
-                    </strong>
-                    <span>
-                      {i18n.t(`centralConfig.itens.${item.chave}.descricao`)}
+          <Accordion.Root
+            type="multiple"
+            onValueChange={aoAlternar}
+            defaultValue={grupo.id === "atendimento" ? ["filas"] : []}
+            className="central-config-secoes"
+          >
+            {grupo.itens.map(item => (
+              <Accordion.Item
+                key={item.chave}
+                value={item.chave}
+                className="central-config-secao"
+              >
+                <Accordion.Header className="central-config-cabecalho">
+                  <Accordion.Trigger className="central-config-gatilho">
+                    <span className="central-config-icone">
+                      <item.icone size={20} />
                     </span>
-                  </span>
-                  <ArrowUpRight size={16} />
-                </>
-              );
-              return item.to ? (
-                <Link
-                  key={item.chave}
-                  to={item.to}
-                  className="central-config-card"
-                >
-                  {Conteudo}
-                </Link>
-              ) : (
-                <button
-                  key={item.chave}
-                  type="button"
-                  className="central-config-card"
-                  onClick={() => selecionar(item.aba)}
-                >
-                  {Conteudo}
-                </button>
-              );
-            })}
-          </div>
+                    <span className="central-config-texto">
+                      <strong>
+                        {i18n.t(`centralConfig.itens.${item.chave}.titulo`)}
+                      </strong>
+                      <span>
+                        {i18n.t(`centralConfig.itens.${item.chave}.descricao`)}
+                      </span>
+                    </span>
+                    <ChevronDown size={17} className="central-config-seta" />
+                  </Accordion.Trigger>
+                </Accordion.Header>
+                <Accordion.Content className="central-config-conteudo">
+                  <div>
+                    {item.chave === "filas" ? (
+                      <ResumoFilas />
+                    ) : item.to ? (
+                      <Link to={item.to} className="ew-button">
+                        {i18n.t(`centralConfig.itens.${item.chave}.titulo`)}
+                        <ArrowUpRight size={15} />
+                      </Link>
+                    ) : (
+                      conteudo(item.aba)
+                    )}
+                  </div>
+                </Accordion.Content>
+              </Accordion.Item>
+            ))}
+          </Accordion.Root>
         </Tabs.Content>
       ))}
     </Tabs.Root>

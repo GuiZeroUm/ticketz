@@ -6,7 +6,7 @@ import { Lightbox } from "react-modal-image";
 import { i18n } from "../../translate/i18n";
 import { formatWhatsappContactName } from "../../helpers/formatWhatsappDisplay";
 import { getInitials } from "../../helpers/getInitials";
-import { generateColor } from "../../helpers/colorGenerator";
+import { corAvatar as generateColor } from "../../helpers/coresAvatar";
 
 const TicketInfo = ({ contact, ticket, onClick }) => {
   const { user } = ticket;

@@ -47,18 +47,28 @@ export default function Fluxos() {
           overflow: "auto"
         }}
       >
-        <header className="fluxo-toolbar">
-          <div>
-            <Workflow size={22} />
-            <h1 style={{ fontSize: 24, margin: 0 }}>
-              {i18n.t("fluxos.titulo")}
-            </h1>
-          </div>
-          <div>
+        <h1 className="ew-sr-only">{i18n.t("fluxos.titulo")}</h1>
+        <div className="fluxos-navegacao">
+          <Tabs.Root value="editor">
+            <Tabs.List className="ew-tabs" aria-label={i18n.t("fluxos.secoes")}>
+              <Tabs.Trigger className="ew-tab" value="editor">
+                <Workflow size={15} />
+                {i18n.t("fluxos.editor")}
+              </Tabs.Trigger>
+              <Link className="ew-tab" to="/queues">
+                <Settings2 size={15} />
+                {i18n.t("fluxos.filasCanais")}
+              </Link>
+              <Link className="ew-tab" to="/chatgpt">
+                <Plug size={15} />
+                {i18n.t("fluxos.integracoes")}
+              </Link>
+            </Tabs.List>
+          </Tabs.Root>
+          <div className="fluxos-seletor">
             {!!filas.length && (
               <select
                 className="ew-select"
-                style={{ width: 200 }}
                 aria-label={i18n.t("fluxos.selecionarFluxo")}
                 value={filaAtual?.id || ""}
                 onChange={event =>
@@ -77,23 +87,7 @@ export default function Fluxos() {
               {i18n.t("fluxos.novoFluxo")}
             </Botao>
           </div>
-        </header>
-        <Tabs.Root value="editor">
-          <Tabs.List className="ew-tabs" aria-label={i18n.t("fluxos.secoes")}>
-            <Tabs.Trigger className="ew-tab" value="editor">
-              <Workflow size={15} />
-              {i18n.t("fluxos.editor")}
-            </Tabs.Trigger>
-            <Link className="ew-tab" to="/queues">
-              <Settings2 size={15} />
-              {i18n.t("fluxos.filasCanais")}
-            </Link>
-            <Link className="ew-tab" to="/chatgpt">
-              <Plug size={15} />
-              {i18n.t("fluxos.integracoes")}
-            </Link>
-          </Tabs.List>
-        </Tabs.Root>
+        </div>
         {carregando ? (
           <div className="fluxo-vazio">{i18n.t("fluxos.carregando")}</div>
         ) : filaAtual ? (

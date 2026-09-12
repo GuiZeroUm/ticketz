@@ -20,15 +20,15 @@ import {
   useMediaQuery
 } from "@material-ui/core";
 
-import AddCommentOutlined from "@material-ui/icons/AddCommentOutlined";
 import BusinessOutlined from "@material-ui/icons/BusinessOutlined";
-import MenuIcon from "@material-ui/icons/Menu";
-import ChevronLeftIcon from "@material-ui/icons/ChevronLeft";
-import AccountCircle from "@material-ui/icons/AccountCircle";
 import SettingsEthernetIcon from "@material-ui/icons/SettingsEthernet";
 
 import MainListItems from "./MainListItems";
 import AtalhosAtendimento from "./AtalhosAtendimento";
+import CaminhoPagina from "./CaminhoPagina";
+import FerramentasBarra from "./FerramentasBarra";
+import { PanelLeft, Headphones, Moon, Sun } from "lucide-react";
+import "./estrutura.css";
 import NotificationsPopOver from "../components/NotificationsPopOver";
 import { Backendlogs } from "../components/Backendlogs";
 import { PhoneCall } from "../components/PhoneCall";
@@ -49,8 +49,6 @@ import { useDate } from "../hooks/useDate";
 import useAuth from "../hooks/useAuth.js";
 
 import ColorModeContext from "../layout/themeContext";
-import Brightness4Icon from "@material-ui/icons/Brightness4";
-import Brightness7Icon from "@material-ui/icons/Brightness7";
 import NestedMenuItem from "material-ui-nested-menu-item";
 import GoogleAnalytics from "../components/GoogleAnalytics";
 import OnlyForSuperUser from "../components/OnlyForSuperUser";
@@ -69,7 +67,7 @@ function persistDrawerOpenState(value) {
 
 const useStyles = makeStyles(theme => ({
   root: {
-    "--altura-cabecalho": "60px",
+    "--altura-cabecalho": "70px",
     display: "flex",
     height: "var(--vh)",
     backgroundColor: theme.palette.fancyBackground,
@@ -199,6 +197,7 @@ const useStyles = makeStyles(theme => ({
     minHeight: "60px"
   },
   appBar: {
+    backgroundColor: theme.palette.background.paper,
     boxShadow: "none",
     zIndex: theme.zIndex.drawer + 1,
     transition: theme.transitions.create(["width", "margin"], {
@@ -571,7 +570,11 @@ const LoggedInLayout = ({ children, themeToggle }) => {
   }
 
   return (
-    <div className={classes.root}>
+    <div
+      className={`${classes.root} estrutura-app`}
+      style={{ "--largura-nav": drawerOpen ? "260px" : "72px" }}
+      data-navegacao={drawerOpen ? "aberta" : "fechada"}
+    >
       <Drawer
         variant={drawerVariant}
         className={drawerOpen ? classes.drawerPaper : classes.drawerPaperClose}
@@ -620,7 +623,7 @@ const LoggedInLayout = ({ children, themeToggle }) => {
           aria-label={i18n.t("redesign.abrirAtendimento")}
           onClick={() => definirNovoAtendimentoAberto(true)}
         >
-          <AddCommentOutlined fontSize="small" />
+          <Headphones size={17} />
           {drawerOpen && (
             <span style={{ marginLeft: 8 }}>
               {i18n.t("redesign.abrirAtendimento")}
@@ -671,24 +674,17 @@ const LoggedInLayout = ({ children, themeToggle }) => {
           <IconButton
             edge="start"
             variant="contained"
-            aria-label="open drawer"
+            aria-label={i18n.t("visual.alternarNavegacao")}
             onClick={handleDrawerToggle}
             className={classes.menuButton}
           >
-            {drawerOpen ? <ChevronLeftIcon /> : <MenuIcon />}
+            <PanelLeft size={18} />
           </IconButton>
 
-          <Typography
-            component="h2"
-            variant="h6"
-            color="inherit"
-            noWrap
-            className={classes.title}
-          >
-            {user?.company?.name || theme.appName}
-          </Typography>
+          <CaminhoPagina organizacao={user?.company?.name || theme.appName} />
 
           <AtalhosAtendimento />
+          <div id="acoes-pagina" className="acoes-pagina" />
           {wsConnectionIssue && (
             <Tooltip title={i18n.t("common.connection")} arrow>
               <span
@@ -710,17 +706,16 @@ const LoggedInLayout = ({ children, themeToggle }) => {
             </Tooltip>
           )}
 
-          {canAccessBackendlogs && <Backendlogs />}
-
           <PhoneCall />
-
-          <NotificationsVolume setVolume={setVolume} volume={volume} />
 
           {user.id && <NotificationsPopOver volume={volume} />}
 
-          <AnnouncementsPopover />
-
-          <ChatPopover />
+          <FerramentasBarra>
+            {canAccessBackendlogs && <Backendlogs />}
+            <NotificationsVolume setVolume={setVolume} volume={volume} />
+            <AnnouncementsPopover />
+            <ChatPopover />
+          </FerramentasBarra>
           <Tooltip
             title={i18n.t(
               theme.mode === "dark"
@@ -737,11 +732,7 @@ const LoggedInLayout = ({ children, themeToggle }) => {
                   : "mainDrawer.appBar.user.darkmode"
               )}
             >
-              {theme.mode === "dark" ? (
-                <Brightness7Icon />
-              ) : (
-                <Brightness4Icon />
-              )}
+              {theme.mode === "dark" ? <Sun size={18} /> : <Moon size={18} />}
             </IconButton>
           </Tooltip>
 
@@ -761,20 +752,14 @@ const LoggedInLayout = ({ children, themeToggle }) => {
               tabIndex={0}
               className={classes.profileTrigger}
             >
-              <div className={classes.userInfoPanel}>
-                <Typography noWrap className={classes.userInfoName}>
-                  {user?.name || currentUser?.name || "-"}
-                </Typography>
-                <Typography noWrap className={classes.userInfoCompany}>
-                  {user?.company?.name || "-"}
-                </Typography>
-              </div>
-              <div className={classes.profileAvatarSlot}>
-                <AccountCircle
-                  className={classes.avatar}
-                  style={{ color: theme.palette.text.primary }}
-                />
-              </div>
+              <Avatar className="barra-avatar">
+                {user?.name
+                  ?.split(" ")
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .map(parte => parte[0])
+                  .join("")}
+              </Avatar>
             </div>
             <Menu
               id="menu-appbar"

@@ -24,14 +24,14 @@
 }
 .fluxo-builder {
   display: grid;
-  grid-template-columns: 216px minmax(0, 1fr);
+  grid-template-columns: 236px minmax(0, 1fr);
   gap: 10px;
   flex: 1;
-  min-height: 500px;
+  min-height: 440px;
   position: relative;
 }
 .fluxo-builder.com-inspetor {
-  grid-template-columns: 216px minmax(0, 1fr) 288px;
+  grid-template-columns: 236px minmax(0, 1fr) 300px;
 }
 .fluxo-painel {
   display: flex;
@@ -39,12 +39,12 @@
   min-width: 0;
   min-height: 0;
   border: 1px solid var(--ew-border);
-  border-radius: 12px;
+  border-radius: 16px;
   background: var(--ew-surface);
   overflow: hidden;
 }
 .fluxo-painel-corpo {
-  padding: 14px;
+  padding: 12px;
   overflow: auto;
   flex: 1;
 }
@@ -346,7 +346,7 @@
     display: none;
     position: absolute;
     inset: 0 auto 0 0;
-    width: 216px;
+    width: 236px;
     z-index: 8;
     box-shadow: 8px 0 30px #0002;
   }
@@ -356,7 +356,7 @@
   .fluxo-inspetor {
     position: absolute;
     inset: 0 0 0 auto;
-    width: 288px;
+    width: 300px;
     z-index: 7;
     box-shadow: -8px 0 30px #0002;
   }
@@ -375,7 +375,7 @@
     display: none;
   }
   .fluxo-inspetor {
-    width: min(288px, 90%);
+    width: min(300px, 90%);
   }
   .react-flow__minimap {
     display: none;
@@ -390,4 +390,84 @@ fieldset.fluxo-builder {
 }
 fieldset.fluxo-builder:disabled {
   opacity: 0.7;
+}
+
+.fluxos-navegacao {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.fluxos-navegacao .ew-tabs {
+  margin: 0;
+}
+.fluxos-seletor {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.fluxos-seletor .ew-select {
+  width: 170px;
+  font-size: 12px;
+  min-height: 34px;
+}
+.fluxos-seletor .ew-button {
+  font-size: 12px;
+  min-height: 34px;
+}
+.acoes-fluxo,
+.acoes-fluxo > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.acoes-fluxo {
+  margin-right: 10px;
+}
+.acoes-fluxo .ew-button {
+  min-height: 32px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+.acoes-fluxo .ew-badge {
+  color: #3b7d4b;
+  background: #3b7d4b0e;
+}
+.fluxo-area .ew-panel-head h3 {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ew-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+@media (max-width: 900px) {
+  .acoes-fluxo .ew-badge {
+    display: none;
+  }
+  .fluxos-navegacao {
+    gap: 10px;
+  }
+}
+@media (max-width: 600px) {
+  .acoes-fluxo > div > .ew-button:first-child {
+    font-size: 0;
+    gap: 0;
+    padding: 7px;
+  }
+  .fluxos-seletor {
+    flex: 1;
+  }
+  .fluxos-seletor .ew-select {
+    flex: 1;
+    width: 0;
+  }
 }
