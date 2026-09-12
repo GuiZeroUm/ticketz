@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { lazy, Suspense, useEffect, useState } from "react";
 import { BrowserRouter, Route as RouterRoute, Switch } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 
@@ -36,6 +36,8 @@ import ToDoList from "../pages/ToDoList/";
 import Subscription from "../pages/Subscription/";
 import PlatformAccess from "../pages/PlatformAccess";
 import PlatformActivation from "../pages/PlatformActivation";
+
+const Fluxos = lazy(() => import("../pages/Fluxos"));
 
 const Routes = () => {
   const [showCampaigns, setShowCampaigns] = useState(false);
@@ -124,6 +126,14 @@ const Routes = () => {
                   isPrivate
                 />
                 <Route exact path="/queues" component={Queues} isPrivate />
+                <Suspense fallback={null}>
+                  <Route
+                    exact
+                    path="/fluxos/:queueId?"
+                    component={Fluxos}
+                    isPrivate
+                  />
+                </Suspense>
                 <Route
                   exact
                   path="/announcements"

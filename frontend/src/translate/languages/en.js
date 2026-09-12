@@ -1,6 +1,294 @@
 const messages = {
   en: {
     translations: {
+      visual: {
+        visualizar: "View",
+        centralAtendimento: "Support center",
+        alternarNavegacao: "Toggle navigation",
+        trilha: "Breadcrumb",
+        ferramentas: "Tools and notices",
+        acoes: "Actions",
+        colunas: "Visible columns",
+        selecionarPagina: "Select all on this page",
+        selecionar: "Select {{nome}}",
+        selecionados: "{{count}} selected",
+        limpar: "Clear selection",
+        carregando: "Loading…",
+        semResultados: "No results found.",
+        exibindo: "Showing {{count}} of {{total}}",
+        anterior: "Previous page",
+        proxima: "Next page",
+        descricaoContatos:
+          "Contacts, groups and custom information used in flows and campaigns.",
+        importar: "Import",
+        novoContato: "New contact",
+        nomeTelefone: "Name / phone",
+        tipo: "Type",
+        etiquetas: "Tags",
+        acoesContato: "Actions for {{nome}}",
+        editar: "Edit",
+        excluir: "Delete",
+        atualizar: "Refresh list",
+        exportar: "Export",
+        buscarContatos: "Search name, phone or email",
+        fila: "Queue",
+        saudacao: "Greeting message",
+        automacao: "Automation",
+        editarFila: "Edit queue {{nome}}",
+        novaFila: "New queue",
+        novoEnvio: "New campaign",
+        campanhas: "Campaigns and messages",
+        campanha: "Campaign",
+        emAndamento: "In progress",
+        agendadas: "Scheduled",
+        concluidas: "Completed",
+        inativas: "Inactive",
+        canceladas: "Cancelled",
+        campanhasPagina: "Campaigns on this page",
+        relatorio: "View report",
+        pausar: "Pause campaign",
+        retomar: "Resume campaign",
+        confirmacao: "Confirmation",
+        habilitada: "Enabled",
+        desabilitada: "Disabled",
+        semAgendamento: "Not scheduled",
+        naoConcluida: "Not completed",
+        publico: "Audience",
+        conexao: "Connection",
+        resumo: "Overview",
+        aoVivo: "Live",
+        desempenho: "Performance",
+        filasAgora: "Live queues",
+        distribuicaoFilas: "Open conversations by queue.",
+        atendentes: "Agents",
+        periodo: "Period",
+        redimensionar: "Resize panels",
+        buscarAtendimentos: "Search name, phone or ticket number",
+        contexto: "Context",
+        detalhesContato: "Contact details",
+        fluxosDescricao:
+          "Design conversation paths and configure support using connected blocks.",
+        canvas: "Canvas",
+        editor: "Flow editor",
+        versaoPublicada: "Published",
+        campanhasDescricao:
+          "Create broadcasts, track campaigns and organize scheduled messages.",
+        suporte: "Support",
+        blocos: "Blocks",
+        filtrar: "Filter"
+      },
+      envios: {
+        titulo: "Campaigns and messages",
+        massivo: "Bulk messages",
+        agendamentos: "Scheduled messages",
+        publicos: "Audiences and lists",
+        configuracao: "Delivery settings"
+      },
+      contexto: {
+        segmentos: "Contact types",
+        grupos: "Groups",
+        titulo: "Context",
+        contato: "Contact",
+        atendimento: "Ticket",
+        historico: "History",
+        carregando: "Loading history…",
+        erroHistorico: "Could not load the history.",
+        semHistorico: "No previous tickets available.",
+        semFila: "No queue",
+        verConversa: "View conversation",
+        protocolo: "Ticket",
+        responsavel: "Assigned to",
+        fila: "Queue"
+      },
+      centralConfig: {
+        secoes: "Settings sections",
+        atendimento: "Support",
+        equipe: "Team and resources",
+        canais: "Channels and integrations",
+        administracao: "Administration",
+        voltar: "Back to settings",
+        itens: {
+          filas: {
+            titulo: "Support queues",
+            descricao: "Organize teams, channels and opening hours."
+          },
+          fluxos: {
+            titulo: "Conversation flows",
+            descricao: "Connect blocks and test each conversation path."
+          },
+          horarios: {
+            titulo: "Opening hours",
+            descricao: "Define schedules, exceptions and team availability."
+          },
+          mensagens: {
+            titulo: "Quick replies",
+            descricao: "Reusable responses and agent shortcuts."
+          },
+          aparencia: {
+            titulo: "Customize appearance",
+            descricao: "Organization colors, logos, banners and login page."
+          },
+          opcoes: {
+            titulo: "Support rules",
+            descricao: "Ratings, transfers, timeouts and chatbot policies."
+          },
+          usuarios: {
+            titulo: "Team members",
+            descricao: "Manage users, permissions and assigned queues."
+          },
+          ajuda: {
+            titulo: "Help center",
+            descricao: "Publish guidance and content for your team."
+          },
+          conexoes: {
+            titulo: "Communication channels",
+            descricao: "Connect and manage your support accounts."
+          },
+          integracoes: {
+            titulo: "ChatGPT and integrations",
+            descricao: "Connect ChatGPT and manage authorized access."
+          },
+          voz: {
+            titulo: "Voice channel",
+            descricao: "Manage voice settings and connections."
+          },
+          empresas: {
+            titulo: "Organizations",
+            descricao: "Manage organizations on the platform."
+          },
+          planos: {
+            titulo: "Plans and features",
+            descricao: "Set limits and available features for each plan."
+          },
+          parceiros: {
+            titulo: "Partners",
+            descricao: "Manage partner operations and access."
+          },
+          pagamentos: {
+            titulo: "Payment providers",
+            descricao: "Configure platform billing providers."
+          },
+          traducoes: {
+            titulo: "Languages and translations",
+            descricao: "Customize platform text and languages."
+          }
+        }
+      },
+      fluxos: {
+        titulo: "Flows and automation",
+        editor: "Flow editor",
+        canvas: "Canvas",
+        blocos: "Blocks",
+        conversa: "Conversation",
+        atendimento: "Support",
+        fechar: "Close",
+        entrada: "Block input",
+        saida: "Block output",
+        pausado: "Paused",
+        semMensagem: "Configure the message in the inspector",
+        nomeBloco: "Option name",
+        tipoBloco: "Block type",
+        mensagem: "Message",
+        variaveis:
+          "Variables: {{name}}, {{firstname}}, {{queue}}. Customers select options by number.",
+        filaDestino: "Destination queue",
+        selecionarFila: "Select a queue",
+        descricaoHumano:
+          "Stops the chatbot and leaves the ticket available for the support team.",
+        midia: "Attachment",
+        anexar: "Select file",
+        removerMidia: "Remove attachment",
+        opcoes: "Next options",
+        subir: "Move option up",
+        descer: "Move option down",
+        adicionarOpcao: "Add option",
+        conectadoA: "Previous block",
+        semConexao: "Disconnected",
+        blocoAtivo: "Active block",
+        desconectar: "Disconnect",
+        excluir: "Delete",
+        carregando: "Loading flow…",
+        erroCarregar: "Could not load this flow.",
+        tentarNovamente: "Try again",
+        rascunhoAntigo:
+          "An older draft exists in this browser. The current server version was loaded.",
+        erroRascunho: "Could not store this draft. Publish before leaving.",
+        publicado: "Flow published.",
+        sairRascunho:
+          "There are unpublished changes. Leave the editor? Pending attachments will need to be selected again.",
+        rascunho: "Draft · unpublished",
+        emUso: "Published",
+        contagem: "{{count}} block",
+        contagem_plural: "{{count}} blocks",
+        testar: "Test path",
+        publicar: "Publish",
+        buscarBloco: "Search blocks",
+        dicaPaleta:
+          "Drag a block to the canvas or click to add it. Connect the handles to change the conversation path.",
+        desfazer: "Undo",
+        refazer: "Redo",
+        minimapa: "Flow minimap",
+        ajudaTeclado:
+          "Select a block to edit it. Use Previous block to connect using the keyboard.",
+        reduzirZoom: "Zoom out",
+        aumentarZoom: "Zoom in",
+        enquadrar: "Fit view",
+        organizar: "Arrange blocks",
+        pendencias:
+          "{{count}} block needs a name, connection or destination queue.",
+        pendencias_plural:
+          "{{count}} blocks need a name, connection or destination queue.",
+        pronto: "Connections are valid. Changes go live when you publish.",
+        simulacaoDescricao:
+          "Walk through the options as a customer. This preview does not send messages or change tickets.",
+        simulacaoHumano: "The chatbot stops and the support team continues.",
+        simulacaoTransferencia: "The conversation moves to {{fila}}.",
+        simulacaoFim: "Waiting for another customer message.",
+        reiniciar: "Restart test",
+        excluirBloco: "Delete block?",
+        excluirDescricao:
+          "Following blocks will be kept and disconnected. Reconnect them before publishing.",
+        selecionarFluxo: "Select flow",
+        novoFluxo: "Create flow",
+        secoes: "Automation sections",
+        filasCanais: "Queues and channels",
+        integracoes: "Integrations",
+        primeiroFluxo: "Design your first conversation",
+        descricaoInicio:
+          "Create a queue, add blocks and connect your support steps.",
+        descricaoEditor:
+          "Create, connect and test blocks with a complete view of the conversation.",
+        abrirEditor: "Open canvas",
+        tipos: {
+          inicio: "Conversation start",
+          mensagem: "Send message",
+          menu: "Options menu",
+          midia: "Send media",
+          transferir: "Transfer to queue",
+          humano: "Human support"
+        }
+      },
+      redesign: {
+        importarCsv: "Import CSV file",
+        exportarCsv: "Export contacts to CSV",
+        descricaoContatos:
+          "Contacts, groups and information for a personal service.",
+        descricaoCampanhas:
+          "Campaigns and schedules to keep track of every delivery.",
+        descricaoConfiguracoes:
+          "Service rules, team, channels and your organization’s identity.",
+
+        operacao: "Operations",
+        relacionamento: "Relationships",
+        automacao: "Automation and AI",
+        administracao: "Administration",
+        envios: "Campaigns",
+        listasContatos: "Contact lists",
+        abrirAtendimento: "Open conversation",
+        visaoGeral: "Operation overview",
+        descricaoPainel: "Metrics, conversations and team in one place.",
+        organizacao: "Organization"
+      },
       voiceCalls: {
         settingsTab: "Experimental calls",
         companySwitch: "Experimental calls",
@@ -1688,6 +1976,17 @@ const messages = {
           "Backend is starting up and not ready yet. Retrying automatically."
       },
       backendErrors: {
+        ERR_FLOW_INVALID: "Invalid flow data. Review the blocks.",
+        ERR_FLOW_CONNECTION:
+          "This connection is not allowed. Transfer and human support blocks end the flow.",
+        ERR_FLOW_QUEUE_REQUIRED:
+          "Select a valid destination queue different from this one.",
+        ERR_FLOW_DISCONNECTED:
+          "Connect every block to the start without creating cycles.",
+        ERR_FLOW_CONFLICT:
+          "This flow changed in another session. Reload before publishing.",
+        ERR_FLOW_IN_USE:
+          "A removed block is used by an active ticket. Disable it or wait for completion before deleting.",
         ERR_INVALID_TRIAL_DAYS: "Trial days must be an integer from 0 to 3650.",
         ERR_INVALID_DUE_DAY: "Due day must be an integer from 1 to 31.",
         ERR_TRIAL_ALREADY_STARTED:

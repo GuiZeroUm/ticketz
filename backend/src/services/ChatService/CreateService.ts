@@ -5,7 +5,7 @@ import User from "../../models/User";
 interface Data {
   ownerId: number;
   companyId: number;
-  users: any[];
+  users: { id: number }[];
   title: string;
 }
 
@@ -20,9 +20,9 @@ const CreateService = async (data: Data): Promise<Chat> => {
 
   if (Array.isArray(users) && users.length > 0) {
     await ChatUser.create({ chatId: record.id, userId: ownerId });
-    for (const user of users) {
-      await ChatUser.create({ chatId: record.id, userId: user.id });
-    }
+    await Promise.all(
+      users.map(user => ChatUser.create({ chatId: record.id, userId: user.id }))
+    );
   }
 
   await record.reload({
@@ -30,9 +30,15 @@ const CreateService = async (data: Data): Promise<Chat> => {
       {
         model: ChatUser,
         as: "users",
-        include: [{ model: User, as: "user", attributes: ["id", "name"] }]
+        include: [
+          {
+            model: User,
+            as: "user",
+            attributes: ["id", "name", "profilePicUrl"]
+          }
+        ]
       },
-      { model: User, as: "owner", attributes: ["id", "name"] }
+      { model: User, as: "owner", attributes: ["id", "name", "profilePicUrl"] }
     ]
   });
 
