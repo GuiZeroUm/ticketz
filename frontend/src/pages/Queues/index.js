@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+import { Workflow } from "lucide-react";
 import React, { useContext, useEffect, useReducer, useState } from "react";
 
 import {
@@ -287,6 +289,14 @@ const Queues = () => {
         </span>
       </Tooltip>
 
+      <Button
+        component={Link}
+        to={`/fluxos/${queue.id}`}
+        startIcon={<Workflow size={16} />}
+        color="primary"
+      >
+        {i18n.t("fluxos.abrirEditor")}
+      </Button>
       <IconButton size="small" onClick={() => handleEditQueue(queue)}>
         <Edit />
       </IconButton>

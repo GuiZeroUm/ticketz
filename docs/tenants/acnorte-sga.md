@@ -72,6 +72,20 @@ associado. A tela distingue as placas vinculadas a cada boleto.
 
 ## Implementação e configuração
 
+### Redesign integrado
+
+O histórico de `dev` até `cce5cafdecf64768fc8ed5d66e9f5020b4dcb317` foi
+integrado por merge à base AC Norte `ebcfd602`, sem substituir a branch nem
+copiar dados de outros ambientes. Isso mantém a ancestralidade para próximos merges.
+Placas permanece no grupo Relacionamento, condicionado à habilitação do SGA no
+tenant. O cartão de veículos está na aba Contato do novo painel de atendimento;
+as abas Atendimento/Histórico, os campos automáticos protegidos e as traduções dos
+dois módulos coexistem. As migrations do redesign são aditivas (layout de fluxos
+e foto do usuário); nenhuma tabela do SGA ou informação de contato é substituída.
+A publicação e os testes com dados reais continuam exclusivos do AC Norte dev.
+
+### Ambiente
+
 - Branch de integração: `acnorte`. Desenvolvimento parte desse branch e recebe
   atualizações globais por merge de `main`.
 - Endpoint fixo HTTPS: `https://api.hinova.com.br/api/sga/v2/`.

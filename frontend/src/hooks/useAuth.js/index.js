@@ -137,7 +137,7 @@ const useAuth = () => {
 
     const onCompanyUserUseAuth = data => {
       if (data.action === "update" && data.user.id === user.id) {
-        setUser(data.user);
+        setUser(anterior => ({ ...anterior, ...data.user }));
       }
     };
 

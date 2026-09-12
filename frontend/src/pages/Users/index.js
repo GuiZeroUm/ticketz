@@ -25,6 +25,7 @@ import Title from "../../components/Title";
 import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
 import TableRowSkeleton from "../../components/TableRowSkeleton";
+import AvatarUsuario from "../../components/AvatarUsuario";
 import UserModal from "../../components/UserModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import toastError from "../../errors/toastError";
@@ -259,7 +260,14 @@ const Users = () => {
               {users.map(user => (
                 <TableRow key={user.id}>
                   <TableCell align="center">{user.id}</TableCell>
-                  <TableCell align="center">{user.name}</TableCell>
+                  <TableCell>
+                    <div
+                      style={{ display: "flex", alignItems: "center", gap: 12 }}
+                    >
+                      <AvatarUsuario usuario={user} />
+                      <strong>{user.name}</strong>
+                    </div>
+                  </TableCell>
                   <TableCell align="center">{user.email}</TableCell>
                   <TableCell align="center">{user.profile}</TableCell>
                   <TableCell align="center">

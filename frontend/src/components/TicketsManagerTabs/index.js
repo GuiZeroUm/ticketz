@@ -1,3 +1,8 @@
+import * as Abas from "@radix-ui/react-tabs";
+import { Plus, Search, Archive, UsersRound } from "lucide-react";
+import { Botao, BotaoIcone, useIdentidade } from "../interface";
+import "../../pages/TicketsCustom/atendimento.css";
+import "../TabelaDados/tabela.css";
 import React, {
   useCallback,
   useContext,
@@ -9,13 +14,8 @@ import { useHistory } from "react-router-dom";
 
 import { makeStyles } from "@material-ui/core/styles";
 import Paper from "@material-ui/core/Paper";
-import SearchIcon from "@material-ui/icons/Search";
-import InputBase from "@material-ui/core/InputBase";
 import Tabs from "@material-ui/core/Tabs";
 import Tab from "@material-ui/core/Tab";
-import Badge from "@material-ui/core/Badge";
-import MoveToInboxIcon from "@material-ui/icons/MoveToInbox";
-import CheckBoxIcon from "@material-ui/icons/CheckBox";
 
 import FormControlLabel from "@material-ui/core/FormControlLabel";
 import Switch from "@material-ui/core/Switch";
@@ -28,11 +28,9 @@ import { i18n } from "../../translate/i18n";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { Can } from "../Can";
 import TicketsQueueSelect from "../TicketsQueueSelect";
-import { Box, Button } from "@material-ui/core";
+import { Box } from "@material-ui/core";
 import { TagsFilter } from "../TagsFilter";
 import { UsersFilter } from "../UsersFilter";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPeopleGroup } from "@fortawesome/free-solid-svg-icons";
 import useSettings from "../../hooks/useSettings";
 import { ContactSelect } from "../ContactSelect";
 import api from "../../services/api";
@@ -40,13 +38,16 @@ import { SocketContext } from "../../context/Socket/SocketContext";
 
 const useStyles = makeStyles(theme => ({
   ticketsWrapper: {
+    "& .MuiTab-wrapper": { flexDirection: "row", gap: 6 },
+    "& .MuiTab-labelIcon": { minHeight: 44 },
+    "& .MuiTab-labelIcon .MuiTab-wrapper > *:first-child": { marginBottom: 0 },
     position: "relative",
     display: "flex",
     height: "100%",
     flexDirection: "column",
     overflow: "hidden",
-    borderTopRightRadius: 0,
-    borderBottomRightRadius: 0
+    borderTopRightRadius: 12,
+    borderBottomRightRadius: 12
   },
 
   tabsHeader: {
@@ -61,13 +62,15 @@ const useStyles = makeStyles(theme => ({
   },
 
   tabWithGroups: {
-    minWidth: 90,
-    width: 90
+    minWidth: 0,
+    flex: 1,
+    fontSize: 12,
+    padding: "6px 8px"
   },
 
   tab: {
-    minWidth: 120,
-    width: 120
+    minWidth: 0,
+    flex: 1
   },
 
   ticketOptionsBox: {
@@ -82,8 +85,9 @@ const useStyles = makeStyles(theme => ({
     flex: 1,
     // background: "#fff",
     display: "flex",
-    borderRadius: 40,
-    padding: 4,
+    borderRadius: 8,
+    border: `1px solid ${theme.palette.divider}`,
+    padding: 6,
     marginRight: theme.spacing(1)
   },
 
@@ -97,7 +101,7 @@ const useStyles = makeStyles(theme => ({
   searchInput: {
     flex: 1,
     border: "none",
-    borderRadius: 30
+    borderRadius: 8
   },
 
   badge: {
@@ -118,9 +122,11 @@ const useStyles = makeStyles(theme => ({
 
 const TicketsManagerTabs = () => {
   const classes = useStyles();
+  const identidade = useIdentidade();
   const history = useHistory();
 
   const [searchParam, setSearchParam] = useState("");
+  const [textoBusca, setTextoBusca] = useState("");
   const [tab, setTab] = useState("open");
   const [tabOpen, setTabOpen] = useState("open");
   const [newTicketModalOpen, setNewTicketModalOpen] = useState(false);
@@ -213,27 +219,25 @@ const TicketsManagerTabs = () => {
   useEffect(() => {
     if (tab === "search") {
       searchInputRef.current.focus();
+    } else {
+      clearTimeout(searchTimeout.current);
+      setTextoBusca("");
+      setSearchParam("");
     }
   }, [tab]);
 
-  let searchTimeout;
+  const searchTimeout = useRef();
+  useEffect(() => () => clearTimeout(searchTimeout.current), []);
 
   const handleSearch = e => {
+    setTextoBusca(e.target.value);
     const searchedTerm = e.target.value.toLowerCase();
 
-    clearTimeout(searchTimeout);
+    clearTimeout(searchTimeout.current);
 
-    searchTimeout = setTimeout(() => {
+    searchTimeout.current = setTimeout(() => {
       setSearchParam(searchedTerm);
     }, 500);
-  };
-
-  const handleChangeTab = (e, newValue) => {
-    setTab(newValue);
-  };
-
-  const handleChangeTabOpen = (e, newValue) => {
-    setTabOpen(newValue);
   };
 
   const applyPanelStyle = status => {
@@ -260,115 +264,115 @@ const TicketsManagerTabs = () => {
   };
 
   return (
-    <Paper elevation={0} variant="outlined" className={classes.ticketsWrapper}>
+    <Paper
+      elevation={0}
+      variant="outlined"
+      className={`${classes.ticketsWrapper} ew-ui fila-atendimento`}
+      style={identidade}
+    >
       <NewTicketModal
         modalOpen={newTicketModalOpen}
         onClose={ticket => {
           handleCloseOrOpenTicket(ticket);
         }}
       />
-      <Paper elevation={0} square className={classes.tabsHeader}>
-        <Tabs
-          value={tab}
-          onChange={handleChangeTab}
-          variant="fullWidth"
-          indicatorColor="primary"
-          textColor="primary"
-          aria-label="icon label tabs example"
+      <Abas.Root
+        value={tab === "open" ? tabOpen : tab}
+        onValueChange={valor => {
+          setTab("open");
+          setTabOpen(valor);
+        }}
+        className="fila-status"
+      >
+        <Abas.List className="ew-tabs" aria-label={i18n.t("visual.suporte")}>
+          <Abas.Trigger value="open" className="ew-tab">
+            {i18n.t("ticketsList.assignedHeader")}
+            <span className="ew-badge">{openCount}</span>
+          </Abas.Trigger>
+          <Abas.Trigger value="pending" className="ew-tab">
+            {i18n.t("ticketsList.pendingHeader")}
+            <span className="ew-badge">{pendingCount}</span>
+          </Abas.Trigger>
+        </Abas.List>
+      </Abas.Root>
+      <div className="fila-pesquisa">
+        <label className="tabela-busca">
+          <Search size={15} />
+          <input
+            type="search"
+            ref={searchInputRef}
+            value={textoBusca}
+            placeholder={i18n.t("visual.buscarAtendimentos")}
+            aria-label={i18n.t("visual.buscarAtendimentos")}
+            onChange={event => {
+              setTab("search");
+              handleSearch(event);
+            }}
+          />
+        </label>
+        <BotaoIcone
+          titulo={i18n.t("ticketsManager.buttons.newTicket")}
+          onClick={() => setNewTicketModalOpen(true)}
         >
-          <Tab
-            value={"open"}
-            icon={<MoveToInboxIcon />}
-            label={i18n.t("tickets.tabs.open.title")}
-            classes={{
-              root: showTabGroups ? classes.tabWithGroups : classes.tab
-            }}
-          />
-
-          {showTabGroups && (
-            <Tab
-              value={"groups"}
-              icon={
-                <Badge
-                  badgeContent={groupUnreadCount}
-                  color="secondary"
-                  max={999}
-                >
-                  <FontAwesomeIcon
-                    className={classes.icon24}
-                    icon={faPeopleGroup}
+          <Plus size={16} />
+        </BotaoIcone>
+      </div>
+      <div className="fila-atalhos">
+        <Botao
+          variante="ghost"
+          className={tab === "closed" ? "is-active" : ""}
+          onClick={() => setTab("closed")}
+        >
+          <Archive size={13} />
+          {i18n.t("tickets.tabs.closed.title")}
+        </Botao>
+        <Botao
+          variante="ghost"
+          className={tab === "search" ? "is-active" : ""}
+          onClick={() => setTab("search")}
+        >
+          <Search size={13} />
+          {i18n.t("visual.filtrar")}
+        </Botao>
+        {showTabGroups && (
+          <Botao
+            variante="ghost"
+            className={tab === "groups" ? "is-active" : ""}
+            onClick={() => setTab("groups")}
+          >
+            <UsersRound size={13} />
+            {i18n.t("tickets.tabs.groups.title")}
+            {groupUnreadCount > 0 && (
+              <span className="ew-badge">{groupUnreadCount}</span>
+            )}
+          </Botao>
+        )}
+      </div>
+      <Paper
+        square
+        elevation={0}
+        className={`${classes.ticketOptionsBox} fila-opcoes`}
+      >
+        {tab === "open" && (
+          <Can
+            role={user.profile}
+            perform="tickets-manager:showall"
+            yes={() => (
+              <FormControlLabel
+                label={i18n.t("tickets.buttons.showAll")}
+                labelPlacement="start"
+                control={
+                  <Switch
+                    size="small"
+                    checked={showAllTickets}
+                    onChange={() => setShowAllTickets(valor => !valor)}
+                    name="showAllTickets"
+                    color="primary"
                   />
-                </Badge>
-              }
-              label={i18n.t("tickets.tabs.groups.title")}
-              classes={{ root: classes.tabWithGroups }}
-            />
-          )}
-
-          <Tab
-            value={"closed"}
-            icon={<CheckBoxIcon />}
-            label={i18n.t("tickets.tabs.closed.title")}
-            classes={{
-              root: showTabGroups ? classes.tabWithGroups : classes.tab
-            }}
-          />
-
-          <Tab
-            value={"search"}
-            icon={<SearchIcon />}
-            label={i18n.t("tickets.tabs.search.title")}
-            classes={{
-              root: showTabGroups ? classes.tabWithGroups : classes.tab
-            }}
-          />
-        </Tabs>
-      </Paper>
-      <Paper square elevation={0} className={classes.ticketOptionsBox}>
-        {tab === "search" ? (
-          <div className={classes.serachInputWrapper}>
-            <SearchIcon className={classes.searchIcon} />
-            <InputBase
-              className={classes.searchInput}
-              inputRef={searchInputRef}
-              placeholder={i18n.t("tickets.search.placeholder")}
-              type="search"
-              onChange={handleSearch}
-            />
-          </div>
-        ) : (
-          <>
-            <Button
-              variant="outlined"
-              color="primary"
-              onClick={() => setNewTicketModalOpen(true)}
-            >
-              {i18n.t("ticketsManager.buttons.newTicket")}
-            </Button>
-            {tab === "open" && (
-              <Can
-                role={user.profile}
-                perform="tickets-manager:showall"
-                yes={() => (
-                  <FormControlLabel
-                    label={i18n.t("tickets.buttons.showAll")}
-                    labelPlacement="start"
-                    control={
-                      <Switch
-                        size="small"
-                        checked={showAllTickets}
-                        onChange={() =>
-                          setShowAllTickets(prevState => !prevState)
-                        }
-                        name="showAllTickets"
-                        color="primary"
-                      />
-                    }
-                  />
-                )}
+                }
               />
             )}
-          </>
+          />
         )}
         <TicketsQueueSelect
           style={{ marginLeft: 6 }}
@@ -378,40 +382,6 @@ const TicketsManagerTabs = () => {
         />
       </Paper>
       <TabPanel value={tab} name="open" className={classes.ticketsWrapper}>
-        <Tabs
-          value={tabOpen}
-          onChange={handleChangeTabOpen}
-          indicatorColor="primary"
-          textColor="primary"
-          variant="fullWidth"
-        >
-          <Tab
-            label={
-              <Badge
-                className={classes.badge}
-                badgeContent={openCount}
-                color="primary"
-                max={999}
-              >
-                {i18n.t("ticketsList.assignedHeader")}
-              </Badge>
-            }
-            value={"open"}
-          />
-          <Tab
-            label={
-              <Badge
-                className={classes.badge}
-                badgeContent={pendingCount}
-                color="secondary"
-                max={999}
-              >
-                {i18n.t("ticketsList.pendingHeader")}
-              </Badge>
-            }
-            value={"pending"}
-          />
-        </Tabs>
         <Paper className={classes.ticketsWrapper}>
           <TicketsList
             status="open"

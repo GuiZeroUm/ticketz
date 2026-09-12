@@ -13,6 +13,7 @@ import {
 } from "@material-ui/icons";
 
 import { makeStyles } from "@material-ui/core/styles";
+import Button from "@material-ui/core/Button";
 import Paper from "@material-ui/core/Paper";
 import InputBase from "@material-ui/core/InputBase";
 import CircularProgress from "@material-ui/core/CircularProgress";
@@ -64,24 +65,30 @@ const useStyles = makeStyles(theme => ({
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    borderTop: "1px solid rgba(0, 0, 0, 0.12)"
+    borderTop: `1px solid ${theme.palette.divider}`
   },
 
   newMessageBox: {
-    width: "100%",
+    width: "calc(100% - 24px)",
+    margin: "12px",
     display: "flex",
-    padding: "7px",
-    alignItems: "center"
+    flexWrap: "wrap",
+    padding: "6px",
+    alignItems: "center",
+    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: 14,
+    backgroundColor: theme.palette.background.paper,
+    "& > .MuiIconButton-root": { padding: 8 },
+    "& > label .MuiIconButton-root": { padding: 8 },
+    "& > .MuiIconButton-root:last-child": { marginLeft: "auto" }
   },
-
   messageInputWrapper: {
-    padding: 6,
-    marginRight: 7,
-    //background: "#fff",
-    border: "1px solid #ccc",
-    display: "flex",
-    borderRadius: 20,
-    flex: 1
+    padding: "8px 4px",
+    minWidth: 0,
+    minHeight: 64,
+    order: -1,
+    flexBasis: "100%",
+    display: "flex"
   },
 
   messageInput: {
@@ -114,7 +121,8 @@ const useStyles = makeStyles(theme => ({
 
   emojiBox: {
     position: "absolute",
-    bottom: 63,
+    bottom: 150,
+    zIndex: 5,
     width: 40,
     borderTop: "1px solid #e8e8e8"
   },
@@ -195,8 +203,8 @@ const useStyles = makeStyles(theme => ({
 
   iconSwitch: {
     color: props => (props.value ? theme.palette.primary.main : "gray"),
-    width: 48,
-    height: 48
+    width: 36,
+    height: 36
   },
 
   formatMenu: {
@@ -414,6 +422,7 @@ const CustomInput = props => {
         }
         return {
           value: m.message,
+          atalho: m.shortcode,
           label: `/${m.shortcode} - ${truncatedMessage}`
         };
       });
@@ -623,7 +632,34 @@ const CustomInput = props => {
   };
 
   return (
-    <div className={classes.messageInputWrapper}>
+    <div
+      className={`${classes.messageInputWrapper} conversa-entrada-texto`}
+      style={{ flexDirection: "column" }}
+    >
+      {quickMessages.length > 0 && (
+        <div
+          className="conversa-respostas-rapidas"
+          role="group"
+          aria-label={i18n.t("mainDrawer.listItems.quickMessages")}
+        >
+          {quickMessages.slice(0, 6).map(opcao => (
+            <Tooltip key={opcao.atalho} title={opcao.value || ""}>
+              <Button
+                size="small"
+                disabled={disableOption}
+                onClick={() => {
+                  setInputMessage(atual =>
+                    atual ? `${atual}\n${opcao.value}` : opcao.value
+                  );
+                  inputRef.current?.focus();
+                }}
+              >
+                /{opcao.atalho}
+              </Button>
+            </Tooltip>
+          ))}
+        </div>
+      )}
       <Autocomplete
         disabled={disableOption}
         freeSolo
@@ -668,6 +704,7 @@ const CustomInput = props => {
                 placeholder={renderPlaceholder()}
                 multiline
                 className={classes.messageInput}
+                minRows={2}
                 maxRows={5}
                 endAdornment={
                   isMobile() && (
@@ -1174,7 +1211,7 @@ const MessageInputCustom = props => {
       <Paper square elevation={0} className={classes.mainWrapper}>
         {(replyingMessage && renderReplyingMessage(replyingMessage)) ||
           (editingMessage && renderReplyingMessage(editingMessage))}
-        <div className={classes.newMessageBox}>
+        <div className={`${classes.newMessageBox} conversa-caixa-mensagem`}>
           {isMobile() || (
             <EmojiOptions
               disabled={disableOption}
