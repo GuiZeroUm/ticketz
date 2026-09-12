@@ -1,5 +1,6 @@
 const pt = {
   title: "Placas",
+  managedField: "SGA · atualizado automaticamente a cada hora",
   subtitle: "Veículos, associados e pendências do SGA Hinova",
   search: "Buscar placa, associado, CPF, telefone ou contato",
   sync: "Sincronizar SGA",

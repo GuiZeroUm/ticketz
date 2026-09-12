@@ -313,6 +313,12 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
                                   as={TextField}
                                   label={i18n.t("contactModal.form.extraName")}
                                   name={`extraInfo[${index}].name`}
+                                  InputProps={{ readOnly: !!info.managedBy }}
+                                  helperText={
+                                    info.managedBy === "acnorte-sga"
+                                      ? i18n.t("sga.managedField")
+                                      : undefined
+                                  }
                                   variant="outlined"
                                   margin="dense"
                                   className={classes.textField}
@@ -321,12 +327,14 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
                                   as={TextField}
                                   label={i18n.t("contactModal.form.extraValue")}
                                   name={`extraInfo[${index}].value`}
+                                  InputProps={{ readOnly: !!info.managedBy }}
                                   variant="outlined"
                                   margin="dense"
                                   className={classes.textField}
                                 />
                                 <IconButton
                                   size="small"
+                                  disabled={!!info.managedBy}
                                   onClick={() => remove(index)}
                                 >
                                   <DeleteOutlineIcon />
