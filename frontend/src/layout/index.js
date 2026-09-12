@@ -72,7 +72,8 @@ const useStyles = makeStyles(theme => ({
     "--altura-cabecalho": "60px",
     display: "flex",
     height: "var(--vh)",
-    backgroundColor: theme.palette.fancyBackground
+    backgroundColor: theme.palette.fancyBackground,
+    color: theme.palette.text.primary
   },
   organizacao: {
     margin: "8px 12px",
