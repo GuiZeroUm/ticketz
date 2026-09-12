@@ -123,7 +123,7 @@ services:
       EMAIL_ADDRESS: ${ACNORTE_EMAIL_ADDRESS}
       BACKEND_SERVICE: backend
       BACKEND_PATH: /backend
-      BACKEND_PROTOCOL: http
+      BACKEND_PROTOCOL: https
       LANDING_WHATSAPP_NUMBER: ${LANDING_WHATSAPP_NUMBER:-}
       LOG_LEVEL: ${LOG_LEVEL:-warn}
     depends_on:
