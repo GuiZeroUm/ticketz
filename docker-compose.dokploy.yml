@@ -106,6 +106,8 @@ services:
         required: false
     environment:
       NODE_ENV: production
+      TENANT_RUNTIME_EXCLUDED_COMPANY_IDS: ${TENANT_RUNTIME_EXCLUDED_COMPANY_IDS:-}
+      WHATSAPP_AUTOSTART_EXISTING_ONLY: "true"
       PORT: "3000"
       TZ: ${TZ:-America/Rio_Branco}
       DB_DIALECT: postgres
