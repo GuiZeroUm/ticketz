@@ -47,7 +47,8 @@ export const sgaRequest = async (
 export const sgaPages = async (
   path: string,
   body: Record<string, unknown>,
-  key?: string
+  key?: string,
+  pagination: "offset" | "page" = "offset"
 ): Promise<SgaRow[]> => {
   const rows: SgaRow[] = [];
   const seen = new Set<string>();
@@ -55,7 +56,9 @@ export const sgaPages = async (
   for (let offset = 0; offset < 250000; offset += pageSize) {
     const data = await sgaRequest(path, {
       ...body,
-      inicio_paginacao: offset,
+      // Hinova's boleto endpoint uses a zero-based page number, unlike the
+      // associated/vehicle endpoints, which use a row offset (verified live).
+      inicio_paginacao: pagination === "page" ? offset / pageSize : offset,
       quantidade_por_pagina: pageSize
     });
     const page = Array.isArray(data) ? data : key ? data[key] : null;

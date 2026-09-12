@@ -54,4 +54,16 @@ describe("SGA upstream boundary", () => {
       message: "ERR_SGA_UNAVAILABLE"
     });
   });
+  it("uses page numbers for bills instead of skipping 500 pages", async () => {
+    const rows = Array.from({ length: 500 }, (_, i) => ({
+      codigo_boleto: String(i + 1)
+    }));
+    request
+      .mockResolvedValueOnce({ status: 200, data: rows })
+      .mockResolvedValueOnce({ status: 200, data: [{ codigo_boleto: "501" }] });
+    expect(await sgaPages("listar/boleto", {}, undefined, "page")).toHaveLength(
+      501
+    );
+    expect(request.mock.calls[1][0].data.inicio_paginacao).toBe(1);
+  });
 });

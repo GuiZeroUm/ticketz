@@ -122,9 +122,14 @@ export const syncSga = async (companyId: number): Promise<void> => {
       if (!debtStatuses.length)
         throw new AppError("ERR_SGA_RESPONSE_INVALID", 502);
       for (const status of debtStatuses) {
-        for (const row of await sgaPages("listar/boleto", {
-          codigo_situacao: text(status.codigo_situacaoboleto)
-        })) {
+        for (const row of await sgaPages(
+          "listar/boleto",
+          {
+            codigo_situacao: text(status.codigo_situacaoboleto)
+          },
+          undefined,
+          "page"
+        )) {
           const bill = normalizeBill(row, true);
           if (!bill.id || !bill.memberId)
             throw new AppError("ERR_SGA_RESPONSE_INVALID", 502);
