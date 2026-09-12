@@ -23,6 +23,7 @@ import Whatsapp from "../models/Whatsapp";
 import { logger, loggerBaileys } from "../utils/logger";
 import authState from "../helpers/authState";
 import AppError from "../errors/AppError";
+import { assertRuntimeCompany } from "../helpers/tenantRuntime";
 import { getIO } from "./socket";
 import { StartWhatsAppSession } from "../services/WbotServices/StartWhatsAppSession";
 import DeleteBaileysService from "../services/BaileysServices/DeleteBaileysService";
@@ -165,6 +166,7 @@ export const initWASocket = async (
   proxy?: Agent,
   isRefresh = false
 ): Promise<Session> => {
+  assertRuntimeCompany(whatsapp.companyId);
   return new Promise((resolve, reject) => {
     try {
       (async () => {

@@ -1,4 +1,5 @@
 import { Sequelize, Op } from "sequelize";
+import { assertRuntimeCompany } from "../../helpers/tenantRuntime";
 import User from "../../models/User";
 import AppError from "../../errors/AppError";
 import normalizeSlug from "../../helpers/normalizeSlug";
@@ -79,6 +80,7 @@ const AuthUserService = async ({
     throw new AppError("ERR_INVALID_CREDENTIALS", 401);
   }
   const scopedCompanyId = await resolveScopedCompanyId(slug);
+  assertRuntimeCompany(scopedCompanyId);
 
   const emailWhere = Sequelize.where(
     Sequelize.fn("LOWER", Sequelize.col("email")),

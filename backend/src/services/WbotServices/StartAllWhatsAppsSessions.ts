@@ -1,10 +1,12 @@
 import Whatsapp from "../../models/Whatsapp";
+import { runtimeOwnsCompany } from "../../helpers/tenantRuntime";
 import { logger } from "../../utils/logger";
 import { StartWhatsAppSession } from "./StartWhatsAppSession";
 
 export const StartAllWhatsAppsSessions = async (
   companyId: number
 ): Promise<void> => {
+  if (!runtimeOwnsCompany(companyId)) return;
   if (process.env.WHATSAPP_AUTOSTART_ENABLED?.toLowerCase() === "false") {
     logger.info(
       { companyId },
@@ -17,7 +19,11 @@ export const StartAllWhatsAppsSessions = async (
     const whatsapps = await Whatsapp.findAll({ where: { companyId } });
     if (whatsapps.length > 0) {
       whatsapps.forEach(whatsapp => {
-        if (whatsapp.channel === "whatsapp") {
+        if (
+          whatsapp.channel === "whatsapp" &&
+          (process.env.WHATSAPP_AUTOSTART_EXISTING_ONLY !== "true" ||
+            !!whatsapp.session)
+        ) {
           StartWhatsAppSession(whatsapp, companyId);
         }
       });

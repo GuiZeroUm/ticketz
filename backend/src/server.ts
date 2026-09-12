@@ -1,4 +1,8 @@
 import gracefulShutdown from "http-graceful-shutdown";
+import {
+  isDedicatedRuntime,
+  runtimeCompanyWhere
+} from "./helpers/tenantRuntime";
 import { startSgaSync } from "./services/SgaServices/service";
 import app from "./app";
 import { initIO } from "./libs/socket";
@@ -27,7 +31,9 @@ if (!process.env.PORT) {
 // Function to start server and initialize services
 async function startServer() {
   try {
-    const companies = await Company.findAll();
+    const companies = await Company.findAll({
+      where: runtimeCompanyWhere("id")
+    });
     const sessionPromises = companies.map(async company => {
       try {
         await StartAllWhatsAppsSessions(company.id);
@@ -43,20 +49,22 @@ async function startServer() {
 
     startQueueProcess();
     startSgaSync();
-    startVoiceEventBridge();
-    await recoverVoiceHistories().catch(error =>
-      logger.error({ error }, "Unable to recover voice ticket histories")
-    );
-    await recoverPendingVoiceArtifacts();
-    logger.info(`Server started on port: ${process.env.PORT}`);
+    if (!isDedicatedRuntime()) {
+      startVoiceEventBridge();
+      await recoverVoiceHistories().catch(error =>
+        logger.error({ error }, "Unable to recover voice ticket histories")
+      );
+      await recoverPendingVoiceArtifacts();
+      logger.info(`Server started on port: ${process.env.PORT}`);
 
-    try {
-      await payGatewayInitialize();
-    } catch (error) {
-      logger.error(`Error initializing payment gateway: ${error.message}`);
+      try {
+        await payGatewayInitialize();
+      } catch (error) {
+        logger.error(`Error initializing payment gateway: ${error.message}`);
+      }
+
+      checkOpenInvoices();
     }
-
-    checkOpenInvoices();
   } catch (error) {
     logger.error(`Error during server startup: ${error.message}`);
     process.exit(1);

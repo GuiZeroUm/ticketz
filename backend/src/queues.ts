@@ -52,20 +52,43 @@ import ReconcilePartnerPayoutsService from "./services/PartnerServices/Reconcile
 import { processPlatformWebhooks } from "./services/PlatformServices/PlatformWebhookService";
 import CreateCompanyInvoiceService from "./services/InvoicesService/CreateCompanyInvoiceService";
 import getCompletionMessage from "./helpers/GetCompletionMessage";
+import {
+  isDedicatedRuntime,
+  runtimeCompanyWhere,
+  runtimeOwnsCompany,
+  runtimeQueueOptions
+} from "./helpers/tenantRuntime";
 
 const connection = process.env.REDIS_URI || "";
-export const userMonitor = new Queue("UserMonitor", connection);
+export const userMonitor = new Queue(
+  "UserMonitor",
+  connection,
+  runtimeQueueOptions()
+);
 
-export const scheduleMonitor = new Queue("ScheduleMonitor", connection);
+export const scheduleMonitor = new Queue(
+  "ScheduleMonitor",
+  connection,
+  runtimeQueueOptions()
+);
 export const sendScheduledMessages = new Queue(
   "SendSacheduledMessages",
-  connection
+  connection,
+  runtimeQueueOptions()
 );
 
 // Repasses dos parceiros. Fila Bull (e nao CronJob) porque o lock do Redis
 // garante que so uma replica envia o PIX.
-export const partnerPayouts = new Queue("PartnerPayouts", connection);
-export const platformWebhooks = new Queue("PlatformWebhooks", connection);
+export const partnerPayouts = new Queue(
+  "PartnerPayouts",
+  connection,
+  runtimeQueueOptions()
+);
+export const platformWebhooks = new Queue(
+  "PlatformWebhooks",
+  connection,
+  runtimeQueueOptions()
+);
 
 let lastMcpAuditCleanupDate: string | null = null;
 
@@ -73,6 +96,15 @@ const recoverQueuedScheduleDeliveries = async (): Promise<void> => {
   const queued = await ScheduleDelivery.findAll({
     where: { status: "QUEUED" },
     attributes: ["id"],
+    include: [
+      {
+        model: Schedule,
+        as: "schedule",
+        required: true,
+        where: runtimeCompanyWhere(),
+        attributes: []
+      }
+    ],
     limit: 1000,
     order: [["queuedAt", "ASC"]]
   });
@@ -91,6 +123,7 @@ const recoverQueuedScheduleDeliveries = async (): Promise<void> => {
 };
 
 async function handleMcpAuditRetention(): Promise<void> {
+  if (isDedicatedRuntime()) return;
   const today = new Date().toISOString().slice(0, 10);
 
   if (lastMcpAuditCleanupDate === today) {
@@ -114,6 +147,7 @@ async function handleVerifySchedules() {
     const schedules = await Schedule.findAll({
       where: {
         active: true,
+        ...runtimeCompanyWhere(),
         nextRunAt: { [Op.lte]: new Date() }
       },
       include: [
@@ -272,6 +306,7 @@ async function handleVerifySchedules() {
 }
 
 async function handleExpireOutOfTicketMessages() {
+  if (isDedicatedRuntime()) return;
   OutOfTicketMessage.destroy({
     where: {
       createdAt: {
@@ -339,6 +374,7 @@ async function handleSendScheduledMessage(job) {
   });
   if (!delivery || delivery.status === "SENT") return;
   const schedule = delivery.schedule;
+  if (!schedule || !runtimeOwnsCompany(schedule.companyId)) return;
   if (!delivery.contact) {
     await delivery.update({
       status: "SKIPPED",
@@ -453,6 +489,7 @@ async function handleRatingsTimeout() {
   const openTrackingRatings = await TicketTraking.findAll({
     where: {
       rated: false,
+      ...runtimeCompanyWhere(),
       expired: false,
       ratingAt: { [Op.not]: null }
     },
@@ -727,7 +764,7 @@ async function handleOpenTicketTimeout(
 
 async function handleTicketTimeouts() {
   logger.trace("handleTicketTimeouts");
-  const companies = await Company.findAll();
+  const companies = await Company.findAll({ where: runtimeCompanyWhere("id") });
 
   // eslint-disable-next-line no-restricted-syntax
   for (const company of companies) {
@@ -843,7 +880,7 @@ const createInvoices = new CronJob("0 * * * * *", async () => {
   }
 });
 
-createInvoices.start();
+if (!isDedicatedRuntime()) createInvoices.start();
 
 export async function startQueueProcess() {
   logger.info("Starting queue processing");
@@ -859,8 +896,10 @@ export async function startQueueProcess() {
   userMonitor.process("EveryMinute", handleEveryMinute);
 
   // Concorrencia 1: os envios sao espacados por causa do rate limit da API.
-  partnerPayouts.process("Process", 1, handlePartnerPayouts);
-  platformWebhooks.process("Process", 1, processPlatformWebhooks);
+  if (!isDedicatedRuntime()) {
+    partnerPayouts.process("Process", 1, handlePartnerPayouts);
+    platformWebhooks.process("Process", 1, processPlatformWebhooks);
+  }
 
   scheduleMonitor.add(
     "Verify",
@@ -880,21 +919,23 @@ export async function startQueueProcess() {
     }
   );
 
-  partnerPayouts.add(
-    "Process",
-    {},
-    {
-      repeat: { cron: "*/5 * * * *" },
-      removeOnComplete: true
-    }
-  );
+  if (!isDedicatedRuntime()) {
+    partnerPayouts.add(
+      "Process",
+      {},
+      {
+        repeat: { cron: "*/5 * * * *" },
+        removeOnComplete: true
+      }
+    );
 
-  platformWebhooks.add(
-    "Process",
-    {},
-    {
-      repeat: { cron: "* * * * *" },
-      removeOnComplete: true
-    }
-  );
+    platformWebhooks.add(
+      "Process",
+      {},
+      {
+        repeat: { cron: "* * * * *" },
+        removeOnComplete: true
+      }
+    );
+  }
 }
