@@ -143,14 +143,14 @@ services:
       - "traefik.http.routers.espacowhats-acnorte-http.rule=Host(`${ACNORTE_HOST}`)"
       - "traefik.http.routers.espacowhats-acnorte-http.entrypoints=web"
       - "traefik.http.routers.espacowhats-acnorte-http.priority=200"
-      - "traefik.http.routers.espacowhats-acnorte-http.middlewares=redirect-to-https"
+      - "traefik.http.routers.espacowhats-acnorte-http.middlewares=redirect-to-https@file"
       - "traefik.http.routers.espacowhats-acnorte-http.service=espacowhats-acnorte-frontend"
       - "traefik.http.routers.espacowhats-acnorte-https.rule=Host(`${ACNORTE_HOST}`)"
       - "traefik.http.routers.espacowhats-acnorte-https.entrypoints=websecure"
       - "traefik.http.routers.espacowhats-acnorte-https.priority=200"
       - "traefik.http.routers.espacowhats-acnorte-https.service=espacowhats-acnorte-frontend"
       - "traefik.http.routers.espacowhats-acnorte-https.tls=true"
-      - "traefik.http.routers.espacowhats-acnorte-https.tls.certresolver=letsencrypt-hostinger"
+      - "traefik.http.routers.espacowhats-acnorte-https.tls.certresolver=letsencrypt"
       - "traefik.http.services.espacowhats-acnorte-frontend.loadbalancer.server.port=80"
     networks:
       - internal
