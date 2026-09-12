@@ -164,3 +164,17 @@ jobs:
           ACNORTE_MCP_PUBLIC_KEY: acnorte-ci-public-key
           ACNORTE_MCP_CURSOR_SECRET: acnorte-ci-cursor
         run: docker compose -f docker-compose.acnorte.dokploy.yml config --quiet
+
+      - name: Validate AC Norte production manifest
+        env:
+          POSTGRES_DB: production_ci
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci-only
+          REDIS_PASSWORD: ci-only
+          EMAIL_ADDRESS: ci@example.invalid
+          VERIFY_TOKEN: ci-only
+          MCP_PRIVATE_KEY: ci-only
+          MCP_PUBLIC_KEY: ci-only
+          MCP_CURSOR_SECRET: ci-only
+          ACNORTE_SGA_TOKEN: ci-only
+        run: docker compose -f docker-compose.acnorte-production.yml config --quiet
