@@ -11,7 +11,7 @@ import IconButton from "@material-ui/core/IconButton";
 import CloseIcon from "@material-ui/icons/Close";
 import Drawer from "@material-ui/core/Drawer";
 import Link from "@material-ui/core/Link";
-import Avatar from "@material-ui/core/Avatar";
+import AvatarContato from "../AvatarContato";
 import Button from "@material-ui/core/Button";
 import Paper from "@material-ui/core/Paper";
 import CircularProgress from "@material-ui/core/CircularProgress";
@@ -260,8 +260,8 @@ const ContactDrawer = ({
                     titleTypographyProps={{ noWrap: true }}
                     subheaderTypographyProps={{ noWrap: true }}
                     avatar={
-                      <Avatar
-                        src={contact.profilePicUrl}
+                      <AvatarContato
+                        contact={contact}
                         alt="contact_image"
                         style={{
                           width: 44,
@@ -272,7 +272,7 @@ const ContactDrawer = ({
                         }}
                       >
                         {getInitials(formattedContactName)}
-                      </Avatar>
+                      </AvatarContato>
                     }
                     title={
                       <>
@@ -380,8 +380,11 @@ const ContactDrawer = ({
                             }}
                           >
                             <ListItemAvatar>
-                              <Avatar
-                                src={participant.profilePicUrl}
+                              <AvatarContato
+                                contact={{
+                                  ...participant,
+                                  id: participant.contactId
+                                }}
                                 style={{
                                   backgroundColor: generateColor(
                                     participant.number
@@ -391,7 +394,7 @@ const ContactDrawer = ({
                                 }}
                               >
                                 {getInitials(participant.name)}
-                              </Avatar>
+                              </AvatarContato>
                             </ListItemAvatar>
                             <ListItemText
                               primary={`${participant.name}${

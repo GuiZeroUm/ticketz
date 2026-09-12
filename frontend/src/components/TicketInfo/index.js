@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 
-import { Avatar, CardHeader } from "@material-ui/core";
+import { CardHeader } from "@material-ui/core";
+import AvatarContato from "../AvatarContato";
 import { Lightbox } from "react-modal-image";
 
 import { i18n } from "../../translate/i18n";
@@ -42,13 +43,13 @@ const TicketInfo = ({ contact, ticket, onClick }) => {
         titleTypographyProps={{ noWrap: true }}
         subheaderTypographyProps={{ noWrap: true }}
         avatar={
-          <Avatar
+          <AvatarContato
             style={{
               backgroundColor: generateColor(contact?.number),
               color: "white",
               fontWeight: "bold"
             }}
-            src={contact.profilePicUrl}
+            contact={contact}
             alt="contact_image"
             onClick={e => {
               e.stopPropagation();
@@ -56,7 +57,7 @@ const TicketInfo = ({ contact, ticket, onClick }) => {
             }}
           >
             {getInitials(contactName)}
-          </Avatar>
+          </AvatarContato>
         }
         title={contactName}
         subheader={formatWhatsappContactNumber(contact) || userName}

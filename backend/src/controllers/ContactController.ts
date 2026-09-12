@@ -21,6 +21,7 @@ import SimpleListService, {
   SearchContactParams
 } from "../services/ContactServices/SimpleListService";
 import ContactCustomField from "../models/ContactCustomField";
+import RefreshContactPictureService from "../services/ContactServices/RefreshContactPictureService";
 
 import { logger } from "../utils/logger";
 import Contact from "../models/Contact";
@@ -30,6 +31,18 @@ import { verifyContact } from "../services/WbotServices/verifyContact";
 import { getWbot } from "../libs/wbot";
 import GetDefaultWhatsApp from "../helpers/GetDefaultWhatsApp";
 import { csvDetectDelimiter } from "../helpers/csvDetectDelimiter";
+
+export const refreshPicture = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const pictures = await RefreshContactPictureService(
+    req.params.contactId,
+    req.user.companyId
+  );
+  res.setHeader("Cache-Control", "no-store");
+  return res.json(pictures);
+};
 
 type IndexQuery = {
   searchParam: string;
