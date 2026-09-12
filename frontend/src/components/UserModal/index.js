@@ -26,6 +26,7 @@ import FotoUsuario from "./FotoUsuario";
 import QueueSelect from "../QueueSelect";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { Can } from "../Can";
+import useFocoDialogo from "../../hooks/useFocoDialogo";
 
 const useStyles = makeStyles(theme => ({
   root: {
@@ -68,6 +69,7 @@ const UserSchema = Yup.object().shape({
 
 const UserModal = ({ open, onClose, userId }) => {
   const classes = useStyles();
+  const restaurarFoco = useFocoDialogo(open);
 
   const initialState = {
     name: "",
@@ -147,6 +149,9 @@ const UserModal = ({ open, onClose, userId }) => {
     <div className={classes.root}>
       <Dialog
         open={open}
+        aria-labelledby="form-dialog-title"
+        disableRestoreFocus
+        TransitionProps={{ onExited: restaurarFoco }}
         onClose={handleClose}
         maxWidth="xs"
         fullWidth
@@ -182,6 +187,7 @@ const UserModal = ({ open, onClose, userId }) => {
                 <div className={classes.multFieldLine}>
                   <Field
                     as={TextField}
+                    id="usuario-nome"
                     label={i18n.t("userModal.form.name")}
                     autoFocus
                     name="name"
@@ -193,6 +199,7 @@ const UserModal = ({ open, onClose, userId }) => {
                   />
                   <Field
                     as={TextField}
+                    id="usuario-senha"
                     label={i18n.t("userModal.form.password")}
                     type="password"
                     name="password"
@@ -209,6 +216,7 @@ const UserModal = ({ open, onClose, userId }) => {
                 <div className={classes.multFieldLine}>
                   <Field
                     as={TextField}
+                    id="usuario-email"
                     label={i18n.t("userModal.form.email")}
                     name="email"
                     error={touched.email && Boolean(errors.email)}
@@ -236,7 +244,7 @@ const UserModal = ({ open, onClose, userId }) => {
                             as={Select}
                             label={i18n.t("userModal.form.profile")}
                             name="profile"
-                            labelId="profile-selection-label"
+                            labelId="profile-selection-input-label"
                             id="profile-selection"
                             required
                           >

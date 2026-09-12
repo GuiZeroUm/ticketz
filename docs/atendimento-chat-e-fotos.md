@@ -10,6 +10,8 @@ Em Perfil ou Usuários → Editar, selecione Alterar foto e salve. Aceita JPG, P
 
 A migração `20260912190000-add-user-profile-picture` adiciona `Users.profilePicUrl`. Os arquivos ficam em `public/avatars/<companyId>/`. A nova foto é persistida antes de excluir a anterior. Falha na gravação remove o arquivo novo e conserva o antigo; remover a foto também exclui seu arquivo.
 
+O componente `AvatarUsuario` resolve os arquivos de avatar usando o backend configurado no frontend. Em tenants, a foto usa o proxy `/backend` do domínio atual, mesmo quando a API informa uma URL absoluta com o domínio principal. Prévias locais continuam usando sua URL de blob.
+
 Logos clara/escura, favicon, imagem lateral, fundo do login e prévia de links ficam em `public/branding/<companyId>/`. Cada substituição atualiza a configuração dentro de uma transação e só então remove a imagem anterior. Arquivos ainda usados por outra configuração são preservados. Limpar a imagem nas configurações também libera seu arquivo. URLs novas evitam cache antigo no navegador.
 
 ## Execução e verificação
