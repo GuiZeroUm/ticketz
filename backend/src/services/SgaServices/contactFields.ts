@@ -4,6 +4,8 @@ import sequelize from "../../database";
 export const SGA_FIELD_SOURCE = "acnorte-sga";
 interface LinkedMember {
   id: string;
+  document?: string;
+  email?: string;
   match: { contactId: number | null };
   overdueCount: number;
   overdueAmount: number;
@@ -29,6 +31,7 @@ export const desiredContactFields = (
     {
       memberIds: Set<string>;
       plates: Set<string>;
+      documents: Set<string>;
       count: number;
       amount: number;
     }
@@ -40,6 +43,7 @@ export const desiredContactFields = (
     const entry = contacts.get(id) || {
       memberIds: new Set<string>(),
       plates: new Set<string>(),
+      documents: new Set<string>(),
       count: 0,
       amount: 0
     };
@@ -47,6 +51,8 @@ export const desiredContactFields = (
       entry.memberIds.add(member.id);
       entry.count += member.overdueCount;
       entry.amount += member.overdueAmount;
+      const document = (member.document || "").replace(/\D/g, "");
+      if ([11, 14].includes(document.length)) entry.documents.add(document);
     }
     contacts.set(id, entry);
     memberContacts.set(member.id, id);
@@ -79,8 +85,68 @@ export const desiredContactFields = (
         value: plate
       })
     );
+    if (entry.documents.size)
+      fields.push({
+        contactId,
+        name: "CPF/CNPJ",
+        value: [...entry.documents].sort().map(formatDocument).join("; ")
+      });
     return fields;
   });
+};
+
+const formatDocument = (document: string): string =>
+  document.length === 11
+    ? document.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4")
+    : document.replace(
+        /^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,
+        "$1.$2.$3/$4-$5"
+      );
+
+export const desiredContactEmails = (members: LinkedMember[]) => {
+  const contacts = new Map<number, Set<string>>();
+  members.forEach(member => {
+    const id = member.match.contactId;
+    if (!id) return;
+    const emails = contacts.get(id) || new Set<string>();
+    const email = (member.email || "").trim().toLowerCase();
+    if (email.length <= 254 && /^[^\s@;,]+@[^\s@;,]+\.[^\s@;,]+$/.test(email))
+      emails.add(email);
+    contacts.set(id, emails);
+  });
+  // A native email accepts only one address. Never choose arbitrarily between owners.
+  return [...contacts].flatMap(([contactId, emails]) =>
+    emails.size === 1 ? [{ contactId, email: [...emails][0] }] : []
+  );
+};
+
+export const reconcileContactEmails = async (
+  companyId: number,
+  emails: { contactId: number; email: string }[],
+  transaction: Transaction
+): Promise<void> => {
+  // Ownership is a compare-and-set against the last email published by SGA.
+  // Manual addresses survive updates, unlinks and missing source data.
+  await sequelize.query(
+    `WITH desired AS (
+      SELECT * FROM jsonb_to_recordset(CAST(:emails AS jsonb)) AS d("contactId" integer, email text)
+    ), targets AS (
+      SELECT c.id, d.email FROM "Contacts" c
+      LEFT JOIN desired d ON d."contactId" = c.id AND NOT c."isGroup"
+      WHERE c."companyId" = :companyId AND (d."contactId" IS NOT NULL OR c."sgaEmail" IS NOT NULL)
+    )
+    UPDATE "Contacts" c SET
+      email = CASE WHEN BTRIM(c.email) = '' OR c.email = c."sgaEmail"
+        THEN COALESCE(t.email, '') ELSE c.email END,
+      "sgaEmail" = CASE WHEN BTRIM(c.email) = '' OR c.email = c."sgaEmail"
+        THEN t.email ELSE NULL END,
+      "updatedAt" = NOW()
+    FROM targets t WHERE c.id = t.id AND c."companyId" = :companyId
+      AND ((c."sgaEmail" IS NOT NULL AND
+        (c."sgaEmail" IS DISTINCT FROM t.email OR c.email IS DISTINCT FROM c."sgaEmail")) OR
+        (t.email IS NOT NULL AND BTRIM(c.email) = ''))`,
+    { replacements: { companyId, emails: JSON.stringify(emails) }, transaction }
+  );
 };
 
 // All three statements share the snapshot publication transaction. Only fields

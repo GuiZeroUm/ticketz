@@ -73,7 +73,8 @@ export interface ContactRecord {
   name: string;
   number: string;
   email: string;
-  extraInfo?: { name: string; value: string }[];
+  sgaEmail?: string | null;
+  extraInfo?: { name: string; value: string; managedBy?: string | null }[];
 }
 export interface Match {
   contactId: number | null;
@@ -142,6 +143,8 @@ export const createContactMatcher = (contacts: ContactRecord[]) => {
   const byEmail = new Map<string, ContactRecord[]>();
   const documentFields = (contact: ContactRecord) =>
     (contact.extraInfo || [])
+      // Published identifiers are output, never independent evidence of a match.
+      .filter(f => f.managedBy !== "acnorte-sga")
       .filter(f =>
         /^(cpf|cnpj|cpfcnpj|documento)$/.test(
           normalizedText(f.name).replace(/[^a-z]/g, "")
@@ -163,7 +166,8 @@ export const createContactMatcher = (contacts: ContactRecord[]) => {
   contacts.forEach(contact => {
     documentFields(contact).forEach(doc => add(byDocument, doc, contact));
     add(byPhone, phoneKey(contact.number), contact);
-    add(byEmail, text(contact.email).toLowerCase(), contact);
+    if (contact.email !== contact.sgaEmail)
+      add(byEmail, text(contact.email).toLowerCase(), contact);
   });
   return (member: Member, manual?: number | null): Match => {
     if (manual !== undefined)

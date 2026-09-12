@@ -7,7 +7,12 @@ import ContactCustomField from "../../models/ContactCustomField";
 import AppError from "../../errors/AppError";
 import { logger } from "../../utils/logger";
 import { sgaPages, sgaRequest } from "./client";
-import { desiredContactFields, reconcileContactFields } from "./contactFields";
+import {
+  desiredContactFields,
+  reconcileContactFields,
+  desiredContactEmails,
+  reconcileContactEmails
+} from "./contactFields";
 import {
   Bill,
   Member,
@@ -159,6 +164,11 @@ export const syncSga = async (companyId: number): Promise<void> => {
           desiredContactFields(linked.members, linked.vehicles),
           publication
         );
+        await reconcileContactEmails(
+          companyId,
+          desiredContactEmails(linked.members),
+          publication
+        );
       });
       logger.info(
         {
@@ -191,12 +201,12 @@ export const loadSga = async (companyId: number, transaction?: Transaction) => {
     await Contact.findAll({
       where: { companyId, isGroup: false },
       transaction,
-      attributes: ["id", "name", "number", "email"],
+      attributes: ["id", "name", "number", "email", "sgaEmail"],
       include: [
         {
           model: ContactCustomField,
           as: "extraInfo",
-          attributes: ["name", "value"]
+          attributes: ["name", "value", "managedBy"]
         }
       ]
     })
@@ -381,6 +391,11 @@ export const setSgaLink = async (
     await reconcileContactFields(
       companyId,
       desiredContactFields(linked.members, linked.vehicles),
+      transaction
+    );
+    await reconcileContactEmails(
+      companyId,
+      desiredContactEmails(linked.members),
       transaction
     );
   });

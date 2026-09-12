@@ -32,6 +32,19 @@ na tela Placas (incluindo seu histórico de situações). Veículos removidos ou
 transferidos no SGA deixam de constar na próxima sincronização bem-sucedida.
 Sem veículos, o campo informa `Nenhuma placa vinculada no SGA`.
 
+O **CPF/CNPJ** também é preenchido nas informações adicionais, com máscara.
+Se houver vários documentos nos associados vinculados manualmente ao mesmo
+contato, todos são apresentados, sem duplicação. Documento ausente não é inventado.
+O **Email** nativo do contato é preenchido quando vazio e há um único endereço
+válido entre os associados vinculados. Endereços manuais existentes são preservados.
+E-mails preenchidos pelo SGA acompanham alterações/remoções da origem; se alguém
+editar o endereço manualmente, a sincronização preserva esse novo valor.
+`Contacts.sgaEmail` registra o último valor publicado para essa proteção.
+CPF/CNPJ e e-mail gerados pelo próprio SGA não são usados como evidência para
+criar/manter vínculos automáticos: assim, uma mudança de telefone não perpetua
+um vínculo incorreto. E-mails independentes e documentos manuais continuam válidos
+para o cruzamento. Snapshot, campos adicionais e e-mails são publicados juntos.
+
 Esses campos são salvos em `ContactCustomFields`, identificados por
 `managedBy=acnorte-sga` e somente leitura no formulário. Campos manuais, mesmo
 com nomes iguais, são preservados. Escolhas manuais de vínculo atualizam os

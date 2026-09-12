@@ -1,6 +1,11 @@
 import { Transaction } from "sequelize";
 import sequelize from "../../../database";
-import { desiredContactFields, reconcileContactFields } from "../contactFields";
+import {
+  desiredContactFields,
+  reconcileContactFields,
+  desiredContactEmails,
+  reconcileContactEmails
+} from "../contactFields";
 jest.mock("../../../database", () => ({
   __esModule: true,
   default: { query: jest.fn() }
@@ -18,6 +23,61 @@ const member = (
   overdueAmount: amount
 });
 describe("SGA contact additional fields", () => {
+  beforeEach(() => jest.clearAllMocks());
+  it("formats CPF/CNPJ, deduplicates multiple memberships and omits missing documents", () => {
+    const fields = desiredContactFields(
+      [
+        { ...member(), document: "12345678909" },
+        { ...member("2"), document: "12345678909" },
+        { ...member("3"), document: "12345678000195" },
+        { ...member("4"), document: "123" },
+        { ...member("5", null), document: "99999999999" }
+      ],
+      []
+    );
+    expect(fields.find(f => f.name === "CPF/CNPJ")).toEqual({
+      contactId: 10,
+      name: "CPF/CNPJ",
+      value: "12.345.678/0001-95; 123.456.789-09"
+    });
+    expect(
+      desiredContactFields([member()], []).some(f => f.name === "CPF/CNPJ")
+    ).toBe(false);
+  });
+  it("projects only one unique usable source email per linked contact", () => {
+    expect(
+      desiredContactEmails([
+        { ...member(), email: " USER@example.com " },
+        { ...member("2"), email: "user@example.com" },
+        { ...member("3", null), email: "other@example.com" }
+      ])
+    ).toEqual([{ contactId: 10, email: "user@example.com" }]);
+    expect(
+      desiredContactEmails([
+        { ...member(), email: "one@example.com" },
+        { ...member("2"), email: "two@example.com" }
+      ])
+    ).toEqual([]);
+    expect(
+      desiredContactEmails([
+        { ...member(), email: "not-an-email" },
+        { ...member("2"), email: "a@example.com;b@example.com" },
+        member("3")
+      ])
+    ).toEqual([]);
+  });
+  it("reconciles native emails transactionally with tenant and ownership guards", async () => {
+    const transaction = {} as Transaction;
+    await reconcileContactEmails(9, [], transaction);
+    const [sql, options] = (sequelize.query as jest.Mock).mock.calls[0];
+    expect(sql).toContain('c."companyId" = :companyId');
+    expect(sql).toContain('c.email = c."sgaEmail"');
+    expect(sql).toContain('NOT c."isGroup"');
+    expect(options).toEqual({
+      transaction,
+      replacements: { companyId: 9, emails: "[]" }
+    });
+  });
   it("uses singular plate and explicitly reports no overdue bills", () => {
     expect(
       desiredContactFields([member()], [{ memberId: "1", plate: "ABC1D23" }])
