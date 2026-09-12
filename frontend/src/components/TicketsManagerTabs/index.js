@@ -348,7 +348,11 @@ const TicketsManagerTabs = () => {
           </Botao>
         )}
       </div>
-      <Paper square elevation={0} className={classes.ticketOptionsBox}>
+      <Paper
+        square
+        elevation={0}
+        className={`${classes.ticketOptionsBox} fila-opcoes`}
+      >
         {tab === "open" && (
           <Can
             role={user.profile}

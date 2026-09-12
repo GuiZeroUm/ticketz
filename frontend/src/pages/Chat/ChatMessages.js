@@ -1,15 +1,15 @@
 import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Box,
   Button,
   FormControl,
   IconButton,
   Input,
   InputAdornment,
   makeStyles,
-  Paper,
-  Typography
+  Paper
 } from "@material-ui/core";
+import AvatarUsuario from "../../components/AvatarUsuario";
+import { i18n } from "../../translate/i18n";
 import SendIcon from "@material-ui/icons/Send";
 
 import { AuthContext } from "../../context/Auth/AuthContext";
@@ -186,20 +186,42 @@ const useStyles = makeStyles(theme => ({
   }
 }));
 
-const Mp3Recorder = new MicRecorder({ bitRate: 128 });
-
 export default function ChatMessages({
   chat,
   messages,
   handleSendMessage,
   handleLoadMore,
   scrollToBottomRef,
-  pageInfo
+  pageInfo,
+  carregandoHistorico = false
 }) {
   const classes = useStyles();
   const { user } = useContext(AuthContext);
   const { datetimeToClient } = useDate();
   const baseRef = useRef();
+  const gravador = useRef(null);
+  if (!gravador.current) gravador.current = new MicRecorder({ bitRate: 128 });
+  const Mp3Recorder = gravador.current;
+  const enviando = useRef(false);
+  const listaRef = useRef(null);
+  const alturaAnterior = useRef(null);
+  useEffect(
+    () => () => {
+      gravador.current?.stop();
+    },
+    []
+  );
+  useEffect(() => {
+    if (
+      alturaAnterior.current !== null &&
+      !carregandoHistorico &&
+      listaRef.current
+    ) {
+      listaRef.current.scrollTop =
+        listaRef.current.scrollHeight - alturaAnterior.current;
+      alturaAnterior.current = null;
+    }
+  }, [messages, carregandoHistorico]);
   const previewVideoRefs = useRef({});
 
   const [contentMessage, setContentMessage] = useState("");
@@ -236,29 +258,38 @@ export default function ChatMessages({
     }
   };
 
-  const unreadMessages = chat => {
-    if (chat !== undefined) {
-      const currentUser = chat.users.find(u => u.userId === user.id);
-      return currentUser.unreads > 0;
-    }
-    return 0;
-  };
-
   useEffect(() => {
-    if (unreadMessages(chat) > 0) {
-      try {
-        api.post(`/chats/${chat.id}/read`, { userId: user.id });
-      } catch (err) {}
-    }
     scrollToBottomRef.current = scrollToBottom;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    return () => {
+      scrollToBottomRef.current = null;
+    };
+  }, [scrollToBottomRef]);
 
   const handleScroll = e => {
-    const { scrollTop } = e.currentTarget;
-    if (!pageInfo.hasMore || loading) return;
-    if (scrollTop < 600) {
+    if (
+      !pageInfo.hasMore ||
+      loading ||
+      carregandoHistorico ||
+      alturaAnterior.current !== null
+    )
+      return;
+    if (e.currentTarget.scrollTop < 80) {
+      alturaAnterior.current =
+        e.currentTarget.scrollHeight - e.currentTarget.scrollTop;
       handleLoadMore();
+    }
+  };
+
+  const enviarTexto = async () => {
+    if (!contentMessage.trim() || enviando.current || loading) return;
+    enviando.current = true;
+    setLoading(true);
+    try {
+      const sucesso = await handleSendMessage(contentMessage.trim());
+      if (sucesso !== false) setContentMessage("");
+    } finally {
+      enviando.current = false;
+      setLoading(false);
     }
   };
 
@@ -304,7 +335,7 @@ export default function ChatMessages({
         <img
           className={classes.messageMedia}
           src={mediaUrl}
-          alt="midia da mensagem"
+          alt={message.mediaName || i18n.t("conversa.arquivo")}
           style={{ cursor: "pointer" }}
           onClick={() => openLightboxForMessage(message.id)}
         />
@@ -313,7 +344,7 @@ export default function ChatMessages({
     if (message.mediaType === "audio") {
       return (
         <audio controls>
-          <source src={mediaUrl} type="audio/ogg"></source>
+          <source src={mediaUrl}></source>
         </audio>
       );
     }
@@ -392,7 +423,6 @@ export default function ChatMessages({
               Download
             </Button>
           </div>
-          {/* <Divider /> */}
         </>
       );
     }
@@ -411,19 +441,17 @@ export default function ChatMessages({
 
     try {
       await api.post(`/chats/${chat.id}/messages`, formData);
+      setMedias([]);
     } catch (err) {
-      console.log(err);
       toastError(err);
     }
 
     setLoading(false);
-    setMedias([]);
   };
 
   const handleStartRecording = async () => {
     setLoading(true);
     try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
       await Mp3Recorder.start();
       setRecording(true);
       setLoading(false);
@@ -470,41 +498,74 @@ export default function ChatMessages({
   };
 
   return (
-    <Paper className={classes.mainContainer}>
-      <div onScroll={handleScroll} className={classes.messageList}>
-        {Array.isArray(messages) &&
-          messages.map((item, key) => {
-            if (item.senderId === user.id) {
-              return (
-                <Box key={key} className={classes.boxRight}>
-                  <Typography variant="subtitle2">
-                    {item.sender.name}
-                  </Typography>
+    <Paper className={`${classes.mainContainer} chat-mensagens`} elevation={0}>
+      <div
+        ref={listaRef}
+        onScroll={handleScroll}
+        className={`${classes.messageList} chat-mensagens-lista`}
+      >
+        {carregandoHistorico && (
+          <div className="chat-carregando">
+            <CircularProgress size={20} />
+          </div>
+        )}
+        {!messages.length && !carregandoHistorico && (
+          <p className="conversa-sem-resultados">
+            {i18n.t("conversa.semMensagens")}
+          </p>
+        )}
+        {messages.map((item, indice) => {
+          const minha = item.senderId === user.id;
+          const dia = new Date(item.createdAt).toLocaleDateString(
+            i18n.language
+          );
+          const diaAnterior =
+            indice > 0
+              ? new Date(messages[indice - 1].createdAt).toLocaleDateString(
+                  i18n.language
+                )
+              : null;
+          return (
+            <React.Fragment key={item.id}>
+              {dia !== diaAnterior && (
+                <div className="chat-dia">
+                  <span>{dia}</span>
+                </div>
+              )}
+              <div
+                id={`chat-mensagem-${item.id}`}
+                className={`chat-mensagem ${minha ? "minha" : "recebida"}`}
+              >
+                <AvatarUsuario
+                  usuario={minha ? user : item.sender}
+                  tamanho={28}
+                />
+                <div className="chat-balao">
+                  <strong>
+                    {item.sender?.name || i18n.t("conversa.usuario")}
+                  </strong>
                   {item.mediaPath && checkMessageMedia(item)}
-                  {item.message}
-                  <Typography variant="caption" display="block">
-                    {datetimeToClient(item.createdAt)}
-                  </Typography>
-                </Box>
-              );
-            } else {
-              return (
-                <Box key={key} className={classes.boxLeft}>
-                  <Typography variant="subtitle2">
-                    {item.sender.name}
-                  </Typography>
-                  {item.mediaPath && checkMessageMedia(item)}
-                  {item.message}
-                  <Typography variant="caption" display="block">
-                    {datetimeToClient(item.createdAt)}
-                  </Typography>
-                </Box>
-              );
-            }
-          })}
+                  <div className="chat-texto">{item.message}</div>
+                  <time title={datetimeToClient(item.createdAt)}>
+                    {new Date(item.createdAt).toLocaleTimeString(
+                      i18n.language,
+                      { hour: "2-digit", minute: "2-digit" }
+                    )}
+                  </time>
+                </div>
+              </div>
+            </React.Fragment>
+          );
+        })}
         <div ref={baseRef}></div>
       </div>
-      <div className={classes.inputArea}>
+      <div
+        className={`${classes.inputArea} conversa-compositor chat-compositor`}
+      >
+        <div className="conversa-modos">
+          <strong>{i18n.t("conversa.responder")}</strong>
+          <span>{i18n.t("conversa.somenteEquipe")}</span>
+        </div>
         <FormControl variant="outlined" fullWidth>
           {recording ? (
             <div className={classes.recorderWrapper}>
@@ -556,7 +617,7 @@ export default function ChatMessages({
                         <CircularProgress className={classes.circleLoading} />
                       </div>
                     ) : (
-                      <span>{medias[0]?.name}</span>
+                      <span>{medias.map(media => media.name).join(", ")}</span>
                     )}
                     <IconButton
                       aria-label="send-upload"
@@ -573,10 +634,19 @@ export default function ChatMessages({
                   <Input
                     multiline
                     value={contentMessage}
-                    onKeyUp={e => {
-                      if (e.key === "Enter" && contentMessage.trim() !== "") {
-                        handleSendMessage(contentMessage);
-                        setContentMessage("");
+                    placeholder={i18n.t("conversa.escrever")}
+                    inputProps={{ "aria-label": i18n.t("conversa.escrever") }}
+                    disabled={loading}
+                    maxRows={6}
+                    disableUnderline
+                    onKeyDown={e => {
+                      if (
+                        e.key === "Enter" &&
+                        !e.shiftKey &&
+                        !e.nativeEvent.isComposing
+                      ) {
+                        e.preventDefault();
+                        enviarTexto();
                       }
                     }}
                     onChange={e => setContentMessage(e.target.value)}
@@ -593,12 +663,9 @@ export default function ChatMessages({
                       <InputAdornment position="end">
                         {contentMessage ? (
                           <IconButton
-                            onClick={() => {
-                              if (contentMessage.trim() !== "") {
-                                handleSendMessage(contentMessage);
-                                setContentMessage("");
-                              }
-                            }}
+                            onClick={enviarTexto}
+                            disabled={loading}
+                            aria-label={i18n.t("conversa.enviar")}
                             className={classes.buttonSend}
                           >
                             <SendIcon />
@@ -621,6 +688,7 @@ export default function ChatMessages({
             </>
           )}
         </FormControl>
+        <div className="conversa-teclado">{i18n.t("conversa.atalho")}</div>
       </div>
       <MediaGalleryLightbox
         open={lightboxOpen}

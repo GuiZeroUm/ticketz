@@ -743,14 +743,22 @@ const reducer = (state, action) => {
   }
 };
 
-const MessagesList = ({ ticket, ticketId, isGroup, markAsRead, readOnly }) => {
+const MessagesList = ({
+  ticket,
+  ticketId,
+  isGroup,
+  markAsRead,
+  readOnly,
+  aoAtualizarMensagens
+}) => {
   const classes = useStyles();
 
   const [messagesList, dispatch] = useReducer(reducer, []);
   const messagesListRef = useRef(messagesList);
   useEffect(() => {
     messagesListRef.current = messagesList;
-  }, [messagesList]);
+    aoAtualizarMensagens?.(messagesList);
+  }, [messagesList, aoAtualizarMensagens]);
   const [nextId, setNextId] = useState(null);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);

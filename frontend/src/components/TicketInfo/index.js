@@ -4,7 +4,10 @@ import { Avatar, CardHeader } from "@material-ui/core";
 import { Lightbox } from "react-modal-image";
 
 import { i18n } from "../../translate/i18n";
-import { formatWhatsappContactName } from "../../helpers/formatWhatsappDisplay";
+import {
+  formatWhatsappContactName,
+  formatWhatsappContactNumber
+} from "../../helpers/formatWhatsappDisplay";
 import { getInitials } from "../../helpers/getInitials";
 import { corAvatar as generateColor } from "../../helpers/coresAvatar";
 
@@ -14,12 +17,6 @@ const TicketInfo = ({ contact, ticket, onClick }) => {
   const [avatarOpen, setAvatarOpen] = useState(false);
 
   const contactName = contact ? formatWhatsappContactName(contact, ticket) : "";
-  const truncatedContactName =
-    document.body.offsetWidth < 600 && contactName.length > 10
-      ? contactName.substring(0, 10) + "..."
-      : contactName;
-  const isGroupConversation = ticket.isGroup && contact?.groupMode !== "ticket";
-
   useEffect(() => {
     if (user && contact) {
       setUserName(`${i18n.t("messagesList.header.assignedTo")} ${user.name}`);
@@ -61,12 +58,8 @@ const TicketInfo = ({ contact, ticket, onClick }) => {
             {getInitials(contactName)}
           </Avatar>
         }
-        title={
-          isGroupConversation
-            ? truncatedContactName
-            : `${truncatedContactName} #${ticket.id}`
-        }
-        subheader={!isGroupConversation && ticket.user && `${userName}`}
+        title={contactName}
+        subheader={formatWhatsappContactNumber(contact) || userName}
       />
     </>
   );

@@ -55,12 +55,12 @@ const TicketsCustom = () => {
       <div className={classes.chatPapper}>
         <PanelGroup
           direction="horizontal"
-          autoSaveId="espaco-atendimento-paineis"
+          autoSaveId="espaco-atendimento-paineis-v2"
         >
           <Panel
-            defaultSize={30}
+            defaultSize={28}
             minSize={23}
-            maxSize={45}
+            maxSize={35}
             className={classes.contactsWrapper}
           >
             <TicketsManager />

@@ -13,6 +13,7 @@ const ShowUserService = async (
       "name",
       "id",
       "email",
+      "profilePicUrl",
       "companyId",
       "profile",
       "super",

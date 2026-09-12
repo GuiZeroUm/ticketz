@@ -13,6 +13,7 @@ import {
 } from "@material-ui/icons";
 
 import { makeStyles } from "@material-ui/core/styles";
+import Button from "@material-ui/core/Button";
 import Paper from "@material-ui/core/Paper";
 import InputBase from "@material-ui/core/InputBase";
 import CircularProgress from "@material-ui/core/CircularProgress";
@@ -421,6 +422,7 @@ const CustomInput = props => {
         }
         return {
           value: m.message,
+          atalho: m.shortcode,
           label: `/${m.shortcode} - ${truncatedMessage}`
         };
       });
@@ -630,7 +632,34 @@ const CustomInput = props => {
   };
 
   return (
-    <div className={classes.messageInputWrapper}>
+    <div
+      className={`${classes.messageInputWrapper} conversa-entrada-texto`}
+      style={{ flexDirection: "column" }}
+    >
+      {quickMessages.length > 0 && (
+        <div
+          className="conversa-respostas-rapidas"
+          role="group"
+          aria-label={i18n.t("mainDrawer.listItems.quickMessages")}
+        >
+          {quickMessages.slice(0, 6).map(opcao => (
+            <Tooltip key={opcao.atalho} title={opcao.value || ""}>
+              <Button
+                size="small"
+                disabled={disableOption}
+                onClick={() => {
+                  setInputMessage(atual =>
+                    atual ? `${atual}\n${opcao.value}` : opcao.value
+                  );
+                  inputRef.current?.focus();
+                }}
+              >
+                /{opcao.atalho}
+              </Button>
+            </Tooltip>
+          ))}
+        </div>
+      )}
       <Autocomplete
         disabled={disableOption}
         freeSolo
@@ -1182,7 +1211,7 @@ const MessageInputCustom = props => {
       <Paper square elevation={0} className={classes.mainWrapper}>
         {(replyingMessage && renderReplyingMessage(replyingMessage)) ||
           (editingMessage && renderReplyingMessage(editingMessage))}
-        <div className={classes.newMessageBox}>
+        <div className={`${classes.newMessageBox} conversa-caixa-mensagem`}>
           {isMobile() || (
             <EmojiOptions
               disabled={disableOption}

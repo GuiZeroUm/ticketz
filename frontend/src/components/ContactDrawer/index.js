@@ -137,7 +137,10 @@ const ContactDrawer = ({
   handleDrawerClose,
   contact,
   ticket,
-  loading
+  loading,
+  aba,
+  aoAlterarAba,
+  versaoNotas = 0
 }) => {
   const classes = useStyles();
   const identidade = useIdentidade();
@@ -149,6 +152,7 @@ const ContactDrawer = ({
   const [modalOpen, setModalOpen] = useState(false);
   const [openForm, setOpenForm] = useState(false);
   const [showTags, setShowTags] = useState(false);
+  const [tagsTicket, definirTagsTicket] = useState(true);
   const [participants, setParticipants] = useState([]);
   const [participantsLoading, setParticipantsLoading] = useState(false);
   const [participantsError, setParticipantsError] = useState(false);
@@ -157,6 +161,7 @@ const ContactDrawer = ({
   useEffect(() => {
     getSetting("tagsMode").then(res => {
       setShowTags(["contact", "both"].includes(res));
+      definirTagsTicket(["ticket", "both"].includes(res));
     });
 
     setOpenForm(false);
@@ -224,7 +229,12 @@ const ContactDrawer = ({
           <ContactDrawerSkeleton classes={classes} />
         ) : (
           <div className={`ew-ui ${classes.content}`} style={identidade}>
-            <Tabs.Root defaultValue="contato" className="contexto-tabs">
+            <Tabs.Root
+              value={aba}
+              onValueChange={aoAlterarAba}
+              defaultValue="contato"
+              className="contexto-tabs"
+            >
               <Tabs.List
                 className="ew-tabs"
                 aria-label={i18n.t("contexto.titulo")}
@@ -284,14 +294,54 @@ const ContactDrawer = ({
                   />
                 </div>
 
-                {showTags && <TagsContainer contact={contact} />}
+                {!isGroupConversation && (
+                  <Button
+                    variant="outlined"
+                    color="primary"
+                    onClick={() => setModalOpen(!openForm)}
+                    style={{ fontSize: 12, marginTop: 8 }}
+                  >
+                    {i18n.t("contactDrawer.buttons.edit")}
+                  </Button>
+                )}
+                <section className="contexto-grupo">
+                  <h4>{i18n.t("conversa.cadastro")}</h4>
+                  <dl className="contexto-cadastro">
+                    <div>
+                      <dt>{i18n.t("contactModal.form.number")}</dt>
+                      <dd>{formatWhatsappContactNumber(contact) || "—"}</dd>
+                    </div>
+                    <div>
+                      <dt>{i18n.t("contactModal.form.email")}</dt>
+                      <dd>{contact.email || "—"}</dd>
+                    </div>
+                    {contact.createdAt && (
+                      <div>
+                        <dt>{i18n.t("conversa.cadastradoEm")}</dt>
+                        <dd>
+                          {new Date(contact.createdAt).toLocaleDateString(
+                            i18n.language
+                          )}
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                </section>
+                {showTags && (
+                  <section className="contexto-grupo">
+                    <h4>{i18n.t("conversa.etiquetas")}</h4>
+                    <TagsContainer contact={contact} />
+                  </section>
+                )}
                 {contact?.extraInfo?.length > 0 && (
                   <div className={classes.contactExtraInfo}>
                     <Typography variant="subtitle1">
                       {i18n.t("contactModal.form.extraInfo")}
                     </Typography>
                     {contact?.extraInfo?.map(info => (
-                      <WhatsMarked>{`*${info?.name}:* ${info?.value}`}</WhatsMarked>
+                      <WhatsMarked
+                        key={info.id || info.name}
+                      >{`*${info?.name}:* ${info?.value}`}</WhatsMarked>
                     ))}
                   </div>
                 )}
@@ -371,16 +421,6 @@ const ContactDrawer = ({
                     )}
                   </Paper>
                 )}
-                {!isGroupConversation && (
-                  <Button
-                    variant="outlined"
-                    color="primary"
-                    onClick={() => setModalOpen(!openForm)}
-                    style={{ fontSize: 12, marginTop: 8 }}
-                  >
-                    {i18n.t("contactDrawer.buttons.edit")}
-                  </Button>
-                )}
               </Tabs.Content>
               <Tabs.Content value="atendimento">
                 <dl className="contexto-dados">
@@ -396,7 +436,30 @@ const ContactDrawer = ({
                     <dt>{i18n.t("contexto.fila")}</dt>
                     <dd>{ticket.queue?.name || "—"}</dd>
                   </div>
+                  <div>
+                    <dt>{i18n.t("conversa.conexao")}</dt>
+                    <dd>{ticket.whatsapp?.name || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt>{i18n.t("conversa.abertoEm")}</dt>
+                    <dd>
+                      {ticket.createdAt
+                        ? new Date(ticket.createdAt).toLocaleString(
+                            i18n.language
+                          )
+                        : "—"}
+                    </dd>
+                  </div>
                 </dl>
+                {(tagsTicket || showTags) && (
+                  <section className="contexto-grupo">
+                    <h4>{i18n.t("conversa.etiquetas")}</h4>
+                    <TagsContainer
+                      ticket={tagsTicket && ticket}
+                      contact={!tagsTicket && contact}
+                    />
+                  </section>
+                )}
                 {!isGroupConversation && (
                   <Paper
                     square
@@ -409,7 +472,10 @@ const ContactDrawer = ({
                     >
                       {i18n.t("ticketOptionsMenu.appointmentsModal.title")}
                     </Typography>
-                    <TicketNotes ticket={ticket} />
+                    <TicketNotes
+                      key={`${ticket.id}-${versaoNotas}`}
+                      ticket={ticket}
+                    />
                   </Paper>
                 )}
               </Tabs.Content>

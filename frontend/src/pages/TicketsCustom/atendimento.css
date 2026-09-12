@@ -110,3 +110,26 @@
   min-width: 17px;
   height: 17px;
 }
+
+.fila-opcoes.MuiPaper-root {
+  padding: 4px 12px 8px;
+  min-height: 42px;
+  border-radius: 0;
+  box-shadow: none;
+  border-bottom: 1px solid var(--ew-border);
+}
+.fila-opcoes .MuiFormControlLabel-root {
+  margin: 0;
+}
+.fila-opcoes .MuiFormControlLabel-label {
+  font-size: 11px;
+}
+.fila-opcoes .MuiInputBase-root {
+  font-size: 11px;
+}
+.fila-opcoes .MuiSelect-select {
+  padding: 8px 30px 8px 10px;
+}
+.fila-atendimento .MuiPaper-root {
+  box-shadow: none;
+}

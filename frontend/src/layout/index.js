@@ -1,3 +1,4 @@
+import AvatarUsuario from "../components/AvatarUsuario";
 import React, { useState, useContext, useEffect } from "react";
 import { useHistory } from "react-router-dom";
 import clsx from "clsx";
@@ -5,7 +6,6 @@ import {
   makeStyles,
   Drawer,
   Button,
-  Avatar,
   AppBar,
   Toolbar,
   List,
@@ -617,7 +617,7 @@ const LoggedInLayout = ({ children, themeToggle }) => {
           </div>
         )}
         <Button
-          className={classes.novaConversa}
+          className={`${classes.novaConversa} nav-abrir-atendimento`}
           color="primary"
           variant="contained"
           aria-label={i18n.t("redesign.abrirAtendimento")}
@@ -639,13 +639,11 @@ const LoggedInLayout = ({ children, themeToggle }) => {
         </List>
         <Divider />
         <Button
-          className={classes.rodapeUsuario}
+          className={`${classes.rodapeUsuario} nav-perfil`}
           onClick={() => setUserModalOpen(true)}
           aria-label={i18n.t("mainDrawer.appBar.user.profile")}
         >
-          <Avatar style={{ width: 32, height: 32, fontSize: 12 }}>
-            {user?.name?.slice(0, 2).toUpperCase()}
-          </Avatar>
+          <AvatarUsuario usuario={user} tamanho={36} />
           {drawerOpen && (
             <div className={classes.dadosOrganizacao}>
               <Typography variant="body2">{user?.name}</Typography>
@@ -752,14 +750,11 @@ const LoggedInLayout = ({ children, themeToggle }) => {
               tabIndex={0}
               className={classes.profileTrigger}
             >
-              <Avatar className="barra-avatar">
-                {user?.name
-                  ?.split(" ")
-                  .filter(Boolean)
-                  .slice(0, 2)
-                  .map(parte => parte[0])
-                  .join("")}
-              </Avatar>
+              <AvatarUsuario
+                usuario={user}
+                tamanho={32}
+                className="barra-avatar"
+              />
             </div>
             <Menu
               id="menu-appbar"
