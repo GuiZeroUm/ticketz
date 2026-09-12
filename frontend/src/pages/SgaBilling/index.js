@@ -319,8 +319,8 @@ export default function SgaBilling() {
               value={excludedInput}
               onChange={e => {
                 const raw = e.target.value;
-                setExcludedInput(raw);
-                if (/^[\d,\s]*$/.test(raw))
+                if (/^[\d,\s]*$/.test(raw)) {
+                  setExcludedInput(raw);
                   change(
                     "excludedContactIds",
                     raw
@@ -328,6 +328,7 @@ export default function SgaBilling() {
                       .map(s => Number(s.trim()))
                       .filter(Boolean)
                   );
+                }
               }}
             />
           </Grid>

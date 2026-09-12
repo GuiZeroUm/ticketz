@@ -242,6 +242,11 @@ export const processBilling = async (
       { companyId, day }
     );
     if (Number(count) >= config.dailyLimit) return;
+    const [recent] = await query<{ recent: boolean }>(
+      'SELECT EXISTS(SELECT 1 FROM "SgaBillingDeliveries" WHERE "companyId"=:companyId AND mode=\'live\' AND "createdAt">NOW()-INTERVAL \'1 minute\') AS recent',
+      { companyId }
+    );
+    if (recent?.recent) return;
     const previous = await query<Delivery>(
       'SELECT "dedupeKey",status FROM "SgaBillingDeliveries" WHERE "companyId"=:companyId AND mode=\'live\'',
       { companyId }

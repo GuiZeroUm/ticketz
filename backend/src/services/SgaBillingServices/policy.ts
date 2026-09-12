@@ -5,7 +5,8 @@ import {
   SgaRow,
   normalizeBill,
   text,
-  normalizedText
+  normalizedText,
+  money
 } from "../SgaServices/normalize";
 import AppError from "../../errors/AppError";
 
@@ -187,7 +188,7 @@ export const revalidateBill = (
   const bill = normalizeBill(row, true);
   if (
     bill.paid ||
-    Number(row.valor_pagamento) > 0 ||
+    money(row.valor_pagamento) > 0 ||
     ["S", "SIM", "Y"].includes(text(row.parcela_paga).toUpperCase())
   )
     return null;

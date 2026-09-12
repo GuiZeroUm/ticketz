@@ -158,6 +158,7 @@ describe("AC Norte billing policy", () => {
     { codigo_situacao_boleto: null },
     { data_pagamento: "2026-09-14" },
     { valor_pagamento: 10 },
+    { valor_pagamento: "10,50" },
     { parcela_paga: "SIM" },
     { data_vencimento: "2026-09-15" }
   ])("does not send after payment/cancellation/ownership change %p", changes =>
