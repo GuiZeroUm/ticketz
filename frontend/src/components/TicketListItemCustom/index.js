@@ -11,7 +11,7 @@ import ListItemText from "@material-ui/core/ListItemText";
 import ListItemAvatar from "@material-ui/core/ListItemAvatar";
 import ListItemSecondaryAction from "@material-ui/core/ListItemSecondaryAction";
 import Typography from "@material-ui/core/Typography";
-import Avatar from "@material-ui/core/Avatar";
+import AvatarContato from "../AvatarContato";
 import Divider from "@material-ui/core/Divider";
 import Badge from "@material-ui/core/Badge";
 import Box from "@material-ui/core/Box";
@@ -526,16 +526,16 @@ const TicketListItemCustom = ({ ticket, setTabOpen, groupActionButtons }) => {
           </Tooltip>
         )}
         <ListItemAvatar>
-          <Avatar
+          <AvatarContato
             style={{
               backgroundColor: generateColor(ticket?.contact?.number),
               color: "white",
               fontWeight: "bold"
             }}
-            src={ticket?.contact?.profilePicUrl}
+            contact={ticket?.contact}
           >
             {getInitials(ticket?.contact?.name || "")}
-          </Avatar>
+          </AvatarContato>
         </ListItemAvatar>
         <ListItemText
           style={{ paddingBottom: 10 }}

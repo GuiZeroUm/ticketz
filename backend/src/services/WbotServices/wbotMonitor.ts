@@ -10,7 +10,7 @@ import createOrUpdateBaileysService from "../BaileysServices/CreateOrUpdateBaile
 import CreateMessageService from "../MessageServices/CreateMessageService";
 import { _t } from "../TranslationServices/i18nService";
 import { Session } from "../../libs/wbot";
-import { cacheLayer } from "../../libs/cache";
+import { invalidateProfilePicture } from "./GetProfilePicUrl";
 import { GetCompanySetting } from "../../helpers/CheckSettings";
 import { voiceEnabledForCompany } from "../VoiceServices/VoiceAccessService";
 
@@ -108,12 +108,14 @@ const wbotMonitor = async (
 
     wbot.ev.on("contacts.update", async (contacts: Partial<BContact[]>) => {
       logger.debug({ contacts }, "contacts.update");
-      contactMutex.runExclusive(async () => {
-        contacts.map(async (c: BContact) => {
-          if (["changed", "removed"].includes(c.imgUrl)) {
-            cacheLayer.del(`profilePicUrl:${c.id}`);
-          }
-        });
+      await contactMutex.runExclusive(async () => {
+        await Promise.all(
+          contacts.map(async (c: BContact) => {
+            if (["changed", "removed"].includes(c.imgUrl)) {
+              await invalidateProfilePicture(c.id, wbot);
+            }
+          })
+        );
       });
     });
   } catch (err) {

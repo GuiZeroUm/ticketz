@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Avatar } from "@material-ui/core";
+import AvatarContato from "../../components/AvatarContato";
 import {
   Search,
   RefreshCw,
@@ -61,12 +61,12 @@ export default function TabelaContatos({
         enableHiding: false,
         cell: ({ row: { original: contato } }) => (
           <div className="tabela-pessoa">
-            <Avatar
-              src={contato.profilePicUrl}
+            <AvatarContato
+              contact={contato}
               style={{ background: corAvatar(contato.number) }}
             >
               {getInitials(contato.name)}
-            </Avatar>
+            </AvatarContato>
             <span>
               <strong>{contato.name}</strong>
               <small>{contato.number}</small>
