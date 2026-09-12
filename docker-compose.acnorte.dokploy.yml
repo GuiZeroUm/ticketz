@@ -91,6 +91,9 @@ services:
       ACNORTE_SGA_ENABLED: ${ACNORTE_SGA_ENABLED:-false}
       ACNORTE_SGA_COMPANY_ID: ${ACNORTE_SGA_COMPANY_ID:-9}
       ACNORTE_SGA_TOKEN: ${ACNORTE_SGA_TOKEN:-}
+      # Validation-only rollout. Never enable customer billing on the dev stack.
+      ACNORTE_BILLING_SEND_ENABLED: "false"
+      ACNORTE_BILLING_TEST_NUMBER: ${ACNORTE_BILLING_TEST_NUMBER:-}
       WACALLS_ENABLED: "false"
       WACALLS_ALLOWED_COMPANY_IDS: ""
     volumes:

@@ -4,6 +4,7 @@ import {
   runtimeCompanyWhere
 } from "./helpers/tenantRuntime";
 import { startSgaSync } from "./services/SgaServices/service";
+import { startSgaBilling } from "./services/SgaBillingServices/service";
 import app from "./app";
 import { initIO } from "./libs/socket";
 import { logger } from "./utils/logger";
@@ -49,6 +50,7 @@ async function startServer() {
 
     startQueueProcess();
     startSgaSync();
+    startSgaBilling();
     if (!isDedicatedRuntime()) {
       startVoiceEventBridge();
       await recoverVoiceHistories().catch(error =>
