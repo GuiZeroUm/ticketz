@@ -41,7 +41,9 @@ import toastError from "../../errors/toastError";
 import ContactModal from "../../components/ContactModal";
 import ScheduleModal from "../../components/ScheduleModal";
 
-const t = (key, args) => i18n.t(`sga.${key}`, args);
+// React escapes text nodes; escaping twice would display entities in dates/names.
+const t = (key, args) =>
+  i18n.t(`sga.${key}`, { ...args, interpolation: { escapeValue: false } });
 const currency = value =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
     Number(value || 0)
@@ -306,6 +308,7 @@ export default function Sga() {
             <Grid container spacing={2}>
               <Grid item xs={12}>
                 <TextField
+                  id="sga-search"
                   fullWidth
                   variant="outlined"
                   size="small"
@@ -337,6 +340,7 @@ export default function Sga() {
               ].map(([key, opts]) => (
                 <Grid item xs={12} md={4} key={key}>
                   <TextField
+                    id={`sga-filter-${key}`}
                     fullWidth
                     select
                     variant="outlined"
