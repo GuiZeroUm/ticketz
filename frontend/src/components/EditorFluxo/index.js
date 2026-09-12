@@ -57,6 +57,7 @@ export default function EditorFluxo({ queueId, filas }) {
   const [confirmar, setConfirmar] = useState(false);
   const [paleta, setPaleta] = useState(false);
   const [zoom, setZoom] = useState(100);
+  const [dimensoes, setDimensoes] = useState({});
   const instancia = useRef(null);
   const no = fluxo?.nodes.find(item => item.id === selecionado);
 
@@ -66,6 +67,7 @@ export default function EditorFluxo({ queueId, filas }) {
         id: item.id,
         type: "bloco",
         position: item.position,
+        measured: dimensoes[item.id],
         selected: item.id === selecionado,
         data: {
           no: item,
@@ -75,7 +77,7 @@ export default function EditorFluxo({ queueId, filas }) {
         ariaLabel: item.title,
         deletable: item.kind !== "inicio"
       })) || [],
-    [fluxo, selecionado, filas]
+    [fluxo, selecionado, filas, dimensoes]
   );
   const edges = useMemo(
     () =>
@@ -337,6 +339,16 @@ export default function EditorFluxo({ queueId, filas }) {
             }
             onNodeDragStart={editor.registrar}
             onNodesChange={mudancas => {
+              const medidas = mudancas.filter(
+                mudanca => mudanca.type === "dimensions" && mudanca.dimensions
+              );
+              if (medidas.length)
+                setDimensoes(atuais => ({
+                  ...atuais,
+                  ...Object.fromEntries(
+                    medidas.map(mudanca => [mudanca.id, mudanca.dimensions])
+                  )
+                }));
               const posicoes = mudancas.filter(
                 mudanca => mudanca.type === "position" && mudanca.position
               );
