@@ -1,6 +1,7 @@
 .docker
 *~
 /.project
+/.env
 
 # Metadados do macOS e artefatos locais
 .DS_Store
