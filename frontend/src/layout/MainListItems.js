@@ -13,6 +13,7 @@ import SyncAltIcon from "@material-ui/icons/SyncAlt";
 import SettingsOutlinedIcon from "@material-ui/icons/SettingsOutlined";
 import PeopleAltOutlinedIcon from "@material-ui/icons/PeopleAltOutlined";
 import ContactPhoneOutlinedIcon from "@material-ui/icons/ContactPhoneOutlined";
+import DirectionsCarOutlinedIcon from "@material-ui/icons/DirectionsCarOutlined";
 import AccountTreeOutlinedIcon from "@material-ui/icons/AccountTreeOutlined";
 import FlashOnIcon from "@material-ui/icons/FlashOn";
 import CalendarToday from "@material-ui/icons/CalendarToday";
@@ -134,6 +135,20 @@ const MainListItems = props => {
   const { drawerClose, drawerOpen } = props;
   const { whatsApps } = useContext(WhatsAppsContext);
   const { user, handleLogout } = useContext(AuthContext);
+  const [sgaEnabled, setSgaEnabled] = useState(false);
+  useEffect(() => {
+    let active = true;
+    setSgaEnabled(false);
+    api
+      .get("/sga/status")
+      .then(({ data }) => {
+        if (active) setSgaEnabled(data.enabled);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [user.companyId]);
   const [connectionWarning, setConnectionWarning] = useState(false);
   const [openCampaignSubmenu, setOpenCampaignSubmenu] = useState(false);
   const [openKanbanSubmenu, setOpenKanbanSubmenu] = useState(false);
@@ -291,6 +306,13 @@ const MainListItems = props => {
                 primary={i18n.t("mainDrawer.listItems.schedules")}
                 icon={<EventIcon />}
               />
+              {sgaEnabled && (
+                <ListItemLink
+                  to="/sga"
+                  primary={i18n.t("sga.title")}
+                  icon={<DirectionsCarOutlinedIcon />}
+                />
+              )}
               <ListItemLink
                 to="/tags"
                 primary={i18n.t("mainDrawer.listItems.tags")}

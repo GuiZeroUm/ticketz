@@ -117,6 +117,7 @@ const ScheduleModal = ({
   onClose,
   scheduleId,
   contactId,
+  initialBody = "",
   cleanContact,
   reload
 }) => {
@@ -205,6 +206,7 @@ const ScheduleModal = ({
 
     if (!scheduleId) {
       const fresh = initialValues(contactId);
+      if (initialBody) fresh.body = initialBody;
       setValues(fresh);
       if (contactId) {
         api
@@ -241,7 +243,7 @@ const ScheduleModal = ({
         setExistingMediaName(data.mediaName || "");
       })
       .catch(toastError);
-  }, [open, scheduleId, contactId]);
+  }, [open, scheduleId, contactId, initialBody]);
 
   const payload = () => ({
     ...values,

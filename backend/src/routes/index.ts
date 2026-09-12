@@ -1,4 +1,5 @@
 import { Router } from "express";
+import sgaRoutes from "./sgaRoutes";
 
 import userRoutes from "./userRoutes";
 import authRoutes from "./authRoutes";
@@ -47,6 +48,7 @@ import voiceRoutes from "./voiceRoutes";
 import whatsappGroupRoutes from "./whatsappGroupRoutes";
 
 const routes = Router();
+routes.use(sgaRoutes);
 
 routes.use(platformRoutes);
 routes.use(taskBoardRoutes);

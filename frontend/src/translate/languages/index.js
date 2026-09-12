@@ -8,6 +8,7 @@ import { messages as italianMessages } from "./it";
 import { messages as indonesianMessages } from "./id";
 import { schedulingMessages } from "./scheduling";
 import { announcementsMessages } from "./announcements";
+import { sgaMessages } from "./sga";
 
 const mergeTranslations = (base, extra) => {
   const result = { ...base };
@@ -31,7 +32,7 @@ const messages = {
   ...indonesianMessages
 };
 
-[schedulingMessages, announcementsMessages].forEach(overlay => {
+[schedulingMessages, announcementsMessages, sgaMessages].forEach(overlay => {
   Object.entries(overlay).forEach(([language, extra]) => {
     messages[language].translations = mergeTranslations(
       messages[language].translations,
