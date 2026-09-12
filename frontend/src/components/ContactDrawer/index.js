@@ -26,6 +26,7 @@ import ContactDrawerSkeleton from "../ContactDrawerSkeleton";
 import WhatsMarked from "react-whatsmarked";
 import { CardHeader } from "@material-ui/core";
 import ContactModal from "../ContactModal";
+import SgaContactCard from "../SgaContactCard";
 import { TicketNotes } from "../TicketNotes";
 import { generateColor } from "../../helpers/colorGenerator";
 import { getInitials } from "../../helpers/getInitials";
@@ -257,6 +258,9 @@ const ContactDrawer = ({
               />
             </div>
             {showTags && <TagsContainer contact={contact} />}
+            {!isWhatsappGroup && (
+              <SgaContactCard contactId={contact?.id} open={open} />
+            )}
             {contact?.extraInfo?.length > 0 && (
               <div className={classes.contactExtraInfo}>
                 <Typography variant="subtitle1">

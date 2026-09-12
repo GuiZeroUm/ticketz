@@ -1,4 +1,5 @@
 import gracefulShutdown from "http-graceful-shutdown";
+import { startSgaSync } from "./services/SgaServices/service";
 import app from "./app";
 import { initIO } from "./libs/socket";
 import { logger } from "./utils/logger";
@@ -41,6 +42,7 @@ async function startServer() {
     await Promise.all(sessionPromises);
 
     startQueueProcess();
+    startSgaSync();
     startVoiceEventBridge();
     await recoverVoiceHistories().catch(error =>
       logger.error({ error }, "Unable to recover voice ticket histories")
