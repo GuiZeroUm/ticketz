@@ -13,6 +13,13 @@ import {
 } from "../services/SgaServices/service";
 import { sgaRequest } from "../services/SgaServices/client";
 import { text, isOverdue } from "../services/SgaServices/normalize";
+import {
+  billingOverview,
+  saveBillingConfig,
+  previewReminder,
+  runBillingTest
+} from "../services/SgaBillingServices/service";
+import { testPdf } from "../services/SgaBillingServices/transport";
 
 const routes = Router();
 routes.get("/sga/status", isAuth, async (req, res) => {
@@ -33,6 +40,42 @@ routes.use("/sga", isAuth, async (req, _res, next) => {
 });
 routes.get("/sga/vehicles", async (req, res) =>
   res.json(await listSga(req.user.companyId, req.query))
+);
+routes.get("/sga/billing", isAdmin, async (req, res) =>
+  res.json(
+    await billingOverview(
+      req.user.companyId,
+      req.query.day ? String(req.query.day) : undefined
+    )
+  )
+);
+routes.put("/sga/billing/config", isAdmin, async (req, res) =>
+  res.json(
+    await saveBillingConfig(req.user.companyId, Number(req.user.id), req.body)
+  )
+);
+routes.get("/sga/billing/preview/:stage", isAdmin, async (req, res) =>
+  res.json(await previewReminder(req.user.companyId, Number(req.params.stage)))
+);
+routes.get("/sga/billing/test.pdf", isAdmin, (_req, res) => {
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader(
+    "Content-Disposition",
+    'inline; filename="boleto-teste-sem-valor.pdf"'
+  );
+  return res.send(testPdf());
+});
+routes.post("/sga/billing/test", isAdmin, async (req, res) =>
+  res.json(
+    await runBillingTest(
+      req.user.companyId,
+      Number(req.user.id),
+      Number(req.body.stage),
+      req.body.mode,
+      req.body.requestId
+    )
+  )
 );
 routes.post("/sga/sync", isAdmin, async (req, res) => {
   if (!process.env.ACNORTE_SGA_TOKEN)

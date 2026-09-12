@@ -226,6 +226,15 @@ export default function Sga() {
         </div>
         {state?.enabled && admin && (
           <Button
+            variant="outlined"
+            color="primary"
+            onClick={() => history.push("/sga/cobrancas")}
+          >
+            {t("billing.title")}
+          </Button>
+        )}
+        {state?.enabled && admin && (
+          <Button
             variant="contained"
             color="primary"
             startIcon={<SyncIcon />}
