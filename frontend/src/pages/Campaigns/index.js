@@ -29,7 +29,7 @@ import PauseCircleOutlineIcon from "@material-ui/icons/PauseCircleOutline";
 
 import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
-import Title from "../../components/Title";
+import CabecalhoPagina from "../../components/CabecalhoPagina";
 
 import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
@@ -89,6 +89,14 @@ const reducer = (state, action) => {
 };
 
 const useStyles = makeStyles(theme => ({
+  barraBusca: {
+    padding: 12,
+    marginBottom: 12,
+    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: 12,
+    backgroundColor: theme.palette.background.paper,
+    "& .MuiTextField-root": { maxWidth: 440 }
+  },
   mainPaper: {
     flex: 1,
     padding: theme.spacing(1),
@@ -270,42 +278,36 @@ const Campaigns = () => {
         campaignId={selectedCampaign && selectedCampaign.id}
       />
       <MainHeader>
-        <Grid style={{ width: "99.6%" }} container>
-          <Grid xs={12} sm={8} item>
-            <Title>{i18n.t("campaigns.title")}</Title>
-          </Grid>
-          <Grid xs={12} sm={4} item>
-            <Grid spacing={2} container>
-              <Grid xs={6} sm={6} item>
-                <TextField
-                  fullWidth
-                  placeholder={i18n.t("campaigns.searchPlaceholder")}
-                  type="search"
-                  value={searchParam}
-                  onChange={handleSearch}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon style={{ color: "gray" }} />
-                      </InputAdornment>
-                    )
-                  }}
-                />
-              </Grid>
-              <Grid xs={6} sm={6} item>
-                <Button
-                  fullWidth
-                  variant="contained"
-                  onClick={handleOpenCampaignModal}
-                  color="primary"
-                >
-                  {i18n.t("campaigns.buttons.add")}
-                </Button>
-              </Grid>
-            </Grid>
-          </Grid>
-        </Grid>
+        <CabecalhoPagina
+          titulo={i18n.t("campaigns.title")}
+          descricao={i18n.t("redesign.descricaoCampanhas")}
+        />
+        <Button
+          variant="contained"
+          onClick={handleOpenCampaignModal}
+          color="primary"
+        >
+          {i18n.t("campaigns.buttons.add")}
+        </Button>
       </MainHeader>
+      <div className={classes.barraBusca}>
+        <TextField
+          variant="outlined"
+          size="small"
+          fullWidth
+          placeholder={i18n.t("campaigns.searchPlaceholder")}
+          type="search"
+          value={searchParam}
+          onChange={handleSearch}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon color="action" />
+              </InputAdornment>
+            )
+          }}
+        />
+      </div>
       <Paper
         className={classes.mainPaper}
         variant="outlined"

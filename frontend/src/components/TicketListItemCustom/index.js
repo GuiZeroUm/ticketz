@@ -4,7 +4,7 @@ import { useHistory, useParams } from "react-router-dom";
 import { parseISO, format, isSameDay } from "date-fns";
 import clsx from "clsx";
 
-import { makeStyles } from "@material-ui/core/styles";
+import { makeStyles, alpha } from "@material-ui/core/styles";
 import { green, grey, red, blue } from "@material-ui/core/colors";
 import ListItem from "@material-ui/core/ListItem";
 import ListItemText from "@material-ui/core/ListItemText";
@@ -44,8 +44,13 @@ const useStyles = makeStyles(theme => ({
   ticket: {
     position: "relative",
     height: 98,
-    paddingHorizontal: 10,
-    paddingVertical: 0,
+    paddingLeft: 12,
+    paddingRight: 12,
+    borderLeft: "3px solid transparent",
+    "&.Mui-selected": {
+      borderLeftColor: theme.palette.primary.main,
+      backgroundColor: alpha(theme.palette.primary.main, 0.07)
+    },
     paddingTop: 0,
     paddingBottom: 0
   },

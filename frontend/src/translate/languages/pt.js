@@ -1,6 +1,27 @@
 const messages = {
   pt: {
     translations: {
+      redesign: {
+        importarCsv: "Importar arquivo CSV",
+        exportarCsv: "Exportar contatos em CSV",
+        descricaoContatos:
+          "Base de contatos, grupos e informações para um atendimento próximo.",
+        descricaoCampanhas:
+          "Disparos e agendamentos reunidos para acompanhar cada envio.",
+        descricaoConfiguracoes:
+          "Regras de atendimento, equipe, canais e identidade da sua organização.",
+
+        operacao: "Operação",
+        relacionamento: "Relacionamento",
+        automacao: "Automação e IA",
+        administracao: "Administração",
+        envios: "Envios e campanhas",
+        listasContatos: "Listas de contatos",
+        abrirAtendimento: "Abrir atendimento",
+        visaoGeral: "Visão geral da operação",
+        descricaoPainel: "Indicadores, atendimentos e equipe em um só lugar.",
+        organizacao: "Organização"
+      },
       voiceCalls: {
         settingsTab: "Chamadas experimentais",
         companySwitch: "Chamadas experimentais",

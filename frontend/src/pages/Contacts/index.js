@@ -28,7 +28,7 @@ import ConfirmationModal from "../../components/ConfirmationModal/";
 
 import { i18n } from "../../translate/i18n";
 import MainHeader from "../../components/MainHeader";
-import Title from "../../components/Title";
+import CabecalhoPagina from "../../components/CabecalhoPagina";
 import MainHeaderButtonsWrapper from "../../components/MainHeaderButtonsWrapper";
 import MainContainer from "../../components/MainContainer";
 import toastError from "../../errors/toastError";
@@ -95,6 +95,14 @@ const reducer = (state, action) => {
 };
 
 const useStyles = makeStyles(theme => ({
+  barraBusca: {
+    padding: 12,
+    marginBottom: 12,
+    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: 12,
+    backgroundColor: theme.palette.background.paper,
+    "& .MuiTextField-root": { maxWidth: 440 }
+  },
   mainPaper: {
     flex: 1,
     padding: theme.spacing(1),
@@ -354,26 +362,17 @@ const Contacts = () => {
         </Grid>
       </ConfirmationModal>
       <MainHeader>
-        <Title>{i18n.t("contacts.title")}</Title>
+        <CabecalhoPagina
+          titulo={i18n.t("contacts.title")}
+          descricao={i18n.t("redesign.descricaoContatos")}
+        />
         <MainHeaderButtonsWrapper>
-          <TextField
-            placeholder={i18n.t("contacts.searchPlaceholder")}
-            type="search"
-            value={searchParam}
-            onChange={handleSearch}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon style={{ color: "gray" }} />
-                </InputAdornment>
-              )
-            }}
-          />
           {user?.profile === "admin" && (
             <>
               <Button
-                variant="contained"
+                variant="outlined"
                 color="primary"
+                aria-label={i18n.t("redesign.importarCsv")}
                 onClick={() => importCsv()}
               >
                 &nbsp;
@@ -381,8 +380,9 @@ const Contacts = () => {
                 &nbsp;
               </Button>
               <Button
-                variant="contained"
+                variant="outlined"
                 color="primary"
+                aria-label={i18n.t("redesign.exportarCsv")}
                 onClick={() => exportCsv()}
               >
                 &nbsp;
@@ -390,7 +390,7 @@ const Contacts = () => {
                 &nbsp;
               </Button>
               <Button
-                variant="contained"
+                variant="outlined"
                 color="primary"
                 onClick={() => setImportConfirmOpen(true)}
               >
@@ -407,6 +407,24 @@ const Contacts = () => {
           </Button>
         </MainHeaderButtonsWrapper>
       </MainHeader>
+      <div className={classes.barraBusca}>
+        <TextField
+          variant="outlined"
+          size="small"
+          fullWidth
+          placeholder={i18n.t("contacts.searchPlaceholder")}
+          type="search"
+          value={searchParam}
+          onChange={handleSearch}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon style={{ color: "gray" }} />
+              </InputAdornment>
+            )
+          }}
+        />
+      </div>
       <Paper
         className={classes.mainPaper}
         variant="outlined"
@@ -439,7 +457,7 @@ const Contacts = () => {
           <TableBody>
             <>
               {contacts.map(contact => (
-                <TableRow key={contact.id}>
+                <TableRow hover key={contact.id}>
                   <TableCell style={{ paddingRight: 0 }}>
                     {
                       <Avatar

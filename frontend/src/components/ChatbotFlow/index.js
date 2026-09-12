@@ -34,11 +34,11 @@ const useStyles = makeStyles(theme => {
       }
     },
     greeting: {
-      width: "94%",
-      maxWidth: 390,
+      width: "100%",
+      maxWidth: 460,
       marginBottom: 10,
       padding: 10,
-      borderRadius: "14px 14px 14px 4px",
+      borderRadius: 12,
       backgroundColor: wa.bubbleMuted,
       color: wa.ink,
       fontSize: 12,
@@ -56,12 +56,15 @@ const useStyles = makeStyles(theme => {
     loading: { display: "flex", justifyContent: "center", padding: 36 },
     actions: { display: "flex", justifyContent: "center", marginTop: 14 },
     addButton: {
-      borderRadius: 999,
+      borderRadius: 8,
       textTransform: "none",
       fontWeight: 600,
-      color: "#fff",
-      backgroundColor: wa.status,
-      "&:hover": { backgroundColor: wa.status, filter: "brightness(1.06)" }
+      color: theme.palette.primary.contrastText,
+      backgroundColor: theme.palette.primary.main,
+      "&:hover": {
+        backgroundColor: theme.palette.primary.main,
+        filter: "brightness(1.06)"
+      }
     }
   };
 });

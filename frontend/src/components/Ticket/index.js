@@ -77,7 +77,9 @@ const Ticket = () => {
 
   const { user } = useContext(AuthContext);
 
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(
+    () => window.matchMedia("(min-width:1400px)").matches
+  );
   const [loading, setLoading] = useState(true);
   const [contact, setContact] = useState({});
   const [ticket, setTicket] = useState({});

@@ -1,6 +1,27 @@
 const messages = {
   fr: {
     translations: {
+      redesign: {
+        importarCsv: "Import CSV file",
+        exportarCsv: "Export contacts to CSV",
+        descricaoContatos:
+          "Contacts, groups and information for a personal service.",
+        descricaoCampanhas:
+          "Campaigns and schedules to keep track of every delivery.",
+        descricaoConfiguracoes:
+          "Service rules, team, channels and your organization’s identity.",
+
+        operacao: "Operations",
+        relacionamento: "Relationships",
+        automacao: "Automation and AI",
+        administracao: "Administration",
+        envios: "Campaigns",
+        listasContatos: "Contact lists",
+        abrirAtendimento: "Open conversation",
+        visaoGeral: "Operation overview",
+        descricaoPainel: "Metrics, conversations and team in one place.",
+        organizacao: "Organization"
+      },
       voiceCalls: {
         settingsTab: "Appels expérimentaux",
         companySwitch: "Appels expérimentaux",

@@ -8,17 +8,17 @@ import TicketsManager from "../../components/TicketsManagerTabs/";
 import Ticket from "../../components/Ticket/";
 
 import { i18n } from "../../translate/i18n";
-import WhatsappBackground from "../../assets/wa-background.png";
 
 const useStyles = makeStyles(theme => ({
   chatContainer: {
     flex: 1,
-    height: `calc(100% - 48px)`,
-    overflowY: "hidden"
+    height: `calc(100% - var(--altura-cabecalho, 60px))`,
+    overflowY: "hidden",
+    padding: 12
   },
 
   chatPapper: {
-    // backgroundColor: "red",
+    gap: 12,
     display: "flex",
     height: "100%"
   },
@@ -28,7 +28,11 @@ const useStyles = makeStyles(theme => ({
     height: "100%",
     flexDirection: "column",
     overflowY: "hidden",
-    maxWidth: 534
+    width: 360,
+    flex: "0 0 360px",
+    maxWidth: 420,
+    paddingRight: 12,
+    [theme.breakpoints.down("md")]: { width: 320, flexBasis: 320 }
   },
   messagesWrapper: {
     overflow: "hidden",
@@ -36,7 +40,11 @@ const useStyles = makeStyles(theme => ({
     height: "100%",
     flexDirection: "column",
     flexGrow: 1,
-    maxWidth: "unset"
+    maxWidth: "unset",
+    flex: 1,
+    minWidth: 0,
+    borderRadius: 12,
+    border: `1px solid ${theme.palette.divider}`
   },
   welcomeMsg: {
     display: "flex",
@@ -55,10 +63,10 @@ const TicketsCustom = () => {
     <div className={classes.chatContainer}>
       <div className={classes.chatPapper}>
         <Grid container spacing={0}>
-          <Grid item md={5} className={classes.contactsWrapper}>
+          <Grid item className={classes.contactsWrapper}>
             <TicketsManager />
           </Grid>
-          <Grid item md={7} className={classes.messagesWrapper}>
+          <Grid item className={classes.messagesWrapper}>
             {ticketId ? (
               <>
                 <Ticket />

@@ -78,9 +78,10 @@ const useStyles = makeStyles(theme => ({
     padding: 6,
     marginRight: 7,
     //background: "#fff",
-    border: "1px solid #ccc",
+    border: `1px solid ${theme.palette.divider}`,
+    backgroundColor: theme.palette.background.paper,
     display: "flex",
-    borderRadius: 20,
+    borderRadius: 12,
     flex: 1
   },
 

@@ -1,3 +1,4 @@
+import { alpha } from "@material-ui/core/styles";
 import React, {
   useState,
   useEffect,
@@ -46,8 +47,6 @@ import {
 import WhatsMarked from "react-whatsmarked";
 import PdfPreview from "../PdfPreview";
 import MessageOptionsMenu from "../MessageOptionsMenu";
-import whatsBackground from "../../assets/wa-background.png";
-import whatsBackgroundDark from "../../assets/wa-background-dark.png";
 import MediaGalleryLightbox, {
   buildMediaGalleryData
 } from "../MediaGalleryLightbox";
@@ -111,10 +110,7 @@ const useStyles = makeStyles(theme => ({
   },
 
   stickedMessages: {
-    backgroundImage:
-      theme.mode === "light"
-        ? `url(${whatsBackground})`
-        : `url(${whatsBackgroundDark})`,
+    backgroundColor: theme.palette.background.default,
     flexDirection: "column",
     flexGrow: 1,
     padding: "5px 20px 20px 20px",
@@ -141,10 +137,7 @@ const useStyles = makeStyles(theme => ({
   },
 
   messagesList: {
-    backgroundImage:
-      theme.mode === "light"
-        ? `url(${whatsBackground})`
-        : `url(${whatsBackgroundDark})`,
+    backgroundColor: theme.palette.background.default,
     display: "flex",
     flexDirection: "column",
     flexGrow: 1,
@@ -178,7 +171,7 @@ const useStyles = makeStyles(theme => ({
     },
 
     whiteSpace: "pre-wrap",
-    backgroundColor: theme.mode === "light" ? "#ffffff" : "#024481",
+    backgroundColor: theme.palette.background.paper,
     color: theme.mode === "light" ? "#303030" : "#ffffff",
     alignSelf: "flex-start",
     borderTopLeftRadius: 0,
@@ -240,7 +233,7 @@ const useStyles = makeStyles(theme => ({
       right: 0
     },
     whiteSpace: "pre-wrap",
-    backgroundColor: theme.mode === "light" ? "#dcf8c6" : "#005c4b",
+    backgroundColor: alpha(theme.palette.primary.main, 0.09),
     color: theme.mode === "light" ? "#303030" : "#ffffff",
     alignSelf: "flex-end",
     borderTopLeftRadius: 8,
@@ -412,7 +405,7 @@ const useStyles = makeStyles(theme => ({
   },
 
   timestampStickerLeft: {
-    backgroundColor: theme.mode === "light" ? "#ffffff" : "#024481",
+    backgroundColor: theme.palette.background.paper,
     borderRadius: 8,
     padding: 5,
     boxShadow:

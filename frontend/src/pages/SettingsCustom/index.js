@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
-import Title from "../../components/Title";
+import CabecalhoPagina from "../../components/CabecalhoPagina";
 import { makeStyles, Paper, Tabs, Tab, Button, Grid } from "@material-ui/core";
 
 import TabPanel from "../../components/TabPanel";
@@ -49,7 +49,8 @@ const useStyles = makeStyles(theme => ({
     flex: 1
   },
   tab: {
-    borderRadius: 4
+    padding: "8px 12px",
+    borderBottom: `1px solid ${theme.palette.divider}`
   },
   paper: {
     ...theme.scrollbarStyles,
@@ -176,7 +177,10 @@ const SettingsCustom = () => {
   return (
     <MainContainer className={classes.root}>
       <MainHeader>
-        <Title>{i18n.t("settings.title")}</Title>
+        <CabecalhoPagina
+          titulo={i18n.t("settings.title")}
+          descricao={i18n.t("redesign.descricaoConfiguracoes")}
+        />
       </MainHeader>
       <Paper className={classes.mainPaper} elevation={1}>
         <Tabs

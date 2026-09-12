@@ -4,6 +4,8 @@ import clsx from "clsx";
 import {
   makeStyles,
   Drawer,
+  Button,
+  Avatar,
   AppBar,
   Toolbar,
   List,
@@ -18,13 +20,15 @@ import {
   useMediaQuery
 } from "@material-ui/core";
 
+import AddCommentOutlined from "@material-ui/icons/AddCommentOutlined";
+import BusinessOutlined from "@material-ui/icons/BusinessOutlined";
 import MenuIcon from "@material-ui/icons/Menu";
 import ChevronLeftIcon from "@material-ui/icons/ChevronLeft";
 import AccountCircle from "@material-ui/icons/AccountCircle";
 import SettingsEthernetIcon from "@material-ui/icons/SettingsEthernet";
-import CachedIcon from "@material-ui/icons/Cached";
 
 import MainListItems from "./MainListItems";
+import AtalhosAtendimento from "./AtalhosAtendimento";
 import NotificationsPopOver from "../components/NotificationsPopOver";
 import { Backendlogs } from "../components/Backendlogs";
 import { PhoneCall } from "../components/PhoneCall";
@@ -33,7 +37,6 @@ import UserModal from "../components/UserModal";
 import AboutModal from "../components/AboutModal";
 import { AuthContext } from "../context/Auth/AuthContext";
 import BackdropLoading from "../components/BackdropLoading";
-import DarkMode from "../components/DarkMode";
 import { i18n } from "../translate/i18n";
 import { messages } from "../translate/languages";
 import toastError from "../errors/toastError";
@@ -48,18 +51,16 @@ import useAuth from "../hooks/useAuth.js";
 import ColorModeContext from "../layout/themeContext";
 import Brightness4Icon from "@material-ui/icons/Brightness4";
 import Brightness7Icon from "@material-ui/icons/Brightness7";
-import LanguageIcon from "@material-ui/icons/Language";
-import { getBackendURL } from "../services/config";
 import NestedMenuItem from "material-ui-nested-menu-item";
 import GoogleAnalytics from "../components/GoogleAnalytics";
 import OnlyForSuperUser from "../components/OnlyForSuperUser";
 import NewTicketModal from "../components/NewTicketModal/index.js";
 
-const drawerWidth = 240;
+const drawerWidth = 260;
 const DRAWER_STORAGE_KEY = "drawerOpen";
 
 function getStoredDrawerOpen() {
-  return localStorage.getItem(DRAWER_STORAGE_KEY) === "true";
+  return localStorage.getItem(DRAWER_STORAGE_KEY) !== "false";
 }
 
 function persistDrawerOpenState(value) {
@@ -68,18 +69,38 @@ function persistDrawerOpenState(value) {
 
 const useStyles = makeStyles(theme => ({
   root: {
+    "--altura-cabecalho": "60px",
     display: "flex",
     height: "var(--vh)",
-    backgroundColor: theme.palette.fancyBackground,
-    "& .MuiButton-outlinedPrimary": {
-      color: theme.palette.primary,
-      border:
-        theme.mode === "light"
-          ? "1px solid rgba(0 124 102)"
-          : "1px solid rgba(255, 255, 255, 0.5)"
-    },
-    "& .MuiTab-textColorPrimary.Mui-selected": {
-      color: theme.palette.primary
+    backgroundColor: theme.palette.fancyBackground
+  },
+  organizacao: {
+    margin: "8px 12px",
+    padding: 10,
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: 8,
+    minWidth: 0
+  },
+  novaConversa: { margin: "4px 12px 8px", minWidth: 36 },
+  rodapeUsuario: {
+    padding: 12,
+    display: "flex",
+    gap: 10,
+    borderRadius: 0,
+    justifyContent: "flex-start",
+    textAlign: "left",
+    textTransform: "none"
+  },
+  dadosOrganizacao: {
+    minWidth: 0,
+    flex: 1,
+    "& p": {
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap"
     }
   },
   avatar: {
@@ -138,7 +159,7 @@ const useStyles = makeStyles(theme => ({
     }
   },
   userInfoName: {
-    color: theme.palette.primary.contrastText,
+    color: theme.palette.text.primary,
     fontSize: 11,
     lineHeight: "15px",
     fontWeight: 600,
@@ -148,7 +169,7 @@ const useStyles = makeStyles(theme => ({
     maxWidth: "100%"
   },
   userInfoCompany: {
-    color: theme.palette.primary.contrastText,
+    color: theme.palette.text.primary,
     fontSize: 11,
     lineHeight: "15px",
     opacity: 0.75,
@@ -158,23 +179,26 @@ const useStyles = makeStyles(theme => ({
     maxWidth: "100%"
   },
   toolbar: {
-    paddingRight: 24, // keep right padding when drawer closed
+    paddingRight: 20,
+    minHeight: 60,
+    borderBottom: `1px solid ${theme.palette.divider}`,
     color:
       localStorage.getItem("impersonated") === "true"
         ? theme.palette.secondary.contrastText
-        : theme.palette.primary.contrastText,
+        : theme.palette.text.primary,
     background:
       localStorage.getItem("impersonated") === "true"
         ? theme.palette.secondary.main
-        : theme.palette.primary.main
+        : theme.palette.background.paper
   },
   toolbarIcon: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    minHeight: "48px"
+    minHeight: "60px"
   },
   appBar: {
+    boxShadow: "none",
     zIndex: theme.zIndex.drawer + 1,
     transition: theme.transitions.create(["width", "margin"], {
       easing: theme.transitions.easing.sharp,
@@ -197,8 +221,8 @@ const useStyles = makeStyles(theme => ({
     }
   },
   menuButton: {
-    marginRight: 36,
-    color: theme.palette.primary.contrastText
+    marginRight: 16,
+    color: theme.palette.text.primary
   },
   menuButtonHidden: {
     display: "none"
@@ -206,11 +230,11 @@ const useStyles = makeStyles(theme => ({
   title: {
     flexGrow: 1,
     fontSize: 14,
-    color: "white"
+    color: theme.palette.text.secondary
   },
   wsConnectionAlertButton: {
     marginRight: theme.spacing(1.5),
-    color: theme.palette.primary.contrastText,
+    color: theme.palette.text.primary,
     padding: theme.spacing(0.5)
   },
   wsConnectionAlertIcon: {
@@ -259,9 +283,10 @@ const useStyles = makeStyles(theme => ({
     }
   },
   appBarSpacer: {
-    minHeight: "48px"
+    minHeight: "60px"
   },
   content: {
+    minWidth: 0,
     flex: 1,
     overflow: "auto"
   },
@@ -286,8 +311,8 @@ const useStyles = makeStyles(theme => ({
     // color: theme.barraSuperior.secondary.main,
   },
   logo: {
-    maxWidth: "192px",
-    maxHeight: "72px",
+    maxWidth: "180px",
+    maxHeight: "36px",
     logo: theme.logo,
     margin: "auto",
     content: `url("${theme.calculatedLogo()}")`
@@ -311,7 +336,6 @@ const LoggedInLayout = ({ children, themeToggle }) => {
   const [aboutModalOpen, setAboutModalOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [languageOpen, setLanguageOpen] = useState(false);
   const { handleLogout, loading } = useContext(AuthContext);
   const [drawerOpen, setDrawerOpen] = useState(() => {
     const isDesktop = window.matchMedia("(min-width:600px)").matches;
@@ -346,6 +370,7 @@ const LoggedInLayout = ({ children, themeToggle }) => {
   const [wsConnectionIssue, setWsConnectionIssue] = useState(false);
 
   const [newTicketContact, setNewTicketContact] = useState(null);
+  const [novoAtendimentoAberto, definirNovoAtendimentoAberto] = useState(false);
 
   //################### CODIGOS DE TESTE #########################################
   // useEffect(() => {
@@ -493,11 +518,6 @@ const LoggedInLayout = ({ children, themeToggle }) => {
     setMenuOpen(false);
   };
 
-  const handleCloseLanguageMenu = () => {
-    setAnchorEl(null);
-    setLanguageOpen(false);
-  };
-
   const handleOpenUserModal = () => {
     setUserModalOpen(true);
     handleCloseProfileMenu();
@@ -527,13 +547,6 @@ const LoggedInLayout = ({ children, themeToggle }) => {
       }
       return nextState;
     });
-  };
-
-  const handleMenuItemClick = () => {
-    const { innerWidth: width } = window;
-    if (width <= 600) {
-      setDrawerOpen(false);
-    }
   };
 
   const toggleColorMode = () => {
@@ -586,8 +599,34 @@ const LoggedInLayout = ({ children, themeToggle }) => {
             alt="logo"
           />
         </div>
-        <Divider />
-        <List className={classes.containerWithScroll}>
+        {drawerOpen && (
+          <div className={classes.organizacao}>
+            <BusinessOutlined fontSize="small" color="action" />
+            <div className={classes.dadosOrganizacao}>
+              <Typography variant="body2">
+                {user?.company?.name || theme.appName}
+              </Typography>
+              <Typography variant="caption" color="textSecondary">
+                {i18n.t("redesign.organizacao")}
+              </Typography>
+            </div>
+          </div>
+        )}
+        <Button
+          className={classes.novaConversa}
+          color="primary"
+          variant="contained"
+          aria-label={i18n.t("redesign.abrirAtendimento")}
+          onClick={() => definirNovoAtendimentoAberto(true)}
+        >
+          <AddCommentOutlined fontSize="small" />
+          {drawerOpen && (
+            <span style={{ marginLeft: 8 }}>
+              {i18n.t("redesign.abrirAtendimento")}
+            </span>
+          )}
+        </Button>
+        <List component="nav" className={classes.containerWithScroll}>
           <MainListItems
             drawerClose={drawerClose}
             drawerOpen={drawerOpen}
@@ -595,6 +634,23 @@ const LoggedInLayout = ({ children, themeToggle }) => {
           />
         </List>
         <Divider />
+        <Button
+          className={classes.rodapeUsuario}
+          onClick={() => setUserModalOpen(true)}
+          aria-label={i18n.t("mainDrawer.appBar.user.profile")}
+        >
+          <Avatar style={{ width: 32, height: 32, fontSize: 12 }}>
+            {user?.name?.slice(0, 2).toUpperCase()}
+          </Avatar>
+          {drawerOpen && (
+            <div className={classes.dadosOrganizacao}>
+              <Typography variant="body2">{user?.name}</Typography>
+              <Typography variant="caption" color="textSecondary">
+                {user?.company?.name || theme.appName}
+              </Typography>
+            </div>
+          )}
+        </Button>
       </Drawer>
       <UserModal
         open={userModalOpen}
@@ -627,8 +683,11 @@ const LoggedInLayout = ({ children, themeToggle }) => {
             color="inherit"
             noWrap
             className={classes.title}
-          />
+          >
+            {user?.company?.name || theme.appName}
+          </Typography>
 
+          <AtalhosAtendimento />
           {wsConnectionIssue && (
             <Tooltip title={i18n.t("common.connection")} arrow>
               <span
@@ -661,6 +720,29 @@ const LoggedInLayout = ({ children, themeToggle }) => {
           <AnnouncementsPopover />
 
           <ChatPopover />
+          <Tooltip
+            title={i18n.t(
+              theme.mode === "dark"
+                ? "mainDrawer.appBar.user.lightmode"
+                : "mainDrawer.appBar.user.darkmode"
+            )}
+          >
+            <IconButton
+              color="inherit"
+              onClick={toggleColorMode}
+              aria-label={i18n.t(
+                theme.mode === "dark"
+                  ? "mainDrawer.appBar.user.lightmode"
+                  : "mainDrawer.appBar.user.darkmode"
+              )}
+            >
+              {theme.mode === "dark" ? (
+                <Brightness7Icon />
+              ) : (
+                <Brightness4Icon />
+              )}
+            </IconButton>
+          </Tooltip>
 
           <div className={classes.userInfoWrapper}>
             <div
@@ -689,7 +771,7 @@ const LoggedInLayout = ({ children, themeToggle }) => {
               <div className={classes.profileAvatarSlot}>
                 <AccountCircle
                   className={classes.avatar}
-                  style={{ color: theme.palette.primary.contrastText }}
+                  style={{ color: theme.palette.text.primary }}
                 />
               </div>
             </div>
@@ -760,10 +842,11 @@ const LoggedInLayout = ({ children, themeToggle }) => {
         </Toolbar>
       </AppBar>
       <NewTicketModal
-        modalOpen={!!newTicketContact}
+        modalOpen={novoAtendimentoAberto || !!newTicketContact}
         contact={newTicketContact}
         onClose={ticket => {
           setNewTicketContact(null);
+          definirNovoAtendimentoAberto(false);
           if (ticket !== undefined && ticket.uuid !== undefined) {
             history.push(`/tickets/${ticket.uuid}`);
           }

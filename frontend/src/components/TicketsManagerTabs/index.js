@@ -40,13 +40,16 @@ import { SocketContext } from "../../context/Socket/SocketContext";
 
 const useStyles = makeStyles(theme => ({
   ticketsWrapper: {
+    "& .MuiTab-wrapper": { flexDirection: "row", gap: 6 },
+    "& .MuiTab-labelIcon": { minHeight: 44 },
+    "& .MuiTab-labelIcon .MuiTab-wrapper > *:first-child": { marginBottom: 0 },
     position: "relative",
     display: "flex",
     height: "100%",
     flexDirection: "column",
     overflow: "hidden",
-    borderTopRightRadius: 0,
-    borderBottomRightRadius: 0
+    borderTopRightRadius: 12,
+    borderBottomRightRadius: 12
   },
 
   tabsHeader: {
@@ -82,8 +85,9 @@ const useStyles = makeStyles(theme => ({
     flex: 1,
     // background: "#fff",
     display: "flex",
-    borderRadius: 40,
-    padding: 4,
+    borderRadius: 8,
+    border: `1px solid ${theme.palette.divider}`,
+    padding: 6,
     marginRight: theme.spacing(1)
   },
 
@@ -97,7 +101,7 @@ const useStyles = makeStyles(theme => ({
   searchInput: {
     flex: 1,
     border: "none",
-    borderRadius: 30
+    borderRadius: 8
   },
 
   badge: {

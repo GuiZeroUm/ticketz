@@ -37,8 +37,8 @@ import { formatTimeInterval } from "../../helpers/formatTimeInterval.js";
 
 const useStyles = makeStyles(theme => ({
   container: {
-    paddingTop: theme.spacing(4),
-    paddingBottom: theme.spacing(4)
+    paddingTop: theme.spacing(3),
+    paddingBottom: theme.spacing(3)
   },
   fixedHeightPaper: {
     padding: theme.spacing(2),
@@ -115,8 +115,9 @@ const useStyles = makeStyles(theme => ({
     overflow: "hidden",
     flexDirection: "row",
     height: "100%",
-    backgroundColor: theme.palette.primary.main,
-    color: theme.palette.primary.contrastText
+    backgroundColor: theme.palette.background.paper,
+    color: theme.palette.text.primary,
+    border: `1px solid ${theme.palette.divider}`
   },
   cardGray: {
     padding: theme.spacing(2),
@@ -124,7 +125,8 @@ const useStyles = makeStyles(theme => ({
     overflow: "hidden",
     flexDirection: "row",
     height: "100%",
-    color: theme.palette.primary.main
+    color: theme.palette.text.primary,
+    border: `1px solid ${theme.palette.divider}`
   },
   cardData: {
     display: "block",
@@ -132,7 +134,7 @@ const useStyles = makeStyles(theme => ({
     zIndex: 1
   },
   cardIcon: {
-    width: 100,
+    width: 48,
     color: theme.palette.primary.light,
     position: "sticky",
     opacity: 0.4,
@@ -217,12 +219,17 @@ const InfoCard = ({ title, value, icon }) => {
 
   return (
     <Grid item xs={12} sm={6} md={3}>
-      <Paper className={classes.cardGray} elevation={6}>
+      <Paper className={classes.cardGray} elevation={0}>
         <div className={classes.cardData}>
-          <Typography component="h3" variant="h6" paragraph>
+          <Typography
+            component="h3"
+            variant="body2"
+            color="textSecondary"
+            paragraph
+          >
             {title}
           </Typography>
-          <Typography component="h1" variant="h4">
+          <Typography component="p" variant="h4">
             {value}
           </Typography>
         </div>
@@ -236,12 +243,17 @@ const InfoRingCard = ({ title, value, graph }) => {
   const classes = useStyles();
   return (
     <Grid item xs={12} sm={4}>
-      <Paper className={classes.cardSolid} elevation={4}>
+      <Paper className={classes.cardSolid} elevation={0}>
         <div className={classes.cardData}>
-          <Typography component="h3" variant="h6" paragraph>
+          <Typography
+            component="h3"
+            variant="body2"
+            color="textSecondary"
+            paragraph
+          >
             {title}
           </Typography>
-          <Typography component="h1" variant="h4">
+          <Typography component="p" variant="h4">
             {value}
           </Typography>
         </div>
@@ -331,12 +343,12 @@ const Dashboard = () => {
           {
             name: "Online",
             value: usersOnlineTotal,
-            color: "#00ff00"
+            color: "#16803A"
           },
           {
             name: "Offline",
             value: usersOfflineTotal,
-            color: "#ff0000"
+            color: "#D4D4D8"
           }
         ]);
 
@@ -506,8 +518,15 @@ const Dashboard = () => {
 
   return (
     <div>
-      <Container maxWidth="lg" className={classes.container}>
-        <Grid container spacing={3} justifyContent="flex-start">
+      <Container maxWidth={false} className={classes.container}>
+        <Typography component="h1" variant="h5" gutterBottom>
+          {i18n.t("redesign.visaoGeral")}
+        </Typography>
+        <Typography color="textSecondary" style={{ marginBottom: 24 }}>
+          {i18n.t("redesign.descricaoPainel")}
+        </Typography>
+        <Grid container spacing={2} justifyContent="flex-start">
+          {renderFilters()}
           {/* USUARIOS ONLINE */}
           <InfoRingCard
             title={i18n.t("dashboard.usersOnline")}
@@ -529,21 +548,18 @@ const Dashboard = () => {
             graph={<SmallPie chartData={openedChartData} />}
           />
 
-          {/* FILTROS */}
-          {renderFilters()}
-
           {/* ATENDIMENTOS REALIZADOS */}
           <InfoCard
             title={i18n.t("dashboard.ticketsDone")}
             value={ticketsData.ticketStatistics?.totalClosed || 0}
-            icon={<CheckCircleIcon style={{ fontSize: 100 }} />}
+            icon={<CheckCircleIcon style={{ fontSize: 40 }} />}
           />
 
           {/* NOVOS CONTATOS */}
           <InfoCard
             title={i18n.t("dashboard.newContacts")}
             value={ticketsData.ticketStatistics?.newContacts || 0}
-            icon={<GroupAddIcon style={{ fontSize: 100 }} />}
+            icon={<GroupAddIcon style={{ fontSize: 40 }} />}
           />
 
           {/* T.M. DE ATENDIMENTO */}
@@ -552,7 +568,7 @@ const Dashboard = () => {
             value={formatTimeInterval(
               ticketsData.ticketStatistics?.avgServiceTime
             )}
-            icon={<TimerIcon style={{ fontSize: 100 }} />}
+            icon={<TimerIcon style={{ fontSize: 40 }} />}
           />
 
           {/* T.M. DE ESPERA */}
@@ -561,7 +577,7 @@ const Dashboard = () => {
             value={formatTimeInterval(
               ticketsData.ticketStatistics?.avgWaitTime
             )}
-            icon={<HourglassEmptyIcon style={{ fontSize: 100 }} />}
+            icon={<HourglassEmptyIcon style={{ fontSize: 40 }} />}
           />
 
           {/* DASHBOARD ATENDIMENTOS NO PERÍODO */}

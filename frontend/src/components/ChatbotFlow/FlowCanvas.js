@@ -11,10 +11,10 @@ const useStyles = makeStyles(theme => {
   return {
     card: {
       overflow: "hidden",
-      borderRadius: 22,
+      borderRadius: 12,
       border: `1px solid ${wa.line}`,
-      backgroundColor: wa.canvas,
-      boxShadow: "0 14px 32px rgba(15,23,42,0.1)"
+      backgroundColor: theme.palette.background.default,
+      boxShadow: "none"
     },
     header: {
       display: "flex",
@@ -22,7 +22,7 @@ const useStyles = makeStyles(theme => {
       gap: 12,
       padding: "14px 16px",
       borderBottom: `1px solid ${wa.line}`,
-      backgroundColor: wa.toolbar,
+      backgroundColor: theme.palette.background.paper,
       color: wa.ink
     },
     avatar: {
@@ -54,7 +54,7 @@ const useStyles = makeStyles(theme => {
     breadcrumbs: {
       padding: "8px 16px",
       borderBottom: `1px solid ${wa.line}`,
-      backgroundColor: wa.toolbar,
+      backgroundColor: theme.palette.background.paper,
       color: wa.muted,
       fontSize: 12
     },
@@ -70,7 +70,7 @@ const useStyles = makeStyles(theme => {
     footer: {
       padding: "12px 16px",
       borderTop: `1px solid ${wa.line}`,
-      backgroundColor: wa.toolbar,
+      backgroundColor: theme.palette.background.paper,
       color: wa.muted,
       fontSize: 10.5,
       lineHeight: "16px"
