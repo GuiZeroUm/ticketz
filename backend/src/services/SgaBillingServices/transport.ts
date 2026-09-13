@@ -4,6 +4,8 @@ import Whatsapp from "../../models/Whatsapp";
 import GetWhatsappWbot from "../../helpers/GetWhatsappWbot";
 import OutOfTicketMessage from "../../models/OutOfTicketMessages";
 import { assertRuntimeCompany } from "../../helpers/tenantRuntime";
+import normalizePhone from "../../helpers/NormalizePhone";
+import { phoneKey } from "../SgaServices/normalize";
 
 // URLs only come from authenticated SGA responses. No arbitrary URL or redirect
 // can cause the backend to fetch another host (or forward the SGA token).
@@ -57,13 +59,28 @@ export const sendBillingMessage = async (
   pdf?: Buffer
 ): Promise<string> => {
   assertRuntimeCompany(whatsapp.companyId);
-  if (whatsapp.status !== "CONNECTED" || !/^55\d{10,11}$/.test(number))
+  if (
+    whatsapp.status !== "CONNECTED" ||
+    !/^(?:\d{10,11}|55\d{10,11})$/.test(number)
+  )
     throw new AppError("ERR_BILLING_CONNECTION", 409);
   const wbot = await GetWhatsappWbot(whatsapp);
+  // A Brazilian national number is accepted as input. WhatsApp routing still
+  // needs a country code, and its canonical address may omit the ninth digit.
+  const international = number.length <= 11 ? `55${number}` : number;
+  const address = `${normalizePhone(international).wphone}@s.whatsapp.net`;
+  const registered = await wbot.onWhatsApp(address);
+  const recipient = (Array.isArray(registered) ? registered : []).find(
+    entry =>
+      entry.exists &&
+      /^55\d{10,11}@s\.whatsapp\.net$/.test(entry.jid || "") &&
+      phoneKey(entry.jid.split("@")[0]) === phoneKey(international)
+  );
+  if (!recipient) throw new AppError("ERR_BILLING_RECIPIENT", 400);
   // One WhatsApp envelope: a PDF with caption, or a text. Nothing is persisted
   // under public uploads, and there is no partial PDF + text retry to duplicate.
   const message = await wbot.sendMessage(
-    `${number}@s.whatsapp.net`,
+    recipient.jid,
     pdf
       ? {
           document: pdf,

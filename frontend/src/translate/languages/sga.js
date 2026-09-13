@@ -210,6 +210,8 @@ const pt = {
   viewOnly: "Somente administradores podem sincronizar ou alterar vínculos."
 };
 const errors = {
+  ERR_BILLING_RECIPIENT:
+    "O WhatsApp não confirmou o número do destinatário. Nenhuma mensagem foi enviada.",
   ERR_BILLING_CONFIG:
     "Revise a configuração, os horários, as variáveis e a confirmação dos textos.",
   ERR_BILLING_CONNECTION:
