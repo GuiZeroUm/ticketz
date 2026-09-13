@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { i18n } from "../../translate/i18n";
-import BrandPanel from "../LoginExperience/BrandPanel";
 import { SignInPage } from "./sign-in";
 import "./sign-in.css";
 
@@ -27,7 +26,7 @@ export default function SignInDemo() {
         }
       }}
       onSignIn={event => event.preventDefault()}
-      hero={<BrandPanel />}
+      heroImageSrc="https://images.unsplash.com/photo-1509316785289-025f5b846b35?auto=format&fit=crop&w=1600&q=85"
       footer={
         <p role="note">
           {i18n.t("loginExperience.demoNotice", {
