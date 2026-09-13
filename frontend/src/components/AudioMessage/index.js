@@ -31,13 +31,17 @@ function Player({ src }) {
     const start = async () => {
       if (started || disposed) return;
       started = true;
+      // Load metadata only when visible, without resetting a pending play().
+      media.preload = "metadata";
       try {
         const { default: WaveSurfer } = await import("wavesurfer.js");
         if (disposed) return;
         wave = WaveSurfer.create({
           container: waveform.current,
           media,
-          url: src,
+          // WaveSurfer compares this with media.src (an absolute URL). A
+          // relative URL makes it replace the source with a blob mid-play.
+          url: media.src,
           height: 36,
           barWidth: 2,
           barGap: 3,
@@ -80,11 +84,15 @@ function Player({ src }) {
   }, [src, primary]);
 
   const toggle = () => {
-    if (playing) audio.current.pause();
+    if (!audio.current.paused) audio.current.pause();
     else {
       if (playbackError) audio.current.load();
       setPlaybackError(false);
-      audio.current.play().catch(() => setPlaybackError(true));
+      audio.current.play().catch(error => {
+        setPlaying(!audio.current.paused);
+        // Pausing an in-flight play() is not a broken audio file.
+        if (error.name !== "AbortError") setPlaybackError(true);
+      });
     }
   };
 
@@ -106,6 +114,7 @@ function Player({ src }) {
         onPause={() => setPlaying(false)}
         onEnded={() => setPlaying(false)}
         onPlay={() => {
+          setPlaybackError(false);
           if (playingAudio && playingAudio !== audio.current)
             playingAudio.pause();
           playingAudio = audio.current;
