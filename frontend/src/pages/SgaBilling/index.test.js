@@ -92,6 +92,27 @@ it("previews the personalized message and synthetic PDF without sending", async 
   ).toBeTruthy();
   expect(api.post).not.toHaveBeenCalled();
 });
+it("labels an authorized real boleto and never offers a synthetic download for it", async () => {
+  api.get.mockImplementation(async url => ({
+    data: url.includes("/preview/")
+      ? {
+          body: "TESTE DE ENVIO — BOLETO REAL",
+          attachPdf: true,
+          realBill: true
+        }
+      : { ...state, testBillNumber: "30041" }
+  }));
+  render(view());
+  await screen.findByText("sga.billing.realTestHelp");
+  fireEvent.click(
+    await screen.findByRole("button", { name: "sga.billing.preview" })
+  );
+  await screen.findByTestId("billing-preview");
+  expect(
+    screen.queryByRole("button", { name: "sga.billing.downloadTestPdf" })
+  ).toBeNull();
+  expect(api.post).not.toHaveBeenCalled();
+});
 it("simulation submits no phone override and clearly distinguishes it from WhatsApp delivery", async () => {
   api.post.mockResolvedValue({
     data: { status: "SIMULATED", body: "Prévia", attachPdf: true }

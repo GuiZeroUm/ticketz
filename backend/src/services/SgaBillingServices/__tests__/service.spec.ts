@@ -68,6 +68,8 @@ beforeEach(() => {
   jest.clearAllMocks();
   process.env.ACNORTE_BILLING_SEND_ENABLED = "true";
   process.env.ACNORTE_BILLING_TEST_NUMBER = "5568992081954";
+  delete process.env.ACNORTE_BILLING_TEST_BILL_NUMBER;
+  delete process.env.ACNORTE_BILLING_TEST_MEMBER_ID;
   config = {
     ...defaults(),
     enabled: true,
@@ -289,6 +291,89 @@ it("real test uses only the server allowlisted number and deduplicates request I
     expect.stringContaining("Guilherme Santos"),
     expect.any(Buffer)
   );
+});
+describe("authorized real boleto tests", () => {
+  beforeEach(() => {
+    process.env.ACNORTE_BILLING_TEST_BILL_NUMBER = "123";
+    process.env.ACNORTE_BILLING_TEST_MEMBER_ID = "7";
+    source.members[0].id = "7";
+    source.members[0].name = "Authorized Member";
+    source.stored.data.bills[0].memberId = "7";
+    (sgaRequest as jest.Mock).mockResolvedValue({
+      ...apiBill,
+      codigo_associado: "7"
+    });
+    config.enabled = false;
+  });
+  it("fetches the exact API PDF and sends only to the test allowlist, without links", async () => {
+    const result = await runBillingTest(
+      9,
+      1,
+      0,
+      "test",
+      "test_1234567890123456"
+    );
+    expect(sgaRequest).toHaveBeenCalledWith("buscar/boleto/123");
+    expect(fetchBoletoPdf).toHaveBeenCalledWith(apiBill.link_boleto);
+    expect(result).toMatchObject({
+      realBill: true,
+      billNumber: "123",
+      memberName: "Authorized Member"
+    });
+    expect(result.body).toContain("BOLETO REAL");
+    expect(result.body).not.toContain("https://");
+    expect(sendBillingMessage).toHaveBeenCalledWith(
+      expect.anything(),
+      "5568992081954",
+      result.body,
+      Buffer.from("%PDF-demo")
+    );
+    await runBillingTest(9, 1, 0, "test", "test_1234567890123456");
+    expect(sendBillingMessage).toHaveBeenCalledTimes(1);
+  });
+  it("does not attach a PDF to the later reminder stages", async () => {
+    await runBillingTest(9, 1, 30, "test", "test_1234567890123456");
+    expect(fetchBoletoPdf).not.toHaveBeenCalled();
+    expect(sendBillingMessage).toHaveBeenCalledWith(
+      expect.anything(),
+      "5568992081954",
+      expect.stringContaining("BOLETO REAL"),
+      undefined
+    );
+  });
+  it.each([
+    { codigo_associado: "other" },
+    { codigo_boleto: "other" },
+    { nosso_numero: "other" },
+    { codigo_situacao_boleto: "unknown" },
+    { valor_pagamento: 100 },
+    { data_vencimento: "2026-10-01" }
+  ])("rejects a changed or paid API bill: %o", async change => {
+    (sgaRequest as jest.Mock).mockResolvedValue({
+      ...apiBill,
+      codigo_associado: "7",
+      ...change
+    });
+    await expect(
+      runBillingTest(9, 1, 0, "test", "test_1234567890123456")
+    ).rejects.toMatchObject({ message: "ERR_BILLING_TEST_BILL" });
+    expect(sendBillingMessage).not.toHaveBeenCalled();
+  });
+  it("never falls back to a fake PDF on API download failure", async () => {
+    (fetchBoletoPdf as jest.Mock).mockRejectedValue(new Error("unavailable"));
+    await expect(
+      runBillingTest(9, 1, 0, "test", "test_1234567890123456")
+    ).rejects.toThrow("unavailable");
+    expect(sendBillingMessage).not.toHaveBeenCalled();
+    expect(ledger).toHaveLength(0);
+  });
+  it("rejects incomplete real-bill authorization instead of silently using fake data", async () => {
+    delete process.env.ACNORTE_BILLING_TEST_MEMBER_ID;
+    await expect(
+      runBillingTest(9, 1, 0, "test", "test_1234567890123456")
+    ).rejects.toMatchObject({ message: "ERR_BILLING_TEST_BILL" });
+    expect(sendBillingMessage).not.toHaveBeenCalled();
+  });
 });
 it("refuses a real test without a connected dev session", async () => {
   (Whatsapp.findOne as jest.Mock).mockResolvedValue({ status: "DISCONNECTED" });

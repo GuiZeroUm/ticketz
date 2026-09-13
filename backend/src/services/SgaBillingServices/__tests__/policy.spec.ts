@@ -115,7 +115,8 @@ describe("AC Norte billing policy", () => {
       expect(body).toContain("Olá, Guilherme Santos.");
       expect(body).not.toContain("[nome]");
       expect(body).not.toContain("_Boleto_");
-      expect(body).toContain("Boleto: https://short.hinova.com.br/v2/TEST.pdf");
+      expect(body).not.toContain("https://");
+      expect(body).not.toContain("Boleto:");
       expect(step.attachPdf).toBe(step.offset <= 0);
     });
   });

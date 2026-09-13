@@ -11,8 +11,8 @@ O compose do dev fixa `ACNORTE_BILLING_SEND_ENABLED=false`. A configuração tam
 
 | Dias em relação ao vencimento | Conteúdo |
 | --- | --- |
-| −3, 0 | Documento PDF com legenda personalizada e link do boleto |
-| +1, +3, +5, +25, +30, +90 | Texto personalizado e link do boleto |
+| −3, 0 | Documento PDF com legenda personalizada, sem link automático |
+| +1, +3, +5, +25, +30, +90 | Texto personalizado, sem link automático |
 
 Textos fornecidos pela AC Norte, com correções ortográficas, editáveis na interface. Variáveis `[nome]`, `[valor]`, `[vencimento]`, `[boleto]`. O nome vem do associado SGA, não de um telefone usado como nome no contato. Sem duplicação por placa: unidade de envio é **boleto + etapa**.
 
@@ -45,7 +45,11 @@ Envios incertos contam no limite diário. Testes e simulações têm modos separ
 
 ## Teste
 
-Prévia usa Guilherme Santos, valores fictícios e link do painel de demonstração; não exibe documentos financeiros de outro associado. O PDF de demonstração diz **SEM VALOR — NÃO PAGAR**. Endpoint `/sga/billing/test.pdf` autenticado, sem cache público.
+Por padrão, a prévia usa Guilherme Santos e valores fictícios, sem link. O PDF de demonstração diz **SEM VALOR — NÃO PAGAR**. Endpoint `/sga/billing/test.pdf` autenticado, sem cache público.
+
+Para teste expressamente autorizado com documento real, configurar **ambas** `ACNORTE_BILLING_TEST_BILL_NUMBER` (nosso número) e `ACNORTE_BILLING_TEST_MEMBER_ID` no dev. A combinação deve existir no snapshot do tenant; cada prévia/teste consulta `buscar/boleto` e valida identidade, titularidade, vencimento e situação não paga. As etapas são simuladas independentemente da data real, mas o PDF é o original atual da API, nunca uma substituição fictícia. O envio continua exclusivamente para `ACNORTE_BILLING_TEST_NUMBER`, nunca para o contato do associado. O histórico registra os identificadores reais com `mode=test`, sem afetar deduplicação de cobranças reais. O documento permanece somente em memória. Falhas de API ou PDF bloqueiam o envio. Remover ambas as variáveis para voltar à demonstração fictícia. A interface identifica o boleto real e oculta o download de PDF fictício nesse modo.
+
+Nenhum link é acrescentado automaticamente às mensagens. Textos personalizados ainda podem solicitar explicitamente `[boleto]` no fluxo real; os testes nunca inserem um link de pagamento ou do painel.
 
 **Simular envio sem WhatsApp** registra `SIMULATED` e valida a composição sem chamar o transporte. **Enviar teste ao número autorizado** exige conexão do dev, usa exclusivamente a allowlist do servidor, é limitado e idempotente por `requestId`. A interface retém o identificador depois de erro de rede para não duplicar uma tentativa. Reiniciar/repetir deliberadamente um teste requer nova entrada na tela.
 
