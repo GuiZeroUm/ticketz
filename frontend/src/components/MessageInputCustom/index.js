@@ -18,13 +18,15 @@ import Paper from "@material-ui/core/Paper";
 import InputBase from "@material-ui/core/InputBase";
 import CircularProgress from "@material-ui/core/CircularProgress";
 import { green } from "@material-ui/core/colors";
-import AttachFileIcon from "@material-ui/icons/AttachFile";
+import {
+  Paperclip as AttachFileIcon,
+  Send as SendIcon,
+  Mic as MicIcon
+} from "../AnimatedIcon";
 import IconButton from "@material-ui/core/IconButton";
 import MoodIcon from "@material-ui/icons/Mood";
-import SendIcon from "@material-ui/icons/Send";
 import CancelIcon from "@material-ui/icons/Cancel";
 import ClearIcon from "@material-ui/icons/Clear";
-import MicIcon from "@material-ui/icons/Mic";
 import CheckCircleOutlineIcon from "@material-ui/icons/CheckCircleOutline";
 import HighlightOffIcon from "@material-ui/icons/HighlightOff";
 import CameraAltIcon from "@material-ui/icons/CameraAlt";

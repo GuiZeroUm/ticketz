@@ -33,7 +33,7 @@ import {
   Files,
   Users,
   Printer
-} from "lucide-react";
+} from "../AnimatedIcon";
 import { BotaoIcone } from "../interface";
 import canReopenTicket from "./canReopenTicket";
 
