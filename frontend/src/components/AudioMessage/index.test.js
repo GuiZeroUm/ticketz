@@ -1,3 +1,4 @@
+/* eslint-disable testing-library/no-unnecessary-act -- Flush lazy import and media promises, not only the synchronous DOM event. */
 import React from "react";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import AudioMessage, { audioTime } from "./index";
