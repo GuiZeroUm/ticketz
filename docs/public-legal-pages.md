@@ -41,8 +41,8 @@ autorizado. Não usar dados Google de perfil para IA/marketing. Preservar login 
 senha. Apple depende da participação em Apple Developer Program; Microsoft foi
 adiado a pedido do responsável.
 
-Os links de privacidade e termos precisam permanecer visíveis no login social e
-na página inicial ao integrar a nova autenticação. Cadastrar as URLs canônicas no
+Os links de privacidade e termos estão no rodapé da página inicial e precisam
+permanecer visíveis no login social ao integrar a nova autenticação. Cadastrar as URLs canônicas no
 Google e no Clerk somente após confirmar HTTP 200 público com o conteúdo correto.
 
 ## Validação
