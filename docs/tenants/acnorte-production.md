@@ -22,6 +22,12 @@ Produção: https://acnorte.espacowhats.com.br. Tenant/companyId: 9.
 5. Publicar **AC Norte Produção** no Dokploy. Não publicar o compose dev. Não executar seeds em produção; o compose dedicado executa somente migrations e o servidor.
 6. Validar saúde HTTP/HTTPS, login, atendimentos, contatos, SGA, filas e reconexão das sessões existentes sem QR Code. Conferir também a saúde dos demais tenants.
 
+## Homologação das cobranças
+
+O primeiro rollout mantém `ACNORTE_BILLING_SEND_ENABLED=false` e a configuração do tenant desativada. `ACNORTE_BILLING_TEST_NUMBER` define exclusivamente o destino do botão de teste. O compose de produção força vazias as duas variáveis de seleção de boleto real: os testes usam PDF sintético **SEM VALOR — NÃO PAGAR**, nunca os boletos de homologação do dev.
+
+Um teste de horário pode ser cadastrado em **Agendamentos**, como envio único, público **selecionado** com apenas o contato autorizado e fuso `America/Rio_Branco`. Ele verifica o agendador operacional, não a elegibilidade de boletos da régua SGA. Confira a data UTC correspondente, `nextRunAt`, uma única entrega pendente e o isolamento `QUEUE_PREFIX=acnorte-production`. Esse teste não ativa cobranças aos associados. Após o horário, o histórico deve ser consultado; cadastro agendado não é confirmação antecipada de entrega.
+
 ## Retorno seguro
 
 Para voltar apenas a versão do AC Norte, manter o isolamento e usar a imagem anterior dedicada. Para desfazer a separação, primeiro parar o backend dedicado, confirmar que encerrou, então remover a exclusão 9 do backend geral e reiniciá-lo. Nunca inverter essa ordem. Manter migrações aditivas; não executar `db:migrate:undo`, `db:seed:all`, `docker compose down -v` nem restaurar um dump antigo sobre dados novos de produção.
