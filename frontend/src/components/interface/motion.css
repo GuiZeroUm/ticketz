@@ -1,0 +1,67 @@
+/* Short, user-triggered motion. Never animate every conversation on a timer. */
+@keyframes ew-icon-idle {
+  0%,
+  94%,
+  100% {
+    transform: translateY(0);
+  }
+  96% {
+    transform: translateY(-2px);
+  }
+  98% {
+    transform: translateY(1px);
+  }
+}
+.ew-nav-motion.ativo .MuiListItemIcon-root svg {
+  animation: ew-icon-idle 24s ease-in-out infinite;
+}
+@keyframes ew-icon-greet {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0);
+  }
+  30% {
+    transform: translateY(-2px) rotate(-9deg);
+  }
+  65% {
+    transform: translateY(-1px) rotate(7deg);
+  }
+}
+@keyframes ew-icon-draw {
+  from {
+    stroke-dasharray: 60;
+    stroke-dashoffset: 60;
+  }
+  to {
+    stroke-dasharray: 60;
+    stroke-dashoffset: 0;
+  }
+}
+.ew-button:not(:disabled):hover > svg,
+.ew-button:not(:disabled):focus-visible > svg,
+.ew-nav-motion:hover .MuiListItemIcon-root svg,
+.ew-nav-motion:focus-visible .MuiListItemIcon-root svg,
+.conversa-acoes .MuiIconButton-root:hover svg,
+.chat-compositor .MuiIconButton-root:hover svg {
+  animation: ew-icon-greet 0.48s ease both;
+  transform-origin: center;
+}
+.ew-button:not(:disabled):hover > .lucide path,
+.ew-button:not(:disabled):focus-visible > .lucide path {
+  animation: ew-icon-draw 0.5s ease both;
+}
+.ew-button:focus-visible,
+.ew-nav-motion:focus-visible {
+  outline: 2px solid var(--ew-primary, currentColor);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ew-button svg,
+  .ew-button svg path,
+  .ew-nav-motion svg,
+  .conversa-acoes svg,
+  .chat-compositor svg {
+    animation: none !important;
+    transition: none !important;
+  }
+}

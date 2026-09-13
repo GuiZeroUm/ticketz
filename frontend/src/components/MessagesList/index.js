@@ -1,4 +1,5 @@
 import { alpha } from "@material-ui/core/styles";
+import AudioMessage from "../AudioMessage";
 import React, {
   useState,
   useEffect,
@@ -86,9 +87,7 @@ const VoiceRecordingPlayer = ({ message }) => {
   }, [callId]);
 
   return source ? (
-    <audio controls preload="metadata">
-      <source src={source} type="audio/wav" />
-    </audio>
+    <AudioMessage src={source} />
   ) : (
     <CircularProgress size={20} />
   );
@@ -132,7 +131,7 @@ const useStyles = makeStyles(theme => ({
     flexDirection: "column",
     flexGrow: 1,
     width: "100%",
-    minWidth: 300,
+    minWidth: 0,
     minHeight: 150
   },
 
@@ -188,7 +187,7 @@ const useStyles = makeStyles(theme => ({
   },
 
   quotedContainerLeft: {
-    margin: "-3px -80px 6px -6px",
+    margin: "0 0 8px",
     overflow: "hidden",
     backgroundColor: theme.mode === "light" ? "#f0f0f0" : "#1c2134",
     borderRadius: "7.5px",
@@ -250,7 +249,7 @@ const useStyles = makeStyles(theme => ({
   },
 
   quotedContainerRight: {
-    margin: "-3px -80px 6px -6px",
+    margin: "0 0 8px",
     overflowY: "hidden",
     backgroundColor: theme.mode === "light" ? "#cfe9ba" : "#075e54",
     borderRadius: "7.5px",
@@ -272,8 +271,10 @@ const useStyles = makeStyles(theme => ({
   },
 
   messageActionsButton: {
-    display: "none",
-    position: "relative",
+    display: "flex",
+    position: "absolute",
+    top: 3,
+    right: 3,
     color: "#999",
     zIndex: 1,
     backgroundColor: "inherit",
@@ -283,7 +284,7 @@ const useStyles = makeStyles(theme => ({
 
   messageContactName: {
     display: "flex",
-    color: "#6bcbef",
+    color: theme.palette.primary.main,
     fontWeight: 500,
     cursor: "pointer"
   },
@@ -303,8 +304,10 @@ const useStyles = makeStyles(theme => ({
   },
 
   textContentItem: {
-    overflowWrap: "break-word",
-    padding: "3px 80px 6px 6px"
+    overflowWrap: "anywhere",
+    fontSize: 13,
+    lineHeight: 1.65,
+    padding: "3px 34px 20px 6px"
   },
 
   messageLocation: {
@@ -1118,14 +1121,9 @@ const MessagesList = ({
       );
     }
     if (!document && message.mediaType === "audio") {
-      const audioType = (message.mediaUrl || "").toLowerCase().includes(".wav")
-        ? "audio/wav"
-        : "audio/ogg";
       return (
         <>
-          <audio className={classes.audioBottom} controls>
-            <source src={message.mediaUrl} type={audioType}></source>
-          </audio>
+          <AudioMessage src={message.mediaUrl} />
           {message.body && !["🔊", "Áudio"].includes(message.body) && (
             <div className={classes.mediaDescription}>{message.body}</div>
           )}
@@ -1849,6 +1847,8 @@ const MessagesList = ({
             {renderMessageDivider(message, index)}
             <div
               id={message.id}
+              data-message-side="received"
+              data-message-kind={isSticker ? "sticker" : "message"}
               className={[
                 clsx(classes.messageContainer, classes.messageLeft, {
                   [classes.messageMediaSticker]: isSticker
@@ -1861,6 +1861,7 @@ const MessagesList = ({
                   variant="contained"
                   size="small"
                   id={`messageActionsButton-${message.id}`}
+                  aria-label={i18n.t("conversa.maisAcoes")}
                   disabled={message.isDeleted}
                   className={classes.messageActionsButton}
                   onClick={e => handleOpenMessageOptionsMenu(e, message, data)}
@@ -1968,6 +1969,8 @@ const MessagesList = ({
             {renderMessageDivider(message, index)}
             <div
               id={message.id}
+              data-message-side="sent"
+              data-message-kind={isSticker ? "sticker" : "message"}
               className={[
                 clsx(classes.messageContainer, classes.messageRight, {
                   [classes.messageMediaSticker]: isSticker
@@ -1980,6 +1983,7 @@ const MessagesList = ({
                   variant="contained"
                   size="small"
                   id={`messageActionsButton-${message.id}`}
+                  aria-label={i18n.t("conversa.maisAcoes")}
                   disabled={message.isDeleted}
                   className={classes.messageActionsButton}
                   onClick={e => handleOpenMessageOptionsMenu(e, message, data)}

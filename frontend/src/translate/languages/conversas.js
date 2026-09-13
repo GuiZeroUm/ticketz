@@ -1,4 +1,21 @@
 const pt = {
+  chatExperience: {
+    location: "Localização",
+    noMessage: "Nenhuma mensagem ainda",
+    unread: "{{count}} mensagens não lidas",
+    preview: "Espiar conversa",
+    close: "Fechar conversa",
+    moreTags: "Mostrar mais {{count}} etiquetas",
+    lessTags: "Recolher etiquetas",
+    less: "Menos",
+    play: "Reproduzir áudio",
+    pause: "Pausar áudio",
+    seek: "Posição do áudio",
+    speed: "Velocidade do áudio",
+    loadingAudio: "Preparando áudio…",
+    audioFallback: "Forma de onda indisponível. Use o player abaixo.",
+    audio: "Mensagem de voz"
+  },
   perfilFoto: {
     alterar: "Alterar foto",
     remover: "Remover foto",
@@ -64,6 +81,23 @@ const pt = {
   }
 };
 const en = {
+  chatExperience: {
+    location: "Location",
+    noMessage: "No messages yet",
+    unread: "{{count}} unread messages",
+    preview: "Preview conversation",
+    close: "Close conversation",
+    moreTags: "Show {{count}} more tags",
+    lessTags: "Collapse tags",
+    less: "Less",
+    play: "Play audio",
+    pause: "Pause audio",
+    seek: "Audio position",
+    speed: "Playback speed",
+    loadingAudio: "Preparing audio…",
+    audioFallback: "Waveform unavailable. Use the player below.",
+    audio: "Voice message"
+  },
   perfilFoto: {
     alterar: "Change photo",
     remover: "Remove photo",

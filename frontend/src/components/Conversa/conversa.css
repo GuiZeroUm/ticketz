@@ -383,3 +383,82 @@
   font-size: 10px;
   color: var(--ew-muted);
 }
+
+/* Shared conversation language for WhatsApp, groups and team chat. */
+.conversa-principal #messagesList,
+.chat-mensagens .chat-mensagens-lista {
+  background-image: none;
+  background-color: color-mix(in srgb, var(--ew-primary) 2%, var(--ew-bg));
+  padding: 24px clamp(14px, 3vw, 40px);
+  overscroll-behavior: contain;
+}
+.conversa-principal #messagesList > div[data-message-side] {
+  margin-top: 5px;
+  margin-bottom: 7px;
+  padding: 10px 12px 5px;
+  max-width: min(620px, 88%);
+  border-radius: 16px 16px 16px 5px;
+  border-color: color-mix(in srgb, var(--ew-border) 75%, transparent);
+  box-shadow: 0 2px 5px #00000004;
+}
+.conversa-principal #messagesList > div[data-message-side="sent"] {
+  border-radius: 16px 16px 5px 16px;
+  background-color: color-mix(
+    in srgb,
+    var(--ew-primary) 10%,
+    var(--ew-surface)
+  );
+  border-color: color-mix(in srgb, var(--ew-primary) 16%, var(--ew-border));
+}
+.conversa-principal [id^="messageActionsButton"] {
+  opacity: 0.35;
+  width: 24px;
+  height: 24px;
+}
+.conversa-principal #messagesList > div[data-message-kind="sticker"] {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+.conversa-principal [data-message-side]:hover [id^="messageActionsButton"],
+.conversa-principal [id^="messageActionsButton"]:focus-visible {
+  opacity: 1;
+}
+.conversa-cabecalho {
+  min-height: 76px;
+}
+.conversa-cabecalho-acoes {
+  align-items: center;
+  flex-wrap: wrap;
+}
+.conversa-compositor {
+  padding: 14px 18px;
+  box-shadow: 0 -4px 16px #00000003;
+}
+.conversa-compositor > [role="tabpanel"],
+.chat-compositor .MuiInputBase-root {
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--ew-bg) 50%, var(--ew-surface));
+}
+.conversa-compositor > [role="tabpanel"]:focus-within,
+.chat-compositor .MuiInputBase-root:focus-within {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ew-primary) 9%, transparent);
+}
+@media (max-width: 599px) {
+  .conversa-principal #messagesList {
+    padding: 14px 10px;
+  }
+  .conversa-principal #messagesList > div[data-message-side] {
+    max-width: 94%;
+    margin-left: 0;
+    margin-right: 0;
+  }
+  .conversa-compositor {
+    padding: 10px;
+  }
+  .conversa-cabecalho {
+    gap: 8px;
+    padding: 8px 10px;
+    flex-wrap: wrap;
+  }
+}
