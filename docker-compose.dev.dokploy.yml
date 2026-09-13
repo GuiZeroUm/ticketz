@@ -108,8 +108,15 @@ services:
     env_file:
       - path: /etc/dokploy/secrets/espaco_whats_dev_wacalls.env
         required: false
+      - path: /etc/dokploy/secrets/espaco_whats_clerk_development.env
+        required: false
     environment:
       NODE_ENV: production
+      CLERK_ENVIRONMENT: development
+      CLERK_TENANT_BASE_DOMAIN: dev.espacowhats.com.br
+      CLERK_ISSUER: https://trusted-jaybird-7472.clerk.accounts.dev
+      CLERK_GOOGLE_ENABLED: ${CLERK_GOOGLE_ENABLED:-true}
+      CLERK_AUTHORIZED_PARTIES: ${CLERK_AUTHORIZED_PARTIES:-https://dev.espacowhats.com.br,https://teste.dev.espacowhats.com.br}
       PORT: "3000"
       TZ: ${TZ:-America/Rio_Branco}
       DB_DIALECT: postgres
@@ -236,6 +243,19 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=dokploy-network"
+      # Explicit HTTPS routing prevents the dev apex falling through to the
+      # production wildcard router when Dokploy's domain entry is HTTP-only.
+      - "traefik.http.routers.espacowhats-dev-apex-http.rule=Host(`dev.espacowhats.com.br`)"
+      - "traefik.http.routers.espacowhats-dev-apex-http.entrypoints=web"
+      - "traefik.http.routers.espacowhats-dev-apex-http.priority=250"
+      - "traefik.http.routers.espacowhats-dev-apex-http.middlewares=redirect-to-https@file"
+      - "traefik.http.routers.espacowhats-dev-apex-http.service=espacowhats-dev-frontend"
+      - "traefik.http.routers.espacowhats-dev-apex-https.rule=Host(`dev.espacowhats.com.br`)"
+      - "traefik.http.routers.espacowhats-dev-apex-https.entrypoints=websecure"
+      - "traefik.http.routers.espacowhats-dev-apex-https.priority=250"
+      - "traefik.http.routers.espacowhats-dev-apex-https.service=espacowhats-dev-frontend"
+      - "traefik.http.routers.espacowhats-dev-apex-https.tls=true"
+      - "traefik.http.routers.espacowhats-dev-apex-https.tls.certresolver=letsencrypt"
       - "traefik.http.routers.espacowhats-dev-wildcard-http.rule=HostRegexp(`[a-z0-9-]+\\.dev\\.espacowhats\\.com\\.br`)"
       - "traefik.http.routers.espacowhats-dev-wildcard-http.entrypoints=web"
       - "traefik.http.routers.espacowhats-dev-wildcard-http.service=espacowhats-dev-frontend"

@@ -8,4 +8,8 @@
 **/.DS_Store
 body.txt
 strix_runs/
+# Local authentication credentials must never be committed.
+**/.env.local
+**/.env.*.local
+**/.clerk/
 graphify-out/

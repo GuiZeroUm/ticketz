@@ -142,7 +142,7 @@ export const saveMessage = async (
         newMessage = await CreateMessageService({
           chatId,
           senderId,
-          message: media.originalname,
+          message: typeof message === "string" ? message.trim() : "",
           mediaPath: media.filename,
           mediaName: media.originalname,
           mediaType: media.mimetype.split("/")[0]

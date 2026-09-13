@@ -9,21 +9,25 @@ import {
   Paper
 } from "@material-ui/core";
 import AvatarUsuario from "../../components/AvatarUsuario";
+import AudioMessage from "../../components/AudioMessage";
+import chatMediaUrl from "../../helpers/chatMediaUrl";
+import AttachmentPreview from "./AttachmentPreview";
 import { i18n } from "../../translate/i18n";
-import SendIcon from "@material-ui/icons/Send";
+import {
+  Send as SendIcon,
+  Paperclip as AttachFileIcon,
+  Mic as MicIcon,
+  Download as GetApp
+} from "../../components/AnimatedIcon";
 
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { useDate } from "../../hooks/useDate";
 import api from "../../services/api";
 
 import { green } from "@material-ui/core/colors";
-import AttachFileIcon from "@material-ui/icons/AttachFile";
-import CancelIcon from "@material-ui/icons/Cancel";
 import CircularProgress from "@material-ui/core/CircularProgress";
-import { GetApp } from "@material-ui/icons";
 import toastError from "../../errors/toastError";
 import MicRecorder from "mic-recorder-to-mp3";
-import MicIcon from "@material-ui/icons/Mic";
 import PlayArrowIcon from "@material-ui/icons/PlayArrow";
 import PauseIcon from "@material-ui/icons/Pause";
 import CropFreeIcon from "@material-ui/icons/CropFree";
@@ -127,9 +131,12 @@ const useStyles = makeStyles(theme => ({
     padding: 10
   },
   messageMedia: {
-    objectFit: "cover",
-    width: 250,
-    height: 200,
+    display: "block",
+    objectFit: "contain",
+    width: "auto",
+    maxWidth: "100%",
+    height: "auto",
+    maxHeight: 360,
     borderTopLeftRadius: 8,
     borderTopRightRadius: 8,
     borderBottomLeftRadius: 8,
@@ -234,7 +241,7 @@ export default function ChatMessages({
 
   const lightboxMedia = useMemo(() => {
     return buildMediaGalleryData(messages, {
-      getMediaUrl: message => message?.mediaPath
+      getMediaUrl: message => chatMediaUrl(message?.mediaPath)
     });
   }, [messages]);
 
@@ -299,7 +306,8 @@ export default function ChatMessages({
     }
 
     const selectedMedias = Array.from(e.target.files);
-    setMedias(selectedMedias);
+    setMedias(previous => [...previous, ...selectedMedias]);
+    e.target.value = "";
   };
 
   const handleVideoPreviewPlayClick = (event, messageId) => {
@@ -328,25 +336,28 @@ export default function ChatMessages({
   };
 
   const checkMessageMedia = message => {
-    const mediaUrl = message.mediaPath;
+    const mediaUrl = chatMediaUrl(message.mediaPath);
 
     if (message.mediaType === "image") {
       return (
-        <img
-          className={classes.messageMedia}
-          src={mediaUrl}
-          alt={message.mediaName || i18n.t("conversa.arquivo")}
-          style={{ cursor: "pointer" }}
+        <button
+          type="button"
+          className="chat-imagem-abrir"
+          aria-label={i18n.t("conversa.abrirImagem", {
+            name: message.mediaName
+          })}
           onClick={() => openLightboxForMessage(message.id)}
-        />
+        >
+          <img
+            className={classes.messageMedia}
+            src={mediaUrl}
+            alt={message.mediaName || i18n.t("conversa.arquivo")}
+          />
+        </button>
       );
     }
     if (message.mediaType === "audio") {
-      return (
-        <audio controls>
-          <source src={mediaUrl}></source>
-        </audio>
-      );
+      return <AudioMessage src={mediaUrl} />;
     }
 
     if (message.mediaType === "video") {
@@ -429,24 +440,28 @@ export default function ChatMessages({
   };
 
   const handleSendMedia = async e => {
+    e?.preventDefault();
+    if (!medias.length || enviando.current || loading) return;
+    enviando.current = true;
     setLoading(true);
-    e.preventDefault();
 
     const formData = new FormData();
     formData.append("fromMe", true);
+    formData.append("message", contentMessage.trim());
     medias.forEach(media => {
       formData.append("medias", media);
-      formData.append("body", media.name);
     });
 
     try {
       await api.post(`/chats/${chat.id}/messages`, formData);
       setMedias([]);
+      setContentMessage("");
     } catch (err) {
       toastError(err);
+    } finally {
+      enviando.current = false;
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   const handleStartRecording = async () => {
@@ -545,7 +560,10 @@ export default function ChatMessages({
                     {item.sender?.name || i18n.t("conversa.usuario")}
                   </strong>
                   {item.mediaPath && checkMessageMedia(item)}
-                  <div className="chat-texto">{item.message}</div>
+                  {item.message &&
+                    !(item.mediaPath && item.message === item.mediaName) && (
+                      <div className="chat-texto">{item.message}</div>
+                    )}
                   <time title={datetimeToClient(item.createdAt)}>
                     {new Date(item.createdAt).toLocaleTimeString(
                       i18n.language,
@@ -597,94 +615,70 @@ export default function ChatMessages({
             </div>
           ) : (
             <>
-              {medias.length > 0 ? (
-                <>
-                  <Paper
-                    elevation={0}
-                    square
-                    className={classes.viewMediaInputWrapper}
-                  >
-                    <IconButton
-                      aria-label="cancel-upload"
-                      component="span"
-                      onClick={e => setMedias([])}
-                    >
-                      <CancelIcon className={classes.sendMessageIcons} />
-                    </IconButton>
-
-                    {loading ? (
-                      <div>
-                        <CircularProgress className={classes.circleLoading} />
-                      </div>
-                    ) : (
-                      <span>{medias.map(media => media.name).join(", ")}</span>
-                    )}
-                    <IconButton
-                      aria-label="send-upload"
-                      component="span"
-                      onClick={handleSendMedia}
-                      disabled={loading}
-                    >
-                      <SendIcon className={classes.sendMessageIcons} />
-                    </IconButton>
-                  </Paper>
-                </>
-              ) : (
-                <React.Fragment>
-                  <Input
-                    multiline
-                    value={contentMessage}
-                    placeholder={i18n.t("conversa.escrever")}
-                    inputProps={{ "aria-label": i18n.t("conversa.escrever") }}
-                    disabled={loading}
-                    maxRows={6}
-                    disableUnderline
-                    onKeyDown={e => {
-                      if (
-                        e.key === "Enter" &&
-                        !e.shiftKey &&
-                        !e.nativeEvent.isComposing
-                      ) {
-                        e.preventDefault();
-                        enviarTexto();
-                      }
-                    }}
-                    onChange={e => setContentMessage(e.target.value)}
-                    className={classes.input}
-                    startAdornment={
-                      <InputAdornment position="start">
-                        <FileInput
-                          disableOption={loading}
-                          handleChangeMedias={handleChangeMedias}
-                        />
-                      </InputAdornment>
-                    }
-                    endAdornment={
-                      <InputAdornment position="end">
-                        {contentMessage ? (
-                          <IconButton
-                            onClick={enviarTexto}
-                            disabled={loading}
-                            aria-label={i18n.t("conversa.enviar")}
-                            className={classes.buttonSend}
-                          >
-                            <SendIcon />
-                          </IconButton>
+              <AttachmentPreview
+                files={medias}
+                disabled={loading}
+                onRemove={index =>
+                  setMedias(previous => previous.filter((_, i) => i !== index))
+                }
+              />
+              <Input
+                multiline
+                value={contentMessage}
+                placeholder={i18n.t("conversa.escrever")}
+                inputProps={{ "aria-label": i18n.t("conversa.escrever") }}
+                disabled={loading}
+                maxRows={6}
+                disableUnderline
+                onKeyDown={e => {
+                  if (
+                    e.key === "Enter" &&
+                    !e.shiftKey &&
+                    !e.nativeEvent.isComposing
+                  ) {
+                    e.preventDefault();
+                    if (medias.length) handleSendMedia();
+                    else enviarTexto();
+                  }
+                }}
+                onChange={e => setContentMessage(e.target.value)}
+                className={classes.input}
+                startAdornment={
+                  <InputAdornment position="start">
+                    <FileInput
+                      disableOption={loading}
+                      handleChangeMedias={handleChangeMedias}
+                    />
+                  </InputAdornment>
+                }
+                endAdornment={
+                  <InputAdornment position="end">
+                    {contentMessage || medias.length ? (
+                      <IconButton
+                        onClick={medias.length ? handleSendMedia : enviarTexto}
+                        disabled={loading}
+                        aria-label={i18n.t("conversa.enviar")}
+                        className={classes.buttonSend}
+                      >
+                        {loading ? (
+                          <CircularProgress size={20} />
                         ) : (
-                          <IconButton
-                            aria-label="showRecorder"
-                            component="span"
-                            disabled={loading}
-                            onClick={handleStartRecording}
-                          >
-                            <MicIcon className={classes.sendMessageIcons} />
-                          </IconButton>
+                          <SendIcon />
                         )}
-                      </InputAdornment>
-                    }
-                  />
-                </React.Fragment>
-              )}
+                      </IconButton>
+                    ) : (
+                      <IconButton
+                        aria-label="showRecorder"
+                        component="span"
+                        disabled={loading}
+                        onClick={handleStartRecording}
+                      >
+                        <MicIcon className={classes.sendMessageIcons} />
+                      </IconButton>
+                    )}
+                  </InputAdornment>
+                }
+              />
             </>
           )}
         </FormControl>

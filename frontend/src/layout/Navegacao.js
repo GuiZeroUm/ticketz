@@ -12,6 +12,7 @@ import {
 import { makeStyles, alpha } from "@material-ui/core/styles";
 import ExpandMore from "@material-ui/icons/ExpandMore";
 import { i18n } from "../translate/i18n";
+import "../components/interface/motion.css";
 
 const useStyles = makeStyles(tema => ({
   grupo: { padding: 0, margin: 0, listStyle: "none" },
@@ -75,7 +76,7 @@ function ItemNavegacao({ item, expandido, aoNavegar }) {
         {item.filhos ? (
           <ListItem
             button
-            className={`${classes.item} ${selecionado ? "ativo" : ""}`}
+            className={`ew-nav-motion ${classes.item} ${selecionado ? "ativo" : ""}`}
             aria-label={titulo}
             aria-expanded={aberto}
             onClick={() => definirAberto(!aberto)}
@@ -90,7 +91,7 @@ function ItemNavegacao({ item, expandido, aoNavegar }) {
             exact={item.to === "/"}
             to={item.to}
             activeClassName="ativo"
-            className={classes.item}
+            className={`ew-nav-motion ${classes.item}`}
             aria-label={titulo}
             onClick={aoNavegar}
           >
