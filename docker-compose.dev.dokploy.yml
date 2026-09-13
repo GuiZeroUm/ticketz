@@ -243,6 +243,19 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=dokploy-network"
+      # Explicit HTTPS routing prevents the dev apex falling through to the
+      # production wildcard router when Dokploy's domain entry is HTTP-only.
+      - "traefik.http.routers.espacowhats-dev-apex-http.rule=Host(`dev.espacowhats.com.br`)"
+      - "traefik.http.routers.espacowhats-dev-apex-http.entrypoints=web"
+      - "traefik.http.routers.espacowhats-dev-apex-http.priority=250"
+      - "traefik.http.routers.espacowhats-dev-apex-http.middlewares=redirect-to-https@file"
+      - "traefik.http.routers.espacowhats-dev-apex-http.service=espacowhats-dev-frontend"
+      - "traefik.http.routers.espacowhats-dev-apex-https.rule=Host(`dev.espacowhats.com.br`)"
+      - "traefik.http.routers.espacowhats-dev-apex-https.entrypoints=websecure"
+      - "traefik.http.routers.espacowhats-dev-apex-https.priority=250"
+      - "traefik.http.routers.espacowhats-dev-apex-https.service=espacowhats-dev-frontend"
+      - "traefik.http.routers.espacowhats-dev-apex-https.tls=true"
+      - "traefik.http.routers.espacowhats-dev-apex-https.tls.certresolver=letsencrypt"
       - "traefik.http.routers.espacowhats-dev-wildcard-http.rule=HostRegexp(`[a-z0-9-]+\\.dev\\.espacowhats\\.com\\.br`)"
       - "traefik.http.routers.espacowhats-dev-wildcard-http.entrypoints=web"
       - "traefik.http.routers.espacowhats-dev-wildcard-http.service=espacowhats-dev-frontend"
