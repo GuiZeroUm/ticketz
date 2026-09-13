@@ -3,6 +3,7 @@ import {
   removerArquivoBranding
 } from "../../helpers/brandingFiles";
 import AppError from "../../errors/AppError";
+import validateLoginBranding from "../../helpers/validateLoginBranding";
 import { getIO } from "../../libs/socket";
 import Setting from "../../models/Setting";
 import { updateDefaultLanguage } from "../TranslationServices/i18nService";
@@ -21,6 +22,7 @@ const UpdateSettingService = async ({
   companyId,
   arquivoNovo = false
 }: Request): Promise<Setting | undefined> => {
+  validateLoginBranding(key, value);
   let anterior: string;
   const persistir = async transaction => {
     const [setting] = await Setting.findOrCreate({

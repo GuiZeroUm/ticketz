@@ -94,6 +94,7 @@ jobs:
       - run: npm test -- --watchAll=false
         env:
           CI: "true"
+      - run: npm run typecheck
       - run: npm run build
         env:
           # The legacy codebase has pre-existing ESLint warnings. Keep tests strict,

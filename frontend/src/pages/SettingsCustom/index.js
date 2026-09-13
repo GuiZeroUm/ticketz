@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext, useRef } from "react";
 import CentralConfiguracoes from "../../components/Settings/CentralConfiguracoes";
 import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
@@ -23,7 +23,7 @@ import { i18n } from "../../translate/i18n.js";
 import { toast } from "react-toastify";
 
 import useCompanies from "../../hooks/useCompanies";
-import useAuth from "../../hooks/useAuth.js";
+import { AuthContext } from "../../context/Auth/AuthContext";
 import useSettings from "../../hooks/useSettings";
 
 import OnlyForSuperUser from "../../components/OnlyForSuperUser";
@@ -78,56 +78,78 @@ const SettingsCustom = () => {
   const [schedules, setSchedules] = useState({});
   const [company, setCompany] = useState({});
   const [loading, setLoading] = useState(false);
-  const [currentUser, setCurrentUser] = useState({});
-  const [settings, setSettings] = useState({});
+  const { user: currentUser = {} } = useContext(AuthContext);
+  const [settings, setSettings] = useState([]);
+  const [settingsStatus, setSettingsStatus] = useState("loading");
+  const mounted = useRef(true);
   const [schedulesEnabled, setSchedulesEnabled] = useState(false);
   const [voiceAvailable, setVoiceAvailable] = useState(false);
 
-  const { getCurrentUserInfo } = useAuth();
   const { find, updateSchedules } = useCompanies();
   const { getAll: getAllSettings } = useSettings();
 
   useEffect(() => {
+    let active = true;
+    mounted.current = true;
     async function findData() {
       setLoading(true);
-      try {
-        const companyId = localStorage.getItem("companyId");
-        const company = await find(companyId);
-        const settingList = await getAllSettings();
-        setCompany(company);
-        setSchedules(company.schedules);
-        setSettings(settingList);
-
-        if (Array.isArray(settingList)) {
-          const scheduleType = settingList.find(d => d.key === "scheduleType");
-          if (scheduleType) {
-            setSchedulesEnabled(scheduleType.value === "company");
-          }
-        }
-
-        const user = await getCurrentUserInfo();
-        setCurrentUser(user);
-      } catch (e) {
-        toast.error(e);
+      const [companyResult, settingsResult] = await Promise.allSettled([
+        find(currentUser.companyId || localStorage.getItem("companyId")),
+        getAllSettings()
+      ]);
+      if (!active) return;
+      if (companyResult.status === "fulfilled") {
+        setCompany(companyResult.value);
+        setSchedules(companyResult.value.schedules);
+      }
+      if (
+        settingsResult.status === "fulfilled" &&
+        Array.isArray(settingsResult.value)
+      ) {
+        const list = settingsResult.value;
+        setSettings(list);
+        setSettingsStatus("ready");
+        setSchedulesEnabled(
+          list.some(
+            item => item.key === "scheduleType" && item.value === "company"
+          )
+        );
+      } else {
+        setSettingsStatus("error");
+        toast.error(i18n.t("loginExperience.settingsLoadError"));
       }
       setLoading(false);
     }
     findData();
+    return () => {
+      active = false;
+      mounted.current = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
+    let active = true;
     api
       .get("/voice/connections")
-      .then(() => setVoiceAvailable(true))
-      .catch(() => setVoiceAvailable(false));
+      .then(() => {
+        if (active) setVoiceAvailable(true);
+      })
+      .catch(() => {
+        if (active) setVoiceAvailable(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const atualizarConfiguracoes = async () => {
     try {
       const lista = await getAllSettings();
+      if (!mounted.current) return;
       if (Array.isArray(lista)) {
         setSettings(lista);
+        setSettingsStatus("ready");
         setSchedulesEnabled(
           lista.some(
             item => item.key === "scheduleType" && item.value === "company"
@@ -135,8 +157,38 @@ const SettingsCustom = () => {
         );
       }
     } catch (erro) {
-      toast.error(erro);
+      if (mounted.current) toast.error(erro);
     }
+  };
+
+  const retrySettings = async () => {
+    setSettingsStatus("loading");
+    try {
+      const list = await getAllSettings();
+      if (!mounted.current) return;
+      if (!Array.isArray(list)) throw new Error("Invalid settings response");
+      setSettings(list);
+      setSchedulesEnabled(
+        list.some(
+          item => item.key === "scheduleType" && item.value === "company"
+        )
+      );
+      setSettingsStatus("ready");
+    } catch (_) {
+      if (mounted.current) setSettingsStatus("error");
+    }
+  };
+
+  const handleSettingSaved = (key, value) => {
+    if (!mounted.current) return;
+    setSettings(current => {
+      const found = current.some(setting => setting.key === key);
+      return found
+        ? current.map(setting =>
+            setting.key === key ? { ...setting, value } : setting
+          )
+        : [...current, { key, value }];
+    });
   };
 
   const handleSubmitSchedules = async data => {
@@ -211,7 +263,26 @@ const SettingsCustom = () => {
         )}
       </TabPanel>
       <TabPanel className={classes.container} value={tab} name={"whitelabel"}>
-        <Whitelabel settings={settings} />
+        {isAdmin() &&
+          (settingsStatus === "ready" ? (
+            <Whitelabel
+              settings={settings}
+              onSettingSaved={handleSettingSaved}
+            />
+          ) : settingsStatus === "error" ? (
+            <div role="alert">
+              <p>{i18n.t("loginExperience.settingsLoadError")}</p>
+              <Button
+                onClick={retrySettings}
+                variant="outlined"
+                color="primary"
+              >
+                {i18n.t("loginExperience.retrySettings")}
+              </Button>
+            </div>
+          ) : (
+            <p role="status">{i18n.t("loginExperience.loading")}</p>
+          ))}
       </TabPanel>
       <TabPanel className={classes.container} value={tab} name={"voiceCalls"}>
         <VoiceSettings />
