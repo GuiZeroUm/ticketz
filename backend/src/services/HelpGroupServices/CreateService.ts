@@ -11,6 +11,7 @@ interface Data {
   companyId: number;
   isGlobal?: boolean;
   isActive?: boolean;
+  adminOnly?: boolean;
 }
 
 const CreateService = async (data: Data): Promise<HelpGroup> => {
@@ -46,6 +47,7 @@ const CreateService = async (data: Data): Promise<HelpGroup> => {
     ...data,
     audience,
     isGlobal,
+    adminOnly: audience === "company" ? !!data.adminOnly : false,
     order: Number.isInteger(maxOrder) ? maxOrder + 1 : 0
   } as HelpGroup);
 

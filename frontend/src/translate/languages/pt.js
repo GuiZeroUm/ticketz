@@ -985,7 +985,9 @@ const messages = {
         footer: {
           description:
             "Atendimento, CRM e automação para transformar o WhatsApp em uma operação profissional.",
-          rights: "Todos os direitos reservados."
+          rights: "Todos os direitos reservados.",
+          privacy: "Política de Privacidade",
+          terms: "Termos de Serviço"
         }
       },
       date: {
@@ -2101,6 +2103,7 @@ const messages = {
         noGroups: "Nenhum card cadastrado.",
         inactive: "Inativo",
         active: "Ativo",
+        adminOnly: "Somente administradores",
         videos: "Vídeos",
         articles: "Artigos",
         articleOne: "artigo",
@@ -2149,7 +2152,9 @@ const messages = {
           audience: "Público",
           isGlobal: "Publicar para todas as empresas",
           isGlobalHelper:
-            "Material da plataforma: aparece na Central de Ajuda de todas as empresas."
+            "Material da plataforma: aparece na Central de Ajuda de todas as empresas.",
+          adminOnlyHelper:
+            "Este card e todo o conteúdo dentro dele ficam ocultos para usuários comuns."
         },
         contentModal: {
           addTitle: "Novo conteúdo",
@@ -2158,6 +2163,7 @@ const messages = {
           title: "Título",
           description: "Descrição",
           contentPlaceholder: "Escreva o artigo...",
+          adminOnly: "Visível somente para administradores",
           video: "Vídeo do YouTube",
           videoHelper:
             "Cole o link do YouTube ou apenas o ID, ex.: dQw4w9WgXcQ",

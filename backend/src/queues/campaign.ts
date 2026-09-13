@@ -22,9 +22,17 @@ import GetWhatsappWbot from "../helpers/GetWhatsappWbot";
 import OutOfTicketMessage from "../models/OutOfTicketMessages";
 import { Session } from "../libs/wbot";
 import { getJidOf } from "../services/WbotServices/getJidOf";
+import {
+  runtimeOwnsCompany,
+  runtimeQueueOptions
+} from "../helpers/tenantRuntime";
 
 const connection = process.env.REDIS_URI || "";
-export const campaignQueue = new Queue("CampaignQueue", connection);
+export const campaignQueue = new Queue(
+  "CampaignQueue",
+  connection,
+  runtimeQueueOptions()
+);
 
 interface ProcessCampaignData {
   id: number;
@@ -42,9 +50,9 @@ async function handleVerifyCampaigns() {
    * @todo
    * Implementar filtro de campanhas
    */
-  const campaigns: { id: number; scheduledAt: string }[] =
+  const campaigns: { id: number; companyId: number; scheduledAt: string }[] =
     await sequelize.query(
-      `select id, "scheduledAt" from "Campaigns" c
+      `select id, "companyId", "scheduledAt" from "Campaigns" c
     where "scheduledAt" between now() and now() + '1 hour'::interval and status = 'PROGRAMADA'`,
       { type: QueryTypes.SELECT }
     );
@@ -53,6 +61,7 @@ async function handleVerifyCampaigns() {
     logger.info(`Campanhas encontradas: ${campaigns.length}`);
   }
   campaigns.forEach(campaign => {
+    if (!runtimeOwnsCompany(campaign.companyId)) return;
     try {
       const now = moment();
       const scheduledAt = moment(campaign.scheduledAt);
@@ -319,6 +328,7 @@ async function handleProcessCampaign(job) {
     const { id }: ProcessCampaignData = job.data;
     let { delay }: ProcessCampaignData = job.data;
     const campaign = await getCampaign(id);
+    if (!campaign || !runtimeOwnsCompany(campaign.companyId)) return;
     const settings = await getSettings(campaign);
     if (campaign) {
       const { contacts } = campaign.contactList;
@@ -389,7 +399,7 @@ async function handleDispatchCampaign(job) {
       include: ["contactList", { model: Whatsapp, as: "whatsapp" }]
     });
 
-    if (!campaign) {
+    if (!campaign || !runtimeOwnsCompany(campaign.companyId)) {
       logger.error({ data }, "Campaign not found");
       return;
     }

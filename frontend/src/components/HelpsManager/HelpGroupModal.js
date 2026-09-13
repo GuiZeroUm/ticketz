@@ -46,6 +46,7 @@ const EMPTY = {
   icon: DEFAULT_ICON,
   audience: "company",
   isGlobal: false,
+  adminOnly: false,
   isActive: true
 };
 
@@ -153,6 +154,26 @@ const HelpGroupModal = ({ open, group, onSave, onClose }) => {
             />
             <FormHelperText>
               {i18n.t("helps.groupModal.isGlobalHelper")}
+            </FormHelperText>
+          </Box>
+        ) : null}
+
+        {values.audience === "company" ? (
+          <Box>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={!!values.adminOnly}
+                  onChange={event =>
+                    setField("adminOnly", event.target.checked)
+                  }
+                  color="primary"
+                />
+              }
+              label={i18n.t("helps.adminOnly")}
+            />
+            <FormHelperText>
+              {i18n.t("helps.groupModal.adminOnlyHelper")}
             </FormHelperText>
           </Box>
         ) : null}

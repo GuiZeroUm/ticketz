@@ -1444,6 +1444,7 @@ const messages = {
         noGroups: "No cards registered.",
         inactive: "Inactive",
         active: "Active",
+        adminOnly: "Admins only",
         videos: "Videos",
         articles: "Articles",
         articleOne: "article",
@@ -1492,7 +1493,9 @@ const messages = {
           audience: "Audience",
           isGlobal: "Publish to every company",
           isGlobalHelper:
-            "Platform material: shows up in the Help Center of every company."
+            "Platform material: shows up in the Help Center of every company.",
+          adminOnlyHelper:
+            "This card and all of its content are hidden from regular users."
         },
         contentModal: {
           addTitle: "New content",
@@ -1501,6 +1504,7 @@ const messages = {
           title: "Title",
           description: "Description",
           contentPlaceholder: "Write the article...",
+          adminOnly: "Visible to administrators only",
           video: "YouTube video",
           videoHelper:
             "Paste the YouTube link or just the ID, e.g. dQw4w9WgXcQ",

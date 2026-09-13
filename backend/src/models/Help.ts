@@ -76,6 +76,13 @@ class Help extends Model<Help> {
   @Column
   isActive: boolean;
 
+  // Permite misturar, dentro de um card geral, tutoriais para todos e
+  // tutoriais visiveis somente aos administradores.
+  @AllowNull(false)
+  @Default(false)
+  @Column
+  adminOnly: boolean;
+
   @CreatedAt
   createdAt: Date;
 

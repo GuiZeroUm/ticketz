@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { runtimeOwnsCompany } from "../helpers/tenantRuntime";
 
 import User from "../models/User";
 import Setting from "../models/Setting";
@@ -23,7 +24,7 @@ const apiTokenAuth = async (
       }
     });
 
-    if (!setting) {
+    if (!setting || !runtimeOwnsCompany(setting.companyId)) {
       return next();
     }
 

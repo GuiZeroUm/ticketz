@@ -113,6 +113,8 @@ services:
       CLERK_ISSUER: https://clerk.espacowhats.com.br
       CLERK_GOOGLE_ENABLED: ${CLERK_GOOGLE_ENABLED:-true}
       CLERK_AUTHORIZED_PARTIES: ${CLERK_AUTHORIZED_PARTIES:-https://espacowhats.com.br,https://www.espacowhats.com.br,https://app.espacowhats.com.br,https://teste.espacowhats.com.br,https://espacosingular.espacowhats.com.br,https://pedrogay.espacowhats.com.br}
+      TENANT_RUNTIME_EXCLUDED_COMPANY_IDS: ${TENANT_RUNTIME_EXCLUDED_COMPANY_IDS:-}
+      WHATSAPP_AUTOSTART_EXISTING_ONLY: "true"
       PORT: "3000"
       TZ: ${TZ:-America/Rio_Branco}
       DB_DIALECT: postgres

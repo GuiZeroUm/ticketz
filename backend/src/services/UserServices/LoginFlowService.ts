@@ -1,4 +1,5 @@
 import { Sequelize, Op, Transaction } from "sequelize";
+import { assertRuntimeCompany } from "../../helpers/tenantRuntime";
 import sequelize from "../../database";
 import AppError from "../../errors/AppError";
 import normalizeSlug from "../../helpers/normalizeSlug";
@@ -17,6 +18,7 @@ import {
 } from "../PlatformServices/PlatformAccessTokenService";
 
 const assertCompanyActive = (company: Company): void => {
+  assertRuntimeCompany(company.id);
   if (company.platformStatus === "suspenso") {
     throw new AppError("ERR_COMPANY_SUSPENDED", 403);
   }

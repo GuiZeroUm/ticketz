@@ -1,6 +1,7 @@
 import { Response as Res } from "express";
 
 import User from "../../models/User";
+import { assertRuntimeCompany } from "../../helpers/tenantRuntime";
 import AppError from "../../errors/AppError";
 import ShowUserService from "../UserServices/ShowUserService";
 import {
@@ -33,6 +34,7 @@ export const RefreshTokenService = async (
   const { id, tokenVersion, impersonated, originalUserId, originalCompanyId } =
     decoded;
   const user = await ShowUserService(id);
+  assertRuntimeCompany(user.companyId);
 
   if (user.company?.platformStatus === "suspenso") {
     res.clearCookie("jrt");

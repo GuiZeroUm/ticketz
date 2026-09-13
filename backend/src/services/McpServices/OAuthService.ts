@@ -1,4 +1,8 @@
 import { createHash, randomBytes, randomUUID } from "crypto";
+import {
+  assertRuntimeCompany,
+  runtimeOwnsCompany
+} from "../../helpers/tenantRuntime";
 import { Op, Sequelize, Transaction } from "sequelize";
 import { sign, verify } from "jsonwebtoken";
 import sequelize from "../../database";
@@ -326,6 +330,7 @@ export const authenticateAdminByCompany = async (
     throw new AppError("invalid_credentials", 401);
   }
   const company = await Company.findByPk(companyId);
+  assertRuntimeCompany(companyId);
   if (!company) throw new AppError("invalid_credentials", 401);
   const user = await User.findOne({
     where: {
@@ -353,6 +358,7 @@ const pilotEnabled = async (companyId: number): Promise<boolean> => {
 };
 
 const assertCompanyEligible = async (company: Company): Promise<void> => {
+  assertRuntimeCompany(company.id);
   if (
     company.status === false ||
     company.platformStatus === "suspenso" ||
@@ -614,6 +620,7 @@ export const validateAccessToken = async (
     grant.user.id !== Number(payload.sub) ||
     grant.user.companyId !== grant.companyId ||
     grant.companyId !== payload.company_id ||
+    !runtimeOwnsCompany(grant.companyId) ||
     !grant.oauthClient?.active
   ) {
     throw new AppError("invalid_token", 401);

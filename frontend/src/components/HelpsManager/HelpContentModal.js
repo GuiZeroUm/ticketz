@@ -49,6 +49,7 @@ const EMPTY = {
   content: "",
   duration: "",
   link: "",
+  adminOnly: false,
   isActive: true
 };
 
@@ -86,6 +87,9 @@ const HelpContentModal = ({
   };
 
   const isArticle = values.type === "article";
+  const selectedGroup = groups.find(
+    group => String(group.id) === String(values.groupId)
+  );
 
   // Aceita o link inteiro do YouTube (e o que se copia da barra de enderecos) e
   // resolve para o id — a previa aparecendo confirma que foi entendido.
@@ -204,6 +208,19 @@ const HelpContentModal = ({
             helperText={i18n.t("helps.contentModal.linkHelper")}
             value={values.link || ""}
             onChange={event => setField("link", event.target.value)}
+          />
+        ) : null}
+
+        {selectedGroup?.audience === "company" ? (
+          <FormControlLabel
+            control={
+              <Switch
+                checked={!!values.adminOnly}
+                onChange={event => setField("adminOnly", event.target.checked)}
+                color="primary"
+              />
+            }
+            label={i18n.t("helps.contentModal.adminOnly")}
           />
         ) : null}
 
