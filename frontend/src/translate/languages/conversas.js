@@ -13,7 +13,9 @@ const pt = {
     seek: "Posição do áudio",
     speed: "Velocidade do áudio",
     loadingAudio: "Preparando áudio…",
-    audioFallback: "Forma de onda indisponível. Use o player abaixo.",
+    audioError:
+      "Não foi possível reproduzir. Tente novamente ou baixe o áudio.",
+    downloadAudio: "Baixar áudio",
     audio: "Mensagem de voz"
   },
   perfilFoto: {
@@ -72,6 +74,9 @@ const pt = {
     carregando: "Carregando conversas…",
     semConversas: "Nenhuma conversa encontrada.",
     semMensagens: "A conversa começa aqui. Envie a primeira mensagem.",
+    anexos: "Anexos para envio",
+    removerAnexo: "Remover {{name}}",
+    abrirImagem: "Abrir imagem {{name}}",
     escrever: "Escreva uma mensagem…",
     enviar: "Enviar mensagem"
   },
@@ -95,7 +100,8 @@ const en = {
     seek: "Audio position",
     speed: "Playback speed",
     loadingAudio: "Preparing audio…",
-    audioFallback: "Waveform unavailable. Use the player below.",
+    audioError: "Unable to play. Try again or download the audio.",
+    downloadAudio: "Download audio",
     audio: "Voice message"
   },
   perfilFoto: {
@@ -154,6 +160,9 @@ const en = {
     carregando: "Loading conversations…",
     semConversas: "No conversations found.",
     semMensagens: "The conversation starts here. Send the first message.",
+    anexos: "Attachments to send",
+    removerAnexo: "Remove {{name}}",
+    abrirImagem: "Open image {{name}}",
     escrever: "Write a message…",
     enviar: "Send message"
   },
