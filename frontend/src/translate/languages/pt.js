@@ -985,7 +985,9 @@ const messages = {
         footer: {
           description:
             "Atendimento, CRM e automação para transformar o WhatsApp em uma operação profissional.",
-          rights: "Todos os direitos reservados."
+          rights: "Todos os direitos reservados.",
+          privacy: "Política de Privacidade",
+          terms: "Termos de Serviço"
         }
       },
       date: {
