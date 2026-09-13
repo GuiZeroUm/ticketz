@@ -1412,7 +1412,7 @@ const messages = {
         removeLink: "Eliminar enlace",
         sidePanelImage: "Imagen lateral del login",
         sidePanelImageHint:
-          "Se muestra a la izquierda del formulario de login en pantallas de escritorio.",
+          "Se muestra en el panel lateral del login en pantallas de escritorio.",
         backgroundContent: "Contenido de fondo del login",
         backgroundContentHint:
           "Acepta imágenes, archivos SVG y videos MP4 para el fondo de la pantalla de login.",

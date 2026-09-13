@@ -1351,7 +1351,7 @@ const messages = {
         removeLink: "Hapus tautan",
         sidePanelImage: "Gambar panel samping login",
         sidePanelImageHint:
-          "Ditampilkan di sisi kiri formulir login pada tampilan desktop.",
+          "Ditampilkan pada panel samping login di layar desktop.",
         backgroundContent: "Konten latar login",
         backgroundContentHint:
           "Mendukung gambar, file SVG, dan video MP4 untuk latar layar login.",

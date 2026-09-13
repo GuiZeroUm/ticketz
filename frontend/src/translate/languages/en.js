@@ -1635,7 +1635,7 @@ const messages = {
         removeLink: "Remove link",
         sidePanelImage: "Login side panel image",
         sidePanelImageHint:
-          "Displayed on the left side of the login form on desktop layouts.",
+          "Displayed in the login side panel on desktop screens.",
         backgroundContent: "Login background content",
         backgroundContentHint:
           "Supports images, SVG files, and MP4 videos for the login screen background.",
