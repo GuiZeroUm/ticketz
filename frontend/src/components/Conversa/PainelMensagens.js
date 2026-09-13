@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from "react";
-import { File, Search, X, Download } from "lucide-react";
+import { File } from "lucide-react";
+import { Search, X, Download } from "../AnimatedIcon";
 import { BotaoIcone } from "../interface";
 import { i18n } from "../../translate/i18n";
+import chatMediaUrl from "../../helpers/chatMediaUrl";
 
 export default function PainelMensagens({
   mensagens,
@@ -53,7 +55,7 @@ export default function PainelMensagens({
           <article key={mensagem.id}>
             {modo === "arquivos" ? (
               <a
-                href={mensagem.mediaUrl || mensagem.mediaPath}
+                href={mensagem.mediaUrl || chatMediaUrl(mensagem.mediaPath)}
                 target="_blank"
                 rel="noreferrer"
               >

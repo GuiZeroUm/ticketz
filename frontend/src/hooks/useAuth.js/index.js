@@ -13,6 +13,7 @@ import { clearAllCachedSettings } from "../../helpers/settingsCache";
 import { getStoredToken, setStoredToken } from "../../helpers/token";
 import { loadBranding } from "../../helpers/loadBranding";
 import getCompanySlug from "../../helpers/getCompanySlug";
+import { signOutGoogle } from "../../services/googleAuth";
 import moment from "moment";
 import { decodeToken } from "react-jwt";
 
@@ -220,6 +221,20 @@ const useAuth = () => {
     }
   };
 
+  const handleSocialLogin = async clerkToken => {
+    setLoading(true);
+    try {
+      const slug = getCompanySlug();
+      const { data } = await api.post("/auth/social/google", {
+        clerkToken,
+        ...(slug ? { slug } : {})
+      });
+      posLogin(data);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handlePasswordSetup = async setupData => {
     setLoading(true);
 
@@ -278,6 +293,8 @@ const useAuth = () => {
       socket.logout();
 
       await api.delete("/auth/logout");
+      // Clerk is only an identity bridge; an unavailable provider must not block app logout.
+      signOutGoogle().catch(() => {});
       clearAllCachedSettings();
       setIsAuth(false);
       setUser({});
@@ -312,6 +329,7 @@ const useAuth = () => {
     loading,
     handleLogin,
     handlePasswordSetup,
+    handleSocialLogin,
     handleImpersonate,
     handleLogout,
     getCurrentUserInfo

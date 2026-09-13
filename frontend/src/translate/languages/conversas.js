@@ -1,4 +1,23 @@
 const pt = {
+  chatExperience: {
+    location: "Localização",
+    noMessage: "Nenhuma mensagem ainda",
+    unread: "{{count}} mensagens não lidas",
+    preview: "Espiar conversa",
+    close: "Fechar conversa",
+    moreTags: "Mostrar mais {{count}} etiquetas",
+    lessTags: "Recolher etiquetas",
+    less: "Menos",
+    play: "Reproduzir áudio",
+    pause: "Pausar áudio",
+    seek: "Posição do áudio",
+    speed: "Velocidade do áudio",
+    loadingAudio: "Preparando áudio…",
+    audioError:
+      "Não foi possível reproduzir. Tente novamente ou baixe o áudio.",
+    downloadAudio: "Baixar áudio",
+    audio: "Mensagem de voz"
+  },
   perfilFoto: {
     alterar: "Alterar foto",
     remover: "Remover foto",
@@ -55,6 +74,9 @@ const pt = {
     carregando: "Carregando conversas…",
     semConversas: "Nenhuma conversa encontrada.",
     semMensagens: "A conversa começa aqui. Envie a primeira mensagem.",
+    anexos: "Anexos para envio",
+    removerAnexo: "Remover {{name}}",
+    abrirImagem: "Abrir imagem {{name}}",
     escrever: "Escreva uma mensagem…",
     enviar: "Enviar mensagem"
   },
@@ -64,6 +86,24 @@ const pt = {
   }
 };
 const en = {
+  chatExperience: {
+    location: "Location",
+    noMessage: "No messages yet",
+    unread: "{{count}} unread messages",
+    preview: "Preview conversation",
+    close: "Close conversation",
+    moreTags: "Show {{count}} more tags",
+    lessTags: "Collapse tags",
+    less: "Less",
+    play: "Play audio",
+    pause: "Pause audio",
+    seek: "Audio position",
+    speed: "Playback speed",
+    loadingAudio: "Preparing audio…",
+    audioError: "Unable to play. Try again or download the audio.",
+    downloadAudio: "Download audio",
+    audio: "Voice message"
+  },
   perfilFoto: {
     alterar: "Change photo",
     remover: "Remove photo",
@@ -120,6 +160,9 @@ const en = {
     carregando: "Loading conversations…",
     semConversas: "No conversations found.",
     semMensagens: "The conversation starts here. Send the first message.",
+    anexos: "Attachments to send",
+    removerAnexo: "Remove {{name}}",
+    abrirImagem: "Open image {{name}}",
     escrever: "Write a message…",
     enviar: "Send message"
   },

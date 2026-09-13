@@ -1396,7 +1396,7 @@ const messages = {
         removeLink: "Remover link",
         sidePanelImage: "Imagem lateral do login",
         sidePanelImageHint:
-          "Mostrada no lado esquerdo do formulário de login em ecrãs desktop.",
+          "Mostrada no painel lateral do login em ecrãs desktop.",
         backgroundContent: "Conteúdo de fundo do login",
         backgroundContentHint:
           "Aceita imagens, ficheiros SVG e vídeos MP4 para o fundo do ecrã de login.",

@@ -985,7 +985,9 @@ const messages = {
         footer: {
           description:
             "Atendimento, CRM e automação para transformar o WhatsApp em uma operação profissional.",
-          rights: "Todos os direitos reservados."
+          rights: "Todos os direitos reservados.",
+          privacy: "Política de Privacidade",
+          terms: "Termos de Serviço"
         }
       },
       date: {
@@ -2299,7 +2301,7 @@ const messages = {
         removeLink: "Remover link",
         sidePanelImage: "Imagem lateral do login",
         sidePanelImageHint:
-          "Exibida no lado esquerdo do formulário de login em telas desktop.",
+          "Exibida no painel lateral do login em telas desktop.",
         backgroundContent: "Conteúdo de fundo do login",
         backgroundContentHint:
           "Aceita imagens, arquivos SVG e vídeos MP4 para o fundo da tela de login.",

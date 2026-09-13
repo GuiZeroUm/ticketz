@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
-import { MessageSquare, StickyNote, Send } from "lucide-react";
+import { MessageSquare, StickyNote, Send } from "../AnimatedIcon";
 import { toast } from "react-toastify";
 import MessageInput from "../MessageInputCustom";
 import { Botao } from "../interface";

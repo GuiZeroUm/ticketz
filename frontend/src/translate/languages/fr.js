@@ -1351,7 +1351,7 @@ const messages = {
         removeLink: "Supprimer le lien",
         sidePanelImage: "Image latérale de connexion",
         sidePanelImageHint:
-          "Affichée à gauche du formulaire de connexion sur les écrans desktop.",
+          "Affichée dans le panneau latéral de connexion sur les écrans de bureau.",
         backgroundContent: "Contenu d'arrière-plan de connexion",
         backgroundContentHint:
           "Accepte les images, fichiers SVG et vidéos MP4 pour l'arrière-plan de l'écran de connexion.",

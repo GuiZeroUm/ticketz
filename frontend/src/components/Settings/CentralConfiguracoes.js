@@ -44,12 +44,10 @@ export default function CentralConfiguracoes({
           ? [{ chave: "horarios", icone: Clock, aba: "schedules" }]
           : []),
         { chave: "mensagens", icone: MessageSquare, to: "/quick-messages" },
-        ...(administrador
-          ? [{ chave: "aparencia", icone: Palette, aba: "whitelabel" }]
-          : []),
         { chave: "opcoes", icone: SlidersHorizontal, aba: "options" }
       ]
     },
+    ...(administrador ? [{ id: "marca", icone: Palette, itens: [] }] : []),
     {
       id: "equipe",
       icone: Users,
@@ -100,57 +98,65 @@ export default function CentralConfiguracoes({
         {grupos.map(grupo => (
           <Tabs.Trigger key={grupo.id} value={grupo.id} className="ew-tab">
             <grupo.icone size={15} />
-            {i18n.t(`centralConfig.${grupo.id}`)}
+            {grupo.id === "marca"
+              ? i18n.t("loginExperience.brandTab")
+              : i18n.t(`centralConfig.${grupo.id}`)}
           </Tabs.Trigger>
         ))}
       </Tabs.List>
       {grupos.map(grupo => (
         <Tabs.Content key={grupo.id} value={grupo.id}>
-          <Accordion.Root
-            type="multiple"
-            onValueChange={aoAlternar}
-            defaultValue={grupo.id === "atendimento" ? ["filas"] : []}
-            className="central-config-secoes"
-          >
-            {grupo.itens.map(item => (
-              <Accordion.Item
-                key={item.chave}
-                value={item.chave}
-                className="central-config-secao"
-              >
-                <Accordion.Header className="central-config-cabecalho">
-                  <Accordion.Trigger className="central-config-gatilho">
-                    <span className="central-config-icone">
-                      <item.icone size={20} />
-                    </span>
-                    <span className="central-config-texto">
-                      <strong>
-                        {i18n.t(`centralConfig.itens.${item.chave}.titulo`)}
-                      </strong>
-                      <span>
-                        {i18n.t(`centralConfig.itens.${item.chave}.descricao`)}
+          {grupo.id === "marca" ? (
+            conteudo("whitelabel")
+          ) : (
+            <Accordion.Root
+              type="multiple"
+              onValueChange={aoAlternar}
+              defaultValue={grupo.id === "atendimento" ? ["filas"] : []}
+              className="central-config-secoes"
+            >
+              {grupo.itens.map(item => (
+                <Accordion.Item
+                  key={item.chave}
+                  value={item.chave}
+                  className="central-config-secao"
+                >
+                  <Accordion.Header className="central-config-cabecalho">
+                    <Accordion.Trigger className="central-config-gatilho">
+                      <span className="central-config-icone">
+                        <item.icone size={20} />
                       </span>
-                    </span>
-                    <ChevronDown size={17} className="central-config-seta" />
-                  </Accordion.Trigger>
-                </Accordion.Header>
-                <Accordion.Content className="central-config-conteudo">
-                  <div>
-                    {item.chave === "filas" ? (
-                      <ResumoFilas />
-                    ) : item.to ? (
-                      <Link to={item.to} className="ew-button">
-                        {i18n.t(`centralConfig.itens.${item.chave}.titulo`)}
-                        <ArrowUpRight size={15} />
-                      </Link>
-                    ) : (
-                      conteudo(item.aba)
-                    )}
-                  </div>
-                </Accordion.Content>
-              </Accordion.Item>
-            ))}
-          </Accordion.Root>
+                      <span className="central-config-texto">
+                        <strong>
+                          {i18n.t(`centralConfig.itens.${item.chave}.titulo`)}
+                        </strong>
+                        <span>
+                          {i18n.t(
+                            `centralConfig.itens.${item.chave}.descricao`
+                          )}
+                        </span>
+                      </span>
+                      <ChevronDown size={17} className="central-config-seta" />
+                    </Accordion.Trigger>
+                  </Accordion.Header>
+                  <Accordion.Content className="central-config-conteudo">
+                    <div>
+                      {item.chave === "filas" ? (
+                        <ResumoFilas />
+                      ) : item.to ? (
+                        <Link to={item.to} className="ew-button">
+                          {i18n.t(`centralConfig.itens.${item.chave}.titulo`)}
+                          <ArrowUpRight size={15} />
+                        </Link>
+                      ) : (
+                        conteudo(item.aba)
+                      )}
+                    </div>
+                  </Accordion.Content>
+                </Accordion.Item>
+              ))}
+            </Accordion.Root>
+          )}
         </Tabs.Content>
       ))}
     </Tabs.Root>

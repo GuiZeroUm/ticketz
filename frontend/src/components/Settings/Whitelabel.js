@@ -57,6 +57,8 @@ import api from "../../services/api";
 import { getBackendURL } from "../../services/config";
 import { i18nToast } from "../../helpers/i18nToast";
 import { i18n } from "../../translate/i18n.js";
+import toastError from "../../errors/toastError";
+import LoginCustomization from "./LoginCustomization";
 
 const defaultLogoLight = "/branding/logo-light.png";
 const defaultLogoDark = "/branding/logo-dark.png";
@@ -225,9 +227,10 @@ const useStyles = makeStyles(theme => ({
 }));
 
 export default function Whitelabel(props) {
-  const { settings } = props;
+  const { settings, onSettingSaved } = props;
   const classes = useStyles();
   const [settingsLoaded, setSettingsLoaded] = useState({});
+  const previousIncoming = useRef({});
   const [loginLinks, setLoginLinks] = useState([createEmptyLink()]);
 
   const { colorMode } = useContext(ColorModeContext);
@@ -286,10 +289,30 @@ export default function Whitelabel(props) {
       setting => setting.key === LINK_PREVIEW_DESCRIPTION_KEY
     )?.value;
 
-    setAppName(loadedAppName || "");
-    setLinkPreviewDescription(loadedLinkPreviewDescription || "");
-    setLoginLinks(parseLinksSetting(loadedLoginLinks));
+    const previous = previousIncoming.current;
+    setAppName(current =>
+      current === (previous.appName || "") ? loadedAppName || "" : current
+    );
+    setLinkPreviewDescription(current =>
+      current === (previous.linkPreviewDescription || "")
+        ? loadedLinkPreviewDescription || ""
+        : current
+    );
+    setLoginLinks(current =>
+      JSON.stringify(current) ===
+      JSON.stringify(parseLinksSetting(previous.loginPageLinks))
+        ? parseLinksSetting(loadedLoginLinks)
+        : current
+    );
+    previousIncoming.current = {
+      appName: loadedAppName,
+      linkPreviewDescription: loadedLinkPreviewDescription,
+      loginPageLinks: loadedLoginLinks
+    };
     setSettingsLoaded({
+      ...Object.fromEntries(
+        settings.map(setting => [setting.key, setting.value])
+      ),
       primaryColorLight,
       primaryColorDark,
       appLogoLight,
@@ -309,6 +332,7 @@ export default function Whitelabel(props) {
       ...currentSettings,
       [key]: value
     }));
+    onSettingSaved?.(key, value);
   };
 
   const handleSaveSetting = async (key, value) => {
@@ -321,7 +345,7 @@ export default function Whitelabel(props) {
   };
 
   const uploadLogo = async (event, mode) => {
-    if (!event.target.files) {
+    if (!event.target.files?.length) {
       return;
     }
 
@@ -348,8 +372,7 @@ export default function Whitelabel(props) {
         i18nToast.success("settings.success");
       })
       .catch(error => {
-        console.error("Houve um problema ao realizar o upload da imagem.");
-        console.log(error);
+        toastError(error);
       })
       .finally(() => {
         event.target.value = "";
@@ -357,7 +380,7 @@ export default function Whitelabel(props) {
   };
 
   const uploadPublicFile = async (event, settingKey) => {
-    if (!event.target.files) {
+    if (!event.target.files?.length) {
       return;
     }
 
@@ -381,8 +404,7 @@ export default function Whitelabel(props) {
         i18nToast.success("settings.success");
       })
       .catch(error => {
-        console.error("Houve um problema ao realizar o upload do arquivo.");
-        console.log(error);
+        toastError(error);
       })
       .finally(() => {
         event.target.value = "";
@@ -448,571 +470,552 @@ export default function Whitelabel(props) {
 
   return (
     <>
+      <LoginCustomization
+        settings={settingsLoaded}
+        onSave={async (key, value) => {
+          await update({ key, value });
+          updateSettingsLoaded(key, value);
+        }}
+      />
       <Grid spacing={3} container>
         {/* Branding in-app (cores, nome, logos): editavel por admins de cada empresa */}
-              <Grid xs={12} sm={6} md={4} item>
-                <FormControl className={classes.selectContainer}>
-                  <TextField
-                    id="primary-color-light-field"
-                    label={i18n.t("whitelabel.primaryColorLight")}
-                    variant="standard"
-                    value={settingsLoaded.primaryColorLight || ""}
+        <Grid xs={12} sm={6} md={4} item>
+          <FormControl className={classes.selectContainer}>
+            <TextField
+              id="primary-color-light-field"
+              label={i18n.t("whitelabel.primaryColorLight")}
+              variant="standard"
+              value={settingsLoaded.primaryColorLight || ""}
+              onClick={() => setPrimaryColorLightModalOpen(true)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <div
+                      style={{
+                        backgroundColor: settingsLoaded.primaryColorLight
+                      }}
+                      className={classes.colorAdorment}
+                    />
+                  </InputAdornment>
+                ),
+                endAdornment: (
+                  <IconButton
+                    size="small"
+                    color="default"
                     onClick={() => setPrimaryColorLightModalOpen(true)}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <div
-                            style={{
-                              backgroundColor: settingsLoaded.primaryColorLight
-                            }}
-                            className={classes.colorAdorment}
-                          />
-                        </InputAdornment>
-                      ),
-                      endAdornment: (
-                        <IconButton
-                          size="small"
-                          color="default"
-                          onClick={() => setPrimaryColorLightModalOpen(true)}
-                        >
-                          <Colorize />
-                        </IconButton>
-                      )
-                    }}
-                  />
-                </FormControl>
-                <ColorPicker
-                  open={primaryColorLightModalOpen}
-                  handleClose={() => setPrimaryColorDarkModalOpen(false)}
-                  onChange={color => {
-                    setPrimaryColorLightModalOpen(false);
-                    handleSaveSetting("primaryColorLight", color);
-                    colorMode.setPrimaryColorLight(color);
-                  }}
-                />
-              </Grid>
-              <Grid xs={12} sm={6} md={4} item>
-                <FormControl className={classes.selectContainer}>
-                  <TextField
-                    id="primary-color-dark-field"
-                    label={i18n.t("whitelabel.primaryColorDark")}
-                    variant="standard"
-                    value={settingsLoaded.primaryColorDark || ""}
+                  >
+                    <Colorize />
+                  </IconButton>
+                )
+              }}
+            />
+          </FormControl>
+          <ColorPicker
+            open={primaryColorLightModalOpen}
+            handleClose={() => setPrimaryColorLightModalOpen(false)}
+            onChange={color => {
+              setPrimaryColorLightModalOpen(false);
+              handleSaveSetting("primaryColorLight", color);
+              colorMode.setPrimaryColorLight(color);
+            }}
+          />
+        </Grid>
+        <Grid xs={12} sm={6} md={4} item>
+          <FormControl className={classes.selectContainer}>
+            <TextField
+              id="primary-color-dark-field"
+              label={i18n.t("whitelabel.primaryColorDark")}
+              variant="standard"
+              value={settingsLoaded.primaryColorDark || ""}
+              onClick={() => setPrimaryColorDarkModalOpen(true)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <div
+                      style={{
+                        backgroundColor: settingsLoaded.primaryColorDark
+                      }}
+                      className={classes.colorAdorment}
+                    />
+                  </InputAdornment>
+                ),
+                endAdornment: (
+                  <IconButton
+                    size="small"
+                    color="default"
                     onClick={() => setPrimaryColorDarkModalOpen(true)}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <div
-                            style={{
-                              backgroundColor: settingsLoaded.primaryColorDark
-                            }}
-                            className={classes.colorAdorment}
-                          />
-                        </InputAdornment>
-                      ),
-                      endAdornment: (
-                        <IconButton
-                          size="small"
-                          color="default"
-                          onClick={() => setPrimaryColorDarkModalOpen(true)}
-                        >
-                          <Colorize />
-                        </IconButton>
-                      )
-                    }}
-                  />
-                </FormControl>
-                <ColorPicker
-                  open={primaryColorDarkModalOpen}
-                  handleClose={() => setPrimaryColorDarkModalOpen(false)}
-                  onChange={color => {
-                    setPrimaryColorDarkModalOpen(false);
-                    handleSaveSetting("primaryColorDark", color);
-                    colorMode.setPrimaryColorDark(color);
-                  }}
-                />
-              </Grid>
-              <Grid xs={12} sm={6} md={4} item>
-                <FormControl className={classes.selectContainer}>
-                  <TextField
-                    id="appname-field"
-                    label={i18n.t("whitelabel.appname")}
-                    variant="standard"
-                    name="appName"
-                    value={appName}
-                    onChange={event => {
-                      setAppName(event.target.value);
-                    }}
-                    onBlur={async () => {
-                      await handleSaveSetting("appName", appName);
-                      colorMode.setAppName(appName || "Espaço Whats");
-                    }}
-                  />
-                </FormControl>
-              </Grid>
-              <Grid xs={12} sm={6} md={4} item>
-                <FormControl className={classes.selectContainer}>
-                  <TextField
-                    id="logo-light-upload-field"
-                    label={i18n.t("whitelabel.lightLogo")}
-                    variant="standard"
-                    value={settingsLoaded.appLogoLight || ""}
-                    InputProps={{
-                      endAdornment: (
-                        <>
-                          {settingsLoaded.appLogoLight && (
-                            <IconButton
-                              size="small"
-                              color="default"
-                              onClick={() => {
-                                handleSaveSetting("appLogoLight", "");
-                                colorMode.setAppLogoLight(defaultLogoLight);
-                              }}
-                            >
-                              <Delete />
-                            </IconButton>
-                          )}
-                          <input
-                            type="file"
-                            id="upload-logo-light-button"
-                            ref={logoLightInput}
-                            className={classes.uploadInput}
-                            onChange={event => uploadLogo(event, "Light")}
-                          />
-                          <label htmlFor="upload-logo-light-button">
-                            <IconButton
-                              size="small"
-                              color="default"
-                              onClick={() => {
-                                logoLightInput.current.click();
-                              }}
-                            >
-                              <AttachFile />
-                            </IconButton>
-                          </label>
-                        </>
-                      )
-                    }}
-                  />
-                </FormControl>
-                <Typography className={classes.helperText}>
-                  {i18n.t("whitelabel.logoHint")}
-                </Typography>
-              </Grid>
-              <Grid xs={12} sm={6} md={4} item>
-                <FormControl className={classes.selectContainer}>
-                  <TextField
-                    id="logo-dark-upload-field"
-                    label={i18n.t("whitelabel.darkLogo")}
-                    variant="standard"
-                    value={settingsLoaded.appLogoDark || ""}
-                    InputProps={{
-                      endAdornment: (
-                        <>
-                          {settingsLoaded.appLogoDark && (
-                            <IconButton
-                              size="small"
-                              color="default"
-                              onClick={() => {
-                                handleSaveSetting("appLogoDark", "");
-                                colorMode.setAppLogoDark(defaultLogoDark);
-                              }}
-                            >
-                              <Delete />
-                            </IconButton>
-                          )}
-                          <input
-                            type="file"
-                            id="upload-logo-dark-button"
-                            ref={logoDarkInput}
-                            className={classes.uploadInput}
-                            onChange={event => uploadLogo(event, "Dark")}
-                          />
-                          <label htmlFor="upload-logo-dark-button">
-                            <IconButton
-                              size="small"
-                              color="default"
-                              onClick={() => {
-                                logoDarkInput.current.click();
-                              }}
-                            >
-                              <AttachFile />
-                            </IconButton>
-                          </label>
-                        </>
-                      )
-                    }}
-                  />
-                </FormControl>
-                <Typography className={classes.helperText}>
-                  {i18n.t("whitelabel.logoHint")}
-                </Typography>
-              </Grid>
-              <Grid xs={12} sm={6} md={4} item>
-                <FormControl className={classes.selectContainer}>
-                  <TextField
-                    id="logo-favicon-upload-field"
-                    label={i18n.t("whitelabel.favicon")}
-                    variant="standard"
-                    value={settingsLoaded.appLogoFavicon || ""}
-                    InputProps={{
-                      endAdornment: (
-                        <>
-                          {settingsLoaded.appLogoFavicon && (
-                            <IconButton
-                              size="small"
-                              color="default"
-                              onClick={() => {
-                                handleSaveSetting("appLogoFavicon", "");
-                                colorMode.setAppLogoFavicon(defaultLogoFavicon);
-                              }}
-                            >
-                              <Delete />
-                            </IconButton>
-                          )}
-                          <input
-                            type="file"
-                            id="upload-logo-favicon-button"
-                            ref={logoFaviconInput}
-                            className={classes.uploadInput}
-                            onChange={event => uploadLogo(event, "Favicon")}
-                          />
-                          <label htmlFor="upload-logo-favicon-button">
-                            <IconButton
-                              size="small"
-                              color="default"
-                              onClick={() => {
-                                logoFaviconInput.current.click();
-                              }}
-                            >
-                              <AttachFile />
-                            </IconButton>
-                          </label>
-                        </>
-                      )
-                    }}
-                  />
-                </FormControl>
-                <Typography className={classes.helperText}>
-                  {i18n.t("whitelabel.faviconHint")}
-                </Typography>
-              </Grid>
-              <Grid xs={12} sm={6} md={4} item>
-                <div className={classes.appLogoLightPreviewDiv}>
-                  <img
-                    className={classes.appLogoLightPreviewImg}
-                    alt="light-logo-preview"
-                  />
-                </div>
-              </Grid>
-              <Grid xs={12} sm={6} md={4} item>
-                <div className={classes.appLogoDarkPreviewDiv}>
-                  <img
-                    className={classes.appLogoDarkPreviewImg}
-                    alt="dark-logo-preview"
-                  />
-                </div>
-              </Grid>
-              <Grid xs={12} sm={6} md={4} item>
-                <div className={classes.appLogoFaviconPreviewDiv}>
-                  <img
-                    className={classes.appLogoFaviconPreviewImg}
-                    alt="favicon-preview"
-                  />
-                </div>
-              </Grid>
-        {/* Tela de login: cada empresa edita a propria (via subdominio) */}
-              <Grid xs={12} item>
-                <Typography
-                  className={classes.sectionTitle}
-                  variant="subtitle1"
-                >
-                  {i18n.t("whitelabel.loginLinks")}
-                </Typography>
-                <Typography
-                  className={classes.sectionDescription}
-                  variant="body2"
-                >
-                  {i18n.t("whitelabel.loginLinksHint")}
-                </Typography>
-              </Grid>
-              {loginLinks.map((link, index) => (
-                <Grid
-                  className={classes.linkRow}
-                  xs={12}
-                  item
-                  key={`login-link-${index}`}
-                >
-                  <Grid container spacing={2} alignItems="flex-end">
-                    <Grid xs={12} md={4} item>
-                      <TextField
-                        fullWidth
-                        variant="outlined"
-                        label={i18n.t("whitelabel.linkTitle")}
-                        value={link.title}
-                        onChange={event =>
-                          handleLinkChange(index, "title", event.target.value)
-                        }
-                      />
-                    </Grid>
-                    <Grid xs={12} md={7} item>
-                      <TextField
-                        fullWidth
-                        variant="outlined"
-                        label={i18n.t("whitelabel.linkUrl")}
-                        value={link.url}
-                        onChange={event =>
-                          handleLinkChange(index, "url", event.target.value)
-                        }
-                      />
-                    </Grid>
-                    <Grid xs={12} md={1} item>
+                  >
+                    <Colorize />
+                  </IconButton>
+                )
+              }}
+            />
+          </FormControl>
+          <ColorPicker
+            open={primaryColorDarkModalOpen}
+            handleClose={() => setPrimaryColorDarkModalOpen(false)}
+            onChange={color => {
+              setPrimaryColorDarkModalOpen(false);
+              handleSaveSetting("primaryColorDark", color);
+              colorMode.setPrimaryColorDark(color);
+            }}
+          />
+        </Grid>
+        <Grid xs={12} sm={6} md={4} item>
+          <FormControl className={classes.selectContainer}>
+            <TextField
+              id="appname-field"
+              label={i18n.t("whitelabel.appname")}
+              variant="standard"
+              name="appName"
+              value={appName}
+              onChange={event => {
+                setAppName(event.target.value);
+              }}
+              onBlur={async () => {
+                await handleSaveSetting("appName", appName);
+                colorMode.setAppName(appName || "Espaço Whats");
+              }}
+            />
+          </FormControl>
+        </Grid>
+        <Grid xs={12} sm={6} md={4} item>
+          <FormControl className={classes.selectContainer}>
+            <TextField
+              id="logo-light-upload-field"
+              label={i18n.t("whitelabel.lightLogo")}
+              variant="standard"
+              value={settingsLoaded.appLogoLight || ""}
+              InputProps={{
+                endAdornment: (
+                  <>
+                    {settingsLoaded.appLogoLight && (
                       <IconButton
-                        aria-label={i18n.t("whitelabel.removeLink")}
-                        onClick={() => handleRemoveLink(index)}
+                        size="small"
+                        color="default"
+                        onClick={() => {
+                          handleSaveSetting("appLogoLight", "");
+                          colorMode.setAppLogoLight(defaultLogoLight);
+                        }}
                       >
                         <Delete />
                       </IconButton>
-                    </Grid>
-                  </Grid>
-                </Grid>
-              ))}
-              <Grid xs={12} item>
-                <div className={classes.linkActions}>
-                  <div className={classes.linksActionsGroup}>
-                    <Button
-                      color="primary"
-                      variant="outlined"
-                      onClick={handleAddLink}
-                    >
-                      {i18n.t("common.add")}
-                    </Button>
-                    <Button
-                      color="primary"
-                      variant="contained"
-                      onClick={handleSaveLinks}
-                    >
-                      {i18n.t("common.save")}
-                    </Button>
-                  </div>
-                </div>
+                    )}
+                    <input
+                      type="file"
+                      id="upload-logo-light-button"
+                      ref={logoLightInput}
+                      className={classes.uploadInput}
+                      onChange={event => uploadLogo(event, "Light")}
+                    />
+                    <label htmlFor="upload-logo-light-button">
+                      <IconButton
+                        size="small"
+                        color="default"
+                        onClick={() => {
+                          logoLightInput.current.click();
+                        }}
+                      >
+                        <AttachFile />
+                      </IconButton>
+                    </label>
+                  </>
+                )
+              }}
+            />
+          </FormControl>
+          <Typography className={classes.helperText}>
+            {i18n.t("whitelabel.logoHint")}
+          </Typography>
+        </Grid>
+        <Grid xs={12} sm={6} md={4} item>
+          <FormControl className={classes.selectContainer}>
+            <TextField
+              id="logo-dark-upload-field"
+              label={i18n.t("whitelabel.darkLogo")}
+              variant="standard"
+              value={settingsLoaded.appLogoDark || ""}
+              InputProps={{
+                endAdornment: (
+                  <>
+                    {settingsLoaded.appLogoDark && (
+                      <IconButton
+                        size="small"
+                        color="default"
+                        onClick={() => {
+                          handleSaveSetting("appLogoDark", "");
+                          colorMode.setAppLogoDark(defaultLogoDark);
+                        }}
+                      >
+                        <Delete />
+                      </IconButton>
+                    )}
+                    <input
+                      type="file"
+                      id="upload-logo-dark-button"
+                      ref={logoDarkInput}
+                      className={classes.uploadInput}
+                      onChange={event => uploadLogo(event, "Dark")}
+                    />
+                    <label htmlFor="upload-logo-dark-button">
+                      <IconButton
+                        size="small"
+                        color="default"
+                        onClick={() => {
+                          logoDarkInput.current.click();
+                        }}
+                      >
+                        <AttachFile />
+                      </IconButton>
+                    </label>
+                  </>
+                )
+              }}
+            />
+          </FormControl>
+          <Typography className={classes.helperText}>
+            {i18n.t("whitelabel.logoHint")}
+          </Typography>
+        </Grid>
+        <Grid xs={12} sm={6} md={4} item>
+          <FormControl className={classes.selectContainer}>
+            <TextField
+              id="logo-favicon-upload-field"
+              label={i18n.t("whitelabel.favicon")}
+              variant="standard"
+              value={settingsLoaded.appLogoFavicon || ""}
+              InputProps={{
+                endAdornment: (
+                  <>
+                    {settingsLoaded.appLogoFavicon && (
+                      <IconButton
+                        size="small"
+                        color="default"
+                        onClick={() => {
+                          handleSaveSetting("appLogoFavicon", "");
+                          colorMode.setAppLogoFavicon(defaultLogoFavicon);
+                        }}
+                      >
+                        <Delete />
+                      </IconButton>
+                    )}
+                    <input
+                      type="file"
+                      id="upload-logo-favicon-button"
+                      ref={logoFaviconInput}
+                      className={classes.uploadInput}
+                      onChange={event => uploadLogo(event, "Favicon")}
+                    />
+                    <label htmlFor="upload-logo-favicon-button">
+                      <IconButton
+                        size="small"
+                        color="default"
+                        onClick={() => {
+                          logoFaviconInput.current.click();
+                        }}
+                      >
+                        <AttachFile />
+                      </IconButton>
+                    </label>
+                  </>
+                )
+              }}
+            />
+          </FormControl>
+          <Typography className={classes.helperText}>
+            {i18n.t("whitelabel.faviconHint")}
+          </Typography>
+        </Grid>
+        <Grid xs={12} sm={6} md={4} item>
+          <div className={classes.appLogoLightPreviewDiv}>
+            <img
+              className={classes.appLogoLightPreviewImg}
+              alt="light-logo-preview"
+            />
+          </div>
+        </Grid>
+        <Grid xs={12} sm={6} md={4} item>
+          <div className={classes.appLogoDarkPreviewDiv}>
+            <img
+              className={classes.appLogoDarkPreviewImg}
+              alt="dark-logo-preview"
+            />
+          </div>
+        </Grid>
+        <Grid xs={12} sm={6} md={4} item>
+          <div className={classes.appLogoFaviconPreviewDiv}>
+            <img
+              className={classes.appLogoFaviconPreviewImg}
+              alt="favicon-preview"
+            />
+          </div>
+        </Grid>
+        {/* Tela de login: cada empresa edita a propria (via subdominio) */}
+        <Grid xs={12} item>
+          <Typography className={classes.sectionTitle} variant="subtitle1">
+            {i18n.t("whitelabel.loginLinks")}
+          </Typography>
+          <Typography className={classes.sectionDescription} variant="body2">
+            {i18n.t("whitelabel.loginLinksHint")}
+          </Typography>
+        </Grid>
+        {loginLinks.map((link, index) => (
+          <Grid
+            className={classes.linkRow}
+            xs={12}
+            item
+            key={`login-link-${index}`}
+          >
+            <Grid container spacing={2} alignItems="flex-end">
+              <Grid xs={12} md={4} item>
+                <TextField
+                  fullWidth
+                  variant="outlined"
+                  label={i18n.t("whitelabel.linkTitle")}
+                  value={link.title}
+                  onChange={event =>
+                    handleLinkChange(index, "title", event.target.value)
+                  }
+                />
               </Grid>
-              <Grid xs={12} md={6} item>
-                <FormControl className={classes.selectContainer}>
-                  <TextField
-                    id="login-sidepanel-image-upload-field"
-                    label={i18n.t("whitelabel.sidePanelImage")}
-                    variant="standard"
-                    value={settingsLoaded.loginSidePanelImage || ""}
-                    InputProps={{
-                      endAdornment: (
-                        <>
-                          {settingsLoaded.loginSidePanelImage && (
-                            <IconButton
-                              size="small"
-                              color="default"
-                              onClick={() =>
-                                handleSaveSetting(
-                                  LOGIN_SIDE_PANEL_IMAGE_KEY,
-                                  ""
-                                )
-                              }
-                            >
-                              <Delete />
-                            </IconButton>
-                          )}
-                          <input
-                            type="file"
-                            id="upload-login-sidepanel-image-button"
-                            ref={loginSidePanelImageInput}
-                            className={classes.uploadInput}
-                            accept="image/*"
-                            onChange={event =>
-                              uploadPublicFile(
-                                event,
-                                LOGIN_SIDE_PANEL_IMAGE_KEY
-                              )
-                            }
-                          />
-                          <label htmlFor="upload-login-sidepanel-image-button">
-                            <IconButton
-                              size="small"
-                              color="default"
-                              onClick={() => {
-                                loginSidePanelImageInput.current.click();
-                              }}
-                            >
-                              <AttachFile />
-                            </IconButton>
-                          </label>
-                        </>
-                      )
-                    }}
-                  />
-                </FormControl>
-                <Typography className={classes.helperText}>
-                  {i18n.t("whitelabel.sidePanelImageHint")}
-                </Typography>
+              <Grid xs={12} md={7} item>
+                <TextField
+                  fullWidth
+                  variant="outlined"
+                  label={i18n.t("whitelabel.linkUrl")}
+                  value={link.url}
+                  onChange={event =>
+                    handleLinkChange(index, "url", event.target.value)
+                  }
+                />
               </Grid>
-              <Grid xs={12} md={6} item>
-                <FormControl className={classes.selectContainer}>
-                  <TextField
-                    id="login-background-content-upload-field"
-                    label={i18n.t("whitelabel.backgroundContent")}
-                    variant="standard"
-                    value={settingsLoaded.loginBackgroundContent || ""}
-                    InputProps={{
-                      endAdornment: (
-                        <>
-                          {settingsLoaded.loginBackgroundContent && (
-                            <IconButton
-                              size="small"
-                              color="default"
-                              onClick={() =>
-                                handleSaveSetting(
-                                  LOGIN_BACKGROUND_CONTENT_KEY,
-                                  ""
-                                )
-                              }
-                            >
-                              <Delete />
-                            </IconButton>
-                          )}
-                          <input
-                            type="file"
-                            id="upload-login-background-content-button"
-                            ref={loginBackgroundContentInput}
-                            className={classes.uploadInput}
-                            accept="image/*,video/mp4,video/webm,video/ogg"
-                            onChange={event =>
-                              uploadPublicFile(
-                                event,
-                                LOGIN_BACKGROUND_CONTENT_KEY
-                              )
-                            }
-                          />
-                          <label htmlFor="upload-login-background-content-button">
-                            <IconButton
-                              size="small"
-                              color="default"
-                              onClick={() => {
-                                loginBackgroundContentInput.current.click();
-                              }}
-                            >
-                              <AttachFile />
-                            </IconButton>
-                          </label>
-                        </>
-                      )
-                    }}
-                  />
-                </FormControl>
-                <Typography className={classes.helperText}>
-                  {i18n.t("whitelabel.backgroundContentHint")}
-                </Typography>
+              <Grid xs={12} md={1} item>
+                <IconButton
+                  aria-label={i18n.t("whitelabel.removeLink")}
+                  onClick={() => handleRemoveLink(index)}
+                >
+                  <Delete />
+                </IconButton>
               </Grid>
-              <Grid xs={12} md={6} item>
-                <div className={classes.previewBox}>
-                  {renderMediaPreview(settingsLoaded.loginSidePanelImage)}
-                </div>
-              </Grid>
-              <Grid xs={12} md={6} item>
-                <div className={classes.previewBox}>
-                  {renderMediaPreview(
-                    settingsLoaded.loginBackgroundContent,
-                    "cover"
-                  )}
-                </div>
-              </Grid>
+            </Grid>
+          </Grid>
+        ))}
+        <Grid xs={12} item>
+          <div className={classes.linkActions}>
+            <div className={classes.linksActionsGroup}>
+              <Button
+                color="primary"
+                variant="outlined"
+                onClick={handleAddLink}
+              >
+                {i18n.t("common.add")}
+              </Button>
+              <Button
+                color="primary"
+                variant="contained"
+                onClick={handleSaveLinks}
+              >
+                {i18n.t("common.save")}
+              </Button>
+            </div>
+          </div>
+        </Grid>
+        <Grid xs={12} md={6} item>
+          <FormControl className={classes.selectContainer}>
+            <TextField
+              id="login-sidepanel-image-upload-field"
+              label={i18n.t("whitelabel.sidePanelImage")}
+              variant="standard"
+              value={settingsLoaded.loginSidePanelImage || ""}
+              InputProps={{
+                endAdornment: (
+                  <>
+                    {settingsLoaded.loginSidePanelImage && (
+                      <IconButton
+                        size="small"
+                        color="default"
+                        onClick={() =>
+                          handleSaveSetting(LOGIN_SIDE_PANEL_IMAGE_KEY, "")
+                        }
+                      >
+                        <Delete />
+                      </IconButton>
+                    )}
+                    <input
+                      type="file"
+                      id="upload-login-sidepanel-image-button"
+                      ref={loginSidePanelImageInput}
+                      className={classes.uploadInput}
+                      accept="image/*"
+                      onChange={event =>
+                        uploadPublicFile(event, LOGIN_SIDE_PANEL_IMAGE_KEY)
+                      }
+                    />
+                    <label htmlFor="upload-login-sidepanel-image-button">
+                      <IconButton
+                        size="small"
+                        color="default"
+                        onClick={() => {
+                          loginSidePanelImageInput.current.click();
+                        }}
+                      >
+                        <AttachFile />
+                      </IconButton>
+                    </label>
+                  </>
+                )
+              }}
+            />
+          </FormControl>
+          <Typography className={classes.helperText}>
+            {i18n.t("whitelabel.sidePanelImageHint")}
+          </Typography>
+        </Grid>
+        <Grid xs={12} md={6} item>
+          <FormControl className={classes.selectContainer}>
+            <TextField
+              id="login-background-content-upload-field"
+              label={i18n.t("whitelabel.backgroundContent")}
+              variant="standard"
+              value={settingsLoaded.loginBackgroundContent || ""}
+              InputProps={{
+                endAdornment: (
+                  <>
+                    {settingsLoaded.loginBackgroundContent && (
+                      <IconButton
+                        size="small"
+                        color="default"
+                        onClick={() =>
+                          handleSaveSetting(LOGIN_BACKGROUND_CONTENT_KEY, "")
+                        }
+                      >
+                        <Delete />
+                      </IconButton>
+                    )}
+                    <input
+                      type="file"
+                      id="upload-login-background-content-button"
+                      ref={loginBackgroundContentInput}
+                      className={classes.uploadInput}
+                      accept="image/*,video/mp4,video/webm,video/ogg"
+                      onChange={event =>
+                        uploadPublicFile(event, LOGIN_BACKGROUND_CONTENT_KEY)
+                      }
+                    />
+                    <label htmlFor="upload-login-background-content-button">
+                      <IconButton
+                        size="small"
+                        color="default"
+                        onClick={() => {
+                          loginBackgroundContentInput.current.click();
+                        }}
+                      >
+                        <AttachFile />
+                      </IconButton>
+                    </label>
+                  </>
+                )
+              }}
+            />
+          </FormControl>
+          <Typography className={classes.helperText}>
+            {i18n.t("whitelabel.backgroundContentHint")}
+          </Typography>
+        </Grid>
+        <Grid xs={12} md={6} item>
+          <div className={classes.previewBox}>
+            {renderMediaPreview(settingsLoaded.loginSidePanelImage)}
+          </div>
+        </Grid>
+        <Grid xs={12} md={6} item>
+          <div className={classes.previewBox}>
+            {renderMediaPreview(settingsLoaded.loginBackgroundContent, "cover")}
+          </div>
+        </Grid>
         {/* Prévia do link (Open Graph): banner exibido ao compartilhar o link
             do sistema. Cada empresa tem o seu, via subdomínio. */}
-              <Grid xs={12} item>
-                <Typography
-                  className={classes.sectionTitle}
-                  variant="subtitle1"
-                >
-                  {i18n.t("whitelabel.linkPreview")}
-                </Typography>
-              </Grid>
-              <Grid xs={12} md={6} item>
-                <FormControl className={classes.selectContainer}>
-                  <TextField
-                    id="link-preview-image-upload-field"
-                    label={i18n.t("whitelabel.linkPreviewImage")}
-                    variant="standard"
-                    value={settingsLoaded.linkPreviewImage || ""}
-                    InputProps={{
-                      endAdornment: (
-                        <>
-                          {settingsLoaded.linkPreviewImage && (
-                            <IconButton
-                              size="small"
-                              color="default"
-                              onClick={() =>
-                                handleSaveSetting(LINK_PREVIEW_IMAGE_KEY, "")
-                              }
-                            >
-                              <Delete />
-                            </IconButton>
-                          )}
-                          <input
-                            type="file"
-                            id="upload-link-preview-image-button"
-                            ref={linkPreviewImageInput}
-                            className={classes.uploadInput}
-                            accept="image/*"
-                            onChange={event =>
-                              uploadPublicFile(event, LINK_PREVIEW_IMAGE_KEY)
-                            }
-                          />
-                          <label htmlFor="upload-link-preview-image-button">
-                            <IconButton
-                              size="small"
-                              color="default"
-                              onClick={() => {
-                                linkPreviewImageInput.current.click();
-                              }}
-                            >
-                              <AttachFile />
-                            </IconButton>
-                          </label>
-                        </>
-                      )
-                    }}
-                  />
-                </FormControl>
-                <Typography className={classes.helperText}>
-                  {i18n.t("whitelabel.linkPreviewImageHint")}
-                </Typography>
-              </Grid>
-              <Grid xs={12} md={6} item>
-                <FormControl className={classes.selectContainer}>
-                  <TextField
-                    id="link-preview-description-field"
-                    label={i18n.t("whitelabel.linkPreviewDescription")}
-                    variant="standard"
-                    multiline
-                    value={linkPreviewDescription}
-                    onChange={event =>
-                      setLinkPreviewDescription(event.target.value)
-                    }
-                    onBlur={() =>
-                      handleSaveSetting(
-                        LINK_PREVIEW_DESCRIPTION_KEY,
-                        linkPreviewDescription
-                      )
-                    }
-                  />
-                </FormControl>
-                <Typography className={classes.helperText}>
-                  {i18n.t("whitelabel.linkPreviewDescriptionHint")}
-                </Typography>
-              </Grid>
-              <Grid xs={12} md={6} item>
-                <div className={classes.previewBox}>
-                  {renderMediaPreview(settingsLoaded.linkPreviewImage, "cover")}
-                </div>
-              </Grid>
+        <Grid xs={12} item>
+          <Typography className={classes.sectionTitle} variant="subtitle1">
+            {i18n.t("whitelabel.linkPreview")}
+          </Typography>
+        </Grid>
+        <Grid xs={12} md={6} item>
+          <FormControl className={classes.selectContainer}>
+            <TextField
+              id="link-preview-image-upload-field"
+              label={i18n.t("whitelabel.linkPreviewImage")}
+              variant="standard"
+              value={settingsLoaded.linkPreviewImage || ""}
+              InputProps={{
+                endAdornment: (
+                  <>
+                    {settingsLoaded.linkPreviewImage && (
+                      <IconButton
+                        size="small"
+                        color="default"
+                        onClick={() =>
+                          handleSaveSetting(LINK_PREVIEW_IMAGE_KEY, "")
+                        }
+                      >
+                        <Delete />
+                      </IconButton>
+                    )}
+                    <input
+                      type="file"
+                      id="upload-link-preview-image-button"
+                      ref={linkPreviewImageInput}
+                      className={classes.uploadInput}
+                      accept="image/*"
+                      onChange={event =>
+                        uploadPublicFile(event, LINK_PREVIEW_IMAGE_KEY)
+                      }
+                    />
+                    <label htmlFor="upload-link-preview-image-button">
+                      <IconButton
+                        size="small"
+                        color="default"
+                        onClick={() => {
+                          linkPreviewImageInput.current.click();
+                        }}
+                      >
+                        <AttachFile />
+                      </IconButton>
+                    </label>
+                  </>
+                )
+              }}
+            />
+          </FormControl>
+          <Typography className={classes.helperText}>
+            {i18n.t("whitelabel.linkPreviewImageHint")}
+          </Typography>
+        </Grid>
+        <Grid xs={12} md={6} item>
+          <FormControl className={classes.selectContainer}>
+            <TextField
+              id="link-preview-description-field"
+              label={i18n.t("whitelabel.linkPreviewDescription")}
+              variant="standard"
+              multiline
+              value={linkPreviewDescription}
+              onChange={event => setLinkPreviewDescription(event.target.value)}
+              onBlur={() =>
+                handleSaveSetting(
+                  LINK_PREVIEW_DESCRIPTION_KEY,
+                  linkPreviewDescription
+                )
+              }
+            />
+          </FormControl>
+          <Typography className={classes.helperText}>
+            {i18n.t("whitelabel.linkPreviewDescriptionHint")}
+          </Typography>
+        </Grid>
+        <Grid xs={12} md={6} item>
+          <div className={classes.previewBox}>
+            {renderMediaPreview(settingsLoaded.linkPreviewImage, "cover")}
+          </div>
+        </Grid>
       </Grid>
     </>
   );
