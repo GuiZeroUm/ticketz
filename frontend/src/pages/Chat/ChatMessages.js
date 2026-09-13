@@ -11,20 +11,22 @@ import {
 import AvatarUsuario from "../../components/AvatarUsuario";
 import AudioMessage from "../../components/AudioMessage";
 import { i18n } from "../../translate/i18n";
-import SendIcon from "@material-ui/icons/Send";
+import {
+  Send as SendIcon,
+  Paperclip as AttachFileIcon,
+  Mic as MicIcon,
+  Download as GetApp
+} from "../../components/AnimatedIcon";
 
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { useDate } from "../../hooks/useDate";
 import api from "../../services/api";
 
 import { green } from "@material-ui/core/colors";
-import AttachFileIcon from "@material-ui/icons/AttachFile";
 import CancelIcon from "@material-ui/icons/Cancel";
 import CircularProgress from "@material-ui/core/CircularProgress";
-import { GetApp } from "@material-ui/icons";
 import toastError from "../../errors/toastError";
 import MicRecorder from "mic-recorder-to-mp3";
-import MicIcon from "@material-ui/icons/Mic";
 import PlayArrowIcon from "@material-ui/icons/PlayArrow";
 import PauseIcon from "@material-ui/icons/Pause";
 import CropFreeIcon from "@material-ui/icons/CropFree";

@@ -1,5 +1,5 @@
 import * as Abas from "@radix-ui/react-tabs";
-import { Plus, Search, Archive, UsersRound } from "lucide-react";
+import { Plus, Search, Archive, UsersRound } from "../AnimatedIcon";
 import { Botao, BotaoIcone, useIdentidade } from "../interface";
 import "../../pages/TicketsCustom/atendimento.css";
 import "../TabelaDados/tabela.css";
@@ -382,7 +382,7 @@ const TicketsManagerTabs = () => {
         />
       </Paper>
       <TabPanel value={tab} name="open" className={classes.ticketsWrapper}>
-        <Paper className={classes.ticketsWrapper}>
+        <Paper square elevation={0} className={classes.ticketsWrapper}>
           <TicketsList
             status="open"
             showAll={showAllTickets}

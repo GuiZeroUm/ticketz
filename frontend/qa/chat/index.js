@@ -2,17 +2,26 @@ import React, { useState } from "react";
 import ReactDOM from "react-dom";
 import { MemoryRouter } from "react-router-dom";
 import { ThemeProvider, createTheme } from "@material-ui/core/styles";
+import { Smile, UsersRound, SunMoon } from "lucide-react";
 import {
   MessageCircle,
   Send,
   Paperclip,
-  Smile,
-  UsersRound,
-  SunMoon
-} from "lucide-react";
+  MessageSquare,
+  LayoutDashboard,
+  Archive,
+  Settings,
+  Users
+} from "../../src/components/AnimatedIcon";
 import TicketCard from "../../src/components/TicketListItemCustom";
+import TicketListSurface from "../../src/components/TicketsListCustom/TicketListSurface";
+import criarAjustesVisuais from "../../src/theme/overrides";
 import AudioMessage from "../../src/components/AudioMessage";
-import { BotaoIcone, useIdentidade } from "../../src/components/interface";
+import {
+  Botao,
+  BotaoIcone,
+  useIdentidade
+} from "../../src/components/interface";
 import { AuthContext, TicketsContext } from "./contexts";
 import "../../src/components/Conversa/conversa.css";
 import "../../src/pages/Chat/chat.css";
@@ -56,6 +65,7 @@ const tickets = [
 function Content({ dark, toggle }) {
   const vars = useIdentidade();
   const [width, setWidth] = useState(370);
+  const [empty, setEmpty] = useState(false);
   return (
     <div className="qa-root" style={vars}>
       <header className="qa-toolbar">
@@ -69,7 +79,29 @@ function Content({ dark, toggle }) {
         <BotaoIcone titulo="Alternar tema" onClick={toggle}>
           <SunMoon size={18} />
         </BotaoIcone>
+        <button onClick={() => setEmpty(value => !value)}>Lista vazia</button>
       </header>
+      <section
+        style={{ display: "flex", gap: 16, padding: 16 }}
+        aria-label="SVG animation examples"
+      >
+        {[
+          [LayoutDashboard, "Painel"],
+          [MessageSquare, "Chat"],
+          [Archive, "Resolvidos"],
+          [Settings, "Configurações"],
+          [Users, "Grupos"]
+        ].map(([Icon, label]) => (
+          <Botao key={label}>
+            <Icon size={28} />
+            {label}
+          </Botao>
+        ))}
+        <Botao disabled>
+          <Send />
+          Desabilitado
+        </Botao>
+      </section>
       <div className="qa-workspace">
         <aside style={{ width }} className="qa-sidebar">
           <header>
@@ -84,16 +116,34 @@ function Content({ dark, toggle }) {
               Aguardando <small>1</small>
             </span>
           </div>
-          <ul>
-            {tickets.map(ticket => (
-              <TicketCard
-                key={ticket.id}
-                ticket={ticket}
-                groupActionButtons
-                setTabOpen={() => {}}
-              />
-            ))}
-          </ul>
+          <TicketListSurface>
+            <ul>
+              {empty ? (
+                <li
+                  style={{
+                    textAlign: "center",
+                    padding: 32,
+                    listStyle: "none"
+                  }}
+                >
+                  <strong>Nada aqui!</strong>
+                  <p>
+                    Nenhum atendimento encontrado com esse status ou termo
+                    pesquisado
+                  </p>
+                </li>
+              ) : (
+                tickets.map(ticket => (
+                  <TicketCard
+                    key={ticket.id}
+                    ticket={ticket}
+                    groupActionButtons
+                    setTabOpen={() => {}}
+                  />
+                ))
+              )}
+            </ul>
+          </TicketListSurface>
         </aside>
         <section className="chat-conversa">
           <header className="conversa-cabecalho">
@@ -168,6 +218,7 @@ function Content({ dark, toggle }) {
 function App() {
   const [dark, setDark] = useState(false);
   const theme = createTheme({
+    overrides: criarAjustesVisuais(dark ? "dark" : "light"),
     palette: {
       type: dark ? "dark" : "light",
       primary: { main: "#2563eb" },

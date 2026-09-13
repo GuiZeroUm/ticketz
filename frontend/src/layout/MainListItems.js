@@ -2,26 +2,27 @@ import Navegacao from "./Navegacao";
 import React, { useContext, useEffect, useReducer, useState } from "react";
 
 import { Badge } from "@material-ui/core";
-import DashboardOutlinedIcon from "@material-ui/icons/DashboardOutlined";
-import WhatsAppIcon from "@material-ui/icons/WhatsApp";
-import SyncAltIcon from "@material-ui/icons/SyncAlt";
-import SettingsOutlinedIcon from "@material-ui/icons/SettingsOutlined";
-import PeopleAltOutlinedIcon from "@material-ui/icons/PeopleAltOutlined";
-import ContactPhoneOutlinedIcon from "@material-ui/icons/ContactPhoneOutlined";
-import AccountTreeOutlinedIcon from "@material-ui/icons/AccountTreeOutlined";
-import FlashOnIcon from "@material-ui/icons/FlashOn";
-import HelpOutlineIcon from "@material-ui/icons/HelpOutline";
-import ChatOutlinedIcon from "@material-ui/icons/ChatOutlined";
-import EventIcon from "@material-ui/icons/Event";
-
-import LocalOfferIcon from "@material-ui/icons/LocalOffer";
-import EventAvailableIcon from "@material-ui/icons/EventAvailable";
-import PeopleIcon from "@material-ui/icons/People";
-import ListIcon from "@material-ui/icons/ListAlt";
-import AnnouncementIcon from "@material-ui/icons/Announcement";
-import ForumIcon from "@material-ui/icons/Forum";
-import LocalAtmIcon from "@material-ui/icons/LocalAtm";
-import BorderColorIcon from "@material-ui/icons/BorderColor";
+import {
+  LayoutDashboard as DashboardOutlinedIcon,
+  MessageCircle as WhatsAppIcon,
+  Refresh as SyncAltIcon,
+  Settings as SettingsOutlinedIcon,
+  Users as PeopleAltOutlinedIcon,
+  Contact as ContactPhoneOutlinedIcon,
+  Workflow as AccountTreeOutlinedIcon,
+  Zap as FlashOnIcon,
+  CircleHelp as HelpOutlineIcon,
+  MessageSquare as ChatOutlinedIcon,
+  Calendar as EventIcon,
+  Tag as LocalOfferIcon,
+  Calendar as EventAvailableIcon,
+  Users as PeopleIcon,
+  List as ListIcon,
+  Megaphone as AnnouncementIcon,
+  MessageSquare as ForumIcon,
+  Banknote as LocalAtmIcon,
+  Pencil as BorderColorIcon
+} from "../components/AnimatedIcon";
 import { WhatsAppsContext } from "../context/WhatsApp/WhatsAppsContext";
 import { AuthContext } from "../context/Auth/AuthContext";
 import { SocketContext } from "../context/Socket/SocketContext";

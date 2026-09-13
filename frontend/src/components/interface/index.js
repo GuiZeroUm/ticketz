@@ -3,7 +3,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import * as Switch from "@radix-ui/react-switch";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { useTheme } from "@material-ui/core/styles";
-import { X } from "lucide-react";
+import { X } from "../AnimatedIcon";
 import { i18n } from "../../translate/i18n";
 import "./interface.css";
 import "./motion.css";

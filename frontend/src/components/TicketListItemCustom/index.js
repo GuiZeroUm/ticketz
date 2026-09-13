@@ -2,9 +2,6 @@ import React, { useContext, useState } from "react";
 import { useHistory, useParams } from "react-router-dom";
 import { parseISO } from "date-fns";
 import {
-  Check,
-  Eye,
-  X,
   UserRound,
   Layers,
   Smartphone,
@@ -12,6 +9,7 @@ import {
   UsersRound,
   MessageCircle
 } from "lucide-react";
+import { Check, Eye, X } from "../AnimatedIcon";
 import { v4 as uuidv4 } from "uuid";
 import WhatsMarked from "react-whatsmarked";
 import AvatarContato from "../AvatarContato";

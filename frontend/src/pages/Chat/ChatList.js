@@ -1,6 +1,6 @@
 import React, { useContext, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Pencil, Trash2, MessageSquare } from "lucide-react";
+import { Pencil, Trash2, MessageSquare } from "../../components/AnimatedIcon";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import AvatarUsuario from "../../components/AvatarUsuario";
 import MenuAcoes from "../../components/interface/MenuAcoes";

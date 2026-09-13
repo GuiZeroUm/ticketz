@@ -1,17 +1,15 @@
 import React, { useState } from "react";
 import { useMediaQuery } from "@material-ui/core";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
+import { ArrowLeft, PanelRight, Files } from "lucide-react";
 import {
-  ArrowLeft,
   MessageSquare,
   Plus,
   Search,
-  PanelRight,
   Users,
   X,
-  Pencil,
-  Files
-} from "lucide-react";
+  Pencil
+} from "../../components/AnimatedIcon";
 import ChatModal from "./ChatModal";
 import ChatList from "./ChatList";
 import ChatMessages from "./ChatMessages";
