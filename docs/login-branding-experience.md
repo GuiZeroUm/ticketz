@@ -11,6 +11,8 @@ Nova composição do login global: o componente Sign In fornecido pelo propriet�
 - Novas configurações públicas por tenant: `loginHeadline` (120 caracteres), `loginDescription` (240) e `loginTemplate` (`aurora`/`minimal`). Valores vazios usam textos traduzidos. Não requer migração, pois usa a tabela Setting existente.
 - Personalização tem prévia do componente real, salvamento explícito e preserva rascunhos durante refetch. Erros não aparecem como sucesso.
 - Não há botão de pausa na interface. A preferência de acessibilidade `prefers-reduced-motion` reduz as animações e desativa autoplay de vídeo.
+- O painel com imagem usa **Interactive Blur Reveal**: o movimento do ponteiro revela a imagem através de um desfoque WebGL2. Mantém texto claro e logo para fundo escuro, independentemente do tema do formulário. Usa a imagem lateral do tenant (ou o fundo legado se não houver imagem lateral); o padrão local é `/branding/login-desert.jpg`.
+- Em telas de até 767 px o painel do login não é montado; a prévia no editor continua visível com imagem estática. O template Essencial, movimento reduzido, falta de WebGL2 ou falha de carregamento não impedem o login: o efeito usa uma imagem estática como fallback. Vídeos configurados mantêm sua apresentação existente, sem efeito de desfoque interativo.
 
 ## Implementação React 17, TypeScript e Tailwind
 
@@ -18,6 +20,7 @@ Nova composição do login global: o componente Sign In fornecido pelo propriet�
 - `frontend/src/pages/Login/index.js` continua responsável por identificar e-mail, definir senha no primeiro acesso e autenticar. Os callbacks passam essa lógica ao componente visual; não há uma segunda implementação de login.
 - `frontend/src/components/ui/sign-in.css` contém as utilidades Tailwind e estilos restritos ao componente. `frontend/src/components/LoginExperience/BrandPanel.js` fornece o painel real tanto para o login quanto para a prévia de personalização.
 - `frontend/src/components/ui/demo.tsx` é um exemplo opcional para documentação, não uma rota. Não autentica, registra senhas, emite alertas ou apresenta depoimentos fictícios. O componente aceita depoimentos para reutilização futura, mas o login de produção não recebe fixtures de demonstração.
+- `frontend/src/components/ui/interactive-blur-reveal.tsx` adapta o componente Hyperiux usando somente React e APIs nativas do navegador, sem nova dependência. As texturas padrão são locais (`login-desert.jpg` e `reveal-noise.png`); os recursos WebGL são liberados ao desmontar e o loop respeita a visibilidade da aba e do painel.
 
 O frontend existente continua em React 17 + Material-UI 4 + CRA 5 + CRACO. TypeScript 4.9.5 já estava instalado; o `tsconfig.json` habilita uma adoção incremental somente para novos arquivos TypeScript em `src/components/ui`, sem converter ou verificar os módulos legados JavaScript. Os tipos React DOM são da versão principal 17.
 
@@ -32,6 +35,8 @@ Não executar `shadcn@latest init` nem trocar React/Tailwind apenas para copiar 
 O componente **Background Paths**, de Kokonut UI, foi consultado no [21st.dev](https://21st.dev/@kokonutd/components/background-paths) com uma visualização gratuita e adaptado para React 17 + Framer Motion 6 já instalado. A adaptação reduz a quantidade de caminhos, usa tempos determinísticos e respeita movimento reduzido. Licença MIT em `frontend/src/components/LoginExperience/KOKONUT-LICENSE.txt`.
 
 O código do [Sign In de EaseMize](https://21st.dev/@easemize/components/sign-in), enviado pelo proprietário, foi adaptado e está integrado em `sign-in.tsx`. As alterações incluem traduções, isolamento de Tailwind, identidade configurável, acessibilidade e os fluxos existentes de autenticação. Não foram adicionados serviços externos de autenticação. Tailwind e os tipos React DOM são as dependências diretas acrescentadas para essa integração; React não foi atualizado.
+
+O [Interactive Blur Reveal de Hyperiux](https://21st.dev/@hyperiux/components/interactive-blur-reveal), também fornecido pelo proprietário, preserva o shader de desfoque/revelação e o rastro do ponteiro. A integração acrescenta texturas locais, fallback estático, suporte a movimento reduzido e limpeza/recuperação do contexto WebGL. A licença MIT e a atribuição estão em `frontend/src/components/ui/HYPERIUX-LICENSE.txt`. Esse efeito não acrescenta pacotes ao projeto.
 
 Referências técnicas: [Tailwind 3 com CRA](https://v3.tailwindcss.com/docs/guides/create-react-app) e [estratégia de seletor important](https://v3.tailwindcss.com/docs/configuration#selector-strategy).
 

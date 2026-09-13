@@ -31,6 +31,12 @@ O CSS desse componente importa `@tailwind utilities`, sem `@tailwind base`, e
 define as variáveis HSL de tema somente no seu wrapper. Outros componentes e
 telas Material-UI não recebem reset nem variáveis globais do novo login.
 
+`interactive-blur-reveal.tsx` usa estilos próprios e APIs nativas WebGL2/Canvas,
+sem utilidades Tailwind ou novas dependências. Não é necessário ampliar o
+`content` para esse arquivo. Sua licença MIT está em `src/components/ui/HYPERIUX-LICENSE.txt`.
+As texturas padrão são servidas localmente de `public/branding/`; sem WebGL2,
+com movimento reduzido ou com o efeito desabilitado, a imagem estática permanece.
+
 Não rode `shadcn@latest init` neste repositório: componentes atuais podem exigir
 React ou Tailwind de outra versão. Para adicionar um novo componente, revise
 suas dependências e estilos, adapte-o a React 17 e amplie o `content` apenas

@@ -1346,7 +1346,7 @@ const messages = {
         removeLink: "Link entfernen",
         sidePanelImage: "Seitliches Login-Bild",
         sidePanelImageHint:
-          "Wird auf Desktop-Layouts links neben dem Login-Formular angezeigt.",
+          "Wird im Seitenbereich der Anmeldung auf Desktop-Bildschirmen angezeigt.",
         backgroundContent: "Login-Hintergrundinhalt",
         backgroundContentHint:
           "Unterstützt Bilder, SVG-Dateien und MP4-Videos für den Hintergrund des Login-Bildschirms.",
