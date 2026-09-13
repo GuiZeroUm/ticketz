@@ -17,11 +17,18 @@ jest.mock("../../../models/OutOfTicketMessages", () => ({
   default: { create: jest.fn() }
 }));
 const get = axios.get as jest.Mock;
-const wbot = { sendMessage: jest.fn(), cacheMessage: jest.fn() };
+const wbot = {
+  sendMessage: jest.fn(),
+  cacheMessage: jest.fn(),
+  onWhatsApp: jest.fn()
+};
 beforeEach(() => {
   jest.resetAllMocks();
   (GetWhatsappWbot as jest.Mock).mockResolvedValue(wbot);
   wbot.sendMessage.mockResolvedValue({ key: { id: "wamid.test" } });
+  wbot.onWhatsApp.mockResolvedValue([
+    { exists: true, jid: "556892081954@s.whatsapp.net" }
+  ]);
 });
 it.each([
   "http://short.hinova.com.br/v2/a.pdf",
@@ -76,7 +83,7 @@ it("sends exactly one PDF envelope with caption and no public file", async () =>
   ).toBe("wamid.test");
   expect(wbot.sendMessage).toHaveBeenCalledTimes(1);
   expect(wbot.sendMessage).toHaveBeenCalledWith(
-    "5568992081954@s.whatsapp.net",
+    "556892081954@s.whatsapp.net",
     expect.objectContaining({
       document: expect.any(Buffer),
       caption: "Olá Guilherme",
@@ -91,10 +98,43 @@ it("sends text only on other stages", async () => {
     "5568992081954",
     "Lembrete"
   );
-  expect(wbot.sendMessage).toHaveBeenCalledWith(
-    "5568992081954@s.whatsapp.net",
-    { text: "Lembrete", linkPreview: null }
-  );
+  expect(wbot.sendMessage).toHaveBeenCalledWith("556892081954@s.whatsapp.net", {
+    text: "Lembrete",
+    linkPreview: null
+  });
+});
+it.each(["68992081954", "5568992081954", "556892081954"])(
+  "resolves %s to the verified WhatsApp identity before sending",
+  async number => {
+    await sendBillingMessage(
+      { id: 16, companyId: 9, status: "CONNECTED" } as never,
+      number,
+      "Teste"
+    );
+    expect(wbot.onWhatsApp).toHaveBeenCalledWith("556892081954@s.whatsapp.net");
+    expect(wbot.sendMessage).toHaveBeenCalledWith(
+      "556892081954@s.whatsapp.net",
+      expect.any(Object)
+    );
+  }
+);
+it.each(
+  [
+    [],
+    [{ exists: false, jid: "556892081954@s.whatsapp.net" }],
+    [{ exists: true, jid: "5511999999999@s.whatsapp.net" }],
+    [{ exists: true, jid: "123@g.us" }]
+  ].map(registered => [registered])
+)("refuses an unregistered or unrelated destination", async registered => {
+  wbot.onWhatsApp.mockResolvedValue(registered);
+  await expect(
+    sendBillingMessage(
+      { id: 16, companyId: 9, status: "CONNECTED" } as never,
+      "68992081954",
+      "Teste"
+    )
+  ).rejects.toMatchObject({ message: "ERR_BILLING_RECIPIENT" });
+  expect(wbot.sendMessage).not.toHaveBeenCalled();
 });
 it("rejects disconnected sessions and group destinations", async () => {
   await expect(

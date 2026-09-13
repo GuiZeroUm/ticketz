@@ -5,7 +5,7 @@
 Primeira entrega **somente local/dev**, sem alteração do runtime ou banco de produção.
 Página administrativa: `/sga/cobrancas`, acessível pelo botão **Cobranças automáticas** em Placas.
 O compose do dev fixa `ACNORTE_BILLING_SEND_ENABLED=false`. A configuração também nasce desativada.
-`ACNORTE_BILLING_TEST_NUMBER` recebe o número autorizado pelo administrador, no servidor, em formato E.164 sem `+`. Nunca copiar credenciais WhatsApp de produção para dev.
+`ACNORTE_BILLING_TEST_NUMBER` recebe o número autorizado pelo administrador, no servidor, como DDD+número (10/11 dígitos) ou E.164 sem `+`. O remetente consulta o WhatsApp usando a normalização brasileira já existente no sistema e envia somente ao identificador confirmado, validando equivalência do número. Nunca copiar credenciais WhatsApp de produção para dev.
 
 ## Régua
 

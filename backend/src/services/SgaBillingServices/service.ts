@@ -55,7 +55,9 @@ const query = <T extends object>(
 export const liveAllowed = () =>
   process.env.ACNORTE_BILLING_SEND_ENABLED === "true";
 export const testNumber = () =>
-  /^55\d{10,11}$/.test(process.env.ACNORTE_BILLING_TEST_NUMBER || "")
+  /^(?:\d{10,11}|55\d{10,11})$/.test(
+    process.env.ACNORTE_BILLING_TEST_NUMBER || ""
+  )
     ? process.env.ACNORTE_BILLING_TEST_NUMBER
     : null;
 const guard = async (companyId: number) => {
@@ -388,7 +390,7 @@ export const previewReminder = async (companyId: number, offset: number) => {
   );
   return {
     stage: offset,
-    body: `[TESTE — SEM COBRANÇA REAL]\n\n${body}`,
+    body: `[TESTE — SEM COBRANÇA REAL]\nEtapa: ${offset < 0 ? `${-offset} dias antes do vencimento` : offset === 0 ? "no vencimento" : `${offset} dia(s) após o vencimento`}\n\n${body}`,
     attachPdf: step.attachPdf,
     filename: step.attachPdf ? "boleto-teste-sem-valor.pdf" : null,
     testNumber: testNumber()
