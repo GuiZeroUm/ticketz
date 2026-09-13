@@ -158,7 +158,7 @@ export const renderReminder = (
     /\[(nome|valor|vencimento|boleto)\]/g,
     (_, key) => values[key]
   );
-  return `${body}${url && !step.body.includes("[boleto]") ? `\n\nBoleto: ${url}` : ""}`;
+  return body;
 };
 // Only known, unpaid SGA debt statuses may reach the transport. An unavailable
 // API, missing status, cancellation or different owner is never proof of debt.

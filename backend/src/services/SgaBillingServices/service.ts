@@ -64,6 +64,19 @@ const guard = async (companyId: number) => {
   assertRuntimeCompany(companyId);
   await assertSgaTenant(companyId);
 };
+const realTestTarget = () => {
+  const number = process.env.ACNORTE_BILLING_TEST_BILL_NUMBER?.trim();
+  const memberId = process.env.ACNORTE_BILLING_TEST_MEMBER_ID?.trim();
+  if (!number && !memberId) return null;
+  if (
+    !number ||
+    !memberId ||
+    !/^[0-9]{1,30}$/.test(number) ||
+    !/^[0-9]{1,30}$/.test(memberId)
+  )
+    throw new AppError("ERR_BILLING_TEST_BILL", 409);
+  return { number, memberId };
+};
 export const getBillingConfig = async (
   companyId: number
 ): Promise<BillingConfig> => {
@@ -178,6 +191,7 @@ export const billingOverview = async (companyId: number, day = localDay()) => {
     day,
     liveAllowed: liveAllowed(),
     testNumber: testNumber(),
+    testBillNumber: realTestTarget()?.number || null,
     fresh: freshSnapshot(data.stored),
     syncedAt: data.stored.syncedAt,
     connections: await Whatsapp.findAll({
@@ -377,25 +391,76 @@ export const processBilling = async (
   });
 };
 
-export const previewReminder = async (companyId: number, offset: number) => {
+const prepareTestReminder = async (companyId: number, offset: number) => {
   await guard(companyId);
   const config = await getBillingConfig(companyId);
   const step = config.steps.find(s => s.offset === offset);
   if (!step) throw new AppError("ERR_BILLING_CONFIG", 400);
-  const body = renderReminder(
-    step,
-    "Guilherme Santos",
-    { due: localDay(), amount: 123.45 },
-    "https://acnorte.dev.espacowhats.com.br/sga/cobrancas"
-  );
+  const target = realTestTarget();
+  let name = "Guilherme Santos";
+  let bill: Bill = {
+    id: "TEST",
+    number: "TEST",
+    memberId: "TEST",
+    due: localDay(),
+    amount: 123.45,
+    vehicleIds: [],
+    paid: false,
+    countsAsDebt: true,
+    status: "TEST"
+  };
+  let url = "";
+  if (target) {
+    const data = await loadSga(companyId);
+    const matches = data.stored.data.bills.filter(
+      b => b.number === target.number && b.memberId === target.memberId
+    );
+    const member = data.members.find(m => m.id === target.memberId);
+    if (matches.length !== 1 || !member)
+      throw new AppError("ERR_BILLING_TEST_BILL", 409);
+    const response = await sgaRequest(
+      `buscar/boleto/${encodeURIComponent(target.number)}`
+    );
+    const row = Array.isArray(response) ? response[0] : response;
+    // Tests simulate the chosen stage, but must still validate real ownership,
+    // due date and unpaid status against SGA immediately before preparing it.
+    const current =
+      row &&
+      revalidateBill(
+        matches[0],
+        row,
+        data.stored.data.billStatuses,
+        matches[0].due
+      );
+    if (!current) throw new AppError("ERR_BILLING_TEST_BILL", 409);
+    bill = current;
+    name = member.name;
+    url = boletoUrl(row.link_boleto);
+  }
+  const body = renderReminder(step, name, bill, "");
   return {
-    stage: offset,
-    body: `[TESTE — SEM COBRANÇA REAL]\nEtapa: ${offset < 0 ? `${-offset} dias antes do vencimento` : offset === 0 ? "no vencimento" : `${offset} dia(s) após o vencimento`}\n\n${body}`,
-    attachPdf: step.attachPdf,
-    filename: step.attachPdf ? "boleto-teste-sem-valor.pdf" : null,
-    testNumber: testNumber()
+    bill,
+    url,
+    preview: {
+      stage: offset,
+      body: `${target ? "[TESTE DE ENVIO — BOLETO REAL]\nDocumento real autorizado para validação. Não efetue pagamento por este teste. As etapas abaixo são simuladas." : "[TESTE — SEM COBRANÇA REAL]"}\nEtapa: ${offset < 0 ? `${-offset} dias antes do vencimento` : offset === 0 ? "no vencimento" : `${offset} dia(s) após o vencimento`}\n\n${body}`,
+      attachPdf: step.attachPdf,
+      filename: step.attachPdf
+        ? target
+          ? "boleto-ac-norte.pdf"
+          : "boleto-teste-sem-valor.pdf"
+        : null,
+      testNumber: testNumber(),
+      realBill: !!target,
+      billNumber: bill.number,
+      memberName: name,
+      dueDate: bill.due,
+      amount: bill.amount
+    }
   };
 };
+export const previewReminder = async (companyId: number, offset: number) =>
+  (await prepareTestReminder(companyId, offset)).preview;
 export const runBillingTest = async (
   companyId: number,
   userId: number,
@@ -409,7 +474,7 @@ export const runBillingTest = async (
     !/^[a-zA-Z0-9_-]{16,80}$/.test(requestId)
   )
     throw new AppError("ERR_BILLING_CONFIG", 400);
-  const preview = await previewReminder(companyId, offset);
+  const { preview, bill, url } = await prepareTestReminder(companyId, offset);
   const config = await getBillingConfig(companyId);
   return sequelize.transaction(async transaction => {
     if (!(await lock(companyId, transaction)))
@@ -435,10 +500,21 @@ export const runBillingTest = async (
       { companyId, mode }
     );
     if (Number(count) >= 2) throw new AppError("ERR_BILLING_BUSY", 429);
+    // Download before declaring an outgoing send. An API/PDF failure must never
+    // fall back to a synthetic PDF when a real boleto was explicitly selected.
+    const pdf = preview.attachPdf
+      ? preview.realBill
+        ? await fetchBoletoPdf(url)
+        : testPdf()
+      : undefined;
     const [delivery] = await query<{ id: string }>(
-      'INSERT INTO "SgaBillingDeliveries" ("companyId","billId","memberId","billNumber","dueDate",stage,"localDay",status,mode,"dedupeKey",body,"whatsappId") VALUES (:companyId,\'TEST\',\'TEST\',\'TEST\',:day,:stage,:day,:status,:mode,:key,:body,:whatsappId) RETURNING id',
+      'INSERT INTO "SgaBillingDeliveries" ("companyId","billId","memberId","billNumber","dueDate",stage,"localDay",status,mode,"dedupeKey",body,"whatsappId") VALUES (:companyId,:billId,:memberId,:billNumber,:dueDate,:stage,:day,:status,:mode,:key,:body,:whatsappId) RETURNING id',
       {
         companyId,
+        billId: bill.id,
+        memberId: bill.memberId,
+        billNumber: bill.number,
+        dueDate: bill.due,
         day: localDay(),
         stage: offset,
         status: mode === "test" ? "SENDING" : "SIMULATED",
@@ -448,7 +524,6 @@ export const runBillingTest = async (
         whatsappId: whatsapp?.id || null
       }
     );
-    const pdf = preview.attachPdf ? testPdf() : undefined;
     if (mode === "simulation")
       return {
         ...preview,

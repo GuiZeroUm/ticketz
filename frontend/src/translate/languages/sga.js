@@ -50,16 +50,18 @@ const pt = {
       90: "90 dias depois"
     },
     stepEnabled: "Habilitar esta etapa",
-    withPdf: "PDF do boleto + mensagem + link",
-    textOnly: "Mensagem + link do boleto",
+    withPdf: "PDF do boleto + mensagem",
+    textOnly: "Mensagem de lembrete",
     variables:
-      "Variáveis: [nome], [valor], [vencimento] e [boleto]. O link é acrescentado automaticamente se não estiver no texto.",
+      "Variáveis: [nome], [valor] e [vencimento]. Nenhum link é acrescentado automaticamente. [boleto] é opcional nos textos personalizados de cobrança.",
     save: "Salvar configuração",
-    preview: "Ver prévia para Guilherme",
+    preview: "Ver prévia do teste",
     unsaved: "Salve as alterações antes de testar ou mudar a data.",
     downloadTestPdf: "Baixar PDF de demonstração",
     testHelp:
       "Destino de teste autorizado: {{number}}. O teste usa Guilherme Santos e um PDF fictício, sem valor. Nenhum boleto de cliente é encaminhado no teste.",
+    realTestHelp:
+      "Destino de teste autorizado: {{number}}. Boleto real autorizado: {{bill}}, consultado na API SGA a cada teste. O PDF real será enviado nas duas primeiras etapas. Não efetue pagamento por este teste; os prazos das etapas são simulados. Nenhuma mensagem será enviada ao associado.",
     notConfigured: "não configurado",
     noConnection:
       "Não há conexão de envio selecionada e conectada neste ambiente. A simulação funciona sem WhatsApp; o teste real requer uma conexão exclusiva do dev.",
@@ -220,6 +222,8 @@ const errors = {
     "O envio automático está bloqueado neste ambiente de validação.",
   ERR_BILLING_BUSY:
     "Há um processamento em andamento. Aguarde um minuto e tente novamente.",
+  ERR_BILLING_TEST_BILL:
+    "O boleto real autorizado não pôde ser validado no SGA. Confira associado, situação de pagamento e configuração do teste. Nada foi enviado.",
   ERR_BILLING_TEST_NUMBER:
     "O número autorizado para teste ainda não foi configurado.",
   ERR_BILLING_PDF_URL:

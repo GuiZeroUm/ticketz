@@ -406,14 +406,17 @@ export default function SgaBilling() {
             >
               {preview.body}
             </Typography>
-            {preview.attachPdf && (
+            {preview.attachPdf && !preview.realBill && (
               <Button onClick={downloadPdf}>{t("downloadTestPdf")}</Button>
             )}
           </Box>
         )}
         <Box mt={2}>
           <Alert severity="info">
-            {t("testHelp", { number: state.testNumber || t("notConfigured") })}
+            {t(state.testBillNumber ? "realTestHelp" : "testHelp", {
+              number: state.testNumber || t("notConfigured"),
+              bill: state.testBillNumber
+            })}
           </Alert>
         </Box>
         {!connected && (
