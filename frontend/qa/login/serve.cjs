@@ -23,8 +23,9 @@ const compiler = webpack({
   entry: path.join(__dirname, "index.js"),
   output: { path: output, filename: "preview.js", publicPath: "/" },
   resolve: {
-    extensions: [".js"],
+    extensions: [".js", ".jsx", ".ts", ".tsx"],
     alias: {
+      "@": path.join(base, "src"),
       "../services/config": path.join(__dirname, "config.js"),
       "../../services/config": path.join(__dirname, "config.js"),
       "../../context/Auth/AuthContext": path.join(__dirname, "fixtures.js"),
@@ -36,7 +37,7 @@ const compiler = webpack({
     rules: [
       { test: /\.m?js$/, resolve: { fullySpecified: false } },
       {
-        test: /\.js$/,
+        test: /\.[jt]sx?$/,
         exclude: /node_modules/,
         use: {
           loader: require.resolve("babel-loader"),
@@ -46,7 +47,22 @@ const compiler = webpack({
       { test: /\.(png|jpe?g|gif|svg|woff2?)$/i, type: "asset/resource" },
       {
         test: /\.css$/,
-        use: [require.resolve("style-loader"), require.resolve("css-loader")]
+        use: [
+          require.resolve("style-loader"),
+          require.resolve("css-loader"),
+          {
+            loader: require.resolve("postcss-loader"),
+            options: {
+              postcssOptions: {
+                plugins: [
+                  require("tailwindcss")({
+                    config: path.join(base, "tailwind.config.js")
+                  })
+                ]
+              }
+            }
+          }
+        ]
       }
     ]
   }

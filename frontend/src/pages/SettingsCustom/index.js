@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useRef } from "react";
 import CentralConfiguracoes from "../../components/Settings/CentralConfiguracoes";
 import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
@@ -80,6 +80,8 @@ const SettingsCustom = () => {
   const [loading, setLoading] = useState(false);
   const { user: currentUser = {} } = useContext(AuthContext);
   const [settings, setSettings] = useState([]);
+  const [settingsStatus, setSettingsStatus] = useState("loading");
+  const mounted = useRef(true);
   const [schedulesEnabled, setSchedulesEnabled] = useState(false);
   const [voiceAvailable, setVoiceAvailable] = useState(false);
 
@@ -88,6 +90,7 @@ const SettingsCustom = () => {
 
   useEffect(() => {
     let active = true;
+    mounted.current = true;
     async function findData() {
       setLoading(true);
       const [companyResult, settingsResult] = await Promise.allSettled([
@@ -99,17 +102,20 @@ const SettingsCustom = () => {
         setCompany(companyResult.value);
         setSchedules(companyResult.value.schedules);
       }
-      if (settingsResult.status === "fulfilled") {
-        const list = Array.isArray(settingsResult.value)
-          ? settingsResult.value
-          : [];
+      if (
+        settingsResult.status === "fulfilled" &&
+        Array.isArray(settingsResult.value)
+      ) {
+        const list = settingsResult.value;
         setSettings(list);
+        setSettingsStatus("ready");
         setSchedulesEnabled(
           list.some(
             item => item.key === "scheduleType" && item.value === "company"
           )
         );
       } else {
+        setSettingsStatus("error");
         toast.error(i18n.t("loginExperience.settingsLoadError"));
       }
       setLoading(false);
@@ -117,6 +123,7 @@ const SettingsCustom = () => {
     findData();
     return () => {
       active = false;
+      mounted.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -139,8 +146,10 @@ const SettingsCustom = () => {
   const atualizarConfiguracoes = async () => {
     try {
       const lista = await getAllSettings();
+      if (!mounted.current) return;
       if (Array.isArray(lista)) {
         setSettings(lista);
+        setSettingsStatus("ready");
         setSchedulesEnabled(
           lista.some(
             item => item.key === "scheduleType" && item.value === "company"
@@ -148,8 +157,38 @@ const SettingsCustom = () => {
         );
       }
     } catch (erro) {
-      toast.error(erro);
+      if (mounted.current) toast.error(erro);
     }
+  };
+
+  const retrySettings = async () => {
+    setSettingsStatus("loading");
+    try {
+      const list = await getAllSettings();
+      if (!mounted.current) return;
+      if (!Array.isArray(list)) throw new Error("Invalid settings response");
+      setSettings(list);
+      setSchedulesEnabled(
+        list.some(
+          item => item.key === "scheduleType" && item.value === "company"
+        )
+      );
+      setSettingsStatus("ready");
+    } catch (_) {
+      if (mounted.current) setSettingsStatus("error");
+    }
+  };
+
+  const handleSettingSaved = (key, value) => {
+    if (!mounted.current) return;
+    setSettings(current => {
+      const found = current.some(setting => setting.key === key);
+      return found
+        ? current.map(setting =>
+            setting.key === key ? { ...setting, value } : setting
+          )
+        : [...current, { key, value }];
+    });
   };
 
   const handleSubmitSchedules = async data => {
@@ -224,7 +263,26 @@ const SettingsCustom = () => {
         )}
       </TabPanel>
       <TabPanel className={classes.container} value={tab} name={"whitelabel"}>
-        {isAdmin() && <Whitelabel settings={settings} />}
+        {isAdmin() &&
+          (settingsStatus === "ready" ? (
+            <Whitelabel
+              settings={settings}
+              onSettingSaved={handleSettingSaved}
+            />
+          ) : settingsStatus === "error" ? (
+            <div role="alert">
+              <p>{i18n.t("loginExperience.settingsLoadError")}</p>
+              <Button
+                onClick={retrySettings}
+                variant="outlined"
+                color="primary"
+              >
+                {i18n.t("loginExperience.retrySettings")}
+              </Button>
+            </div>
+          ) : (
+            <p role="status">{i18n.t("loginExperience.loading")}</p>
+          ))}
       </TabPanel>
       <TabPanel className={classes.container} value={tab} name={"voiceCalls"}>
         <VoiceSettings />

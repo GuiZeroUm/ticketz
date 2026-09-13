@@ -1,6 +1,6 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { useMediaQuery } from "@material-ui/core";
+import { useMediaQuery, useTheme } from "@material-ui/core";
 import BrandPanel, { BrandLogo } from "./BrandPanel";
 
 jest.mock("../../translate/i18n", () => ({ i18n: { t: key => key } }));
@@ -9,7 +9,8 @@ jest.mock("../../services/config", () => ({
 }));
 jest.mock("@material-ui/core", () => ({
   ...jest.requireActual("@material-ui/core"),
-  useMediaQuery: jest.fn()
+  useMediaQuery: jest.fn(),
+  useTheme: jest.fn()
 }));
 jest.mock("framer-motion", () => ({
   motion: {
@@ -26,7 +27,10 @@ beforeAll(() => {
     .mockImplementation(() => {});
 });
 afterAll(() => mutedSetter.mockRestore());
-beforeEach(() => useMediaQuery.mockReturnValue(false));
+beforeEach(() => {
+  useMediaQuery.mockImplementation(() => false);
+  useTheme.mockReturnValue({ palette: { type: "light" } });
+});
 
 test("uses the tenant logo, texts and uploaded background in the real preview", () => {
   const { container } = render(
@@ -79,32 +83,78 @@ test("falls back on a broken tenant logo and accepts a later valid replacement",
   );
 });
 
-test("pause and resume control animated decorations and video autoplay together", () => {
+test("plays a finite video introduction without looping and stops at four seconds", () => {
   const { container } = render(
     <BrandPanel settings={{ loginBackgroundContent: "branding/2/video.mp4" }} />
   );
   expect(screen.getByRole("complementary").dataset.animated).toBe("true");
-  expect(container.querySelector("video").autoplay).toBe(true);
-  fireEvent.click(
-    screen.getByRole("button", { name: "loginExperience.pauseMotion" })
-  );
-  expect(screen.getByRole("complementary").dataset.animated).toBe("false");
-  expect(container.querySelector("video").autoplay).toBe(false);
-  fireEvent.click(
-    screen.getByRole("button", { name: "loginExperience.resumeMotion" })
-  );
-  expect(screen.getByRole("complementary").dataset.animated).toBe("true");
+  const video = container.querySelector("video");
+  expect(video.autoplay).toBe(true);
+  expect(video.loop).toBe(false);
+  expect(screen.queryByRole("button")).toBeNull();
+  const pause = jest.spyOn(video, "pause").mockImplementation(() => {});
+  video.currentTime = 3.9;
+  fireEvent.timeUpdate(video);
+  expect(pause).not.toHaveBeenCalled();
+  video.currentTime = 4;
+  fireEvent.timeUpdate(video);
+  expect(pause).toHaveBeenCalledTimes(1);
+  pause.mockRestore();
 });
 
 test("respects live reduced-motion preference and disables video autoplay", () => {
   const settings = { loginBackgroundContent: "branding/2/video.mp4" };
   const { container, rerender } = render(<BrandPanel settings={settings} />);
-  useMediaQuery.mockReturnValue(true);
+  useMediaQuery.mockImplementation(
+    query => query === "(prefers-reduced-motion: reduce)"
+  );
   rerender(<BrandPanel settings={settings} />);
   expect(screen.getByRole("complementary").dataset.animated).toBe("false");
   expect(container.querySelector("video").autoplay).toBe(false);
   expect(screen.queryByRole("button")).toBeNull();
 });
+
+test("does not mount hidden mobile media or animation elements", () => {
+  useMediaQuery.mockImplementation(query => query === "(max-width: 720px)");
+  const { container } = render(
+    <BrandPanel settings={{ loginBackgroundContent: "branding/2/video.mp4" }} />
+  );
+  expect(container.firstChild).toBeNull();
+  expect(container.querySelector("video")).toBeNull();
+});
+
+test("keeps the editor preview visible on mobile", () => {
+  useMediaQuery.mockImplementation(query => query === "(max-width: 720px)");
+  render(<BrandPanel preview />);
+  expect(screen.getByRole("complementary").className).toContain(
+    "login-brand-panel--preview"
+  );
+});
+
+test.each([
+  ["light", "", "light.png"],
+  ["dark", "", "dark.png"],
+  ["light", "background.png", "light.png"],
+  ["dark", "background.png", "dark.png"]
+])(
+  "selects the logo for its actual theme surface, not the faded background (%s, %s)",
+  (mode, background, logo) => {
+    useTheme.mockReturnValue({ palette: { type: mode } });
+    render(
+      <BrandPanel
+        settings={{
+          appName: "Tenant",
+          appLogoLight: "light.png",
+          appLogoDark: "dark.png",
+          loginSidePanelImage: background
+        }}
+      />
+    );
+    expect(
+      screen.getByRole("img", { name: "Tenant" }).getAttribute("src")
+    ).toBe(`https://test.example/backend/public/${logo}`);
+  }
+);
 
 test("minimal template stays static and has no motion toggle", () => {
   render(<BrandPanel settings={{ loginTemplate: "minimal" }} />);

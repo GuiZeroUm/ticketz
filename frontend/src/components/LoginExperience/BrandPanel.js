@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { useMediaQuery, useTheme } from "@material-ui/core";
-import { Pause, Play } from "lucide-react";
 import { i18n } from "../../translate/i18n";
 import { getBackendURL } from "../../services/config";
 import BackgroundPaths from "./BackgroundPaths";
@@ -30,18 +29,17 @@ export function BrandLogo({ logo, name = "Espaço Whats", compact = false }) {
 export default function BrandPanel({ settings = {}, preview = false }) {
   const theme = useTheme();
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
-  const [paused, setPaused] = useState(false);
-  const animated =
-    settings.loginTemplate !== "minimal" && !reducedMotion && !paused;
+  const narrow = useMediaQuery("(max-width: 720px)");
+  const animated = settings.loginTemplate !== "minimal" && !reducedMotion;
   const media = settings.loginSidePanelImage || settings.loginBackgroundContent;
   const video = /\.(mp4|webm|ogg)$/i.test(media || "");
-  const darkSurface =
-    Boolean(media) || (!preview && theme.palette.type === "dark");
+  const darkSurface = !preview && theme.palette.type === "dark";
   const logo = publicBrandAsset(
     darkSurface
       ? settings.appLogoDark || settings.appLogoLight
       : settings.appLogoLight || settings.appLogoDark
   );
+  if (narrow && !preview) return null;
   return (
     <aside
       className={`login-brand-panel${preview ? " login-brand-panel--preview" : ""}`}
@@ -57,7 +55,10 @@ export default function BrandPanel({ settings = {}, preview = false }) {
             className="login-brand-media"
             src={publicBrandAsset(media)}
             autoPlay={animated}
-            loop
+            onTimeUpdate={event => {
+              if (event.currentTarget.currentTime >= 4)
+                event.currentTarget.pause();
+            }}
             muted
             playsInline
             preload="metadata"
@@ -76,20 +77,12 @@ export default function BrandPanel({ settings = {}, preview = false }) {
           <motion.div
             key={`${index}-${animated}`}
             className={`login-orbit login-orbit--${index}`}
-            initial={false}
-            animate={
-              animated
-                ? {
-                    y: [0, -28, 0],
-                    rotate: [index * 20 - 20, index * 20 + 8, index * 20 - 20]
-                  }
-                : { y: 0, rotate: index * 20 - 20 }
-            }
+            initial={animated ? { opacity: 0, scale: 0.92 } : false}
+            animate={{ opacity: 1, scale: 1 }}
             transition={
               animated
                 ? {
-                    duration: 14 + index * 4,
-                    repeat: Infinity,
+                    duration: 1.5 + index * 0.4,
                     ease: "easeInOut"
                   }
                 : { duration: 0 }
@@ -106,25 +99,6 @@ export default function BrandPanel({ settings = {}, preview = false }) {
         </p>
         <span className="login-brand-line" aria-hidden="true" />
       </div>
-      {settings.loginTemplate !== "minimal" && !reducedMotion && (
-        <button
-          type="button"
-          className="login-motion-toggle"
-          onClick={() => setPaused(value => !value)}
-          aria-label={i18n.t(
-            paused
-              ? "loginExperience.resumeMotion"
-              : "loginExperience.pauseMotion"
-          )}
-        >
-          {paused ? <Play size={14} /> : <Pause size={14} />}
-          {i18n.t(
-            paused
-              ? "loginExperience.resumeMotion"
-              : "loginExperience.pauseMotion"
-          )}
-        </button>
-      )}
     </aside>
   );
 }

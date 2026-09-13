@@ -1,6 +1,6 @@
 // Adapted from Kokonut UI Background Paths, discovered on 21st.dev.
 // Copyright (c) 2025 kokonutUI — MIT, see KOKONUT-LICENSE.txt.
-// React 17 adaptation: deterministic timing, fewer paths, pause/reduced-motion support.
+// React 17 adaptation: deterministic, finite entrance and reduced-motion support.
 import React from "react";
 import { motion } from "framer-motion";
 
@@ -25,14 +25,14 @@ export default function BackgroundPaths({ animated }) {
               animated
                 ? {
                     pathLength: 1,
-                    opacity: [0.3, 0.6, 0.3],
-                    pathOffset: [0, 1, 0]
+                    opacity: [0.1, 0.35],
+                    pathOffset: [0.2, 0]
                   }
                 : { pathLength: 1, opacity: 0.4, pathOffset: 0 }
             }
             transition={
               animated
-                ? { duration: 20 + i, repeat: Infinity, ease: "linear" }
+                ? { duration: 2.5 + i * 0.08, ease: "easeOut" }
                 : { duration: 0 }
             }
           />

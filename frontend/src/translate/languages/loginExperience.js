@@ -1,9 +1,13 @@
 const pt = {
   brandTab: "Marca e login",
   brandPanel: "Identidade da empresa",
-  welcome: "Que bom ter você aqui.",
+  welcome: "Entrar no seu espaço",
   eyebrow: "Seu próximo atendimento começa aqui",
-  emailHint: "Entre na sua conta para continuar. Primeiro, informe seu e-mail.",
+  emailHint: "Use seu e-mail e senha para continuar.",
+  firstAccessHint: "Primeiro acesso? Informe apenas seu e-mail.",
+  retrySettings: "Tentar novamente",
+  rememberEmail: "Lembrar meu e-mail",
+  resetPassword: "Esqueceu sua senha?",
   passwordHint: "Agora, informe sua senha para acessar seu espaço de trabalho.",
   setupHint:
     "Vamos proteger sua conta. Crie uma senha para o seu primeiro acesso.",
@@ -17,8 +21,6 @@ const pt = {
   hidePassword: "Ocultar senha",
   darkMode: "Ativar tema escuro",
   lightMode: "Ativar tema claro",
-  pauseMotion: "Pausar animação",
-  resumeMotion: "Retomar animação",
   settingsLoadError:
     "Não foi possível carregar as configurações. Tente novamente.",
   customizationTitle: "Seu login, com a sua identidade",
@@ -39,9 +41,13 @@ const pt = {
 const en = {
   brandTab: "Brand & login",
   brandPanel: "Company branding",
-  welcome: "Good to have you here.",
+  welcome: "Sign in to your space",
   eyebrow: "Your next conversation starts here",
-  emailHint: "Sign in to continue. First, enter your email address.",
+  emailHint: "Use your email and password to continue.",
+  firstAccessHint: "First time here? Enter only your email.",
+  retrySettings: "Retry",
+  rememberEmail: "Remember my email",
+  resetPassword: "Forgot your password?",
   passwordHint: "Now enter your password to access your workspace.",
   setupHint:
     "Let's protect your account. Create a password for your first sign-in.",
@@ -55,8 +61,6 @@ const en = {
   hidePassword: "Hide password",
   darkMode: "Switch to dark mode",
   lightMode: "Switch to light mode",
-  pauseMotion: "Pause animation",
-  resumeMotion: "Resume animation",
   settingsLoadError: "Unable to load settings. Please try again.",
   customizationTitle: "Your login, your identity",
   customizationDescription:
@@ -77,10 +81,13 @@ const es = {
   ...en,
   brandTab: "Marca e inicio",
   brandPanel: "Identidad de la empresa",
-  welcome: "Qué bueno tenerte aquí.",
+  welcome: "Entra en tu espacio",
   eyebrow: "Tu próxima conversación comienza aquí",
-  emailHint:
-    "Inicia sesión para continuar. Primero, introduce tu correo electrónico.",
+  emailHint: "Usa tu correo y contraseña para continuar.",
+  firstAccessHint: "¿Es tu primer acceso? Introduce solo tu correo.",
+  retrySettings: "Intentar de nuevo",
+  rememberEmail: "Recordar mi correo",
+  resetPassword: "¿Olvidaste tu contraseña?",
   passwordHint:
     "Ahora, introduce tu contraseña para acceder a tu espacio de trabajo.",
   setupHint: "Protejamos tu cuenta. Crea una contraseña para tu primer acceso.",
@@ -94,8 +101,6 @@ const es = {
   hidePassword: "Ocultar contraseña",
   darkMode: "Activar tema oscuro",
   lightMode: "Activar tema claro",
-  pauseMotion: "Pausar animación",
-  resumeMotion: "Reanudar animación",
   settingsLoadError: "No se pudieron cargar los ajustes. Inténtalo de nuevo.",
   customizationTitle: "Tu acceso, con tu identidad",
   customizationDescription:
@@ -114,9 +119,13 @@ const es = {
 };
 const ptPT = {
   ...pt,
-  welcome: "É bom ter-te por aqui.",
+  welcome: "Entrar no seu espaço",
   eyebrow: "A tua próxima conversa começa aqui",
-  emailHint: "Inicia sessão para continuar. Primeiro, indica o teu e-mail.",
+  emailHint: "Usa o teu e-mail e palavra-passe para continuar.",
+  firstAccessHint: "Primeiro acesso? Indica apenas o teu e-mail.",
+  retrySettings: "Tentar novamente",
+  rememberEmail: "Lembrar o meu e-mail",
+  resetPassword: "Esqueceste-te da palavra-passe?",
   passwordHint:
     "Agora, introduz a tua palavra-passe para aceder ao teu espaço de trabalho.",
   setupHint:
@@ -127,8 +136,6 @@ const ptPT = {
   loading: "Aguarda…",
   showPassword: "Mostrar palavra-passe",
   hidePassword: "Ocultar palavra-passe",
-  pauseMotion: "Pausar animação",
-  resumeMotion: "Retomar animação",
   settingsLoadError:
     "Não foi possível carregar as definições. Tenta novamente.",
   customizationTitle: "O teu acesso, com a tua identidade",
@@ -145,10 +152,13 @@ const ptPT = {
 const fr = {
   brandTab: "Marque et connexion",
   brandPanel: "Identité de l’entreprise",
-  welcome: "Heureux de vous retrouver.",
+  welcome: "Connectez-vous à votre espace",
   eyebrow: "Votre prochaine conversation commence ici",
-  emailHint:
-    "Connectez-vous pour continuer. Saisissez d’abord votre adresse e-mail.",
+  emailHint: "Utilisez votre e-mail et votre mot de passe pour continuer.",
+  firstAccessHint: "Première connexion ? Saisissez uniquement votre e-mail.",
+  retrySettings: "Réessayer",
+  rememberEmail: "Mémoriser mon e-mail",
+  resetPassword: "Mot de passe oublié ?",
   passwordHint:
     "Saisissez maintenant votre mot de passe pour accéder à votre espace de travail.",
   setupHint:
@@ -163,8 +173,6 @@ const fr = {
   hidePassword: "Masquer le mot de passe",
   darkMode: "Activer le thème sombre",
   lightMode: "Activer le thème clair",
-  pauseMotion: "Mettre l’animation en pause",
-  resumeMotion: "Reprendre l’animation",
   settingsLoadError: "Impossible de charger les paramètres. Réessayez.",
   customizationTitle: "Votre connexion, à votre image",
   customizationDescription:
@@ -185,10 +193,13 @@ const fr = {
 const de = {
   brandTab: "Marke und Anmeldung",
   brandPanel: "Unternehmensauftritt",
-  welcome: "Schön, dass Sie da sind.",
+  welcome: "In Ihrem Bereich anmelden",
   eyebrow: "Ihr nächstes Gespräch beginnt hier",
-  emailHint:
-    "Melden Sie sich an, um fortzufahren. Geben Sie zunächst Ihre E-Mail-Adresse ein.",
+  emailHint: "Melden Sie sich mit E-Mail und Passwort an.",
+  firstAccessHint: "Zum ersten Mal hier? Geben Sie nur Ihre E-Mail ein.",
+  retrySettings: "Erneut versuchen",
+  rememberEmail: "Meine E-Mail merken",
+  resetPassword: "Passwort vergessen?",
   passwordHint:
     "Geben Sie jetzt Ihr Passwort ein, um auf Ihren Arbeitsbereich zuzugreifen.",
   setupHint:
@@ -203,8 +214,6 @@ const de = {
   hidePassword: "Passwort ausblenden",
   darkMode: "Dunkles Design aktivieren",
   lightMode: "Helles Design aktivieren",
-  pauseMotion: "Animation pausieren",
-  resumeMotion: "Animation fortsetzen",
   settingsLoadError:
     "Die Einstellungen konnten nicht geladen werden. Versuchen Sie es erneut.",
   customizationTitle: "Ihre Anmeldung, Ihr Markenauftritt",
@@ -226,10 +235,13 @@ const de = {
 const it = {
   brandTab: "Marchio e accesso",
   brandPanel: "Identità aziendale",
-  welcome: "Che bello averti qui.",
+  welcome: "Accedi al tuo spazio",
   eyebrow: "La tua prossima conversazione inizia qui",
-  emailHint:
-    "Accedi per continuare. Per prima cosa, inserisci il tuo indirizzo e-mail.",
+  emailHint: "Usa e-mail e password per continuare.",
+  firstAccessHint: "Primo accesso? Inserisci solo la tua e-mail.",
+  retrySettings: "Riprova",
+  rememberEmail: "Ricorda la mia e-mail",
+  resetPassword: "Hai dimenticato la password?",
   passwordHint:
     "Ora inserisci la password per accedere al tuo spazio di lavoro.",
   setupHint:
@@ -244,8 +256,6 @@ const it = {
   hidePassword: "Nascondi password",
   darkMode: "Attiva il tema scuro",
   lightMode: "Attiva il tema chiaro",
-  pauseMotion: "Metti in pausa l’animazione",
-  resumeMotion: "Riprendi l’animazione",
   settingsLoadError: "Impossibile caricare le impostazioni. Riprova.",
   customizationTitle: "Il tuo accesso, la tua identità",
   customizationDescription:
@@ -265,9 +275,13 @@ const it = {
 const id = {
   brandTab: "Merek dan login",
   brandPanel: "Identitas perusahaan",
-  welcome: "Senang Anda ada di sini.",
+  welcome: "Masuk ke ruang Anda",
   eyebrow: "Percakapan Anda berikutnya dimulai di sini",
-  emailHint: "Masuk untuk melanjutkan. Pertama, masukkan alamat email Anda.",
+  emailHint: "Gunakan email dan kata sandi untuk melanjutkan.",
+  firstAccessHint: "Pertama kali masuk? Cukup masukkan email Anda.",
+  retrySettings: "Coba lagi",
+  rememberEmail: "Ingat email saya",
+  resetPassword: "Lupa kata sandi?",
   passwordHint:
     "Sekarang masukkan kata sandi untuk mengakses ruang kerja Anda.",
   setupHint:
@@ -282,8 +296,6 @@ const id = {
   hidePassword: "Sembunyikan kata sandi",
   darkMode: "Aktifkan tema gelap",
   lightMode: "Aktifkan tema terang",
-  pauseMotion: "Jeda animasi",
-  resumeMotion: "Lanjutkan animasi",
   settingsLoadError: "Pengaturan tidak dapat dimuat. Silakan coba lagi.",
   customizationTitle: "Halaman login Anda, identitas Anda",
   customizationDescription:

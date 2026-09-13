@@ -227,9 +227,10 @@ const useStyles = makeStyles(theme => ({
 }));
 
 export default function Whitelabel(props) {
-  const { settings } = props;
+  const { settings, onSettingSaved } = props;
   const classes = useStyles();
   const [settingsLoaded, setSettingsLoaded] = useState({});
+  const previousIncoming = useRef({});
   const [loginLinks, setLoginLinks] = useState([createEmptyLink()]);
 
   const { colorMode } = useContext(ColorModeContext);
@@ -288,9 +289,26 @@ export default function Whitelabel(props) {
       setting => setting.key === LINK_PREVIEW_DESCRIPTION_KEY
     )?.value;
 
-    setAppName(loadedAppName || "");
-    setLinkPreviewDescription(loadedLinkPreviewDescription || "");
-    setLoginLinks(parseLinksSetting(loadedLoginLinks));
+    const previous = previousIncoming.current;
+    setAppName(current =>
+      current === (previous.appName || "") ? loadedAppName || "" : current
+    );
+    setLinkPreviewDescription(current =>
+      current === (previous.linkPreviewDescription || "")
+        ? loadedLinkPreviewDescription || ""
+        : current
+    );
+    setLoginLinks(current =>
+      JSON.stringify(current) ===
+      JSON.stringify(parseLinksSetting(previous.loginPageLinks))
+        ? parseLinksSetting(loadedLoginLinks)
+        : current
+    );
+    previousIncoming.current = {
+      appName: loadedAppName,
+      linkPreviewDescription: loadedLinkPreviewDescription,
+      loginPageLinks: loadedLoginLinks
+    };
     setSettingsLoaded({
       ...Object.fromEntries(
         settings.map(setting => [setting.key, setting.value])
@@ -314,6 +332,7 @@ export default function Whitelabel(props) {
       ...currentSettings,
       [key]: value
     }));
+    onSettingSaved?.(key, value);
   };
 
   const handleSaveSetting = async (key, value) => {
@@ -493,7 +512,7 @@ export default function Whitelabel(props) {
           </FormControl>
           <ColorPicker
             open={primaryColorLightModalOpen}
-            handleClose={() => setPrimaryColorDarkModalOpen(false)}
+            handleClose={() => setPrimaryColorLightModalOpen(false)}
             onChange={color => {
               setPrimaryColorLightModalOpen(false);
               handleSaveSetting("primaryColorLight", color);

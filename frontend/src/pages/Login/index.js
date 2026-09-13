@@ -1,20 +1,7 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
-import {
-  Button,
-  CssBaseline,
-  TextField,
-  MenuItem,
-  Menu,
-  IconButton,
-  InputAdornment,
-  useMediaQuery,
-  useTheme
-} from "@material-ui/core";
-import { motion } from "framer-motion";
-import { ArrowRight, Eye, EyeOff, Globe2, Moon, Sun } from "lucide-react";
-import AppleIcon from "@material-ui/icons/Apple";
-import { FcGoogle } from "react-icons/fc";
+import { MenuItem, Menu, IconButton, useTheme } from "@material-ui/core";
+import { Globe2, Moon, Sun } from "lucide-react";
 import { i18n } from "../../translate/i18n";
 import { messages } from "../../translate/languages";
 import { AuthContext } from "../../context/Auth/AuthContext";
@@ -27,6 +14,8 @@ import BrandPanel, {
   BrandLogo,
   publicBrandAsset
 } from "../../components/LoginExperience/BrandPanel";
+
+import { SignInPage } from "../../components/ui/sign-in";
 
 export const parseLoginLinks = value => {
   try {
@@ -45,6 +34,8 @@ export const parseLoginLinks = value => {
 };
 
 const settingKeys = [
+  "primaryColorLight",
+  "primaryColorDark",
   "allowSignup",
   "loginPageLinks",
   "loginSidePanelImage",
@@ -57,44 +48,8 @@ const settingKeys = [
   "loginTemplate"
 ];
 
-function SocialProviders() {
-  return (
-    <>
-      <div className="login-social-divider">
-        {i18n.t("loginExperience.socialDivider")}
-      </div>
-      <div
-        className="login-social-buttons"
-        aria-describedby="social-coming-soon"
-      >
-        <button type="button" disabled>
-          <FcGoogle aria-hidden="true" />
-          Google
-        </button>
-        <button type="button" disabled>
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path fill="#f35325" d="M2 2h9v9H2z" />
-            <path fill="#81bc06" d="M13 2h9v9h-9z" />
-            <path fill="#05a6f0" d="M2 13h9v9H2z" />
-            <path fill="#ffba08" d="M13 13h9v9h-9z" />
-          </svg>
-          Microsoft
-        </button>
-        <button type="button" disabled>
-          <AppleIcon aria-hidden="true" />
-          Apple
-        </button>
-      </div>
-      <p id="social-coming-soon" className="login-social-note">
-        {i18n.t("loginExperience.socialSoon")}
-      </p>
-    </>
-  );
-}
-
 export default function Login() {
   const theme = useTheme();
-  const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const { colorMode } = useContext(ColorModeContext);
   const { handleLogin, handlePasswordSetup, loading } = useContext(AuthContext);
   const { getPublicSetting } = useSettings();
@@ -114,11 +69,12 @@ export default function Login() {
   const [formError, setFormError] = useState("");
   const [busy, setBusy] = useState(false);
   const submitting = useRef(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const mounted = useRef(true);
   const disabled = loading || busy;
 
   useEffect(() => {
     let active = true;
+    mounted.current = true;
     Promise.all(
       settingKeys.map(async key => {
         try {
@@ -132,6 +88,7 @@ export default function Login() {
     });
     return () => {
       active = false;
+      mounted.current = false;
     };
     // Public branding is scoped by the host slug, not the previously signed-in company.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -141,7 +98,7 @@ export default function Login() {
     setLangMenuAnchor(null);
     localStorage.setItem("language", lang);
     await i18n.changeLanguage(lang);
-    setLanguage(lang);
+    if (mounted.current) setLanguage(lang);
   };
   const handleChangeInput = event => {
     setFormError("");
@@ -152,7 +109,6 @@ export default function Login() {
     setStep("email");
     setActivationToken("");
     setFormError("");
-    setShowPassword(false);
     setUser(current => ({
       ...current,
       password: "",
@@ -173,9 +129,15 @@ export default function Login() {
           email: user.email.trim(),
           ...(slug ? { slug } : {})
         });
+        if (!mounted.current) return;
         if (data.proxima_etapa === "criar_senha") {
           setActivationToken(data.ativacao_token);
           setStep("createPassword");
+        } else if (user.password) {
+          await handleLogin({
+            email: user.email.trim(),
+            password: user.password
+          });
         } else {
           setStep("password");
         }
@@ -207,57 +169,16 @@ export default function Login() {
         });
       }
     } catch (error) {
+      if (!mounted.current) return;
       if (error.response?.data?.error === "ERR_EMAIL_NOT_FOUND")
         setFormError(i18n.t("login.errors.emailNotFound"));
       else toastError(error);
     } finally {
       submitting.current = false;
-      setBusy(false);
+      if (mounted.current) setBusy(false);
     }
   };
 
-  const passwordField = (name, label, autofocus = false) => (
-    <TextField
-      key={name}
-      variant="outlined"
-      fullWidth
-      required
-      disabled={disabled}
-      id={name}
-      name={name}
-      label={i18n.t(label)}
-      value={user[name]}
-      onChange={handleChangeInput}
-      type={showPassword ? "text" : "password"}
-      autoComplete={name === "password" ? "current-password" : "new-password"}
-      autoFocus={autofocus}
-      helperText={
-        name === "confirmPassword"
-          ? i18n.t("login.form.passwordStrength")
-          : undefined
-      }
-      InputProps={{
-        endAdornment: (
-          <InputAdornment position="end">
-            <IconButton
-              size="small"
-              type="button"
-              disabled={disabled}
-              onClick={() => setShowPassword(value => !value)}
-              aria-label={i18n.t(
-                showPassword
-                  ? "loginExperience.hidePassword"
-                  : "loginExperience.showPassword"
-              )}
-              aria-pressed={showPassword}
-            >
-              {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
-            </IconButton>
-          </InputAdornment>
-        )
-      }}
-    />
-  );
   const logo = publicBrandAsset(
     theme.palette.type === "dark"
       ? branding.appLogoDark || branding.appLogoLight
@@ -268,171 +189,140 @@ export default function Login() {
       ? i18n.t("login.buttons.createPassword")
       : i18n.t("loginExperience.welcome");
   const links = parseLoginLinks(branding.loginPageLinks);
+  const configuredColor =
+    branding[
+      theme.palette.type === "dark" ? "primaryColorDark" : "primaryColorLight"
+    ];
+  const accent = /^#[0-9a-f]{6}$/i.test(configuredColor || "")
+    ? configuredColor
+    : theme.palette.type === "dark"
+      ? "#FF8A43"
+      : "#C2480A";
+  const rgb = [1, 3, 5].map(
+    index => parseInt(accent.slice(index, index + 2), 16) / 255
+  );
+  const max = Math.max(...rgb),
+    min = Math.min(...rgb),
+    delta = max - min;
+  const lightness = (max + min) / 2;
+  let hue = 0;
+  if (delta) {
+    if (max === rgb[0]) hue = ((rgb[1] - rgb[2]) / delta) % 6;
+    else if (max === rgb[1]) hue = (rgb[2] - rgb[0]) / delta + 2;
+    else hue = (rgb[0] - rgb[1]) / delta + 4;
+  }
+  const primary = `${(hue * 60 + 360) % 360} ${delta ? (delta / (1 - Math.abs(2 * lightness - 1))) * 100 : 0}% ${lightness * 100}%`;
   return (
-    <main
-      className="login-experience"
-      data-theme={theme.palette.type}
-      style={{ "--login-accent": theme.palette.primary.main }}
-    >
-      <CssBaseline />
-      <section className="login-form-pane" aria-label={i18n.t("login.title")}>
-        <header className="login-toolbar">
-          <BrandLogo
-            logo={logo}
-            name={branding.appName || "Espaço Whats"}
-            compact
-          />
-          <div className="login-tools">
-            <IconButton
-              onClick={event => setLangMenuAnchor(event.currentTarget)}
-              aria-label={i18n.t("mainDrawer.appBar.i18n.language")}
-              aria-haspopup="menu"
-            >
-              <Globe2 size={20} />
-            </IconButton>
-            <IconButton
-              onClick={colorMode.toggleColorMode}
-              aria-label={i18n.t(
-                theme.palette.type === "light"
-                  ? "loginExperience.darkMode"
-                  : "loginExperience.lightMode"
-              )}
-            >
-              {theme.palette.type === "light" ? (
-                <Moon size={20} />
-              ) : (
-                <Sun size={20} />
-              )}
-            </IconButton>
-          </div>
-        </header>
-        <Menu
-          anchorEl={langMenuAnchor}
-          open={Boolean(langMenuAnchor)}
-          onClose={() => setLangMenuAnchor(null)}
-        >
-          {Object.keys(messages).map(lang => (
-            <MenuItem
-              key={lang}
-              selected={language === lang}
-              onClick={() => handleChooseLanguage(lang)}
-            >
-              {messages[lang].translations.mainDrawer.appBar.i18n.language}
-            </MenuItem>
-          ))}
-        </Menu>
-        <div className="login-form-content">
-          <span className="login-eyebrow">
-            {i18n.t("loginExperience.eyebrow")}
-          </span>
-          <h1>{title}</h1>
-          <p className="login-form-subtitle">
-            {i18n.t(
-              step === "email"
-                ? "loginExperience.emailHint"
-                : step === "password"
-                  ? "loginExperience.passwordHint"
-                  : "loginExperience.setupHint"
-            )}
-          </p>
-          <motion.div
-            key={step}
-            initial={reducedMotion ? false : { opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: reducedMotion ? 0 : 0.22 }}
-          >
-            <form onSubmit={handleSubmit} aria-busy={disabled}>
-              {step === "email" ? (
-                <TextField
-                  variant="outlined"
-                  fullWidth
-                  required
-                  type="email"
-                  id="email"
-                  label={i18n.t("login.form.email")}
-                  name="email"
-                  value={user.email}
-                  onChange={handleChangeInput}
-                  autoComplete="username"
-                  autoFocus
-                  disabled={disabled}
-                />
-              ) : (
-                <div className="login-email-summary">
-                  <span>{user.email.trim()}</span>
-                  <button
-                    type="button"
-                    onClick={handleChangeEmail}
-                    disabled={disabled}
-                  >
-                    {i18n.t("login.buttons.changeEmail")}
-                  </button>
-                </div>
-              )}
-              {step === "password" &&
-                passwordField("password", "login.form.password", true)}
-              {step === "createPassword" && (
-                <>
-                  {passwordField("newPassword", "login.form.newPassword", true)}
-                  {passwordField(
-                    "confirmPassword",
-                    "login.form.confirmPassword"
-                  )}
-                </>
-              )}
-              {formError && (
-                <div className="login-error" role="alert">
-                  {formError}
-                </div>
-              )}
-              <Button
-                className="login-submit"
-                type="submit"
-                fullWidth
-                variant="contained"
-                color="primary"
-                endIcon={!disabled && <ArrowRight size={18} />}
-                disabled={
-                  disabled ||
-                  !user.email.trim() ||
-                  (step === "password" && !user.password) ||
-                  (step === "createPassword" &&
-                    (!user.newPassword || !user.confirmPassword))
-                }
+    <>
+      <SignInPage
+        dark={theme.palette.type === "dark"}
+        style={{
+          "--primary": primary,
+          "--primary-foreground":
+            theme.palette.getContrastText(accent) === "#fff"
+              ? "0 0% 100%"
+              : "0 0% 9%",
+          "--login-accent": accent
+        }}
+        title={title}
+        description={i18n.t(
+          step === "email"
+            ? "loginExperience.emailHint"
+            : step === "password"
+              ? "loginExperience.passwordHint"
+              : "loginExperience.setupHint"
+        )}
+        step={step}
+        values={user}
+        onFieldChange={handleChangeInput}
+        onChangeEmail={handleChangeEmail}
+        onSignIn={handleSubmit}
+        busy={disabled}
+        error={formError}
+        submitDisabled={
+          (step === "password" && !user.password) ||
+          (step === "createPassword" &&
+            (!user.newPassword || !user.confirmPassword))
+        }
+        submitLabel={i18n.t(
+          step === "email"
+            ? user.password
+              ? "login.buttons.submit"
+              : "login.buttons.continue"
+            : step === "createPassword"
+              ? "login.buttons.createPassword"
+              : "login.buttons.submit"
+        )}
+        toolbar={
+          <header className="login-toolbar">
+            <BrandLogo
+              logo={logo}
+              name={branding.appName || "Espaço Whats"}
+              compact
+            />
+            <div className="login-tools">
+              <IconButton
+                onClick={event => setLangMenuAnchor(event.currentTarget)}
+                aria-label={i18n.t("mainDrawer.appBar.i18n.language")}
+                aria-haspopup="menu"
               >
-                {disabled
-                  ? i18n.t("loginExperience.loading")
-                  : i18n.t(
-                      step === "email"
-                        ? "login.buttons.continue"
-                        : step === "createPassword"
-                          ? "login.buttons.createPassword"
-                          : "login.buttons.submit"
-                    )}
-              </Button>
-            </form>
-          </motion.div>
-          <SocialProviders />
-          {branding.allowSignup === "enabled" && step === "email" && (
+                <Globe2 size={20} />
+              </IconButton>
+              <IconButton
+                onClick={colorMode.toggleColorMode}
+                aria-label={i18n.t(
+                  theme.palette.type === "light"
+                    ? "loginExperience.darkMode"
+                    : "loginExperience.lightMode"
+                )}
+              >
+                {theme.palette.type === "light" ? (
+                  <Moon size={20} />
+                ) : (
+                  <Sun size={20} />
+                )}
+              </IconButton>
+            </div>
+          </header>
+        }
+        hero={<BrandPanel settings={branding} />}
+        registration={
+          branding.allowSignup === "enabled" && step === "email" ? (
             <RouterLink className="login-register" to="/signup">
               {i18n.t("login.buttons.register")}
             </RouterLink>
-          )}
-        </div>
-        <footer className="login-footer">
-          {links.map((link, index) => (
-            <a
-              href={link.url}
-              key={`${link.url}-${index}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {link.title}
-            </a>
-          ))}
-        </footer>
-      </section>
-      <BrandPanel settings={branding} />
-    </main>
+          ) : undefined
+        }
+        footer={
+          <footer className="login-footer">
+            {links.map((link, index) => (
+              <a
+                href={link.url}
+                key={`${link.url}-${index}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {link.title}
+              </a>
+            ))}
+          </footer>
+        }
+      />
+      <Menu
+        anchorEl={langMenuAnchor}
+        open={Boolean(langMenuAnchor)}
+        onClose={() => setLangMenuAnchor(null)}
+      >
+        {Object.keys(messages).map(lang => (
+          <MenuItem
+            key={lang}
+            selected={language === lang}
+            onClick={() => handleChooseLanguage(lang)}
+          >
+            {messages[lang].translations.mainDrawer.appBar.i18n.language}
+          </MenuItem>
+        ))}
+      </Menu>
+    </>
   );
 }

@@ -67,9 +67,25 @@ jest.mock("../../components/PartnersManager", () => () => (
 jest.mock("../../components/Settings/Options", () => () => (
   <div>General options</div>
 ));
-jest.mock("../../components/Settings/Whitelabel", () => ({ settings }) => (
-  <div data-testid="branding-editor">{JSON.stringify(settings)}</div>
-));
+jest.mock(
+  "../../components/Settings/Whitelabel",
+  () =>
+    ({ settings, onSettingSaved }) => (
+      <div>
+        <div data-testid="branding-editor">{JSON.stringify(settings)}</div>
+        <button onClick={() => onSettingSaved("loginHeadline", "Frase salva")}>
+          Save headline
+        </button>
+        <button
+          onClick={() =>
+            onSettingSaved("appLogoLight", "branding/17/new-logo.png")
+          }
+        >
+          Save logo
+        </button>
+      </div>
+    )
+);
 jest.mock("../../components/Settings/PaymentGateway", () => () => (
   <div>Payment management</div>
 ));
@@ -192,7 +208,7 @@ it.each([
   }
 );
 
-it("keeps the branding editor reachable and reports a translated error when settings fail", async () => {
+it("keeps branding reachable but blocks editing after settings fail, then retries safely", async () => {
   mockGetAllSettings.mockRejectedValue(new Error("503 settings unavailable"));
   render(settingsPage());
   selectTab("loginExperience.brandTab");
@@ -202,29 +218,74 @@ it("keeps the branding editor reachable and reports a translated error when sett
       "loginExperience.settingsLoadError"
     )
   );
-  expect(JSON.parse(screen.getByTestId("branding-editor").textContent)).toEqual(
-    []
+  expect(screen.queryByTestId("branding-editor")).toBeNull();
+  expect(screen.getByRole("alert").textContent).toContain(
+    "loginExperience.settingsLoadError"
   );
   expect(
     screen.getByRole("tab", { name: "loginExperience.brandTab" })
   ).toBeTruthy();
+  mockGetAllSettings.mockResolvedValueOnce(brandingSettings);
+  fireEvent.click(
+    screen.getByRole("button", { name: "loginExperience.retrySettings" })
+  );
+  await screen.findByTestId("branding-editor");
+  expect(JSON.parse(screen.getByTestId("branding-editor").textContent)).toEqual(
+    brandingSettings
+  );
 });
 
-it("normalizes invalid settings responses without hiding branding or enabling schedules", async () => {
+it("treats invalid settings responses as a load error, not an empty configuration", async () => {
   mockGetAllSettings.mockResolvedValue({ error: "unexpected response" });
   render(settingsPage());
   selectTab("loginExperience.brandTab");
   await act(async () => {});
 
-  expect(JSON.parse(screen.getByTestId("branding-editor").textContent)).toEqual(
-    []
-  );
+  expect(screen.queryByTestId("branding-editor")).toBeNull();
+  expect(screen.getByRole("alert")).toBeTruthy();
   selectTab("centralConfig.atendimento");
   expect(
     screen.queryByRole("button", {
       name: /centralConfig.itens.horarios.titulo/
     })
   ).toBeNull();
+});
+
+it("does not mount an editable form while the first settings load is pending", async () => {
+  let resolveSettings;
+  mockGetAllSettings.mockImplementationOnce(
+    () =>
+      new Promise(resolve => {
+        resolveSettings = resolve;
+      })
+  );
+  render(settingsPage());
+  selectTab("loginExperience.brandTab");
+  expect(screen.getByRole("status").textContent).toBe(
+    "loginExperience.loading"
+  );
+  expect(screen.queryByTestId("branding-editor")).toBeNull();
+  await act(async () => resolveSettings(brandingSettings));
+  expect(JSON.parse(screen.getByTestId("branding-editor").textContent)).toEqual(
+    brandingSettings
+  );
+});
+
+it("retains saved text and uploaded logos when the branding tab is unmounted and reopened", async () => {
+  render(settingsPage());
+  selectTab("loginExperience.brandTab");
+  await screen.findByTestId("branding-editor");
+  fireEvent.click(screen.getByRole("button", { name: "Save headline" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save logo" }));
+  selectTab("centralConfig.equipe");
+  expect(screen.queryByTestId("branding-editor")).toBeNull();
+  selectTab("loginExperience.brandTab");
+  const values = JSON.parse(screen.getByTestId("branding-editor").textContent);
+  expect(values).toContainEqual({ key: "loginHeadline", value: "Frase salva" });
+  expect(values).toContainEqual({
+    key: "appLogoLight",
+    value: "branding/17/new-logo.png"
+  });
 });
 
 it.each([

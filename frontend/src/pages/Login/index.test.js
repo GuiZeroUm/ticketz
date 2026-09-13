@@ -116,6 +116,78 @@ test("identifies the email in its host tenant, then authenticates with the passw
   expect(auth.handlePasswordSetup).not.toHaveBeenCalled();
 });
 
+test("accepts email and password together but identifies the account before one-click login", async () => {
+  renderLogin();
+  expect(input("password").required).toBe(false);
+  expect(
+    screen.getByRole("button", { name: "login.buttons.continue" }).disabled
+  ).toBe(false);
+  fireEvent.change(input("email"), { target: { value: "person@example.com" } });
+  fireEvent.change(input("password"), { target: { value: "ExamplePass9" } });
+  api.post.mockResolvedValueOnce({ data: { proxima_etapa: "senha" } });
+  fireEvent.click(screen.getByRole("button", { name: "login.buttons.submit" }));
+  await waitFor(() =>
+    expect(auth.handleLogin).toHaveBeenCalledWith({
+      email: "person@example.com",
+      password: "ExamplePass9"
+    })
+  );
+  expect(api.post.mock.invocationCallOrder[0]).toBeLessThan(
+    auth.handleLogin.mock.invocationCallOrder[0]
+  );
+});
+
+test("an unsuccessful one-click login keeps both fields editable for correction", async () => {
+  auth.handleLogin.mockResolvedValue(undefined);
+  api.post.mockResolvedValueOnce({ data: { proxima_etapa: "senha" } });
+  renderLogin();
+  fireEvent.change(input("email"), { target: { value: "person@example.com" } });
+  fireEvent.change(input("password"), { target: { value: "Incorrect9" } });
+  fireEvent.submit(input("email").closest("form"));
+  await waitFor(() => expect(auth.handleLogin).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(input("email").disabled).toBe(false));
+  expect(input("password").disabled).toBe(false);
+  fireEvent.change(input("email"), {
+    target: { value: "corrected@example.com" }
+  });
+  expect(input("email").value).toBe("corrected@example.com");
+});
+
+test("an initial password never bypasses first-access setup", async () => {
+  renderLogin();
+  fireEvent.change(input("password"), { target: { value: "InitialPass9" } });
+  await enterEmail({
+    proxima_etapa: "criar_senha",
+    ativacao_token: "test-activation-token"
+  });
+  expect(auth.handleLogin).not.toHaveBeenCalled();
+  expect(input("newPassword").value).toBe("");
+  expect(input("confirmPassword").value).toBe("");
+  expect(auth.handlePasswordSetup).not.toHaveBeenCalled();
+});
+
+test("suppresses repeated submissions across one-click identify and authentication", async () => {
+  let resolveLogin;
+  api.post.mockResolvedValueOnce({ data: { proxima_etapa: "senha" } });
+  auth.handleLogin.mockImplementationOnce(
+    () =>
+      new Promise(resolve => {
+        resolveLogin = resolve;
+      })
+  );
+  renderLogin();
+  fireEvent.change(input("email"), { target: { value: "person@example.com" } });
+  fireEvent.change(input("password"), { target: { value: "ExamplePass9" } });
+  const form = input("email").closest("form");
+  fireEvent.submit(form);
+  fireEvent.submit(form);
+  await waitFor(() => expect(auth.handleLogin).toHaveBeenCalledTimes(1));
+  fireEvent.submit(form);
+  expect(api.post).toHaveBeenCalledTimes(1);
+  expect(auth.handleLogin).toHaveBeenCalledTimes(1);
+  await act(async () => resolveLogin());
+});
+
 test("omits slug on an unscoped host and allows changing email without retaining password", async () => {
   getCompanySlug.mockReturnValue(null);
   renderLogin();
@@ -279,4 +351,54 @@ test("rejects executable and malformed login footer links", () => {
       ])
     )
   ).toEqual([{ title: "Support", url: "https://example.com" }]);
+});
+
+test.each(["resolve", "reject"])(
+  "ignores identify completion after the login page unmounts (%s)",
+  async outcome => {
+    let finish;
+    api.post.mockImplementationOnce(
+      () =>
+        new Promise((resolve, reject) => {
+          finish = outcome === "resolve" ? resolve : reject;
+        })
+    );
+    const { unmount } = renderLogin();
+    fireEvent.change(input("email"), {
+      target: { value: "person@example.com" }
+    });
+    fireEvent.submit(input("email").closest("form"));
+    unmount();
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      await act(async () =>
+        finish(
+          outcome === "resolve"
+            ? { data: { proxima_etapa: "senha" } }
+            : new Error("Late response")
+        )
+      );
+      expect(errorSpy).not.toHaveBeenCalled();
+      expect(toastError).not.toHaveBeenCalled();
+    } finally {
+      errorSpy.mockRestore();
+    }
+  }
+);
+
+test("does not update login state after successful authentication navigates away", async () => {
+  const { unmount } = renderLogin();
+  await enterEmail();
+  auth.handleLogin.mockImplementationOnce(async () => {
+    unmount();
+  });
+  fireEvent.change(input("password"), { target: { value: "ExamplePass9" } });
+  const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+  try {
+    await act(async () => fireEvent.submit(input("password").closest("form")));
+    expect(auth.handleLogin).toHaveBeenCalledTimes(1);
+    expect(errorSpy).not.toHaveBeenCalled();
+  } finally {
+    errorSpy.mockRestore();
+  }
 });
