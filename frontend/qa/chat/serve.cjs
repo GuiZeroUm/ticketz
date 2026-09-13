@@ -12,11 +12,16 @@ webpack(
     mode: "development",
     devtool: false,
     context: base,
-    entry: path.join(__dirname, "index.js"),
+    entry: path.join(
+      __dirname,
+      process.env.QA_TICKETS ? "index.js" : "real-media.js"
+    ),
     output: { path: output, filename: "preview.js", publicPath: "/" },
     resolve: {
       extensions: [".js"],
       alias: {
+        "../services/config": path.join(__dirname, "config.js"),
+        "../../services/config": path.join(__dirname, "config.js"),
         "../../context/Auth/AuthContext": path.join(__dirname, "contexts.js"),
         "../../context/Tickets/TicketsContext": path.join(
           __dirname,
@@ -36,6 +41,10 @@ webpack(
             loader: require.resolve("babel-loader"),
             options: { presets: [require.resolve("babel-preset-react-app")] }
           }
+        },
+        {
+          test: /\.(png|jpe?g|gif|svg|mp3|ogg)$/i,
+          type: "asset/resource"
         },
         {
           test: /\.css$/,

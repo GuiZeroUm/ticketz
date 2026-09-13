@@ -19,6 +19,7 @@ function Player({ src }) {
   const [speed, setSpeed] = useState(1);
   const [ready, setReady] = useState(false);
   const [fallback, setFallback] = useState(false);
+  const [playbackError, setPlaybackError] = useState(false);
   const theme = useTheme();
   const primary = theme.palette.primary.main;
 
@@ -80,16 +81,24 @@ function Player({ src }) {
 
   const toggle = () => {
     if (playing) audio.current.pause();
-    else audio.current.play().catch(() => setFallback(true));
+    else {
+      if (playbackError) audio.current.load();
+      setPlaybackError(false);
+      audio.current.play().catch(() => setPlaybackError(true));
+    }
   };
 
   return (
-    <div className="voice-message" data-testid="voice-message">
+    <div
+      className="voice-message"
+      data-testid="voice-message"
+      style={{ "--ew-primary": primary }}
+    >
       <audio
         ref={audio}
         src={src}
         preload="none"
-        controls={fallback}
+        onError={() => setPlaybackError(true)}
         aria-label={i18n.t("chatExperience.audio")}
         onLoadedMetadata={() => setDuration(audio.current.duration)}
         onDurationChange={() => setDuration(audio.current.duration)}
@@ -103,60 +112,69 @@ function Player({ src }) {
           setPlaying(true);
         }}
       />
-      {!fallback && (
-        <div className="voice-player">
-          <button
-            type="button"
-            className="voice-play ew-button"
-            onClick={toggle}
-            aria-label={i18n.t(
-              playing ? "chatExperience.pause" : "chatExperience.play"
-            )}
-          >
-            {playing ? <Pause size={18} /> : <Play size={18} />}
-          </button>
-          <div className="voice-track">
-            <div ref={waveform} className="voice-wave" aria-hidden="true" />
-            {!ready && (
-              <span className="voice-loading">
-                {i18n.t("chatExperience.loadingAudio")}
-              </span>
-            )}
-            <input
-              type="range"
-              min="0"
-              max={Number.isFinite(duration) ? duration : 0}
-              step="0.1"
-              value={time}
-              disabled={!duration}
-              aria-label={i18n.t("chatExperience.seek")}
-              aria-valuetext={audioTime(time)}
-              onChange={event => {
-                audio.current.currentTime = Number(event.target.value);
-                setTime(Number(event.target.value));
+      <div className="voice-player">
+        <button
+          type="button"
+          className="voice-play ew-button"
+          onClick={toggle}
+          aria-label={i18n.t(
+            playing ? "chatExperience.pause" : "chatExperience.play"
+          )}
+        >
+          {playing ? <Pause size={18} /> : <Play size={18} />}
+        </button>
+        <div className="voice-track">
+          <div
+            ref={waveform}
+            className={`voice-wave${fallback ? " voice-wave-unavailable" : ""}`}
+            aria-hidden="true"
+          />
+          {!ready && !fallback && !playbackError && (
+            <span className="voice-loading">
+              {i18n.t("chatExperience.loadingAudio")}
+            </span>
+          )}
+          <input
+            type="range"
+            min="0"
+            max={Number.isFinite(duration) ? duration : 0}
+            step="0.1"
+            value={time}
+            disabled={!Number.isFinite(duration) || !duration}
+            aria-label={i18n.t("chatExperience.seek")}
+            aria-valuetext={audioTime(time)}
+            onChange={event => {
+              audio.current.currentTime = Number(event.target.value);
+              setTime(Number(event.target.value));
+            }}
+          />
+          <div className="voice-meta">
+            <span>
+              <Mic size={11} />
+              {audioTime(time)} / {audioTime(duration)}
+            </span>
+            <button
+              type="button"
+              aria-label={i18n.t("chatExperience.speed")}
+              onClick={() => {
+                const next = speed === 1 ? 1.5 : speed === 1.5 ? 2 : 1;
+                audio.current.playbackRate = next;
+                setSpeed(next);
               }}
-            />
-            <div className="voice-meta">
-              <span>
-                <Mic size={11} />
-                {audioTime(time)} / {audioTime(duration)}
-              </span>
-              <button
-                type="button"
-                aria-label={i18n.t("chatExperience.speed")}
-                onClick={() => {
-                  const next = speed === 1 ? 1.5 : speed === 1.5 ? 2 : 1;
-                  audio.current.playbackRate = next;
-                  setSpeed(next);
-                }}
-              >
-                {speed}×
-              </button>
-            </div>
+            >
+              {speed}×
+            </button>
           </div>
         </div>
+      </div>
+      {playbackError && (
+        <small role="status">
+          {i18n.t("chatExperience.audioError")}{" "}
+          <a href={src} target="_blank" rel="noreferrer">
+            {i18n.t("chatExperience.downloadAudio")}
+          </a>
+        </small>
       )}
-      {fallback && <small>{i18n.t("chatExperience.audioFallback")}</small>}
     </div>
   );
 }

@@ -56,11 +56,26 @@ test("does not autoplay, changes speed, seeks and releases media", async () => {
   result.unmount();
   expect(mockDestroy).toHaveBeenCalled();
 });
-test("keeps native playback available if waveform cannot load", async () => {
+test("keeps custom playback, seek and speed if waveform cannot load", async () => {
   mockLoad.mockRejectedValueOnce(new Error("CORS"));
   await act(async () => {
     render(<AudioMessage src="/cors-audio.ogg" />);
   });
-  expect(screen.getByLabelText("chatExperience.audio").controls).toBe(true);
-  expect(screen.getByText("chatExperience.audioFallback")).toBeTruthy();
+  const media = screen.getByLabelText("chatExperience.audio");
+  expect(media.controls).toBe(false);
+  expect(screen.getByRole("slider")).toBeTruthy();
+  expect(screen.getByLabelText("chatExperience.speed")).toBeTruthy();
+  await act(async () =>
+    fireEvent.click(screen.getByLabelText("chatExperience.play"))
+  );
+  expect(media.play).toHaveBeenCalled();
+  expect(screen.queryByRole("status")).toBeNull();
+});
+test("reports an actual playback error and offers the original download", async () => {
+  await act(async () => render(<AudioMessage src="/missing.mp3" />));
+  fireEvent.error(screen.getByLabelText("chatExperience.audio"));
+  expect(screen.getByRole("status").textContent).toContain(
+    "chatExperience.audioError"
+  );
+  expect(screen.getByRole("link").getAttribute("href")).toBe("/missing.mp3");
 });
