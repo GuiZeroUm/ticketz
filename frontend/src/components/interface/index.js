@@ -6,6 +6,7 @@ import { useTheme } from "@material-ui/core/styles";
 import { X } from "lucide-react";
 import { i18n } from "../../translate/i18n";
 import "./interface.css";
+import "./motion.css";
 
 export const useIdentidade = () => {
   const theme = useTheme();

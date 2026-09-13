@@ -9,6 +9,7 @@ import {
   Paper
 } from "@material-ui/core";
 import AvatarUsuario from "../../components/AvatarUsuario";
+import AudioMessage from "../../components/AudioMessage";
 import { i18n } from "../../translate/i18n";
 import SendIcon from "@material-ui/icons/Send";
 
@@ -342,11 +343,7 @@ export default function ChatMessages({
       );
     }
     if (message.mediaType === "audio") {
-      return (
-        <audio controls>
-          <source src={mediaUrl}></source>
-        </audio>
-      );
+      return <AudioMessage src={mediaUrl} />;
     }
 
     if (message.mediaType === "video") {
