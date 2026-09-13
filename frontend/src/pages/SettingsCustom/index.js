@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import CentralConfiguracoes from "../../components/Settings/CentralConfiguracoes";
 import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
@@ -23,7 +23,7 @@ import { i18n } from "../../translate/i18n.js";
 import { toast } from "react-toastify";
 
 import useCompanies from "../../hooks/useCompanies";
-import useAuth from "../../hooks/useAuth.js";
+import { AuthContext } from "../../context/Auth/AuthContext";
 import useSettings from "../../hooks/useSettings";
 
 import OnlyForSuperUser from "../../components/OnlyForSuperUser";
@@ -78,49 +78,62 @@ const SettingsCustom = () => {
   const [schedules, setSchedules] = useState({});
   const [company, setCompany] = useState({});
   const [loading, setLoading] = useState(false);
-  const [currentUser, setCurrentUser] = useState({});
-  const [settings, setSettings] = useState({});
+  const { user: currentUser = {} } = useContext(AuthContext);
+  const [settings, setSettings] = useState([]);
   const [schedulesEnabled, setSchedulesEnabled] = useState(false);
   const [voiceAvailable, setVoiceAvailable] = useState(false);
 
-  const { getCurrentUserInfo } = useAuth();
   const { find, updateSchedules } = useCompanies();
   const { getAll: getAllSettings } = useSettings();
 
   useEffect(() => {
+    let active = true;
     async function findData() {
       setLoading(true);
-      try {
-        const companyId = localStorage.getItem("companyId");
-        const company = await find(companyId);
-        const settingList = await getAllSettings();
-        setCompany(company);
-        setSchedules(company.schedules);
-        setSettings(settingList);
-
-        if (Array.isArray(settingList)) {
-          const scheduleType = settingList.find(d => d.key === "scheduleType");
-          if (scheduleType) {
-            setSchedulesEnabled(scheduleType.value === "company");
-          }
-        }
-
-        const user = await getCurrentUserInfo();
-        setCurrentUser(user);
-      } catch (e) {
-        toast.error(e);
+      const [companyResult, settingsResult] = await Promise.allSettled([
+        find(currentUser.companyId || localStorage.getItem("companyId")),
+        getAllSettings()
+      ]);
+      if (!active) return;
+      if (companyResult.status === "fulfilled") {
+        setCompany(companyResult.value);
+        setSchedules(companyResult.value.schedules);
+      }
+      if (settingsResult.status === "fulfilled") {
+        const list = Array.isArray(settingsResult.value)
+          ? settingsResult.value
+          : [];
+        setSettings(list);
+        setSchedulesEnabled(
+          list.some(
+            item => item.key === "scheduleType" && item.value === "company"
+          )
+        );
+      } else {
+        toast.error(i18n.t("loginExperience.settingsLoadError"));
       }
       setLoading(false);
     }
     findData();
+    return () => {
+      active = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
+    let active = true;
     api
       .get("/voice/connections")
-      .then(() => setVoiceAvailable(true))
-      .catch(() => setVoiceAvailable(false));
+      .then(() => {
+        if (active) setVoiceAvailable(true);
+      })
+      .catch(() => {
+        if (active) setVoiceAvailable(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const atualizarConfiguracoes = async () => {
@@ -211,7 +224,7 @@ const SettingsCustom = () => {
         )}
       </TabPanel>
       <TabPanel className={classes.container} value={tab} name={"whitelabel"}>
-        <Whitelabel settings={settings} />
+        {isAdmin() && <Whitelabel settings={settings} />}
       </TabPanel>
       <TabPanel className={classes.container} value={tab} name={"voiceCalls"}>
         <VoiceSettings />
