@@ -37,9 +37,10 @@ class User extends Model<User> {
   @Column
   email: string;
 
-  @Column(DataType.STRING)
+  @Column(DataType.TEXT)
   get profilePicUrl(): string | null {
     const arquivo = this.getDataValue("profilePicUrl");
+    if (arquivo?.startsWith("https://")) return arquivo;
     return arquivo ? `${process.env.BACKEND_URL}/public/${arquivo}` : null;
   }
 

@@ -40,6 +40,7 @@ export interface SignInPageProps {
   hero?: React.ReactNode;
   footer?: React.ReactNode;
   registration?: React.ReactNode;
+  authContent?: React.ReactNode;
   dark?: boolean;
   style?: React.CSSProperties;
   className?: string;
@@ -142,6 +143,7 @@ export function SignInPage({
   hero,
   footer,
   registration,
+  authContent,
   dark = false,
   style,
   className = "",
@@ -249,176 +251,184 @@ export function SignInPage({
               <p className="animate-element animate-delay-200 text-muted-foreground">
                 {description ?? i18n.t("loginExperience.emailHint")}
               </p>
-              <form
-                className="space-y-5"
-                aria-label={i18n.t("login.title")}
-                aria-busy={busy}
-                onSubmit={event => {
-                  event.preventDefault();
-                  if (!busy && !submitDisabled) onSignIn?.(event);
-                }}
-              >
-                {step === "email" ? (
-                  <div className="animate-element animate-delay-300">
-                    <label
-                      htmlFor="email"
-                      className="text-sm font-medium text-muted-foreground"
-                    >
-                      {label("email", "login.form.email")}
-                    </label>
-                    <GlassInputWrapper>
-                      <input
-                        id="email"
-                        name="email"
-                        type="email"
-                        placeholder={label("email", "login.form.email")}
-                        className={inputClass}
-                        value={values?.email}
-                        onChange={onFieldChange}
-                        autoComplete="username"
-                        required
-                        disabled={busy}
-                      />
-                    </GlassInputWrapper>
-                  </div>
-                ) : (
-                  <div className="animate-element animate-delay-300 flex flex-wrap items-center justify-between gap-2 text-sm">
-                    <span className="break-all">{values?.email}</span>
-                    {onChangeEmail && (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        className="text-primary hover:underline disabled:opacity-50"
-                        onClick={() => {
-                          setShowPassword(false);
-                          onChangeEmail();
-                        }}
-                      >
-                        {label("changeEmail", "login.buttons.changeEmail")}
-                      </button>
-                    )}
-                  </div>
-                )}
-                {step === "createPassword" ? (
-                  <>
-                    {passwordField("newPassword", true, "animate-delay-400")}
-                    {passwordField(
-                      "confirmPassword",
-                      true,
-                      "animate-delay-500"
-                    )}
-                  </>
-                ) : (
-                  passwordField(
-                    "password",
-                    step === "password",
-                    "animate-delay-400"
-                  )
-                )}
-                {step === "email" && (
-                  <p className="animate-element animate-delay-500 text-xs text-muted-foreground">
-                    {label(
-                      "firstAccessHint",
-                      "loginExperience.firstAccessHint"
-                    )}
-                  </p>
-                )}
-                {(onRememberMeChange || onResetPassword) && (
-                  <div className="animate-element animate-delay-500 flex items-center justify-between gap-4 text-sm">
-                    {onRememberMeChange && (
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          name="rememberMe"
-                          checked={rememberMe}
-                          onChange={onRememberMeChange}
-                          disabled={busy}
-                        />
-                        {label(
-                          "rememberEmail",
-                          "loginExperience.rememberEmail"
-                        )}
-                      </label>
-                    )}
-                    {onResetPassword && (
-                      <button
-                        type="button"
-                        onClick={onResetPassword}
-                        disabled={busy}
-                        className="text-primary hover:underline"
-                      >
-                        {label(
-                          "resetPassword",
-                          "loginExperience.resetPassword"
-                        )}
-                      </button>
-                    )}
-                  </div>
-                )}
-                {error && (
-                  <p
-                    role="alert"
-                    className="rounded-2xl bg-red-50 p-4 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-200"
+              {authContent ?? (
+                <>
+                  <form
+                    className="space-y-5"
+                    aria-label={i18n.t("login.title")}
+                    aria-busy={busy}
+                    onSubmit={event => {
+                      event.preventDefault();
+                      if (!busy && !submitDisabled) onSignIn?.(event);
+                    }}
                   >
-                    {error}
-                  </p>
-                )}
-                <button
-                  type="submit"
-                  disabled={busy || submitDisabled}
-                  className="animate-element animate-delay-600 w-full rounded-2xl bg-primary py-4 font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {busy
-                    ? label("loading", "loginExperience.loading")
-                    : (submitLabel ?? i18n.t("login.buttons.submit"))}
-                </button>
-              </form>
-              <div className="animate-element animate-delay-700 relative flex items-center justify-center">
-                <span className="w-full border-t border-border" />
-                <span className="px-4 text-sm text-muted-foreground bg-background absolute">
-                  {label("socialDivider", "loginExperience.socialDivider")}
-                </span>
-              </div>
-              <div
-                className="grid grid-cols-1 sm:grid-cols-3 gap-3"
-                aria-describedby={
-                  socialUnavailable ? "social-coming-soon" : undefined
-                }
-              >
-                {providers.map(provider => (
-                  <button
-                    key={provider.name}
-                    type="button"
-                    onClick={provider.action}
-                    disabled={busy || !provider.action}
-                    className="animate-element animate-delay-800 w-full flex items-center justify-center gap-3 border border-border rounded-2xl py-4 text-sm hover:bg-secondary transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {provider.icon}
-                    {provider.name}
-                  </button>
-                ))}
-              </div>
-              {socialUnavailable && (
-                <p
-                  id="social-coming-soon"
-                  className="animate-element animate-delay-900 text-center text-xs text-muted-foreground"
-                >
-                  {label("socialSoon", "loginExperience.socialSoon")}
-                </p>
-              )}
-              {registration ??
-                (onCreateAccount && (
-                  <p className="animate-element animate-delay-900 text-center text-sm text-muted-foreground">
+                    {step === "email" ? (
+                      <div className="animate-element animate-delay-300">
+                        <label
+                          htmlFor="email"
+                          className="text-sm font-medium text-muted-foreground"
+                        >
+                          {label("email", "login.form.email")}
+                        </label>
+                        <GlassInputWrapper>
+                          <input
+                            id="email"
+                            name="email"
+                            type="email"
+                            placeholder={label("email", "login.form.email")}
+                            className={inputClass}
+                            value={values?.email}
+                            onChange={onFieldChange}
+                            autoComplete="username"
+                            required
+                            disabled={busy}
+                          />
+                        </GlassInputWrapper>
+                      </div>
+                    ) : (
+                      <div className="animate-element animate-delay-300 flex flex-wrap items-center justify-between gap-2 text-sm">
+                        <span className="break-all">{values?.email}</span>
+                        {onChangeEmail && (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            className="text-primary hover:underline disabled:opacity-50"
+                            onClick={() => {
+                              setShowPassword(false);
+                              onChangeEmail();
+                            }}
+                          >
+                            {label("changeEmail", "login.buttons.changeEmail")}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {step === "createPassword" ? (
+                      <>
+                        {passwordField(
+                          "newPassword",
+                          true,
+                          "animate-delay-400"
+                        )}
+                        {passwordField(
+                          "confirmPassword",
+                          true,
+                          "animate-delay-500"
+                        )}
+                      </>
+                    ) : (
+                      passwordField(
+                        "password",
+                        step === "password",
+                        "animate-delay-400"
+                      )
+                    )}
+                    {step === "email" && (
+                      <p className="animate-element animate-delay-500 text-xs text-muted-foreground">
+                        {label(
+                          "firstAccessHint",
+                          "loginExperience.firstAccessHint"
+                        )}
+                      </p>
+                    )}
+                    {(onRememberMeChange || onResetPassword) && (
+                      <div className="animate-element animate-delay-500 flex items-center justify-between gap-4 text-sm">
+                        {onRememberMeChange && (
+                          <label className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              name="rememberMe"
+                              checked={rememberMe}
+                              onChange={onRememberMeChange}
+                              disabled={busy}
+                            />
+                            {label(
+                              "rememberEmail",
+                              "loginExperience.rememberEmail"
+                            )}
+                          </label>
+                        )}
+                        {onResetPassword && (
+                          <button
+                            type="button"
+                            onClick={onResetPassword}
+                            disabled={busy}
+                            className="text-primary hover:underline"
+                          >
+                            {label(
+                              "resetPassword",
+                              "loginExperience.resetPassword"
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {error && (
+                      <p
+                        role="alert"
+                        className="rounded-2xl bg-red-50 p-4 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-200"
+                      >
+                        {error}
+                      </p>
+                    )}
                     <button
-                      type="button"
-                      onClick={onCreateAccount}
-                      disabled={busy}
-                      className="text-primary hover:underline"
+                      type="submit"
+                      disabled={busy || submitDisabled}
+                      className="animate-element animate-delay-600 w-full rounded-2xl bg-primary py-4 font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      {label("createAccount", "login.buttons.register")}
+                      {busy
+                        ? label("loading", "loginExperience.loading")
+                        : (submitLabel ?? i18n.t("login.buttons.submit"))}
                     </button>
-                  </p>
-                ))}
+                  </form>
+                  <div className="animate-element animate-delay-700 relative flex items-center justify-center">
+                    <span className="w-full border-t border-border" />
+                    <span className="px-4 text-sm text-muted-foreground bg-background absolute">
+                      {label("socialDivider", "loginExperience.socialDivider")}
+                    </span>
+                  </div>
+                  <div
+                    className="grid grid-cols-1 sm:grid-cols-3 gap-3"
+                    aria-describedby={
+                      socialUnavailable ? "social-coming-soon" : undefined
+                    }
+                  >
+                    {providers.map(provider => (
+                      <button
+                        key={provider.name}
+                        type="button"
+                        onClick={provider.action}
+                        disabled={busy || !provider.action}
+                        className="animate-element animate-delay-800 w-full flex items-center justify-center gap-3 border border-border rounded-2xl py-4 text-sm hover:bg-secondary transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {provider.icon}
+                        {provider.name}
+                      </button>
+                    ))}
+                  </div>
+                  {socialUnavailable && (
+                    <p
+                      id="social-coming-soon"
+                      className="animate-element animate-delay-900 text-center text-xs text-muted-foreground"
+                    >
+                      {label("socialSoon", "loginExperience.socialSoon")}
+                    </p>
+                  )}
+                  {registration ??
+                    (onCreateAccount && (
+                      <p className="animate-element animate-delay-900 text-center text-sm text-muted-foreground">
+                        <button
+                          type="button"
+                          onClick={onCreateAccount}
+                          disabled={busy}
+                          className="text-primary hover:underline"
+                        >
+                          {label("createAccount", "login.buttons.register")}
+                        </button>
+                      </p>
+                    ))}
+                </>
+              )}
               {footer}
             </div>
           </div>

@@ -91,8 +91,11 @@
     "start": "craco start",
     "legacy": "craco start",
     "build": "GENERATE_SOURCEMAP=false craco build",
+    "postbuild": "node scripts/precompress.cjs",
     "builddev": "craco build",
+    "postbuilddev": "node scripts/precompress.cjs",
     "winBuild": "set \"GENERATE_SOURCEMAP=false\" && craco build",
+    "postwinBuild": "node scripts/precompress.cjs",
     "test": "craco test",
     "typecheck": "tsc --noEmit --project tsconfig.json",
     "eject": "react-scripts eject"

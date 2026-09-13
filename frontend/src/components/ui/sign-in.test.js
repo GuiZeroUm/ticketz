@@ -12,6 +12,29 @@ const values = {
 };
 const getInput = field => screen.getByLabelText(`login.form.${field}`);
 
+test("only configured Google is enabled while Apple and Microsoft remain unavailable", () => {
+  const onGoogleSignIn = jest.fn();
+  render(<SignInPage onGoogleSignIn={onGoogleSignIn} />);
+  expect(screen.getByRole("button", { name: "Google" }).disabled).toBe(false);
+  expect(screen.getByRole("button", { name: "Apple" }).disabled).toBe(true);
+  expect(screen.getByRole("button", { name: "Microsoft" }).disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Google" }));
+  expect(onGoogleSignIn).toHaveBeenCalledTimes(1);
+});
+
+test("custom OAuth continuation preserves shell and replaces password/social forms", () => {
+  render(
+    <SignInPage
+      toolbar={<span>Espaço Whats</span>}
+      authContent={<div>Legal consent</div>}
+    />
+  );
+  expect(screen.getByText("Espaço Whats")).toBeTruthy();
+  expect(screen.getByText("Legal consent")).toBeTruthy();
+  expect(screen.queryByLabelText("login.form.email")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Google" })).toBeNull();
+});
+
 test("renders translated native fields with accessible labels and optional initial password", () => {
   render(<SignInPage />);
   expect(screen.getByRole("main")).toBeTruthy();

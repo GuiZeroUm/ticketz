@@ -23,6 +23,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@clerk/backend": "3.17.2",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@flystorage/file-storage": "^1.1.0",
     "@flystorage/local-fs": "^1.1.0",

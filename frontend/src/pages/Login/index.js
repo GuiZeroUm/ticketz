@@ -6,6 +6,7 @@ import { i18n } from "../../translate/i18n";
 import { messages } from "../../translate/languages";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import useSettings from "../../hooks/useSettings";
+import useGoogleLogin from "../../hooks/useGoogleLogin";
 import ColorModeContext from "../../layout/themeContext";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
@@ -51,7 +52,9 @@ const settingKeys = [
 export default function Login() {
   const theme = useTheme();
   const { colorMode } = useContext(ColorModeContext);
-  const { handleLogin, handlePasswordSetup, loading } = useContext(AuthContext);
+  const { handleLogin, handlePasswordSetup, handleSocialLogin, loading } =
+    useContext(AuthContext);
+  const google = useGoogleLogin(handleSocialLogin);
   const { getPublicSetting } = useSettings();
   const [branding, setBranding] = useState({});
   const [langMenuAnchor, setLangMenuAnchor] = useState(null);
@@ -70,7 +73,7 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
   const submitting = useRef(false);
   const mounted = useRef(true);
-  const disabled = loading || busy;
+  const disabled = loading || busy || google.busy;
 
   useEffect(() => {
     let active = true;
@@ -151,14 +154,12 @@ export default function Login() {
           setFormError(i18n.t("login.errors.passwordMismatch"));
           return;
         }
-        if (
-          !(
-            user.newPassword.length >= 8 &&
-            /[a-z]/.test(user.newPassword) &&
-            /[A-Z]/.test(user.newPassword) &&
-            /[0-9]/.test(user.newPassword)
-          )
-        ) {
+        if (!(
+          user.newPassword.length >= 8 &&
+          /[a-z]/.test(user.newPassword) &&
+          /[A-Z]/.test(user.newPassword) &&
+          /[0-9]/.test(user.newPassword)
+        )) {
           setFormError(i18n.t("login.errors.passwordStrength"));
           return;
         }
@@ -224,21 +225,99 @@ export default function Login() {
               : "0 0% 9%",
           "--login-accent": accent
         }}
-        title={title}
-        description={i18n.t(
-          step === "email"
-            ? "loginExperience.emailHint"
-            : step === "password"
-              ? "loginExperience.passwordHint"
-              : "loginExperience.setupHint"
-        )}
+        title={google.callback ? i18n.t("socialLogin.title") : title}
+        description={
+          google.callback
+            ? i18n.t("socialLogin.description")
+            : i18n.t(
+                step === "email"
+                  ? "loginExperience.emailHint"
+                  : step === "password"
+                    ? "loginExperience.passwordHint"
+                    : "loginExperience.setupHint"
+              )
+        }
         step={step}
         values={user}
         onFieldChange={handleChangeInput}
         onChangeEmail={handleChangeEmail}
         onSignIn={handleSubmit}
+        onGoogleSignIn={google.ready ? google.start : undefined}
+        authContent={
+          google.callback ? (
+            <div className="space-y-5" aria-busy={google.busy}>
+              {google.busy && (
+                <p role="status" className="text-muted-foreground">
+                  {i18n.t("socialLogin.loading")}
+                </p>
+              )}
+              {google.error && (
+                <p
+                  role="alert"
+                  className="rounded-2xl bg-red-50 p-4 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-200"
+                >
+                  {google.error}
+                </p>
+              )}
+              {google.legal && (
+                <form onSubmit={google.accept} className="space-y-5">
+                  <p className="text-sm text-muted-foreground">
+                    {i18n.t("socialLogin.legalDescription")}
+                  </p>
+                  <label className="flex items-start gap-3 text-sm">
+                    <input
+                      type="checkbox"
+                      required
+                      checked={google.accepted}
+                      disabled={google.busy}
+                      onChange={event =>
+                        google.setAccepted(event.target.checked)
+                      }
+                      className="mt-1 accent-orange-600"
+                    />
+                    <span>
+                      {i18n.t("socialLogin.accept")}{" "}
+                      <a
+                        className="text-primary underline"
+                        href="https://espacowhats.com.br/termos/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {i18n.t("socialLogin.terms")}
+                      </a>{" "}
+                      {i18n.t("socialLogin.and")}{" "}
+                      <a
+                        className="text-primary underline"
+                        href="https://espacowhats.com.br/privacidade/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {i18n.t("socialLogin.privacy")}
+                      </a>
+                      .
+                    </span>
+                  </label>
+                  <button
+                    type="submit"
+                    disabled={!google.accepted || google.busy}
+                    className="w-full rounded-2xl bg-primary py-4 font-medium text-primary-foreground disabled:opacity-60"
+                  >
+                    {i18n.t("login.buttons.continue")}
+                  </button>
+                </form>
+              )}
+              <div id="clerk-captcha" />
+              <RouterLink
+                to="/login"
+                className="inline-block text-sm text-primary hover:underline"
+              >
+                {i18n.t("socialLogin.back")}
+              </RouterLink>
+            </div>
+          ) : undefined
+        }
         busy={disabled}
-        error={formError}
+        error={formError || google.error}
         submitDisabled={
           (step === "password" && !user.password) ||
           (step === "createPassword" &&

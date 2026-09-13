@@ -53,6 +53,7 @@ const Routes = () => {
       <AuthProvider>
         <TicketsContextProvider>
           <Switch>
+            <RouterRoute path="/login/google/:stage" component={Login} />
             <Route exact path="/login" component={Login} />
             <Route exact path="/signup" component={Signup} />
             <RouterRoute exact path="/sso/:token" component={PlatformAccess} />
