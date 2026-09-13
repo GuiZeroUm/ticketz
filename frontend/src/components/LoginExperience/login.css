@@ -69,15 +69,24 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(180deg, #15151520, #15151588 42%, #15151599);
+  background: linear-gradient(180deg, #ffffff70, #ffffffc2 42%, #ffffffad);
 }
 .login-brand-panel--reveal {
+  --login-ink: #242426;
+  --login-muted: #4f4f55;
+}
+.login-brand-panel--reveal[data-theme="dark"] {
   --login-ink: #fff;
   --login-muted: #f0eeee;
+}
+.login-brand-panel--reveal[data-theme="dark"] .login-reveal-shade {
+  background: linear-gradient(180deg, #15151520, #15151588 42%, #15151599);
 }
 .login-brand-panel--reveal .login-brand-content {
   pointer-events: none;
   padding-left: 64px;
+}
+.login-brand-panel--reveal[data-theme="dark"] .login-brand-content {
   text-shadow: 0 2px 14px #0005;
 }
 .login-brand-grid,

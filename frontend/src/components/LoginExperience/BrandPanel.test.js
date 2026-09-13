@@ -168,15 +168,17 @@ test("keeps a static editor preview visible on mobile without enabling the inter
 });
 
 test.each([
-  ["light", "", false],
-  ["dark", "", false],
-  ["light", "background.png", false],
-  ["dark", "background.png", false],
-  ["light", "background.png", true],
-  ["dark", "background.png", true]
+  ["light", "", false, "light.png", "light"],
+  ["dark", "", false, "dark.png", "dark"],
+  ["light", "background.png", false, "light.png", "light"],
+  ["dark", "background.png", false, "dark.png", "dark"],
+  ["light", "", true, "light.png", "light"],
+  ["dark", "", true, "light.png", "light"],
+  ["light", "background.png", true, "light.png", "light"],
+  ["dark", "background.png", true, "light.png", "light"]
 ])(
-  "keeps the image surface dark and chooses its dark logo regardless of app theme (%s, %s, preview=%s)",
-  (mode, background, preview) => {
+  "matches the image surface and logo to the app theme while keeping editor previews light (%s, %s, preview=%s)",
+  (mode, background, preview, logo, surface) => {
     useTheme.mockReturnValue({ palette: { type: mode } });
     render(
       <BrandPanel
@@ -191,7 +193,8 @@ test.each([
     );
     expect(
       screen.getByRole("img", { name: "Tenant" }).getAttribute("src")
-    ).toBe("https://test.example/backend/public/dark.png");
+    ).toBe(`https://test.example/backend/public/${logo}`);
+    expect(screen.getByRole("complementary").dataset.theme).toBe(surface);
     expect(screen.getByRole("complementary").className).toContain(
       "login-brand-panel--reveal"
     );
@@ -216,7 +219,7 @@ test("turns off the interactive image immediately when reduced motion is enabled
   expect(screen.getByRole("complementary").dataset.animated).toBe("false");
 });
 
-test("the actual reveal stylesheet keeps white ink on both light and dark app themes", () => {
+test("the actual reveal stylesheet uses dark ink on light surfaces and white ink on dark surfaces", () => {
   const style = document.createElement("style");
   style.textContent = readFileSync(path.join(__dirname, "login.css"), "utf8");
   document.head.appendChild(style);
@@ -226,7 +229,7 @@ test("the actual reveal stylesheet keeps white ink on both light and dark app th
       getComputedStyle(screen.getByRole("complementary"))
         .getPropertyValue("--login-ink")
         .trim()
-    ).toBe("#fff");
+    ).toBe("#242426");
     useTheme.mockReturnValue({ palette: { type: "dark" } });
     rerender(<BrandPanel />);
     expect(
@@ -234,6 +237,13 @@ test("the actual reveal stylesheet keeps white ink on both light and dark app th
         .getPropertyValue("--login-ink")
         .trim()
     ).toBe("#fff");
+    rerender(<BrandPanel preview />);
+    expect(screen.getByRole("complementary").dataset.theme).toBe("light");
+    expect(
+      getComputedStyle(screen.getByRole("complementary"))
+        .getPropertyValue("--login-ink")
+        .trim()
+    ).toBe("#242426");
   } finally {
     style.remove();
   }

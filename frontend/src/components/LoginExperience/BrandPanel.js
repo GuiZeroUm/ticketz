@@ -35,7 +35,7 @@ export default function BrandPanel({ settings = {}, preview = false }) {
   const media = settings.loginSidePanelImage || settings.loginBackgroundContent;
   const video = /\.(mp4|webm|ogg)$/i.test(media || "");
   const reveal = !video;
-  const darkSurface = reveal || (!preview && theme.palette.type === "dark");
+  const darkSurface = !preview && theme.palette.type === "dark";
   const logo = publicBrandAsset(
     darkSurface
       ? settings.appLogoDark || settings.appLogoLight
@@ -47,6 +47,7 @@ export default function BrandPanel({ settings = {}, preview = false }) {
       className={`login-brand-panel${preview ? " login-brand-panel--preview" : ""}${reveal ? " login-brand-panel--reveal" : ""}`}
       data-animated={animated}
       data-custom-media={Boolean(media)}
+      data-theme={darkSurface ? "dark" : "light"}
       aria-label={i18n.t("loginExperience.brandPanel")}
     >
       <div className="login-brand-grid" aria-hidden="true" />
