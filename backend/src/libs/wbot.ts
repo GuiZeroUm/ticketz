@@ -40,6 +40,7 @@ import ShowTicketService from "../services/TicketServices/ShowTicketService";
 import GetTicketWbot from "../helpers/GetTicketWbot";
 import { getJidOf } from "../services/WbotServices/getJidOf";
 import WhatsappLidMap from "../models/WhatsappLidMap";
+import { sendWhatsappUpdate } from "../services/WhatsappService/SocketSendWhatsappUpdate";
 import { reach } from "yup";
 import crypto from "crypto";
 
@@ -491,6 +492,7 @@ export const initWASocket = async (
                   session: whatsapp
                 }
               );
+              sendWhatsappUpdate(whatsapp);
 
               await checkWbotDuplicity.runExclusive(async () => {
                 const sessionIndex = sessions.findIndex(

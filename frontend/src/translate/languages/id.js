@@ -491,6 +491,7 @@ const messages = {
           retry: "Coba Lagi"
         },
         table: {
+          contact: "Kontak",
           name: "Nama",
           status: "Status",
           lastUpdate: "Pembaruan Terakhir",
@@ -1254,10 +1255,25 @@ const messages = {
       },
       users: {
         title: "Pengguna",
+        empty: "Tidak ada pengguna yang ditemukan.",
+        filters: {
+          queue: "Antrian",
+          allQueues: "Semua antrian"
+        },
+        profiles: {
+          admin: "Administrator",
+          user: "Pengguna"
+        },
+        groups: {
+          admin: "Administrator",
+          user: "Pengguna"
+        },
         table: {
           name: "Nama",
           email: "Email",
           profile: "Profil",
+          queues: "Antrian",
+          noQueues: "Tanpa antrian",
           actions: "Aksi"
         },
         buttons: {
