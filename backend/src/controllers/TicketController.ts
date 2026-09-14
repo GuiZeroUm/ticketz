@@ -13,6 +13,7 @@ import GetTicketTransferOptionsService from "../services/TicketServices/GetTicke
 import ListTicketsServiceKanban from "../services/TicketServices/ListTicketsServiceKanban";
 import { assertGroupAccess } from "../services/WhatsappGroupServices/GroupAccessService";
 import AppError from "../errors/AppError";
+import { unassignedTicketRoom } from "../helpers/TicketSocketRooms";
 
 type IndexQuery = {
   isSearch?: string;
@@ -176,12 +177,16 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   });
 
   const io = getIO();
-  io.to(`company-${companyId}-${ticket.status}`)
-    .to(`queue-${ticket.queueId}-${ticket.status}`)
-    .emit(`company-${companyId}-ticket`, {
-      action: "update",
-      ticket
-    });
+  let recipients = io
+    .to(`company-${companyId}-${ticket.status}`)
+    .to(`queue-${ticket.queueId}-${ticket.status}`);
+  if (ticket.queueId === null) {
+    recipients = recipients.to(unassignedTicketRoom(companyId, ticket.status));
+  }
+  recipients.emit(`company-${companyId}-ticket`, {
+    action: "update",
+    ticket
+  });
 
   return res.status(200).json(ticket);
 };
@@ -281,15 +286,21 @@ export const remove = async (
   const ticket = await DeleteTicketService(ticketId);
 
   const io = getIO();
-  io.to(ticketId)
+  let recipients = io
+    .to(ticketId)
     .to(`company-${companyId}-${ticket.status}`)
     .to(`company-${companyId}-notification`)
     .to(`queue-${ticket.queueId}-${ticket.status}`)
-    .to(`queue-${ticket.queueId}-notification`)
-    .emit(`company-${companyId}-ticket`, {
-      action: "delete",
-      ticketId: +ticketId
-    });
+    .to(`queue-${ticket.queueId}-notification`);
+  if (ticket.queueId === null) {
+    recipients = recipients
+      .to(unassignedTicketRoom(companyId, ticket.status))
+      .to(unassignedTicketRoom(companyId, "notification"));
+  }
+  recipients.emit(`company-${companyId}-ticket`, {
+    action: "delete",
+    ticketId: +ticketId
+  });
 
   return res.status(200).json({ message: "ticket deleted" });
 };

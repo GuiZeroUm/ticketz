@@ -2,6 +2,7 @@ import AppError from "../../errors/AppError";
 import GetTicketWbot from "../../helpers/GetTicketWbot";
 import Message from "../../models/Message";
 import OldMessage from "../../models/OldMessage";
+import { unassignedTicketRoom } from "../../helpers/TicketSocketRooms";
 import Ticket from "../../models/Ticket";
 
 import formatBody from "../../helpers/Mustache";
@@ -83,16 +84,22 @@ const EditWhatsAppMessage = async ({
 
     const io = getIO();
 
-    io.to(ticket.id.toString())
+    let recipients = io
+      .to(ticket.id.toString())
       .to(`company-${companyId}-${ticket.status}`)
       .to(`company-${companyId}-notification`)
       .to(`queue-${ticket.queueId}-${ticket.status}`)
-      .to(`queue-${ticket.queueId}-notification`)
-      .emit(`company-${ticket.companyId}-ticket`, {
-        action: "update",
-        ticket,
-        ticketId: ticket.id
-      });
+      .to(`queue-${ticket.queueId}-notification`);
+    if (ticket.queueId === null) {
+      recipients = recipients
+        .to(unassignedTicketRoom(companyId, ticket.status))
+        .to(unassignedTicketRoom(companyId, "notification"));
+    }
+    recipients.emit(`company-${ticket.companyId}-ticket`, {
+      action: "update",
+      ticket,
+      ticketId: ticket.id
+    });
 
     const savedMessage = await Message.findOne({
       where: {
