@@ -35,6 +35,7 @@ import moment from "moment";
 
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { i18n } from "../../translate/i18n";
+import { timeZonesNames } from "@vvo/tzdb";
 
 const initialDueDate = () => moment().add(3, "days").format("YYYY-MM-DD");
 
@@ -98,6 +99,7 @@ export function CompanyForm(props) {
     email: "",
     phone: "",
     language: "",
+    timezone: "",
     planId: "",
     status: true,
     campaignsEnabled: false,
@@ -145,6 +147,7 @@ export function CompanyForm(props) {
       return {
         ...prev,
         ...initialValue,
+        timezone: initialValue.timezone || "",
         dueDate,
         trialDays: initialValue.trialDays ?? 0,
         dueDay:
@@ -312,6 +315,25 @@ export function CompanyForm(props) {
                   className={classes.fullWidth}
                   margin="dense"
                 />
+              </Grid>
+              <Grid xs={12} sm={6} md={4} item>
+                <Field
+                  as={TextField}
+                  select
+                  label="Fuso horário padrão"
+                  name="timezone"
+                  variant="outlined"
+                  className={classes.fullWidth}
+                  margin="dense"
+                  helperText="Automático usa o fuso do primeiro usuário que acessar."
+                >
+                  <MenuItem value="">Automático no primeiro acesso</MenuItem>
+                  {timeZonesNames.map(timezone => (
+                    <MenuItem key={timezone} value={timezone}>
+                      {timezone}
+                    </MenuItem>
+                  ))}
+                </Field>
               </Grid>
               <Grid xs={12} sm={6} md={2} item>
                 <Field
@@ -751,6 +773,7 @@ export default function CompaniesManager() {
     email: "",
     phone: "",
     language: "",
+    timezone: "",
     planId: "",
     status: true,
     campaignsEnabled: false,

@@ -226,7 +226,7 @@ export const variables = async (
 ): Promise<Response> => {
   const custom = await customFieldNames(req.user.companyId);
   const company = await Company.findByPk(req.user.companyId, {
-    attributes: ["schedules"]
+    attributes: ["timezone", "schedules"]
   });
   return res.json({
     builtIn: BUILT_IN_SCHEDULE_VARIABLES.filter(
@@ -236,7 +236,7 @@ export const variables = async (
       name,
       key: `extra.${normalizeVariableKey(name)}`
     })),
-    timezone: company?.schedules?.timezone || null
+    timezone: company?.timezone || company?.schedules?.timezone || null
   });
 };
 

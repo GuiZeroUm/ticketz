@@ -26,6 +26,7 @@ import {
   issuePlatformAccessToken,
   PlatformAccessKind
 } from "./PlatformAccessTokenService";
+import { normalizeCompanyTimezone } from "../CompanyService/CompanyTimezoneService";
 import {
   normalizePlanRef,
   planRef,
@@ -137,6 +138,9 @@ export const createPlatformTenant = async (
   );
   if (!Number.isInteger(dueDay) || dueDay < 1 || dueDay > 31)
     validationError({ dia_vencimento: body.dia_vencimento });
+  const timezone = body.fuso_horario ?? body.timezone;
+  if (timezone && !normalizeCompanyTimezone(timezone))
+    validationError({ fuso_horario: timezone });
 
   return sequelize.transaction(async transaction => {
     const generatedPassword = !body.senha_admin;
@@ -153,7 +157,8 @@ export const createPlatformTenant = async (
         dueDate: addDays(new Date(), trialDays).toISOString().slice(0, 10),
         trialDays,
         dueDay,
-        recurrence: cycle.toUpperCase()
+        recurrence: cycle.toUpperCase(),
+        timezone
       },
       { transaction }
     );
@@ -229,6 +234,9 @@ export const updatePlatformTenant = async (
     (!Number.isInteger(dueDay) || dueDay < 1 || dueDay > 31)
   )
     validationError({ dia_vencimento: body.dia_vencimento });
+  const timezone = body.fuso_horario ?? body.timezone;
+  if (timezone && !normalizeCompanyTimezone(timezone))
+    validationError({ fuso_horario: timezone });
 
   await sequelize.transaction(async transaction => {
     await UpdateCompanyService(
@@ -241,7 +249,8 @@ export const updatePlatformTenant = async (
         planId: plan.id,
         ...(trialDays === undefined ? {} : { trialDays }),
         ...(dueDay === undefined ? {} : { dueDay }),
-        recurrence: body.ciclo ? body.ciclo.toUpperCase() : company.recurrence
+        recurrence: body.ciclo ? body.ciclo.toUpperCase() : company.recurrence,
+        ...(timezone === undefined ? {} : { timezone })
       },
       { transaction }
     );

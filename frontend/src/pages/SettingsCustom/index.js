@@ -220,7 +220,10 @@ const SettingsCustom = () => {
       <TabPanel className={classes.container} value={tab} name={"schedules"}>
         {isOpenHoursFormat(schedules) ? (
           <>
-            <OpenHoursEditor value={schedules} onChange={setSchedules} />
+            <OpenHoursEditor
+              value={{ timezone: company.timezone, ...schedules }}
+              onChange={setSchedules}
+            />
             <div
               style={{
                 display: "flex",
@@ -246,7 +249,9 @@ const SettingsCustom = () => {
                   <Button
                     variant="contained"
                     color="secondary"
-                    onClick={() => setSchedules({})}
+                    onClick={() =>
+                      setSchedules({ timezone: company.timezone || undefined })
+                    }
                     disabled={loading}
                   >
                     ⚠️ {i18n.t("settings.schedules.updateToNewFormat")}
