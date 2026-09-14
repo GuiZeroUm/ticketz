@@ -23,6 +23,7 @@ import Whatsapp from "../../models/Whatsapp";
 import { GetCompanySetting } from "../../helpers/CheckSettings";
 import ContactTag from "../../models/ContactTag";
 import { shouldApplyQueueFilter } from "./TicketQueueAccess";
+import { isSharedOpenView } from "./TicketVisibility";
 
 interface Request {
   isSearch?: boolean;
@@ -97,25 +98,43 @@ const ListTicketsService = async ({
     (await GetCompanySetting(companyId, "groupsTab", "disabled")) === "enabled";
 
   const user = await ShowUserService(userId);
+  const sharedOpenView = isSharedOpenView(
+    user.profile,
+    status,
+    groups === "true"
+  );
 
-  const andedOrs: WhereOptions<Ticket>[] = [
-    {
-      [Op.or]: [{ userId }, { status: "pending" }]
+  const andedOrs: WhereOptions<Ticket>[] = [];
+
+  if (sharedOpenView) {
+    andedOrs.push({ isGroup: false });
+  } else {
+    andedOrs.push({
+      [Op.or]:
+        user.profile === "admin"
+          ? [{ userId }, { status: "pending" }]
+          : [
+              { userId },
+              { status: "pending" },
+              { queueId: null, isGroup: false }
+            ]
+    });
+
+    if (user.profile !== "admin") {
+      andedOrs.push({
+        [Op.or]: [
+          { queueId: { [Op.in]: queueIds } },
+          { queueId: null, isGroup: false }
+        ]
+      });
+    } else if (shouldApplyQueueFilter(user.profile, queueIds)) {
+      andedOrs.push({ queueId: { [Op.or]: [queueIds, null] } });
     }
-  ];
+  }
 
   let whereCondition: Filterable["where"] = {
     [Op.and]: andedOrs
   };
-
-  if (shouldApplyQueueFilter(user.profile, queueIds)) {
-    whereCondition = {
-      ...whereCondition,
-      queueId: {
-        [Op.or]: user.profile === "admin" ? [queueIds, null] : [queueIds]
-      }
-    };
-  }
 
   if (groupsTab) {
     whereCondition = { ...whereCondition, isGroup: groups === "true" };

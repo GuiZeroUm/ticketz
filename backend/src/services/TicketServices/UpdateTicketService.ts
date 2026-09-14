@@ -18,6 +18,7 @@ import { getJidOf } from "../WbotServices/getJidOf";
 import { _t } from "../TranslationServices/i18nService";
 import ResolveTicketTransferService from "./ResolveTicketTransferService";
 import GroupQueue from "../../models/GroupQueue";
+import { unassignedTicketRoom } from "../../helpers/TicketSocketRooms";
 
 export interface UpdateTicketData {
   status?: string;
@@ -82,6 +83,12 @@ export function websocketUpdateTicket(ticket: Ticket, moreChannels?: string[]) {
     .to(`queue-${ticket.queueId}-${ticket.status}`)
     .to(`company-${ticket.companyId}-notification`)
     .to(`company-${ticket.companyId}-${ticket.status}`);
+
+  if (ticket.queueId === null) {
+    ioStack = ioStack
+      .to(unassignedTicketRoom(ticket.companyId, ticket.status))
+      .to(unassignedTicketRoom(ticket.companyId, "notification"));
+  }
 
   if (moreChannels) {
     moreChannels.forEach(channel => {
