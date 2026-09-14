@@ -141,6 +141,7 @@ const TicketsManagerTabs = () => {
   const groupUnreadRequestRef = useRef(0);
 
   const userQueueIds = user.queues.map(q => q.id);
+  const [availableQueues, setAvailableQueues] = useState(user.queues || []);
   const [selectedQueueIds, setSelectedQueueIds] = useState(userQueueIds || []);
   const [selectedContact, setSelectedContact] = useState(null);
   const [selectedTags, setSelectedTags] = useState([]);
@@ -151,6 +152,42 @@ const TicketsManagerTabs = () => {
   const [groupMode, setGroupMode] = useState("conversation");
   const [groupTicketStatus, setGroupTicketStatus] = useState("pending");
   const socketManager = useContext(SocketContext);
+
+  useEffect(() => {
+    if (profile !== "admin") {
+      setAvailableQueues(user.queues || []);
+      setSelectedQueueIds(user.queues.map(queue => queue.id));
+      return undefined;
+    }
+
+    let active = true;
+    api
+      .get("/queue")
+      .then(({ data }) => {
+        if (!active) return;
+        const queues = Array.isArray(data) ? data : [];
+        setAvailableQueues(queues);
+        setSelectedQueueIds(current => {
+          const assignedIds = new Set(user.queues.map(queue => queue.id));
+          const hadEveryAssignedQueue =
+            current.length === assignedIds.size &&
+            current.every(queueId => assignedIds.has(queueId));
+          return hadEveryAssignedQueue
+            ? queues.map(queue => queue.id)
+            : current.filter(queueId =>
+                queues.some(queue => queue.id === queueId)
+              );
+        });
+      })
+      .catch(() => {
+        // Assigned queues remain usable if the complete admin list cannot be
+        // refreshed during a transient request failure.
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [profile, user.companyId, user.queues]);
 
   const refreshGroupUnreadCount = useCallback(async () => {
     const requestId = ++groupUnreadRequestRef.current;
@@ -377,7 +414,7 @@ const TicketsManagerTabs = () => {
         <TicketsQueueSelect
           style={{ marginLeft: 6 }}
           selectedQueueIds={selectedQueueIds}
-          userQueues={user?.queues}
+          userQueues={availableQueues}
           onChange={values => setSelectedQueueIds(values)}
         />
       </Paper>

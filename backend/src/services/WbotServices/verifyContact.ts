@@ -141,7 +141,9 @@ export async function verifyContact(
     profileHiresPictureUrl = undefined;
   }
 
-  const jidNumber = msgContact.jid && msgContact.jid?.split("@")[0];
+  const phoneJid =
+    msgContact.jid && !msgContact.jid.includes("@lid") ? msgContact.jid : null;
+  const jidNumber = phoneJid?.split("@")[0];
   const isLid = !jidNumber && msgContact.id.includes("@lid");
   const isGroup = msgContact.id.includes("@g.us");
 
@@ -325,6 +327,10 @@ export async function verifyContact(
           });
         }
       }
+    }
+
+    if (isLid) {
+      throw new Error("ERR_WAPP_CONTACT_PHONE_UNAVAILABLE");
     }
 
     return CreateOrUpdateContactService(contactData);

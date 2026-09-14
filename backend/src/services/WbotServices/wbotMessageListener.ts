@@ -1173,7 +1173,7 @@ const sendMenu = async (
     await verifyMessage(sendMsg, ticket, ticket.contact);
   };
 
-  botText();
+  await botText();
 };
 
 export const startQueue = async (
@@ -1300,7 +1300,7 @@ export const startQueue = async (
       });
       await verifyMediaMessage(sentMediaMessage, ticket, contact);
     }
-    sendMenu(wbot, ticket, queue, sendBackToMain);
+    await sendMenu(wbot, ticket, queue, sendBackToMain);
   }
 };
 
@@ -1356,7 +1356,7 @@ const verifyQueue = async (
   if (choosenQueue) {
     await startQueue(wbot, ticket, choosenQueue);
   } else {
-    botText();
+    await botText();
     await updateTicket(ticket, {
       chatbot: true
     });
@@ -1416,7 +1416,7 @@ const handleRating = async (
     );
 };
 
-const handleChartbot = async (
+export const handleChartbot = async (
   ticket: Ticket,
   msg: WAMessage,
   wbot: Session,
@@ -1427,13 +1427,26 @@ const handleChartbot = async (
       {
         model: QueueOption,
         as: "options",
-        where: { parentId: null, isActive: true }
+        where: { parentId: null, isActive: true },
+        required: false
       }
     ],
     order: [["options", "order", "ASC"]]
   });
 
   const messageBody = await getBodyMessage(msg?.message);
+
+  // A queue may have been republished without options while a ticket was
+  // already inside the chatbot. Leaving the old flag enabled makes every new
+  // customer message return here forever and keeps the service out of the
+  // human-support path.
+  if (!queue?.options?.length) {
+    await updateTicket(ticket, {
+      chatbot: false,
+      queueOptionId: null
+    });
+    return;
+  }
 
   if (messageBody === "#") {
     // voltar para o menu inicial
@@ -1547,6 +1560,16 @@ const handleChartbot = async (
       ]
     });
 
+    if (!currentOption) {
+      // Recover tickets whose option no longer exists (legacy data or a flow
+      // changed outside the publisher safeguards).
+      await updateTicket(ticket, {
+        chatbot: false,
+        queueOptionId: null
+      });
+      return;
+    }
+
     let filePath = null;
     let optionsMsg = null;
     if (currentOption.mediaPath !== null && currentOption.mediaPath !== "") {
@@ -1564,7 +1587,7 @@ const handleChartbot = async (
     }
 
     if (currentOption.exitChatbot || currentOption.forwardQueueId) {
-      const text = formatBody(`${currentOption.message.trim()}`, ticket);
+      const text = formatBody(`${currentOption.message?.trim() || ""}`, ticket);
 
       if (filePath) {
         optionsMsg.caption = text || undefined;
@@ -1588,20 +1611,42 @@ const handleChartbot = async (
           chatbot: false,
           queueId: currentOption.forwardQueueId
         });
-        startQueue(wbot, ticket, currentOption.forwardQueue);
+        await startQueue(wbot, ticket, currentOption.forwardQueue);
       }
       return;
     }
 
+    const hasNextOptions = (currentOption.options?.length || 0) > 0;
+    const currentText = formatBody(
+      `${currentOption.message?.trim() || ""}`,
+      ticket
+    );
+
     if (filePath) {
+      if (!hasNextOptions) {
+        optionsMsg.caption = currentText || undefined;
+      }
       const sentMessage = await wbot.sendMessage(getJidOf(ticket), {
         ...optionsMsg
       });
       await verifyMediaMessage(sentMessage, ticket, ticket.contact);
     }
 
-    if (currentOption.options.length > -1) {
-      sendMenu(wbot, ticket, currentOption);
+    if (hasNextOptions) {
+      await sendMenu(wbot, ticket, currentOption);
+    } else {
+      // A regular block with no next option is an implicit end of flow. Send
+      // its content once, then make the pending ticket available to humans.
+      if (!filePath && currentText) {
+        const sendMsg = await wbot.sendMessage(getJidOf(ticket), {
+          text: currentText
+        });
+        await verifyMessage(sendMsg, ticket, ticket.contact);
+      }
+      await updateTicket(ticket, {
+        chatbot: false,
+        queueOptionId: null
+      });
     }
   }
 };
