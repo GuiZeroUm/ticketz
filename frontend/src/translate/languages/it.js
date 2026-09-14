@@ -487,6 +487,7 @@ const messages = {
           resetPasskey: "Reimposta sessione passkey"
         },
         table: {
+          contact: "Contatto",
           name: "Nome",
           status: "Stato",
           lastUpdate: "Ultimo aggiornamento",
@@ -1241,10 +1242,25 @@ const messages = {
       },
       users: {
         title: "Utenti",
+        empty: "Nessun utente trovato.",
+        filters: {
+          queue: "Coda",
+          allQueues: "Tutte le code"
+        },
+        profiles: {
+          admin: "Amministratore",
+          user: "Utente"
+        },
+        groups: {
+          admin: "Amministratori",
+          user: "Utenti"
+        },
         table: {
           name: "Nome",
           email: "Email",
           profile: "Profilo",
+          queues: "Code",
+          noQueues: "Nessuna coda",
           actions: "Azioni"
         },
         buttons: {

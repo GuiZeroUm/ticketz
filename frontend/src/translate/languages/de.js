@@ -487,6 +487,7 @@ const messages = {
           resetPasskey: "Passkey-Sitzung zurücksetzen"
         },
         table: {
+          contact: "Kontakt",
           name: "Name",
           status: "Status",
           lastUpdate: "Letztes Update",
@@ -1247,10 +1248,25 @@ const messages = {
       },
       users: {
         title: "Benutzer",
+        empty: "Keine Benutzer gefunden.",
+        filters: {
+          queue: "Warteschlange",
+          allQueues: "Alle Warteschlangen"
+        },
+        profiles: {
+          admin: "Administrator",
+          user: "Benutzer"
+        },
+        groups: {
+          admin: "Administratoren",
+          user: "Benutzer"
+        },
         table: {
           name: "Name",
           email: "Email",
           profile: "Profil",
+          queues: "Warteschlangen",
+          noQueues: "Keine Warteschlangen",
           actions: "Aktionen"
         },
         buttons: {

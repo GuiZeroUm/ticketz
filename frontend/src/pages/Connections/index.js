@@ -58,6 +58,7 @@ import toastError from "../../errors/toastError";
 import wavoipIcon from "../../assets/wavoip.webp";
 import WavoipModal from "../../components/WavoipModal";
 import { wavoipAvailable } from "../../helpers/wavoipCallManager";
+import { formatWhatsappDigits } from "../../helpers/formatWhatsappDisplay";
 
 const useStyles = makeStyles(theme => ({
   mainPaper: {
@@ -473,6 +474,9 @@ const Connections = () => {
           <TableHead>
             <TableRow>
               <TableCell align="center">
+                {i18n.t("connections.table.contact")}
+              </TableCell>
+              <TableCell align="center">
                 {i18n.t("connections.table.name")}
               </TableCell>
               <TableCell align="center">
@@ -494,12 +498,15 @@ const Connections = () => {
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRowSkeleton />
+              <TableRowSkeleton columns={7} />
             ) : (
               <>
                 {whatsApps?.length > 0 &&
                   whatsApps.map(whatsApp => (
                     <TableRow key={whatsApp.id}>
+                      <TableCell align="center">
+                        {formatWhatsappDigits(whatsApp.number) || "—"}
+                      </TableCell>
                       <TableCell align="center">{whatsApp.name}</TableCell>
                       <TableCell align="center">
                         {renderStatusToolTips(whatsApp)}
