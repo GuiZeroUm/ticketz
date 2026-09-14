@@ -550,6 +550,7 @@ const messages = {
           resetPasskey: "Restablecer sesión passkey"
         },
         table: {
+          contact: "Contacto",
           name: "Nombre",
           status: "Estado",
           lastUpdate: "Última actualización",
@@ -1315,10 +1316,25 @@ const messages = {
       },
       users: {
         title: "Usuarios",
+        empty: "No se encontraron usuarios.",
+        filters: {
+          queue: "Cola",
+          allQueues: "Todas las colas"
+        },
+        profiles: {
+          admin: "Administrador",
+          user: "Usuario"
+        },
+        groups: {
+          admin: "Administradores",
+          user: "Usuarios"
+        },
         table: {
           name: "Nombre",
           email: "Correo electrónico",
           profile: "Perfil",
+          queues: "Colas",
+          noQueues: "Sin colas",
           actions: "Acciones"
         },
         buttons: {

@@ -1209,6 +1209,7 @@ const messages = {
           resetPasskey: "Reiniciar sessão passkey"
         },
         table: {
+          contact: "Contato",
           name: "Nome",
           status: "Status",
           lastUpdate: "Última atualização",
@@ -2079,10 +2080,25 @@ const messages = {
       },
       users: {
         title: "Usuários",
+        empty: "Nenhum usuário encontrado.",
+        filters: {
+          queue: "Fila",
+          allQueues: "Todas as filas"
+        },
+        profiles: {
+          admin: "Admin",
+          user: "Usuário"
+        },
+        groups: {
+          admin: "Administradores",
+          user: "Usuários"
+        },
         table: {
           name: "Nome",
           email: "Email",
           profile: "Perfil",
+          queues: "Filas",
+          noQueues: "Sem filas",
           actions: "Ações"
         },
         buttons: {

@@ -487,6 +487,7 @@ const messages = {
           resetPasskey: "Réinitialiser la session passkey"
         },
         table: {
+          contact: "Contact",
           name: "Nom",
           status: "Statut",
           lastUpdate: "Dernière mise à jour",
@@ -1246,10 +1247,25 @@ const messages = {
       },
       users: {
         title: "Utilisateurs",
+        empty: "Aucun utilisateur trouvé.",
+        filters: {
+          queue: "File d'attente",
+          allQueues: "Toutes les files d'attente"
+        },
+        profiles: {
+          admin: "Administrateur",
+          user: "Utilisateur"
+        },
+        groups: {
+          admin: "Administrateurs",
+          user: "Utilisateurs"
+        },
         table: {
           name: "Nom",
           email: "Email",
           profile: "Profil",
+          queues: "Files d'attente",
+          noQueues: "Aucune file d'attente",
           actions: "Actions"
         },
         buttons: {

@@ -21,6 +21,11 @@ type FindOrCreateTicketOptions = {
   queue?: Queue;
 };
 
+export const getConnectionScope = (
+  groupContact: Contact | undefined,
+  whatsappId: number
+): { whatsappId?: number } => (groupContact ? {} : { whatsappId });
+
 const internalFindOrCreateTicketService = async (
   contact: Contact,
   whatsappId: number,
@@ -34,55 +39,74 @@ const internalFindOrCreateTicketService = async (
   }: FindOrCreateTicketOptions = {}
 ): Promise<{ ticket: Ticket; justCreated: boolean }> => {
   let justCreated = false;
+  let shouldCreateTracking = false;
   const isGroupConversation =
     !!groupContact && groupContact.groupMode !== "ticket";
-  const result = await sequelize.transaction(async () => {
+  const result = await sequelize.transaction(async transaction => {
+    if (groupContact) {
+      // A group is a tenant-wide conversation. The same WhatsApp group can be
+      // present in multiple connections, so serialize creation by tenant and
+      // group instead of allowing one ticket per connection.
+      await sequelize.query(
+        "SELECT pg_advisory_xact_lock(:companyId, :contactId)",
+        {
+          replacements: { companyId, contactId: groupContact.id },
+          transaction
+        }
+      );
+    }
+
     let ticket = await Ticket.findOne({
       where: {
         status: {
           [Op.or]: ["open", "pending"]
         },
         contactId: groupContact ? groupContact.id : contact.id,
-        whatsappId,
+        ...getConnectionScope(groupContact, whatsappId),
         companyId
       },
-      order: [["id", "DESC"]]
+      order: [["id", "DESC"]],
+      transaction
     });
 
+    if (ticket && groupContact && ticket.whatsappId !== whatsappId) {
+      // Reply through the connection that most recently received the group.
+      await ticket.update({ whatsappId }, { transaction });
+    }
+
     if (ticket && incrementUnread && !isGroupConversation) {
-      await ticket.increment("unreadMessages");
-      ticket = await ticket.reload();
+      await ticket.increment("unreadMessages", { transaction });
+      ticket = await ticket.reload({ transaction });
     }
 
     if (!ticket && groupContact) {
       ticket = await Ticket.findOne({
         where: {
           contactId: groupContact.id,
-          whatsappId,
           companyId
         },
-        order: [["updatedAt", "DESC"]]
+        order: [["updatedAt", "DESC"]],
+        transaction
       });
 
       if (ticket) {
-        await ticket.update({
-          status: isGroupConversation ? "open" : "pending",
-          userId: null,
-          queueId: isGroupConversation ? null : ticket.queueId,
-          unreadMessages: isGroupConversation
-            ? 0
-            : incrementUnread
-              ? ticket.unreadMessages + 1
-              : ticket.unreadMessages,
-          companyId
-        });
+        await ticket.update(
+          {
+            status: isGroupConversation ? "open" : "pending",
+            userId: null,
+            queueId: isGroupConversation ? null : ticket.queueId,
+            unreadMessages: isGroupConversation
+              ? 0
+              : incrementUnread
+                ? ticket.unreadMessages + 1
+                : ticket.unreadMessages,
+            whatsappId,
+            companyId
+          },
+          { transaction }
+        );
         if (!isGroupConversation) {
-          await FindOrCreateATicketTrakingService({
-            ticketId: ticket.id,
-            companyId,
-            whatsappId: ticket.whatsappId,
-            userId: ticket.userId
-          });
+          shouldCreateTracking = true;
         }
       }
     }
@@ -106,24 +130,23 @@ const internalFindOrCreateTicketService = async (
             whatsappId,
             companyId
           },
-          order: [["updatedAt", "DESC"]]
+          order: [["updatedAt", "DESC"]],
+          transaction
         }));
 
       if (ticket) {
-        await ticket.update({
-          status: "pending",
-          userId: null,
-          unreadMessages: incrementUnread
-            ? ticket.unreadMessages + 1
-            : ticket.unreadMessages,
-          companyId
-        });
-        await FindOrCreateATicketTrakingService({
-          ticketId: ticket.id,
-          companyId,
-          whatsappId: ticket.whatsappId,
-          userId: ticket.userId
-        });
+        await ticket.update(
+          {
+            status: "pending",
+            userId: null,
+            unreadMessages: incrementUnread
+              ? ticket.unreadMessages + 1
+              : ticket.unreadMessages,
+            companyId
+          },
+          { transaction }
+        );
+        shouldCreateTracking = true;
       }
     }
 
@@ -131,7 +154,8 @@ const internalFindOrCreateTicketService = async (
 
     if (groupContact && !isGroupConversation) {
       const whatsapp = await Whatsapp.findByPk(whatsappId, {
-        include: ["queues"]
+        include: ["queues"],
+        transaction
       });
 
       if (whatsapp?.queues.length === 1) {
@@ -144,32 +168,41 @@ const internalFindOrCreateTicketService = async (
     }
 
     if (!ticket) {
-      ticket = await Ticket.create({
-        contactId: groupContact ? groupContact.id : contact.id,
-        status: isGroupConversation ? "open" : "pending",
-        isGroup: !!groupContact,
-        unreadMessages: isGroupConversation || !incrementUnread ? 0 : 1,
-        whatsappId,
-        queueId: isGroupConversation ? null : queueId,
-        companyId
-      });
+      ticket = await Ticket.create(
+        {
+          contactId: groupContact ? groupContact.id : contact.id,
+          status: isGroupConversation ? "open" : "pending",
+          isGroup: !!groupContact,
+          unreadMessages: isGroupConversation || !incrementUnread ? 0 : 1,
+          whatsappId,
+          queueId: isGroupConversation ? null : queueId,
+          companyId
+        },
+        { transaction }
+      );
 
       justCreated = true;
 
       if (!isGroupConversation) {
-        await FindOrCreateATicketTrakingService({
-          ticketId: ticket.id,
-          companyId,
-          whatsappId,
-          userId: ticket.userId
-        });
+        shouldCreateTracking = true;
       }
     }
 
-    ticket = await ShowTicketService(ticket.id, companyId);
-
     return { ticket, justCreated };
   });
+
+  if (shouldCreateTracking && result.ticket) {
+    await FindOrCreateATicketTrakingService({
+      ticketId: result.ticket.id,
+      companyId,
+      whatsappId: result.ticket.whatsappId,
+      userId: result.ticket.userId
+    });
+  }
+
+  if (result.ticket) {
+    result.ticket = await ShowTicketService(result.ticket.id, companyId);
+  }
 
   if (result.justCreated && !isGroupConversation) {
     await incrementCounter(companyId, "ticket-create");
