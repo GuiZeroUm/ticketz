@@ -18,11 +18,6 @@ import { i18n } from "../../translate/i18n";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { SocketContext } from "../../context/Socket/SocketContext";
 import toastError from "../../errors/toastError";
-import {
-  getTicketQueueId,
-  isSharedOpenTicketView,
-  isTicketQueueVisible
-} from "./ticketVisibility";
 
 const useStyles = makeStyles(theme => ({
   ticketsListHeader: {
@@ -236,9 +231,8 @@ const TicketsListCustom = props => {
 
   useEffect(() => {
     const queueIds = queues.map(q => q.id);
-    const sharedOpenView = isSharedOpenTicketView(profile, status, groups);
-    const filteredTickets = tickets.filter(ticket =>
-      isTicketQueueVisible(ticket, queueIds, sharedOpenView)
+    const filteredTickets = tickets.filter(
+      t => queueIds.indexOf(t.queueId) > -1
     );
 
     if (profile === "user" && !groups) {
@@ -246,12 +240,11 @@ const TicketsListCustom = props => {
     } else {
       dispatch({ type: "LOAD_TICKETS", payload: tickets });
     }
-  }, [tickets, queues, profile, groups, status]);
+  }, [tickets, queues, profile, groups]);
 
   useEffect(() => {
     const companyId = localStorage.getItem("companyId");
     const socket = socketManager.GetSocket(companyId);
-    const sharedOpenView = isSharedOpenTicketView(profile, status, groups);
 
     const shouldUpdateTicket = ticket => {
       return (
@@ -264,17 +257,13 @@ const TicketsListCustom = props => {
               ticket.contact.tags.some(t => t.id === tag)
           )) &&
         (!users?.length || users.some(u => u === ticket.userId)) &&
-        (sharedOpenView ||
-          getTicketQueueId(ticket) === null ||
-          !ticket.userId ||
-          ticket.userId === user?.id ||
-          showAll) &&
-        isTicketQueueVisible(ticket, selectedQueueIds, sharedOpenView)
+        (!ticket.userId || ticket.userId === user?.id || showAll) &&
+        (!ticket.queueId || selectedQueueIds.indexOf(ticket.queueId) > -1)
       );
     };
 
     const notBelongsToUserQueues = ticket =>
-      !isTicketQueueVisible(ticket, selectedQueueIds, sharedOpenView);
+      ticket.queueId && selectedQueueIds.indexOf(ticket.queueId) === -1;
 
     const onConnectTicketList = () => {
       if (groups) {
@@ -345,13 +334,11 @@ const TicketsListCustom = props => {
       }
 
       const queueIds = queues.map(q => q.id);
-      const eventQueueId = getTicketQueueId(data.ticket);
       if (
         profile === "user" &&
         !groups &&
-        !sharedOpenView &&
-        eventQueueId !== null &&
-        queueIds.indexOf(eventQueueId) === -1
+        (queueIds.indexOf(data.ticket?.queue?.id) === -1 ||
+          data.ticket.queue === null)
       ) {
         return;
       }

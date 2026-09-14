@@ -10,7 +10,6 @@ import GroupQueue from "../../models/GroupQueue";
 import { incrementGroupUnread } from "../WhatsappGroupServices/GroupUnreadService";
 import { emitContact } from "../ContactServices/CreateOrUpdateContactService";
 import { sendMessageWebPush } from "../WebPushServices/WebPushService";
-import { unassignedTicketRoom } from "../../helpers/TicketSocketRooms";
 
 interface MessageData {
   id: string;
@@ -59,20 +58,12 @@ export const websocketCreateMessage = async (message: Message) => {
     return;
   }
 
-  let recipients = io
-    .to(message.ticketId.toString())
+  io.to(message.ticketId.toString())
     .to(`company-${message.companyId}-${message.ticket.status}`)
     .to(`company-${message.companyId}-notification`)
     .to(`queue-${message.ticket.queueId}-${message.ticket.status}`)
-    .to(`queue-${message.ticket.queueId}-notification`);
-
-  if (message.ticket.queueId === null) {
-    recipients = recipients
-      .to(unassignedTicketRoom(message.companyId, message.ticket.status))
-      .to(unassignedTicketRoom(message.companyId, "notification"));
-  }
-
-  recipients.emit(`company-${message.companyId}-appMessage`, payload);
+    .to(`queue-${message.ticket.queueId}-notification`)
+    .emit(`company-${message.companyId}-appMessage`, payload);
 };
 
 const CreateMessageService = async ({
