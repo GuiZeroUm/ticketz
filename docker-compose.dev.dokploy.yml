@@ -113,6 +113,7 @@ services:
     environment:
       NODE_ENV: production
       CLERK_ENVIRONMENT: development
+      MOBILE_AUTH_ENABLED: ${MOBILE_AUTH_ENABLED:-true}
       CLERK_TENANT_BASE_DOMAIN: dev.espacowhats.com.br
       CLERK_ISSUER: https://trusted-jaybird-7472.clerk.accounts.dev
       CLERK_GOOGLE_ENABLED: ${CLERK_GOOGLE_ENABLED:-true}
