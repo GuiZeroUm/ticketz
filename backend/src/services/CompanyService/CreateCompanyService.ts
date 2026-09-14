@@ -15,6 +15,7 @@ import {
   firstBillableDueDate,
   resolveTrialEndsAt
 } from "../BillingServices/BillingDateService";
+import { assertCompanyTimezone } from "./CompanyTimezoneService";
 
 interface CompanyData {
   name: string;
@@ -29,6 +30,7 @@ interface CompanyData {
   dueDay?: number;
   recurrence?: string;
   language?: string;
+  timezone?: string | null;
   slug?: string;
   partnerId?: number | null;
   saleValue?: number | null;
@@ -57,6 +59,7 @@ const CreateCompanyService = async (
   } = companyData;
 
   const slug = normalizeSlug(companyData.slug);
+  const timezone = assertCompanyTimezone(companyData.timezone);
   const defaultDueDate = new Date();
   defaultDueDate.setUTCDate(defaultDueDate.getUTCDate() + 3);
 
@@ -134,6 +137,7 @@ const CreateCompanyService = async (
       dueDay,
       recurrence: recurrence || "MENSAL",
       language,
+      timezone,
       slug: slug || null,
       // Do not rely solely on database defaults for access-critical fields.
       // This also prevents schema drift from creating an already-suspended

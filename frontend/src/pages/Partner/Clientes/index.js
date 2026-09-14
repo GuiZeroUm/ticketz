@@ -33,6 +33,7 @@ import Title from "../../../components/Title";
 import partnerApi from "../../../services/partnerApi";
 import toastError from "../../../errors/toastError";
 import { formatCurrency } from "../format";
+import { timeZonesNames } from "@vvo/tzdb";
 
 const useStyles = makeStyles(theme => ({
   mainPaper: {
@@ -71,7 +72,8 @@ const emptyForm = {
   saleValue: "",
   introValue: "",
   introMonths: "",
-  recurrence: "MENSAL"
+  recurrence: "MENSAL",
+  timezone: ""
 };
 
 const toNumberOrNull = value => {
@@ -171,7 +173,8 @@ const PartnerClientes = () => {
       saleValue: row.company.saleValue ?? "",
       introValue: row.company.introValue ?? "",
       introMonths: row.company.introMonths ?? "",
-      recurrence: row.company.recurrence || "MENSAL"
+      recurrence: row.company.recurrence || "MENSAL",
+      timezone: row.company.timezone || ""
     });
     setModalOpen(true);
   };
@@ -222,6 +225,7 @@ const PartnerClientes = () => {
           email: form.email,
           phone: form.phone,
           planId: form.planId,
+          timezone: form.timezone || null,
           saleValue: Number(form.saleValue),
           introValue,
           introMonths
@@ -429,6 +433,25 @@ const PartnerClientes = () => {
                   ))}
                 </Select>
               </FormControl>
+            </Grid>
+            <Grid xs={12} sm={6} item>
+              <TextField
+                select
+                label="Fuso horário padrão"
+                variant="outlined"
+                margin="dense"
+                className={classes.fullWidth}
+                value={form.timezone}
+                onChange={handleChange("timezone")}
+                helperText="Automático usa o fuso do primeiro usuário que acessar."
+              >
+                <MenuItem value="">Automático no primeiro acesso</MenuItem>
+                {timeZonesNames.map(timezone => (
+                  <MenuItem key={timezone} value={timezone}>
+                    {timezone}
+                  </MenuItem>
+                ))}
+              </TextField>
             </Grid>
             <Grid xs={12} sm={6} item>
               <TextField

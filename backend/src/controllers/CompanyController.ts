@@ -16,6 +16,7 @@ import User from "../models/User";
 
 import CheckSettings from "../helpers/CheckSettings";
 import { OpenHoursData } from "../helpers/checkOpenHours";
+import { normalizeCompanyTimezone } from "../services/CompanyService/CompanyTimezoneService";
 
 type IndexQuery = {
   searchParam: string;
@@ -35,6 +36,7 @@ type CompanyData = {
   trialDays?: number;
   dueDay?: number;
   recurrence?: string;
+  timezone?: string | null;
   slug?: string;
   partnerId?: number | null;
   saleValue?: number | null;
@@ -76,6 +78,13 @@ const companySchema = Yup.object()
       .max(31, "ERR_INVALID_DUE_DAY"),
     recurrence: Yup.string(),
     language: Yup.string(),
+    timezone: Yup.string()
+      .nullable()
+      .test(
+        "valid-timezone",
+        "ERR_COMPANY_INVALID_TIMEZONE",
+        value => !value || normalizeCompanyTimezone(value) !== null
+      ),
     slug: Yup.string().nullable(),
     partnerId: Yup.number().integer().positive().nullable(),
     saleValue: Yup.number().nullable(),

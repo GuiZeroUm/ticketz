@@ -182,6 +182,7 @@ interface PartnerCompanyData {
   introValue?: number | null;
   introMonths?: number | null;
   recurrence?: string;
+  timezone?: string | null;
 }
 
 export const CreatePartnerCompany = async (
@@ -210,6 +211,7 @@ export const CreatePartnerCompany = async (
     planId: data.planId,
     status: true,
     recurrence: data.recurrence || "MENSAL",
+    timezone: data.timezone,
     dueDate: moment().add(TRIAL_DAYS, "days").format("YYYY-MM-DD"),
     trialDays: TRIAL_DAYS,
     dueDay: moment().add(TRIAL_DAYS, "days").date(),
@@ -254,13 +256,14 @@ export const UpdatePartnerCompany = async (
     ));
   }
 
-  // O parceiro nao mexe em status, vencimento nem slug: so no comercial.
+  // O parceiro nao mexe em status, vencimento nem slug.
   return UpdateCompanyService({
     id: company.id,
     name: data.name || company.name,
     email: data.email ?? company.email,
     phone: data.phone ?? company.phone,
     planId,
+    ...(data.timezone !== undefined ? { timezone: data.timezone } : {}),
     ...(saleValue !== undefined ? { saleValue } : {}),
     ...(intro !== undefined
       ? { introValue: intro.introValue, introMonths: intro.introMonths }
