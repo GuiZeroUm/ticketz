@@ -8,9 +8,9 @@ import Company from "../../models/Company";
 // tenant cai no padrão do MCP em vez de derrubar a leitura.
 export const getTenantTimezone = async (companyId: number): Promise<string> => {
   const company = await Company.findByPk(companyId, {
-    attributes: ["schedules"]
+    attributes: ["timezone", "schedules"]
   });
-  const configured = company?.schedules?.timezone;
+  const configured = company?.timezone || company?.schedules?.timezone;
   return DateTime.now().setZone(configured || mcpConfig.timezone).isValid
     ? configured || mcpConfig.timezone
     : mcpConfig.timezone;

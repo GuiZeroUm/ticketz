@@ -59,7 +59,8 @@ describe("CreateCompanyService", () => {
       name: "Tenant Novo",
       email: "tenant@example.com",
       slug: "tenant-novo",
-      planId: 1
+      planId: 1,
+      timezone: "America/Recife"
     });
 
     expect(companyCreate).toHaveBeenCalledWith(
@@ -67,6 +68,7 @@ describe("CreateCompanyService", () => {
         status: true,
         dueDate: "2026-09-05",
         recurrence: "MENSAL",
+        timezone: "America/Recife",
         platformStatus: "ativo",
         platformBilling: "sistema"
       }),
