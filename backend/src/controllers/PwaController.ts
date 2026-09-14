@@ -22,6 +22,7 @@ export const manifest = async (
   }
 
   const data = {
+    id: "/",
     short_name: appName || "Espaço Whats",
     name: appName || "Espaço Whats",
     icons: [
@@ -33,10 +34,11 @@ export const manifest = async (
         type: mimeFavicon
       }
     ],
-    start_url: ".",
+    start_url: "/",
+    scope: "/",
     display: "standalone",
-    theme_color: "#000000",
-    background_color: "#ffffff"
+    theme_color: "#ff6b00",
+    background_color: "#fffaf6"
   };
 
   return res.status(200).json(data);
