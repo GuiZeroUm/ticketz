@@ -52,7 +52,6 @@ import authConfig from "../config/auth";
 import { CounterManager } from "./counter";
 import UserSocketSession from "../models/UserSocketSession";
 import GroupQueue from "../models/GroupQueue";
-import { unassignedTicketRoom } from "../helpers/TicketSocketRooms";
 import { DecoupledDriverServices } from "../services/DecoupledDriverServices/DecoupledDriverServices";
 import { corsOrigin } from "../helpers/corsOrigin";
 import Company from "../models/Company";
@@ -253,16 +252,9 @@ export const initIO = (httpServer: Server): SocketIO => {
             return;
           }
 
-          const userQueueIds = user.queues.map(queue => queue.id);
           let allowed = ticket.userId === user.id || user.profile === "admin";
-          if (!allowed && !ticket.isGroup) {
-            allowed =
-              ticket.queueId === null ||
-              ticket.status === "open" ||
-              (ticket.status === "pending" &&
-                userQueueIds.includes(ticket.queueId));
-          }
           if (!allowed && ticket.isGroup) {
+            const userQueueIds = user.queues.map(queue => queue.id);
             allowed = Boolean(
               await GroupQueue.count({
                 where: {
@@ -309,7 +301,6 @@ export const initIO = (httpServer: Server): SocketIO => {
         if (user.profile === "admin") {
           socket.join(`company-${user.companyId}-notification`);
         } else {
-          socket.join(unassignedTicketRoom(user.companyId, "notification"));
           user.queues.forEach(queue => {
             logger.debug(
               `User ${user.id} of company ${user.companyId} joined queue ${queue.id} channel.`
@@ -327,7 +318,6 @@ export const initIO = (httpServer: Server): SocketIO => {
         if (user.profile === "admin") {
           socket.leave(`company-${user.companyId}-notification`);
         } else {
-          socket.leave(unassignedTicketRoom(user.companyId, "notification"));
           user.queues.forEach(queue => {
             logger.debug(
               `User ${user.id} of company ${user.companyId} leaved queue ${queue.id} channel.`
@@ -346,18 +336,15 @@ export const initIO = (httpServer: Server): SocketIO => {
             `Admin ${user.id} of company ${user.companyId} joined ${status} tickets channel.`
           );
           socket.join(`company-${user.companyId}-${status}`);
-        } else if (status === "open") {
-          socket.join(`company-${user.companyId}-open`);
+        } else if (status === "pending") {
+          user.queues.forEach(queue => {
+            logger.debug(
+              `User ${user.id} of company ${user.companyId} joined queue ${queue.id} pending tickets channel.`
+            );
+            socket.join(`queue-${queue.id}-pending`);
+          });
         } else {
-          socket.join(unassignedTicketRoom(user.companyId, status));
-          if (status === "pending") {
-            user.queues.forEach(queue => {
-              logger.debug(
-                `User ${user.id} of company ${user.companyId} joined queue ${queue.id} pending tickets channel.`
-              );
-              socket.join(`queue-${queue.id}-pending`);
-            });
-          }
+          logger.debug(`User ${user.id} cannot subscribe to ${status}`);
         }
       }
     });
@@ -369,18 +356,13 @@ export const initIO = (httpServer: Server): SocketIO => {
             `Admin ${user.id} of company ${user.companyId} leaved ${status} tickets channel.`
           );
           socket.leave(`company-${user.companyId}-${status}`);
-        } else if (status === "open") {
-          socket.leave(`company-${user.companyId}-open`);
-        } else {
-          socket.leave(unassignedTicketRoom(user.companyId, status));
-          if (status === "pending") {
-            user.queues.forEach(queue => {
-              logger.debug(
-                `User ${user.id} of company ${user.companyId} leaved queue ${queue.id} pending tickets channel.`
-              );
-              socket.leave(`queue-${queue.id}-pending`);
-            });
-          }
+        } else if (status === "pending") {
+          user.queues.forEach(queue => {
+            logger.debug(
+              `User ${user.id} of company ${user.companyId} leaved queue ${queue.id} pending tickets channel.`
+            );
+            socket.leave(`queue-${queue.id}-pending`);
+          });
         }
       }
     });

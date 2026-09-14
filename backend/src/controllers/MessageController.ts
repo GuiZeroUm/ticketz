@@ -50,16 +50,13 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 
   const requestedTicket = await Ticket.findOne({
     where: { id: ticketId, companyId },
-    attributes: ["id", "isGroup", "status", "queueId"]
+    attributes: ["id", "isGroup"]
   });
   if (requestedTicket?.isGroup) {
     await assertGroupAccess(ticketId, req.user);
   }
 
-  const sharedTicket =
-    requestedTicket?.queueId === null || requestedTicket?.status === "open";
-
-  if (profile !== "admin" && !requestedTicket?.isGroup && !sharedTicket) {
+  if (profile !== "admin" && !requestedTicket?.isGroup) {
     const user = await User.findByPk(req.user.id, {
       include: [{ model: Queue, as: "queues" }]
     });
