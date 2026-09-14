@@ -243,7 +243,8 @@ const messages = {
           "Walk through the options as a customer. This preview does not send messages or change tickets.",
         simulacaoHumano: "The chatbot stops and the support team continues.",
         simulacaoTransferencia: "The conversation moves to {{fila}}.",
-        simulacaoFim: "Waiting for another customer message.",
+        simulacaoFim:
+          "End of flow. The ticket becomes available to the human support team.",
         reiniciar: "Restart test",
         excluirBloco: "Delete block?",
         excluirDescricao:

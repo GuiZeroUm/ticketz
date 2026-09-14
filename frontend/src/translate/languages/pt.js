@@ -251,7 +251,8 @@ const messages = {
         simulacaoHumano:
           "O chatbot para e a equipe humana continua o atendimento.",
         simulacaoTransferencia: "A conversa segue para a fila {{fila}}.",
-        simulacaoFim: "Aguardando uma nova mensagem do cliente.",
+        simulacaoFim:
+          "Fim do fluxo. O atendimento fica disponível para a equipe humana.",
         reiniciar: "Reiniciar teste",
         excluirBloco: "Excluir bloco?",
         excluirDescricao:
