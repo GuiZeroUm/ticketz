@@ -22,6 +22,7 @@ import { AuthContext } from "../../context/Auth/AuthContext";
 import { SocketContext } from "../../context/Socket/SocketContext";
 import Favicon from "react-favicon";
 import useSettings from "../../hooks/useSettings";
+import WebPushSetup from "../WebPushSetup";
 
 const defaultLogoFavicon = "/branding/icon.png";
 
@@ -339,6 +340,7 @@ const NotificationsPopOver = props => {
         classes={{ paper: classes.popoverPaper }}
         onClose={handleClickAway}
       >
+        <WebPushSetup />
         <List dense className={classes.tabContainer}>
           {notifications.length === 0 ? (
             <ListItem>
