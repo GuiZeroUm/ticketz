@@ -22,6 +22,7 @@ import TicketTag from "../../models/TicketTag";
 import Whatsapp from "../../models/Whatsapp";
 import { GetCompanySetting } from "../../helpers/CheckSettings";
 import ContactTag from "../../models/ContactTag";
+import { isSharedOpenView } from "./TicketVisibility";
 
 interface Request {
   isSearch?: boolean;
@@ -96,22 +97,46 @@ const ListTicketsService = async ({
     (await GetCompanySetting(companyId, "groupsTab", "disabled")) === "enabled";
 
   const user = await ShowUserService(userId);
+  const sharedOpenView = isSharedOpenView(
+    user.profile,
+    status,
+    groups === "true"
+  );
 
-  const andedOrs: WhereOptions<Ticket>[] = [
-    {
-      [Op.or]: [{ userId }, { status: "pending" }]
-    }
-  ];
+  const andedOrs: WhereOptions<Ticket>[] = [];
+
+  if (sharedOpenView) {
+    andedOrs.push({ isGroup: false });
+  } else {
+    andedOrs.push({
+      [Op.or]:
+        user.profile === "admin"
+          ? [{ userId }, { status: "pending" }]
+          : [
+              { userId },
+              { status: "pending" },
+              { queueId: null, isGroup: false }
+            ]
+    });
+
+    andedOrs.push(
+      user.profile === "admin"
+        ? { queueId: { [Op.or]: [queueIds, null] } }
+        : {
+            [Op.or]: [
+              { queueId: { [Op.in]: queueIds } },
+              { queueId: null, isGroup: false }
+            ]
+          }
+    );
+  }
 
   let whereCondition: Filterable["where"] = {
-    [Op.and]: andedOrs,
-    queueId: {
-      [Op.or]: user.profile === "admin" ? [queueIds, null] : [queueIds]
-    }
+    [Op.and]: andedOrs
   };
 
   if (groupsTab) {
-    whereCondition.isGroup = groups === "true";
+    whereCondition = { ...whereCondition, isGroup: groups === "true" };
   }
   let includeCondition: Includeable[];
 
@@ -151,7 +176,7 @@ const ListTicketsService = async ({
       queueId: { [Op.or]: [queueIds, null] }
     };
     if (groupsTab) {
-      whereCondition.isGroup = groups === "true";
+      whereCondition = { ...whereCondition, isGroup: groups === "true" };
     }
   }
 
