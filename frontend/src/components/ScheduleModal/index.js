@@ -189,6 +189,7 @@ const ScheduleModal = ({
   useEffect(() => {
     if (!open) return;
     setPreview(null);
+    setFilePreview("");
     setFile(null);
     Promise.all([
       api.get("/schedules/variables"),
@@ -223,6 +224,7 @@ const ScheduleModal = ({
     api
       .get(`/schedules/${scheduleId}`)
       .then(({ data }) => {
+        const defaults = initialValues();
         const scheduledParts = dateTimeParts(
           data.sendAt,
           data.timezone || browserTimezone
@@ -232,8 +234,16 @@ const ScheduleModal = ({
           .filter(Boolean);
         setSelectedContacts(audienceContacts);
         setValues({
-          ...initialValues(),
+          ...defaults,
           ...data,
+          body: data.body || "",
+          kind: data.kind || defaults.kind,
+          audienceMode: data.audienceMode || defaults.audienceMode,
+          sendTime: data.sendTime || defaults.sendTime,
+          timezone: data.timezone || defaults.timezone,
+          mediaDeliveryMode:
+            data.mediaDeliveryMode || defaults.mediaDeliveryMode,
+          saveMessage: Boolean(data.saveMessage),
           contactIds: audienceContacts.map(contact => contact.id),
           sendDate: scheduledParts.date,
           sendClock: scheduledParts.time,
@@ -341,7 +351,7 @@ const ScheduleModal = ({
       maxWidth="md"
       scroll="paper"
     >
-      <DialogTitle>
+      <DialogTitle disableTypography>
         <Typography variant="h6">
           {scheduleId
             ? i18n.t("scheduleModal.title.edit")
@@ -538,7 +548,7 @@ const ScheduleModal = ({
                 value={values.body}
                 onChange={event => setValue("body", event.target.value)}
                 label={i18n.t("scheduleModal.form.body")}
-                rows={6}
+                minRows={6}
                 multiline
                 variant="outlined"
                 fullWidth
@@ -575,6 +585,7 @@ const ScheduleModal = ({
               />
               <Box className={classes.fileRow}>
                 {filePreview &&
+                  file &&
                   (file.type.startsWith("video/") ? (
                     <video
                       className={classes.mediaPreview}

@@ -154,8 +154,6 @@ export const update = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  if (req.user.profile !== "admin")
-    throw new AppError("ERR_NO_PERMISSION", 403);
   req.file = await prepareMedia(req.file);
   const existing = await ShowService(req.params.scheduleId, req.user.companyId);
   const raw = requestPayload(req);
