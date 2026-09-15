@@ -9,7 +9,7 @@ export const StartAllWhatsAppsSessions = async (
     const whatsapps = await Whatsapp.findAll({ where: { companyId } });
     if (whatsapps.length > 0) {
       whatsapps.forEach(whatsapp => {
-        if (whatsapp.channel === "whatsapp") {
+        if (whatsapp.channel === "whatsapp" && whatsapp.apiMode !== "official") {
           StartWhatsAppSession(whatsapp, companyId);
         }
       });

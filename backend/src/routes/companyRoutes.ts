@@ -16,6 +16,12 @@ companyRoutes.put(
   isAuth,
   CompanyController.updateSchedules
 );
+companyRoutes.put(
+  "/companies/:id/whatsapp-mode",
+  isAuth,
+  isSuper,
+  CompanyController.updateWhatsappMode
+);
 companyRoutes.delete(
   "/companies/:id",
   isAuth,

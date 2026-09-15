@@ -212,7 +212,8 @@ const messages = {
       connections: {
         title: "Connections",
         toasts: {
-          deleted: "WhatsApp connection successfully deleted!"
+          deleted: "WhatsApp connection successfully deleted!",
+          metaConnected: "Successfully connected to the Meta Official API!"
         },
         confirmationModal: {
           deleteTitle: "Delete",
@@ -228,9 +229,12 @@ const messages = {
           tryAgain: "Try Again",
           qrcode: "QR CODE",
           newQr: "New QR CODE",
-          connecting: "Connecting"
+          connecting: "Connecting",
+          connectMeta: "Connect via Meta"
         },
         toolTips: {
+          notAvailableOfficial:
+            "Not available yet for Meta Official API connections.",
           disconnected: {
             title: "Failed to initiate WhatsApp session",
             content:

@@ -14,6 +14,7 @@ import AppError from "../errors/AppError";
 import { getIO } from "../libs/socket";
 import { logger } from "../utils/logger";
 import BaileysKeys from "../models/BaileysKeys";
+import { UnsubscribeWabaWebhookService } from "../services/MetaWhatsAppServices/SubscribeWabaWebhookService";
 
 const store = async (req: Request, res: Response): Promise<Response> => {
   const { whatsappId } = req.params;
@@ -29,6 +30,10 @@ const store = async (req: Request, res: Response): Promise<Response> => {
     throw new AppError("ERR_NO_WAPP_FOUND", 404);
   }
 
+  if (whatsapp.apiMode === "official") {
+    throw new AppError("ERR_WAPP_OFFICIAL_MODE_USE_META_CONNECT", 400);
+  }
+
   await StartWhatsAppSession(whatsapp, companyId);
 
   return res.status(200).json({ message: "Starting session." });
@@ -37,6 +42,11 @@ const store = async (req: Request, res: Response): Promise<Response> => {
 const update = async (req: Request, res: Response): Promise<Response> => {
   const { whatsappId } = req.params;
   const { companyId } = req.user;
+
+  const existing = await ShowWhatsAppService(whatsappId);
+  if (existing?.apiMode === "official") {
+    throw new AppError("ERR_WAPP_OFFICIAL_MODE_USE_META_CONNECT", 400);
+  }
 
   const { whatsapp } = await UpdateWhatsAppService({
     whatsappId,
@@ -63,6 +73,17 @@ const remove = async (req: Request, res: Response): Promise<Response> => {
 
   if (!whatsapp) {
     throw new AppError("ERR_NO_WAPP_FOUND", 404);
+  }
+
+  if (whatsapp.apiMode === "official") {
+    if (whatsapp.metaWabaId) {
+      await UnsubscribeWabaWebhookService(
+        whatsapp.metaWabaId,
+        whatsapp.metaAccessToken
+      );
+    }
+    await whatsapp.update({ status: "DISCONNECTED" });
+    return res.status(200).json({ message: "Session disconnected." });
   }
 
   if (whatsapp.channel === "whatsapp") {
@@ -92,6 +113,10 @@ const refresh = async (req: Request, res: Response): Promise<Response> => {
     throw new AppError("ERR_NO_WAPP_FOUND", 404);
   }
 
+  if (whatsapp.apiMode === "official") {
+    return res.status(400).json({ message: "Session not supported." });
+  }
+
   if (whatsapp.channel === "whatsapp") {
     const wbot = getWbot(whatsapp.id);
     if (!wbot) {
@@ -119,6 +144,10 @@ const requestCaptureToken = async (
 
   if (!whatsapp) {
     throw new AppError("ERR_NO_WAPP_FOUND", 404);
+  }
+
+  if (whatsapp.apiMode === "official") {
+    throw new AppError("ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED", 400);
   }
 
   const token = createCaptureToken(whatsapp.id);
@@ -161,6 +190,10 @@ const reset = async (req: Request, res: Response): Promise<Response> => {
 
   if (!whatsapp) {
     throw new AppError("ERR_NO_WAPP_FOUND", 404);
+  }
+
+  if (whatsapp.apiMode === "official") {
+    throw new AppError("ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED", 400);
   }
 
   await removeWbot(whatsapp.id, false);

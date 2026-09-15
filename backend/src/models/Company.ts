@@ -9,6 +9,7 @@ import {
   ForeignKey,
   BelongsTo,
   DataType,
+  Default,
   HasMany
 } from "sequelize-typescript";
 import Contact from "./Contact";
@@ -78,6 +79,14 @@ class Company extends Model<Company> {
 
   @Column
   slug: string;
+
+  // "normal" (Baileys) ou "meta" (WhatsApp Cloud API oficial). Decidido uma
+  // unica vez (na criacao/ativacao do tenant) e imutavel depois: nunca pode
+  // ser revertido, para nao arriscar misturar os dois modos no mesmo numero
+  // e reintroduzir o risco de ban que motivou essa distincao.
+  @Default("normal")
+  @Column(DataType.STRING)
+  whatsappMode: string;
 
   @Column
   platformStatus: string;

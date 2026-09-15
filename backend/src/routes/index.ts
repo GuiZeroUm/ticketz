@@ -45,6 +45,8 @@ import platformRoutes from "./platformRoutes";
 import taskBoardRoutes from "./taskBoardRoutes";
 import voiceRoutes from "./voiceRoutes";
 import whatsappGroupRoutes from "./whatsappGroupRoutes";
+import metaWhatsappRoutes from "./metaWhatsappRoutes";
+import metaWhatsappWebhookRoutes from "./metaWhatsappWebhookRoutes";
 
 const routes = Router();
 
@@ -93,5 +95,7 @@ routes.use(ticketzOSSRoutes);
 routes.use(i18nRoutes);
 routes.use(wavoipRoutes);
 routes.use(ogRoutes);
+routes.use(metaWhatsappRoutes);
+routes.use(metaWhatsappWebhookRoutes);
 
 export default routes;

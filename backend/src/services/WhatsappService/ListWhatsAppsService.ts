@@ -17,7 +17,10 @@ const ListWhatsAppsService = async ({
       "status",
       "qrcode",
       "isDefault",
-      "updatedAt"
+      "updatedAt",
+      "apiMode",
+      "metaHealthStatus",
+      "metaPhoneNumberId"
     ],
     where: {
       companyId

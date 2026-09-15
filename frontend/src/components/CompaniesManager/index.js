@@ -85,13 +85,27 @@ const useStyles = makeStyles(theme => ({
 }));
 
 export function CompanyForm(props) {
-  const { onSubmit, onDelete, onImpersonate, onCancel, initialValue, loading } =
-    props;
+  const {
+    onSubmit,
+    onDelete,
+    onImpersonate,
+    onCancel,
+    onSetWhatsappMode,
+    initialValue,
+    loading
+  } = props;
   const classes = useStyles();
   const [plans, setPlans] = useState([]);
   const [partners, setPartners] = useState([]);
   const [modalUser, setModalUser] = useState(false);
   const [firstUser, setFirstUser] = useState({});
+  const [whatsappMode, setWhatsappMode] = useState(
+    initialValue.whatsappMode || "normal"
+  );
+
+  useEffect(() => {
+    setWhatsappMode(initialValue.whatsappMode || "normal");
+  }, [initialValue.id, initialValue.whatsappMode]);
 
   const [record, setRecord] = useState({
     name: "",
@@ -518,6 +532,49 @@ export function CompanyForm(props) {
                   helperText="Depois volta ao preço de venda"
                 />
               </Grid>
+              {record.id !== undefined && (
+                <>
+                  <Grid xs={12} sm={6} md={3} item>
+                    <FormControl margin="dense" variant="outlined" fullWidth>
+                      <InputLabel htmlFor="whatsapp-mode-selection">
+                        Modo WhatsApp
+                      </InputLabel>
+                      <Select
+                        id="whatsapp-mode-selection"
+                        label="Modo WhatsApp"
+                        value={whatsappMode}
+                        disabled={initialValue.whatsappMode === "meta"}
+                        onChange={e => setWhatsappMode(e.target.value)}
+                      >
+                        <MenuItem value="normal">
+                          Normal (Baileys, nao-oficial)
+                        </MenuItem>
+                        <MenuItem value="meta">
+                          API Oficial (Meta Cloud API)
+                        </MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid xs={12} sm={6} md={2} item>
+                    <ButtonWithSpinner
+                      className={classes.fullWidth}
+                      style={{ marginTop: 7 }}
+                      loading={loading}
+                      disabled={
+                        initialValue.whatsappMode === "meta" ||
+                        whatsappMode === (initialValue.whatsappMode || "normal")
+                      }
+                      onClick={() =>
+                        onSetWhatsappMode(initialValue.id, whatsappMode)
+                      }
+                      variant="contained"
+                      color="secondary"
+                    >
+                      Travar modo
+                    </ButtonWithSpinner>
+                  </Grid>
+                </>
+              )}
               <Grid xs={12} item>
                 <Grid justifyContent="flex-end" spacing={1} container>
                   <Grid xs={4} md={1} item>
@@ -739,11 +796,14 @@ export function CompaniesManagerGrid(props) {
 
 export default function CompaniesManager() {
   const classes = useStyles();
-  const { list, save, update, remove } = useCompanies();
+  const { list, save, update, remove, updateWhatsappMode } = useCompanies();
 
   const [showConfirmDeleteDialog, setShowConfirmDeleteDialog] = useState(false);
   const [showConfirmImpersonateDialog, setShowConfirmImpersonateDialog] =
     useState(false);
+  const [showConfirmWhatsappModeDialog, setShowConfirmWhatsappModeDialog] =
+    useState(false);
+  const [pendingWhatsappMode, setPendingWhatsappMode] = useState(null);
   const [loading, setLoading] = useState(false);
   const [records, setRecords] = useState([]);
   const [record, setRecord] = useState({
@@ -820,6 +880,30 @@ export default function CompaniesManager() {
     handleImpersonate(record.id);
   };
 
+  const handleRequestSetWhatsappMode = (companyId, whatsappMode) => {
+    setPendingWhatsappMode({ companyId, whatsappMode });
+    setShowConfirmWhatsappModeDialog(true);
+  };
+
+  const handleConfirmSetWhatsappMode = async () => {
+    if (!pendingWhatsappMode) return;
+    setLoading(true);
+    try {
+      await updateWhatsappMode(
+        pendingWhatsappMode.companyId,
+        pendingWhatsappMode.whatsappMode
+      );
+      await loadPlans();
+      toast.success("Modo WhatsApp atualizado!");
+    } catch (e) {
+      toast.error(
+        "Não foi possível alterar o modo (empresa fora da allowlist ou já possui conexões no modo oposto)."
+      );
+    }
+    setPendingWhatsappMode(null);
+    setLoading(false);
+  };
+
   const handleOpenDeleteDialog = () => {
     setShowConfirmDeleteDialog(true);
   };
@@ -889,7 +973,8 @@ export default function CompaniesManager() {
       partnerId: data.partnerId || "",
       saleValue: data.saleValue ?? "",
       introValue: data.introValue ?? "",
-      introMonths: data.introMonths ?? ""
+      introMonths: data.introMonths ?? "",
+      whatsappMode: data.whatsappMode || "normal"
     }));
   };
 
@@ -903,6 +988,7 @@ export default function CompaniesManager() {
             onImpersonate={handleOpenImpersonateDialog}
             onSubmit={handleSubmit}
             onCancel={handleCancel}
+            onSetWhatsappMode={handleRequestSetWhatsappMode}
             loading={loading}
           />
         </Grid>
@@ -925,6 +1011,19 @@ export default function CompaniesManager() {
         onConfirm={() => onImpersonate()}
       >
         Deseja acessar o sistema como esta empresa?
+      </ConfirmationModal>
+      <ConfirmationModal
+        title="Travar modo WhatsApp"
+        open={showConfirmWhatsappModeDialog}
+        onClose={() => setShowConfirmWhatsappModeDialog(false)}
+        onConfirm={() => handleConfirmSetWhatsappMode()}
+      >
+        Essa decisão é permanente e não pode ser desfeita depois - a empresa
+        nunca poderá voltar ao modo anterior. Confirma a mudança para{" "}
+        {pendingWhatsappMode?.whatsappMode === "meta"
+          ? "API Oficial (Meta)"
+          : "Normal"}
+        ?
       </ConfirmationModal>
     </Paper>
   );
