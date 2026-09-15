@@ -8,6 +8,7 @@ import { getIO } from "../libs/socket";
 import ListContactsService from "../services/ContactServices/ListContactsService";
 import CreateContactService from "../services/ContactServices/CreateContactService";
 import ShowContactService from "../services/ContactServices/ShowContactService";
+import ShowTagService from "../services/TagServices/ShowService";
 import UpdateContactService from "../services/ContactServices/UpdateContactService";
 import DeleteContactService from "../services/ContactServices/DeleteContactService";
 import GetContactService from "../services/ContactServices/GetContactService";
@@ -21,6 +22,7 @@ import SimpleListService, {
   SearchContactParams
 } from "../services/ContactServices/SimpleListService";
 import ContactCustomField from "../models/ContactCustomField";
+import RefreshContactPictureService from "../services/ContactServices/RefreshContactPictureService";
 
 import { logger } from "../utils/logger";
 import Contact from "../models/Contact";
@@ -30,6 +32,18 @@ import { verifyContact } from "../services/WbotServices/verifyContact";
 import { getWbot } from "../libs/wbot";
 import GetDefaultWhatsApp from "../helpers/GetDefaultWhatsApp";
 import { csvDetectDelimiter } from "../helpers/csvDetectDelimiter";
+
+export const refreshPicture = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const pictures = await RefreshContactPictureService(
+    req.params.contactId,
+    req.user.companyId
+  );
+  res.setHeader("Cache-Control", "no-store");
+  return res.json(pictures);
+};
 
 type IndexQuery = {
   searchParam: string;
@@ -63,7 +77,13 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
   const { contacts, count, hasMore } = await ListContactsService({
     searchParam,
     pageNumber,
-    companyId
+    companyId,
+    isGroup:
+      req.query.isGroup === "true"
+        ? true
+        : req.query.isGroup === "false"
+          ? false
+          : undefined
   });
 
   return res.json({ contacts, count, hasMore });
@@ -292,7 +312,8 @@ export const storeTag = async (
 
   const contact = await ShowContactService(contactId, companyId);
 
-  await contact.$add("tags", tagId);
+  const tag = await ShowTagService(Number(tagId), companyId);
+  await contact.$add("tags", tag.id);
 
   return res.status(200).json({ message: "Tag added to contact" });
 };
@@ -312,7 +333,8 @@ export const removeTag = async (
 
   const contact = await ShowContactService(contactId, companyId);
 
-  await contact.$remove("tags", tagId);
+  const tag = await ShowTagService(Number(tagId), companyId);
+  await contact.$remove("tags", tag.id);
 
   return res.status(200).json({ message: "Tag removed from contact" });
 };

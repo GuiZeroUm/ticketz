@@ -18,6 +18,9 @@ const publicSettingsKeys = [
   "loginPageLinks",
   "loginSidePanelImage",
   "loginBackgroundContent",
+  "loginHeadline",
+  "loginDescription",
+  "loginTemplate",
   "linkPreviewImage",
   "linkPreviewDescription",
   "vapidPublicKey",
@@ -40,7 +43,7 @@ const resolveCompanyId = async (slug?: string): Promise<number | null> => {
   let normalized = "";
   try {
     normalized = normalizeSlug(slug);
-  } catch (_) {
+  } catch {
     return getMasterCompanyId();
   }
 

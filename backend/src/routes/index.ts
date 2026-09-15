@@ -47,6 +47,7 @@ import voiceRoutes from "./voiceRoutes";
 import whatsappGroupRoutes from "./whatsappGroupRoutes";
 import metaWhatsappRoutes from "./metaWhatsappRoutes";
 import metaWhatsappWebhookRoutes from "./metaWhatsappWebhookRoutes";
+import webPushRoutes from "./webPushRoutes";
 
 const routes = Router();
 
@@ -54,6 +55,7 @@ routes.use(platformRoutes);
 routes.use(taskBoardRoutes);
 routes.use(voiceRoutes);
 routes.use(whatsappGroupRoutes);
+routes.use(webPushRoutes);
 routes.use(oauthRoutes);
 routes.use(mcpRoutes);
 routes.use(chatGptRoutes);

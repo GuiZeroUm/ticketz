@@ -583,6 +583,8 @@ const LandingPage = () => {
         <p>{t("footer.description")}</p>
         <nav>
           <a href="/login">{t("story.login")}</a>
+          <a href="/privacidade/">{t("footer.privacy")}</a>
+          <a href="/termos/">{t("footer.terms")}</a>
           <a
             href="https://github.com/GuiZeroUm/ticketz"
             target="_blank"

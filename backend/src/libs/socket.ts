@@ -55,6 +55,11 @@ import GroupQueue from "../models/GroupQueue";
 import { DecoupledDriverServices } from "../services/DecoupledDriverServices/DecoupledDriverServices";
 import { corsOrigin } from "../helpers/corsOrigin";
 import Company from "../models/Company";
+import { Op } from "sequelize";
+import {
+  runtimeOwnsCompany,
+  runtimeCompanyWhere
+} from "../helpers/tenantRuntime";
 
 const decoupledDriverServices = DecoupledDriverServices.getInstance();
 
@@ -101,11 +106,21 @@ export const initIO = (httpServer: Server): SocketIO => {
     });
   }
 
-  UserSocketSession.update({ active: false }, { where: { active: true } }).then(
-    _ => {
+  User.findAll({ attributes: ["id"], where: runtimeCompanyWhere() })
+    .then(users =>
+      UserSocketSession.update(
+        { active: false },
+        {
+          where: {
+            active: true,
+            userId: { [Op.in]: users.map(user => user.id) }
+          }
+        }
+      )
+    )
+    .then(_ => {
       logger.debug("Clossing all socket sessions");
-    }
-  );
+    });
 
   io.on("connection", async socket => {
     logger.info("Client Connected");
@@ -128,6 +143,7 @@ export const initIO = (httpServer: Server): SocketIO => {
       user = await User.findByPk(userId, { include: [Queue, Company] });
       if (
         user?.company?.status &&
+        runtimeOwnsCompany(user.companyId) &&
         user.company.platformStatus !== "suspenso" &&
         user.company.platformStatus !== "cancelado"
       ) {

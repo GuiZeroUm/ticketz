@@ -7,7 +7,12 @@ import clsx from "clsx";
 import { Paper, makeStyles } from "@material-ui/core";
 
 import ContactDrawer from "../ContactDrawer";
-import MessageInput from "../MessageInputCustom/";
+import CompositorAtendimento from "../Conversa/CompositorAtendimento";
+import PainelMensagens from "../Conversa/PainelMensagens";
+import { BotaoIcone, useIdentidade } from "../interface";
+import { Search, PanelRight, Hash, Headphones, Radio } from "lucide-react";
+import { i18n } from "../../translate/i18n";
+import "../Conversa/conversa.css";
 import TicketHeader from "../TicketHeader";
 import TicketInfo from "../TicketInfo";
 import TicketActionButtons from "../TicketActionButtonsCustom";
@@ -17,11 +22,9 @@ import { ReplyMessageProvider } from "../../context/ReplyingMessage/ReplyingMess
 import { EditMessageProvider } from "../../context/EditingMessage/EditingMessageContext";
 import toastError from "../../errors/toastError";
 import { AuthContext } from "../../context/Auth/AuthContext";
-import { TagsContainer } from "../TagsContainer";
+
 import { SocketContext } from "../../context/Socket/SocketContext";
 import useSettings from "../../hooks/useSettings";
-
-const drawerWidth = 320;
 
 const useStyles = makeStyles(theme => ({
   root: {
@@ -37,9 +40,8 @@ const useStyles = makeStyles(theme => ({
     display: "flex",
     flexDirection: "column",
     overflow: "hidden",
-    borderTopLeftRadius: 0,
-    borderBottomLeftRadius: 0,
-    borderLeft: "0",
+    borderRadius: 16,
+    border: `1px solid ${theme.palette.divider}`,
     transition: theme.transitions.create("margin", {
       easing: theme.transitions.easing.sharp,
       duration: theme.transitions.duration.leavingScreen
@@ -47,13 +49,13 @@ const useStyles = makeStyles(theme => ({
   },
 
   mainWrapperShift: {
-    borderTopRightRadius: 0,
-    borderBottomRightRadius: 0,
+    borderTopRightRadius: 16,
+    borderBottomRightRadius: 16,
     transition: theme.transitions.create("margin", {
       easing: theme.transitions.easing.easeOut,
       duration: theme.transitions.duration.enteringScreen
     }),
-    marginRight: 0
+    marginRight: 10
   },
   drawerShade: {
     display: "none",
@@ -77,12 +79,24 @@ const Ticket = () => {
 
   const { user } = useContext(AuthContext);
 
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(
+    () => window.matchMedia("(min-width:1400px)").matches
+  );
   const [loading, setLoading] = useState(true);
   const [contact, setContact] = useState({});
   const [ticket, setTicket] = useState({});
   const [showTabGroups, setShowTabGroups] = useState(false);
-  const [tagsMode, setTagsMode] = useState("ticket");
+  const identidade = useIdentidade();
+  const [abaContexto, definirAbaContexto] = useState("contato");
+  const [painel, definirPainel] = useState(null);
+  const [mensagens, definirMensagens] = useState([]);
+  const [versaoNotas, definirVersaoNotas] = useState(0);
+  const abrirContexto = aba => {
+    definirAbaContexto(aba);
+    definirPainel(null);
+    setDrawerOpen(true);
+  };
+
   const { getSetting } = useSettings();
 
   const socketManager = useContext(SocketContext);
@@ -95,10 +109,6 @@ const Ticket = () => {
         );
       }
     );
-
-    getSetting("tagsMode", "ticket").then(tagsMode => {
-      setTagsMode(tagsMode);
-    });
   }, []);
 
   useEffect(() => {
@@ -202,18 +212,27 @@ const Ticket = () => {
           ticketId={ticket.id}
           isGroup={ticket.isGroup}
           markAsRead={true}
+          aoAtualizarMensagens={definirMensagens}
         ></MessagesList>
-        <MessageInput ticket={ticket} showTabGroups />
+        <CompositorAtendimento
+          key={ticket.id}
+          ticket={ticket}
+          aoSalvarNota={() => definirVersaoNotas(v => v + 1)}
+        />
       </>
     );
   };
 
   return (
-    <div className={classes.root} id="drawer-container">
+    <div
+      className={`${classes.root} ew-ui atendimento-conversa`}
+      style={identidade}
+      id="drawer-container"
+    >
       <Paper
         variant="outlined"
         elevation={0}
-        className={clsx(classes.mainWrapper, {
+        className={clsx(classes.mainWrapper, "conversa-painel", {
           [classes.mainWrapperShift]: drawerOpen
         })}
       >
@@ -225,24 +244,90 @@ const Ticket = () => {
         ></div>
         <TicketHeader loading={loading}>
           {renderTicketInfo()}
-          <TicketActionButtons ticket={ticket} showTabGroups={showTabGroups} />
+          <div className="conversa-cabecalho-acoes">
+            <BotaoIcone
+              titulo={i18n.t("conversa.pesquisa")}
+              onClick={() => {
+                definirPainel(painel === "pesquisa" ? null : "pesquisa");
+                setDrawerOpen(false);
+              }}
+            >
+              <Search size={18} />
+            </BotaoIcone>
+            <BotaoIcone
+              titulo={i18n.t("contexto.titulo")}
+              onClick={() => {
+                definirPainel(null);
+                setDrawerOpen(!drawerOpen);
+              }}
+            >
+              <PanelRight size={18} />
+            </BotaoIcone>
+          </div>
         </TicketHeader>
-        <Paper>
-          <TagsContainer
-            ticket={["ticket", "both"].includes(tagsMode) && ticket}
-            contact={tagsMode === "contact" && contact}
-          />
-        </Paper>
-        <ReplyMessageProvider>
-          <EditMessageProvider>{renderMessagesList()}</EditMessageProvider>
-        </ReplyMessageProvider>
+        {!loading && (
+          <div className="conversa-fatos">
+            <span>
+              <Hash size={12} />
+              {ticket.id}
+            </span>
+            <span>
+              <Headphones size={12} />
+              {ticket.queue?.name || i18n.t("conversa.semFila")}
+            </span>
+            {ticket.whatsapp?.name && (
+              <span>
+                <Radio size={12} />
+                {ticket.whatsapp.name}
+              </span>
+            )}
+            {ticket.user?.name && <span>{ticket.user.name}</span>}
+          </div>
+        )}
+        <div className="conversa-corpo">
+          <div className="conversa-principal">
+            <ReplyMessageProvider>
+              <EditMessageProvider>
+                {!loading && renderMessagesList()}
+              </EditMessageProvider>
+            </ReplyMessageProvider>
+          </div>
+          {!loading && (
+            <TicketActionButtons
+              lateral
+              ticket={ticket}
+              showTabGroups={showTabGroups}
+              aoAbrirContexto={abrirContexto}
+              aoAbrirArquivos={() => {
+                definirPainel("arquivos");
+                setDrawerOpen(false);
+              }}
+            />
+          )}
+        </div>
       </Paper>
+      {painel && (
+        <PainelMensagens
+          key={`${ticket.id}-${painel}`}
+          mensagens={mensagens}
+          modo={painel}
+          aoFechar={() => definirPainel(null)}
+          aoSelecionar={id =>
+            document
+              .getElementById(String(id))
+              ?.scrollIntoView({ behavior: "smooth", block: "center" })
+          }
+        />
+      )}
       <ContactDrawer
         open={drawerOpen}
         handleDrawerClose={handleDrawerClose}
         contact={contact}
         loading={loading}
         ticket={ticket}
+        aba={abaContexto}
+        aoAlterarAba={definirAbaContexto}
+        versaoNotas={versaoNotas}
       />
     </div>
   );

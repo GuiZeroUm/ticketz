@@ -11,7 +11,7 @@ const SimpleListService = async ({ companyId }: Params): Promise<User[]> => {
     where: {
       companyId
     },
-    attributes: ["name", "id", "email"],
+    attributes: ["name", "id", "email", "profilePicUrl"],
     include: [{ model: Queue, as: "queues" }],
     order: [["id", "ASC"]]
   });

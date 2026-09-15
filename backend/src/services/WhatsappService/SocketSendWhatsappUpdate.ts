@@ -1,4 +1,5 @@
 import { getIO } from "../../libs/socket";
+import GetWhatsappConnectionNumber from "../../helpers/GetWhatsappConnectionNumber";
 import Whatsapp from "../../models/Whatsapp";
 
 export function sendWhatsappUpdate(whatsapp: Whatsapp) {
@@ -12,6 +13,7 @@ export function sendWhatsappUpdate(whatsapp: Whatsapp) {
       whatsapp: {
         id,
         name,
+        number: GetWhatsappConnectionNumber(whatsapp.session),
         channel,
         status,
         qrcode,

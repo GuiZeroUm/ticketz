@@ -16,6 +16,7 @@ import {
   firstBillableDueDate,
   resolveTrialEndsAt
 } from "../BillingServices/BillingDateService";
+import { assertCompanyTimezone } from "./CompanyTimezoneService";
 
 interface CompanyData {
   name: string;
@@ -31,6 +32,7 @@ interface CompanyData {
   dueDay?: number;
   recurrence?: string;
   language?: string;
+  timezone?: string | null;
   slug?: string;
   partnerId?: number | null;
   saleValue?: number | null;
@@ -117,6 +119,10 @@ const UpdateCompanyService = async (
 
   const hasSlug = companyData.slug !== undefined;
   const slug = hasSlug ? normalizeSlug(companyData.slug) : undefined;
+  const hasTimezone = companyData.timezone !== undefined;
+  const timezone = hasTimezone
+    ? assertCompanyTimezone(companyData.timezone)
+    : undefined;
 
   if (slug) {
     const companyWithSameSlug = await Company.findOne({
@@ -141,6 +147,7 @@ const UpdateCompanyService = async (
       ...(hasDueDay || dueDate !== undefined ? { dueDay } : {}),
       recurrence,
       language,
+      ...(hasTimezone ? { timezone } : {}),
       ...(hasSlug ? { slug: slug || null } : {}),
       ...(hasPartnerId ? { partnerId: companyData.partnerId || null } : {}),
       ...(hasSaleValue ? { saleValue: companyData.saleValue ?? null } : {}),

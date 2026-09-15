@@ -10,7 +10,7 @@ import ListItem from "@material-ui/core/ListItem";
 import ListItemText from "@material-ui/core/ListItemText";
 import ListItemAvatar from "@material-ui/core/ListItemAvatar";
 import Typography from "@material-ui/core/Typography";
-import Avatar from "@material-ui/core/Avatar";
+import AvatarContato from "../AvatarContato";
 import Divider from "@material-ui/core/Divider";
 import Badge from "@material-ui/core/Badge";
 
@@ -166,7 +166,7 @@ const TicketListItem = ({ ticket, groupActionButtons }) => {
           ></span>
         </Tooltip>
         <ListItemAvatar>
-          <Avatar src={ticket?.contact?.profilePicUrl} />
+          <AvatarContato contact={ticket?.contact} />
         </ListItemAvatar>
         <ListItemText
           disableTypography

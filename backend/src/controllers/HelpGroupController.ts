@@ -21,6 +21,7 @@ type StoreData = {
   audience?: string;
   isGlobal?: boolean;
   isActive?: boolean;
+  adminOnly?: boolean;
 };
 
 /**
@@ -65,9 +66,15 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 // req.body impede que um admin mande companyId/order e escape do proprio tenant.
 // omitBy porque chave ausente e diferente de chave nula: no update so deve ir
 // o que foi realmente enviado.
-const pickFields = ({ title, subtitle, icon, isActive }: StoreData) =>
+const pickFields = ({
+  title,
+  subtitle,
+  icon,
+  isActive,
+  adminOnly
+}: StoreData) =>
   omitBy(
-    { title, subtitle, icon, isActive },
+    { title, subtitle, icon, isActive, adminOnly },
     isUndefined
   ) as Partial<StoreData>;
 

@@ -2,8 +2,8 @@ import { useTheme } from "@material-ui/core";
 import React, { useEffect, useState } from "react";
 import { i18n } from "../../translate/i18n";
 import {
-  Area,
-  AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
   ResponsiveContainer,
   Tooltip,
@@ -11,10 +11,8 @@ import {
   YAxis
 } from "recharts";
 import CustomTooltip from "./CustomTooltip";
-import Title from "./Title";
 import { getTimezoneOffset } from "../../helpers/getTimezoneOffset";
 import { getISOStringWithTimezone } from "../../helpers/getISOStringWithTimezone";
-import { numPad } from "../../helpers/numPad";
 
 function prepareChartData(emptyData, serie) {
   const ticketCreateData = JSON.parse(JSON.stringify(emptyData));
@@ -48,10 +46,6 @@ export function TicketCountersChart({ ticketCounters }) {
       hour: 60,
       timestamp: 30
     };
-
-    const offset = new Date().getTimezoneOffset();
-    const interval = step[field];
-    const firstMinutes = (offset + interval) % interval;
 
     const startDate = new Date(ticketCounters.create.start);
     const endDate = new Date(ticketCounters.create.end);
@@ -89,11 +83,11 @@ export function TicketCountersChart({ ticketCounters }) {
 
   return (
     <React.Fragment>
-      <Title>{t("dashboard.ticketsOnPeriod")}</Title>
+      <h2>{t("dashboard.ticketsOnPeriod")}</h2>
       <ResponsiveContainer>
-        <AreaChart
+        <BarChart
           data={chartData}
-          barSize={40}
+          barSize={18}
           width={730}
           height={300}
           margin={{
@@ -184,25 +178,21 @@ export function TicketCountersChart({ ticketCounters }) {
             }
             cursor={true}
           />
-          <Area
-            type="monotone"
+          <Bar
+            radius={[3, 3, 0, 0]}
             dataKey="created"
-            stroke="blue"
-            strokeWidth={1}
-            fillOpacity={0.5}
-            fill="lightblue"
-            activeDot={{ r: 8 }}
+            stroke={theme.palette.primary.main}
+            strokeWidth={2}
+            fill={theme.palette.primary.main}
           />
-          <Area
-            type="monotone"
+          <Bar
+            radius={[3, 3, 0, 0]}
             dataKey="closed"
-            stroke="green"
-            strokeWidth={1}
-            fillOpacity={0.5}
-            fill="lightgreen"
-            activeDot={{ r: 8 }}
+            stroke="#416971"
+            strokeWidth={2}
+            fill="#416971"
           />
-        </AreaChart>
+        </BarChart>
       </ResponsiveContainer>
     </React.Fragment>
   );

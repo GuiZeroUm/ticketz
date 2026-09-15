@@ -77,6 +77,9 @@ class Company extends Model<Company> {
   @Column
   language: string;
 
+  @Column(DataType.STRING(100))
+  timezone: string | null;
+
   @Column
   slug: string;
 

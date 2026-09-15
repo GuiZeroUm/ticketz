@@ -3,12 +3,14 @@ import {
   Box,
   Card,
   CardActionArea,
+  Chip,
   Typography,
   makeStyles
 } from "@material-ui/core";
 
 import { i18n } from "../../translate/i18n";
 import { getIconComponent } from "../IconPicker/icons";
+import LockOutlinedIcon from "@material-ui/icons/LockOutlined";
 
 const useStyles = makeStyles(theme => ({
   sectionTitle: {
@@ -52,6 +54,12 @@ const useStyles = makeStyles(theme => ({
   counts: {
     color: theme.palette.text.secondary,
     marginTop: theme.spacing(1.5)
+  },
+  titleRow: {
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: theme.spacing(1)
   },
   empty: {
     padding: theme.spacing(3),
@@ -112,7 +120,17 @@ const CategoryGrid = ({ groups, onSelect, title }) => {
                 <Box className={classes.iconBox}>
                   <Icon fontSize="large" />
                 </Box>
-                <Typography variant="h6">{group.title}</Typography>
+                <Box className={classes.titleRow}>
+                  <Typography variant="h6">{group.title}</Typography>
+                  {group.adminOnly ? (
+                    <Chip
+                      size="small"
+                      color="primary"
+                      icon={<LockOutlinedIcon />}
+                      label={i18n.t("helps.adminOnly")}
+                    />
+                  ) : null}
+                </Box>
                 {group.subtitle ? (
                   <Typography variant="body2" className={classes.subtitle}>
                     {group.subtitle}

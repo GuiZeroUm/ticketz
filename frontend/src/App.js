@@ -13,7 +13,8 @@ import { SocketContext, socketManager } from "./context/Socket/SocketContext";
 import useSettings from "./hooks/useSettings";
 import Favicon from "react-favicon";
 import { loadBranding } from "./helpers/loadBranding";
-import themeOverrides from "./theme/overrides";
+import criarAjustesVisuais from "./theme/overrides";
+import { coresInterface, tipografiaInterface } from "./theme/identidadeVisual";
 
 import Routes from "./routes";
 
@@ -114,9 +115,8 @@ const App = () => {
               height: "8px"
             },
             "&::-webkit-scrollbar-thumb": {
-              boxShadow: "inset 0 0 6px rgba(0, 0, 0, 0.3)",
-              backgroundColor:
-                mode === "light" ? primaryColorLight : primaryColorDark
+              borderRadius: 8,
+              backgroundColor: mode === "light" ? "#D4D4D8" : "#333B47"
             }
           },
           scrollbarStylesSoft: {
@@ -129,6 +129,11 @@ const App = () => {
           },
           palette: {
             type: mode,
+            text: {
+              primary: coresInterface(mode).texto,
+              secondary: coresInterface(mode).secundario
+            },
+            divider: coresInterface(mode).borda,
             primary: {
               main: mode === "light" ? primaryColorLight : primaryColorDark
             },
@@ -138,8 +143,8 @@ const App = () => {
             borderPrimary:
               mode === "light" ? primaryColorLight : primaryColorDark,
             background: {
-              default: mode === "light" ? "#fafafa" : "#303030",
-              paper: mode === "light" ? "#fff" : "#424242"
+              default: coresInterface(mode).fundo,
+              paper: coresInterface(mode).superficie
             },
             backgroundContrast: {
               default: mode === "light" ? "#ddd" : "#888",
@@ -153,27 +158,27 @@ const App = () => {
             },
             chatBubbleReceived: { main: mode === "light" ? "#fff" : "#024481" },
             chatBackground: { main: mode === "light" ? "#f3f3f3" : "#333" },
-            tabHeaderBackground: mode === "light" ? "#EEE" : "#666",
-            optionsBackground: mode === "light" ? "#fafafa" : "#333",
-            options: mode === "light" ? "#fafafa" : "#666",
+            tabHeaderBackground: coresInterface(mode).fundo,
+            optionsBackground: coresInterface(mode).superficie,
+            options: coresInterface(mode).superficie,
             fontecor: mode === "light" ? primaryColorLight : primaryColorDark,
-            fancyBackground: mode === "light" ? "#fafafa" : "#333",
+            fancyBackground: coresInterface(mode).fundo,
             bordabox: mode === "light" ? "#eee" : "#333",
-            newmessagebox: mode === "light" ? "#eee" : "#333",
-            inputdigita: mode === "light" ? "#fff" : "#666",
-            contactdrawer: mode === "light" ? "#fff" : "#666",
+            newmessagebox: coresInterface(mode).fundo,
+            inputdigita: coresInterface(mode).superficie,
+            contactdrawer: coresInterface(mode).superficie,
             announcements: mode === "light" ? "#ededed" : "#333",
             login: mode === "light" ? "#fff" : "#1C1C1C",
-            announcementspopover: mode === "light" ? "#fff" : "#666",
+            announcementspopover: coresInterface(mode).superficie,
             chatlist: { main: mode === "light" ? "#dfdfdf" : "#555" },
-            boxlist: mode === "light" ? "#ededed" : "#666",
-            boxchatlist: mode === "light" ? "#ededed" : "#333",
-            total: mode === "light" ? "#fff" : "#222",
+            boxlist: coresInterface(mode).fundo,
+            boxchatlist: coresInterface(mode).fundo,
+            total: coresInterface(mode).superficie,
             messageIcons: mode === "light" ? "grey" : "#F3F3F3",
-            inputBackground: mode === "light" ? "#FFFFFF" : "#333",
+            inputBackground: coresInterface(mode).superficie,
             barraSuperior: mode === "light" ? primaryColorLight : "#666",
-            boxticket: mode === "light" ? "#EEE" : "#666",
-            campaigntab: mode === "light" ? "#ededed" : "#666",
+            boxticket: coresInterface(mode).fundo,
+            campaigntab: coresInterface(mode).fundo,
             ticketzproad: { main: "#39ACE7", contrastText: "white" },
             // Paleta do editor de chatbot, que simula uma conversa do WhatsApp.
             whatsapp: {
@@ -202,7 +207,9 @@ const App = () => {
                   : "/whatsapp/chat-background-dark.png"
             }
           },
-          overrides: themeOverrides,
+          overrides: criarAjustesVisuais(mode),
+          typography: tipografiaInterface,
+          shape: { borderRadius: 8 },
           mode,
           appLogoLight,
           appLogoDark,

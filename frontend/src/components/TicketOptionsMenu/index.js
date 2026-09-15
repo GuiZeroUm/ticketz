@@ -19,7 +19,8 @@ const TicketOptionsMenu = ({
   menuOpen,
   handleClose,
   anchorEl,
-  showTabGroups
+  showTabGroups,
+  children
 }) => {
   const [confirmationOpen, setConfirmationOpen] = useState(false);
   const [transferTicketModalOpen, setTransferTicketModalOpen] = useState(false);
@@ -75,6 +76,11 @@ const TicketOptionsMenu = ({
 
   return (
     <>
+      {children?.({
+        transferir: handleOpenTransferModal,
+        agendar: handleOpenScheduleModal,
+        configurarGrupo: () => setGroupConfigOpen(true)
+      })}
       <Menu
         id="menu-appbar"
         anchorEl={anchorEl}

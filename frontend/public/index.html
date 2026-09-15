@@ -5,11 +5,17 @@
     <title>Espaço Whats</title>
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap"
+      href="https://fonts.googleapis.com/css?family=Inter:wght@400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap"
     />
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/branding/espaco-whats-icon.png" />
+    <link
+      rel="apple-touch-icon"
+      href="%PUBLIC_URL%/branding/espaco-whats-icon.png"
+    />
     <link rel="icon" href="%PUBLIC_URL%/branding/espaco-whats-icon.png" />
-    <link rel="shortcut icon" href="%PUBLIC_URL%/branding/espaco-whats-icon.png" />
+    <link
+      rel="shortcut icon"
+      href="%PUBLIC_URL%/branding/espaco-whats-icon.png"
+    />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
     <meta name="theme-color" content="#000000" />
     <meta
@@ -436,6 +442,9 @@
       }, 1000);
       window.finishProgress = () => {
         progress = 100;
+        clearInterval(interval);
+        progressBar.style.width = "100%";
+        document.getElementById("splash-background")?.remove();
       };
     </script>
   </body>

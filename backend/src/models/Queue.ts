@@ -61,6 +61,9 @@ class Queue extends Model {
   @Column
   order: number;
 
+  @Column(DataType.JSONB)
+  flowLayout: Record<string, unknown>;
+
   @CreatedAt
   createdAt: Date;
 

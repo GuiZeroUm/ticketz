@@ -13,6 +13,7 @@ const ShowUserService = async (
       "name",
       "id",
       "email",
+      "profilePicUrl",
       "companyId",
       "profile",
       "super",
@@ -27,7 +28,14 @@ const ShowUserService = async (
       {
         model: Company,
         as: "company",
-        attributes: ["id", "name", "dueDate", "status", "platformStatus"]
+        attributes: [
+          "id",
+          "name",
+          "slug",
+          "dueDate",
+          "status",
+          "platformStatus"
+        ]
       }
     ],
     order: [[{ model: Queue, as: "queues" }, "name", "ASC"]]

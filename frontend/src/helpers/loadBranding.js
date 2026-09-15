@@ -38,8 +38,8 @@ export const loadBranding = async (setters, fetchSetting) => {
     read("appName")
   ]);
 
-  setters.setPrimaryColorLight(primaryColorLight || "#0000FF");
-  setters.setPrimaryColorDark(primaryColorDark || "#39ACE7");
+  setters.setPrimaryColorLight(primaryColorLight || "#C2480A");
+  setters.setPrimaryColorDark(primaryColorDark || "#FF8A43");
   setters.setAppLogoLight(
     appLogoLight ? toPublicUrl(appLogoLight) : defaultLogoLight
   );

@@ -18,7 +18,7 @@ import { useTheme } from "@material-ui/core";
 import Container from "@material-ui/core/Container";
 import { i18n } from "../../translate/i18n";
 
-import { openApi } from "../../services/api";
+import { getBrowserTimezone, openApi } from "../../services/api";
 import toastError from "../../errors/toastError";
 
 import ReCAPTCHA from "react-google-recaptcha";
@@ -101,6 +101,7 @@ const SignUp = () => {
     Object.assign(values, { recurrence: "MENSAL" });
     Object.assign(values, { status: "t" });
     Object.assign(values, { campaignsEnabled: true });
+    Object.assign(values, { timezone: getBrowserTimezone() || null });
     try {
       await openApi.post("/companies/cadastro", values);
       toast.success(i18n.t("signup.toasts.success"));

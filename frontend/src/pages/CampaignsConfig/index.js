@@ -1,3 +1,4 @@
+import NavegacaoEnvios from "../../components/NavegacaoEnvios";
 import React, { useEffect, useState } from "react";
 
 import { makeStyles } from "@material-ui/core/styles";
@@ -129,6 +130,7 @@ const CampaignsConfig = () => {
           </Grid>
         </Grid>
       </MainHeader>
+      <NavegacaoEnvios />
       <Paper className={classes.mainPaper} variant="outlined">
         <Box className={classes.tabPanelsContainer}>
           <Grid spacing={2} container>

@@ -8,7 +8,7 @@ import React, {
 
 import { makeStyles } from "@material-ui/core/styles";
 import List from "@material-ui/core/List";
-import Paper from "@material-ui/core/Paper";
+import TicketListSurface from "./TicketListSurface";
 
 import TicketListItem from "../TicketListItemCustom";
 import TicketsListSkeleton from "../TicketsListSkeleton";
@@ -20,24 +20,6 @@ import { SocketContext } from "../../context/Socket/SocketContext";
 import toastError from "../../errors/toastError";
 
 const useStyles = makeStyles(theme => ({
-  ticketsListWrapper: {
-    position: "relative",
-    display: "flex",
-    height: "100%",
-    flexDirection: "column",
-    overflow: "hidden",
-    borderTopRightRadius: 0,
-    borderBottomRightRadius: 0
-  },
-
-  ticketsList: {
-    flex: 1,
-    maxHeight: "100%",
-    overflowY: "scroll",
-    ...theme.scrollbarStyles,
-    borderTop: "2px solid rgba(0, 0, 0, 0.12)"
-  },
-
   ticketsListHeader: {
     color: "rgb(67, 83, 105)",
     zIndex: 2,
@@ -483,40 +465,32 @@ const TicketsListCustom = props => {
   };
 
   return (
-    <Paper className={classes.ticketsListWrapper} style={style}>
-      <Paper
-        square
-        name="closed"
-        elevation={0}
-        className={classes.ticketsList}
-        onScroll={handleScroll}
-      >
-        <List style={{ paddingTop: 0 }}>
-          {ticketsList.length === 0 && !loading ? (
-            <div className={classes.noTicketsDiv}>
-              <span className={classes.noTicketsTitle}>
-                {i18n.t("ticketsList.noTicketsTitle")}
-              </span>
-              <p className={classes.noTicketsText}>
-                {i18n.t("ticketsList.noTicketsMessage")}
-              </p>
-            </div>
-          ) : (
-            <>
-              {ticketsList.map(ticket => (
-                <TicketListItem
-                  ticket={ticket}
-                  setTabOpen={setTabOpen}
-                  key={ticket.id}
-                  groupActionButtons={!groups || groupMode === "ticket"}
-                />
-              ))}
-            </>
-          )}
-          {loading && <TicketsListSkeleton />}
-        </List>
-      </Paper>
-    </Paper>
+    <TicketListSurface style={style} onScroll={handleScroll}>
+      <List style={{ paddingTop: 0 }}>
+        {ticketsList.length === 0 && !loading ? (
+          <div className={classes.noTicketsDiv}>
+            <span className={classes.noTicketsTitle}>
+              {i18n.t("ticketsList.noTicketsTitle")}
+            </span>
+            <p className={classes.noTicketsText}>
+              {i18n.t("ticketsList.noTicketsMessage")}
+            </p>
+          </div>
+        ) : (
+          <>
+            {ticketsList.map(ticket => (
+              <TicketListItem
+                ticket={ticket}
+                setTabOpen={setTabOpen}
+                key={ticket.id}
+                groupActionButtons={!groups || groupMode === "ticket"}
+              />
+            ))}
+          </>
+        )}
+        {loading && <TicketsListSkeleton />}
+      </List>
+    </TicketListSurface>
   );
 };
 

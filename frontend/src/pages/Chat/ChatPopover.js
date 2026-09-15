@@ -231,7 +231,7 @@ export default function ChatPopover() {
         onClick={handleClick}
       >
         <Badge color="secondary" variant="dot" invisible={invisible}>
-          <ForumIcon style={{ color: theme.palette.primary.contrastText }} />
+          <ForumIcon style={{ color: theme.palette.text.secondary }} />
         </Badge>
       </IconButton>
       <Popover

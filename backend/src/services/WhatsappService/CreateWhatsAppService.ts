@@ -111,10 +111,6 @@ const CreateWhatsAppService = async ({
     }
   }
 
-  if (queueIds.length > 1 && !greetingMessage) {
-    throw new AppError("ERR_WAPP_GREETING_REQUIRED");
-  }
-
   // O modo (Baileys/oficial) nunca e escolhido na criacao da conexao - ele
   // sempre espelha o modo travado da empresa, pra nunca misturar os dois.
   const apiMode = company?.whatsappMode === "meta" ? "official" : "baileys";

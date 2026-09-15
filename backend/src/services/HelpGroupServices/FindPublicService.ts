@@ -9,6 +9,7 @@ export interface PublicHelpGroup {
   icon: string;
   order: number;
   isGlobal: boolean;
+  adminOnly: boolean;
   articleCount: number;
   videoCount: number;
 }
@@ -24,12 +25,15 @@ export interface PublicHelpGroup {
  */
 const FindPublicService = async (
   audience: string,
-  companyId?: number
+  companyId?: number,
+  isAdmin = false
 ): Promise<PublicHelpGroup[]> => {
+  const restrictAdminOnly = audience === "company" && !isAdmin;
   const groups = await HelpGroup.findAll({
     where: {
       audience,
       isActive: true,
+      ...(restrictAdminOnly ? { adminOnly: false } : {}),
       ...(companyId
         ? { [Op.or]: [{ isGlobal: true }, { companyId }] }
         : { isGlobal: true })
@@ -49,6 +53,7 @@ const FindPublicService = async (
     attributes: ["groupId", "type", [fn("COUNT", col("id")), "total"]],
     where: {
       isActive: true,
+      ...(restrictAdminOnly ? { adminOnly: false } : {}),
       groupId: { [Op.in]: groups.map(group => group.id) }
     },
     group: ["groupId", "type"],
@@ -79,6 +84,7 @@ const FindPublicService = async (
       icon: group.icon,
       order: group.order,
       isGlobal: group.isGlobal,
+      adminOnly: group.adminOnly,
       articleCount: entry.article,
       videoCount: entry.video
     };

@@ -88,21 +88,7 @@ async function probeBackendAndRender(config, attempt = 1) {
 
   axios
     .get(backendUrl, { timeout: BACKEND_PROBE_TIMEOUT_MS })
-    .then(response => {
-      const serverDate = new Date(response.headers["date"]);
-      const clientDate = new Date();
-      const diff = Math.abs(serverDate - clientDate);
-      const diffMinutes = Math.floor(diff / 1000 / 60);
-
-      if (diffMinutes > 5) {
-        let message = i18n.t("frontendErrors.ERR_CLOCK_OUT_OF_SYNC");
-        message += `<br><br>${i18n.t("common.serverTime")} ${serverDate.toLocaleString()}`;
-        message += `<br>${i18n.t("common.clientTime")} ${clientDate.toLocaleString()}`;
-        message += `<br>${i18n.t("common.differenceMinutes", { count: diffMinutes })}`;
-        window.renderError(message);
-        return;
-      }
-
+    .then(() => {
       renderApp();
     })
     .catch(error => {

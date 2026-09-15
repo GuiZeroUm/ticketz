@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from "react";
 
-import { Avatar, CardHeader } from "@material-ui/core";
+import { CardHeader } from "@material-ui/core";
+import AvatarContato from "../AvatarContato";
 import { Lightbox } from "react-modal-image";
 
 import { i18n } from "../../translate/i18n";
-import { formatWhatsappContactName } from "../../helpers/formatWhatsappDisplay";
+import {
+  formatWhatsappContactName,
+  formatWhatsappContactNumber
+} from "../../helpers/formatWhatsappDisplay";
 import { getInitials } from "../../helpers/getInitials";
-import { generateColor } from "../../helpers/colorGenerator";
+import { corAvatar as generateColor } from "../../helpers/coresAvatar";
 
 const TicketInfo = ({ contact, ticket, onClick }) => {
   const { user } = ticket;
@@ -14,12 +18,6 @@ const TicketInfo = ({ contact, ticket, onClick }) => {
   const [avatarOpen, setAvatarOpen] = useState(false);
 
   const contactName = contact ? formatWhatsappContactName(contact, ticket) : "";
-  const truncatedContactName =
-    document.body.offsetWidth < 600 && contactName.length > 10
-      ? contactName.substring(0, 10) + "..."
-      : contactName;
-  const isGroupConversation = ticket.isGroup && contact?.groupMode !== "ticket";
-
   useEffect(() => {
     if (user && contact) {
       setUserName(`${i18n.t("messagesList.header.assignedTo")} ${user.name}`);
@@ -45,13 +43,13 @@ const TicketInfo = ({ contact, ticket, onClick }) => {
         titleTypographyProps={{ noWrap: true }}
         subheaderTypographyProps={{ noWrap: true }}
         avatar={
-          <Avatar
+          <AvatarContato
             style={{
               backgroundColor: generateColor(contact?.number),
               color: "white",
               fontWeight: "bold"
             }}
-            src={contact.profilePicUrl}
+            contact={contact}
             alt="contact_image"
             onClick={e => {
               e.stopPropagation();
@@ -59,14 +57,10 @@ const TicketInfo = ({ contact, ticket, onClick }) => {
             }}
           >
             {getInitials(contactName)}
-          </Avatar>
+          </AvatarContato>
         }
-        title={
-          isGroupConversation
-            ? truncatedContactName
-            : `${truncatedContactName} #${ticket.id}`
-        }
-        subheader={!isGroupConversation && ticket.user && `${userName}`}
+        title={contactName}
+        subheader={formatWhatsappContactNumber(contact) || userName}
       />
     </>
   );

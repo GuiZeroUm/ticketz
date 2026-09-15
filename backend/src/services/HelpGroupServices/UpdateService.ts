@@ -11,6 +11,7 @@ interface Data {
   audience?: string;
   isGlobal?: boolean;
   isActive?: boolean;
+  adminOnly?: boolean;
 }
 
 const UpdateService = async (data: Data): Promise<HelpGroup> => {
@@ -39,7 +40,10 @@ const UpdateService = async (data: Data): Promise<HelpGroup> => {
   const audience = data.audience || record.audience;
   // Material de parceiro e sempre da plataforma (o portal autentica sem
   // companyId, entao nao ha empresa a que pertencer).
-  const isGlobal = audience === "partner" ? true : data.isGlobal ?? record.isGlobal;
+  const isGlobal =
+    audience === "partner" ? true : (data.isGlobal ?? record.isGlobal);
+  const adminOnly =
+    audience === "company" ? (data.adminOnly ?? record.adminOnly) : false;
 
   const target = { audience, isGlobal, companyId: record.companyId };
 
@@ -54,13 +58,14 @@ const UpdateService = async (data: Data): Promise<HelpGroup> => {
       ...data,
       audience,
       isGlobal,
+      adminOnly,
       order: Number.isInteger(maxOrder) ? maxOrder + 1 : 0
     });
 
     return record;
   }
 
-  await record.update({ ...data, audience, isGlobal });
+  await record.update({ ...data, audience, isGlobal, adminOnly });
 
   return record;
 };

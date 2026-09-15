@@ -22,7 +22,7 @@ const useStyles = makeStyles(theme => ({
     alignItems: "center"
   },
   phoneIcon: {
-    color: theme.palette.primary.contrastText,
+    color: theme.palette.text.secondary,
     fontSize: "24px",
     animation: "$fadeInOut 2s infinite"
   }

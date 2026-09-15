@@ -1,3 +1,5 @@
+import { alpha } from "@material-ui/core/styles";
+import AudioMessage from "../AudioMessage";
 import React, {
   useState,
   useEffect,
@@ -46,8 +48,6 @@ import {
 import WhatsMarked from "react-whatsmarked";
 import PdfPreview from "../PdfPreview";
 import MessageOptionsMenu from "../MessageOptionsMenu";
-import whatsBackground from "../../assets/wa-background.png";
-import whatsBackgroundDark from "../../assets/wa-background-dark.png";
 import MediaGalleryLightbox, {
   buildMediaGalleryData
 } from "../MediaGalleryLightbox";
@@ -87,9 +87,7 @@ const VoiceRecordingPlayer = ({ message }) => {
   }, [callId]);
 
   return source ? (
-    <audio controls preload="metadata">
-      <source src={source} type="audio/wav" />
-    </audio>
+    <AudioMessage src={source} />
   ) : (
     <CircularProgress size={20} />
   );
@@ -111,10 +109,7 @@ const useStyles = makeStyles(theme => ({
   },
 
   stickedMessages: {
-    backgroundImage:
-      theme.mode === "light"
-        ? `url(${whatsBackground})`
-        : `url(${whatsBackgroundDark})`,
+    backgroundColor: theme.palette.background.default,
     flexDirection: "column",
     flexGrow: 1,
     padding: "5px 20px 20px 20px",
@@ -136,15 +131,12 @@ const useStyles = makeStyles(theme => ({
     flexDirection: "column",
     flexGrow: 1,
     width: "100%",
-    minWidth: 300,
+    minWidth: 0,
     minHeight: 150
   },
 
   messagesList: {
-    backgroundImage:
-      theme.mode === "light"
-        ? `url(${whatsBackground})`
-        : `url(${whatsBackgroundDark})`,
+    backgroundColor: theme.palette.background.default,
     display: "flex",
     flexDirection: "column",
     flexGrow: 1,
@@ -178,7 +170,7 @@ const useStyles = makeStyles(theme => ({
     },
 
     whiteSpace: "pre-wrap",
-    backgroundColor: theme.mode === "light" ? "#ffffff" : "#024481",
+    backgroundColor: theme.palette.background.paper,
     color: theme.mode === "light" ? "#303030" : "#ffffff",
     alignSelf: "flex-start",
     borderTopLeftRadius: 0,
@@ -195,7 +187,7 @@ const useStyles = makeStyles(theme => ({
   },
 
   quotedContainerLeft: {
-    margin: "-3px -80px 6px -6px",
+    margin: "0 0 8px",
     overflow: "hidden",
     backgroundColor: theme.mode === "light" ? "#f0f0f0" : "#1c2134",
     borderRadius: "7.5px",
@@ -240,7 +232,7 @@ const useStyles = makeStyles(theme => ({
       right: 0
     },
     whiteSpace: "pre-wrap",
-    backgroundColor: theme.mode === "light" ? "#dcf8c6" : "#005c4b",
+    backgroundColor: alpha(theme.palette.primary.main, 0.09),
     color: theme.mode === "light" ? "#303030" : "#ffffff",
     alignSelf: "flex-end",
     borderTopLeftRadius: 8,
@@ -257,7 +249,7 @@ const useStyles = makeStyles(theme => ({
   },
 
   quotedContainerRight: {
-    margin: "-3px -80px 6px -6px",
+    margin: "0 0 8px",
     overflowY: "hidden",
     backgroundColor: theme.mode === "light" ? "#cfe9ba" : "#075e54",
     borderRadius: "7.5px",
@@ -279,8 +271,10 @@ const useStyles = makeStyles(theme => ({
   },
 
   messageActionsButton: {
-    display: "none",
-    position: "relative",
+    display: "flex",
+    position: "absolute",
+    top: 3,
+    right: 3,
     color: "#999",
     zIndex: 1,
     backgroundColor: "inherit",
@@ -290,7 +284,7 @@ const useStyles = makeStyles(theme => ({
 
   messageContactName: {
     display: "flex",
-    color: "#6bcbef",
+    color: theme.palette.primary.main,
     fontWeight: 500,
     cursor: "pointer"
   },
@@ -310,8 +304,10 @@ const useStyles = makeStyles(theme => ({
   },
 
   textContentItem: {
-    overflowWrap: "break-word",
-    padding: "3px 80px 6px 6px"
+    overflowWrap: "anywhere",
+    fontSize: 13,
+    lineHeight: 1.65,
+    padding: "3px 34px 20px 6px"
   },
 
   messageLocation: {
@@ -412,7 +408,7 @@ const useStyles = makeStyles(theme => ({
   },
 
   timestampStickerLeft: {
-    backgroundColor: theme.mode === "light" ? "#ffffff" : "#024481",
+    backgroundColor: theme.palette.background.paper,
     borderRadius: 8,
     padding: 5,
     boxShadow:
@@ -750,14 +746,22 @@ const reducer = (state, action) => {
   }
 };
 
-const MessagesList = ({ ticket, ticketId, isGroup, markAsRead, readOnly }) => {
+const MessagesList = ({
+  ticket,
+  ticketId,
+  isGroup,
+  markAsRead,
+  readOnly,
+  aoAtualizarMensagens
+}) => {
   const classes = useStyles();
 
   const [messagesList, dispatch] = useReducer(reducer, []);
   const messagesListRef = useRef(messagesList);
   useEffect(() => {
     messagesListRef.current = messagesList;
-  }, [messagesList]);
+    aoAtualizarMensagens?.(messagesList);
+  }, [messagesList, aoAtualizarMensagens]);
   const [nextId, setNextId] = useState(null);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -1117,14 +1121,9 @@ const MessagesList = ({ ticket, ticketId, isGroup, markAsRead, readOnly }) => {
       );
     }
     if (!document && message.mediaType === "audio") {
-      const audioType = (message.mediaUrl || "").toLowerCase().includes(".wav")
-        ? "audio/wav"
-        : "audio/ogg";
       return (
         <>
-          <audio className={classes.audioBottom} controls>
-            <source src={message.mediaUrl} type={audioType}></source>
-          </audio>
+          <AudioMessage src={message.mediaUrl} />
           {message.body && !["🔊", "Áudio"].includes(message.body) && (
             <div className={classes.mediaDescription}>{message.body}</div>
           )}
@@ -1848,6 +1847,8 @@ const MessagesList = ({ ticket, ticketId, isGroup, markAsRead, readOnly }) => {
             {renderMessageDivider(message, index)}
             <div
               id={message.id}
+              data-message-side="received"
+              data-message-kind={isSticker ? "sticker" : "message"}
               className={[
                 clsx(classes.messageContainer, classes.messageLeft, {
                   [classes.messageMediaSticker]: isSticker
@@ -1860,6 +1861,7 @@ const MessagesList = ({ ticket, ticketId, isGroup, markAsRead, readOnly }) => {
                   variant="contained"
                   size="small"
                   id={`messageActionsButton-${message.id}`}
+                  aria-label={i18n.t("conversa.maisAcoes")}
                   disabled={message.isDeleted}
                   className={classes.messageActionsButton}
                   onClick={e => handleOpenMessageOptionsMenu(e, message, data)}
@@ -1967,6 +1969,8 @@ const MessagesList = ({ ticket, ticketId, isGroup, markAsRead, readOnly }) => {
             {renderMessageDivider(message, index)}
             <div
               id={message.id}
+              data-message-side="sent"
+              data-message-kind={isSticker ? "sticker" : "message"}
               className={[
                 clsx(classes.messageContainer, classes.messageRight, {
                   [classes.messageMediaSticker]: isSticker
@@ -1979,6 +1983,7 @@ const MessagesList = ({ ticket, ticketId, isGroup, markAsRead, readOnly }) => {
                   variant="contained"
                   size="small"
                   id={`messageActionsButton-${message.id}`}
+                  aria-label={i18n.t("conversa.maisAcoes")}
                   disabled={message.isDeleted}
                   className={classes.messageActionsButton}
                   onClick={e => handleOpenMessageOptionsMenu(e, message, data)}

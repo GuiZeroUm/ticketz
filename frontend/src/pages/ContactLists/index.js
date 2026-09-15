@@ -1,3 +1,4 @@
+import NavegacaoEnvios from "../../components/NavegacaoEnvios";
 import React, { useState, useEffect, useReducer, useContext } from "react";
 import { toast } from "react-toastify";
 
@@ -256,6 +257,7 @@ const ContactLists = () => {
           </Grid>
         </Grid>
       </MainHeader>
+      <NavegacaoEnvios />
       <Paper
         className={classes.mainPaper}
         variant="outlined"

@@ -16,12 +16,19 @@ function loadTextFileAjaxSync(filePath, mimeType) {
   }
 }
 
+// Runtime configuration is immutable for this page load, not across deploys.
+// Multiple imports must not repeat synchronous, main-thread-blocking requests.
+const loadedJSON = new Map();
+
 var loadJSON = function (filePath) {
+  if (loadedJSON.has(filePath)) return loadedJSON.get(filePath);
   try {
     // Load json file;
     var json = loadTextFileAjaxSync(filePath, "application/json");
     // Parse json
-    return JSON.parse(json);
+    const data = JSON.parse(json);
+    if (data !== null) loadedJSON.set(filePath, data);
+    return data;
   } catch (e) {
     return null;
   }

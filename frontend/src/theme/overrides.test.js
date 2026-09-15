@@ -2,9 +2,9 @@ import React from "react";
 import { render } from "@testing-library/react";
 import { createTheme, ThemeProvider } from "@material-ui/core/styles";
 import { FormControl, InputLabel, MenuItem, Select } from "@material-ui/core";
-import themeOverrides from "./overrides";
+import criarAjustesVisuais from "./overrides";
 
-const renderNarrowSelect = (overrides = themeOverrides) =>
+const renderNarrowSelect = (overrides = criarAjustesVisuais("light")) =>
   render(
     <ThemeProvider theme={createTheme({ overrides })}>
       <div style={{ width: 110 }}>

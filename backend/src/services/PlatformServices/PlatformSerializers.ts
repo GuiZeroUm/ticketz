@@ -60,6 +60,7 @@ export const serializeTenant = (
   trial_termina_em: company.trialEndsAt,
   url_acesso: tenantUrl(company.slug),
   email_admin: adminEmail || company.email,
+  fuso_horario: company.timezone || null,
   criado_em: company.createdAt.toISOString(),
   faturamento: company.platformBilling || "sistema"
 });

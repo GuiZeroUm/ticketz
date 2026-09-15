@@ -2,12 +2,22 @@ import { Router } from "express";
 import * as SessionController from "../controllers/SessionController";
 import isAuth from "../middleware/isAuth";
 import isSuper from "../middleware/isAdmin";
+import * as SocialAuthController from "../controllers/SocialAuthController";
+import mobileAuthRoutes from "./mobileAuthRoutes";
 import {
   loginIdentifyLimiter,
   passwordSetupLimiter
 } from "../middleware/mcpRateLimit";
 
 const authRoutes = Router();
+authRoutes.use("/mobile", mobileAuthRoutes);
+
+authRoutes.get("/social/providers", SocialAuthController.providers);
+authRoutes.post(
+  "/social/google",
+  loginIdentifyLimiter,
+  SocialAuthController.google
+);
 
 authRoutes.post("/login", SessionController.store);
 authRoutes.post(

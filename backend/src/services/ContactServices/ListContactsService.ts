@@ -5,6 +5,7 @@ interface Request {
   searchParam?: string;
   pageNumber?: string;
   companyId: number;
+  isGroup?: boolean;
 }
 
 interface Response {
@@ -16,10 +17,12 @@ interface Response {
 const ListContactsService = async ({
   searchParam = "",
   pageNumber = "1",
-  companyId
+  companyId,
+  isGroup
 }: Request): Promise<Response> => {
   const normalizedSearchParam = searchParam.toLowerCase().trim();
   const whereCondition = {
+    ...(isGroup === undefined ? {} : { isGroup }),
     [Op.or]: [
       {
         name: Sequelize.where(
@@ -28,9 +31,7 @@ const ListContactsService = async ({
             Sequelize.fn("UNACCENT", Sequelize.col("Contact.name"))
           ),
           {
-            [Op.like]: Sequelize.literal(
-              `'%' || UNACCENT('${normalizedSearchParam}') || '%'`
-            )
+            [Op.like]: Sequelize.fn("UNACCENT", `%${normalizedSearchParam}%`)
           }
         )
       },
@@ -41,9 +42,7 @@ const ListContactsService = async ({
             Sequelize.fn("UNACCENT", Sequelize.col("Contact.nickname"))
           ),
           {
-            [Op.like]: Sequelize.literal(
-              `'%' || UNACCENT('${normalizedSearchParam}') || '%'`
-            )
+            [Op.like]: Sequelize.fn("UNACCENT", `%${normalizedSearchParam}%`)
           }
         )
       },

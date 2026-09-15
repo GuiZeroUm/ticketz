@@ -1,4 +1,5 @@
 import { initWASocket } from "../../libs/wbot";
+import { assertRuntimeCompany } from "../../helpers/tenantRuntime";
 import Whatsapp from "../../models/Whatsapp";
 import { wbotMessageListener } from "./wbotMessageListener";
 import wbotMonitor from "./wbotMonitor";
@@ -10,6 +11,8 @@ export const StartWhatsAppSession = async (
   companyId: number,
   isRefresh = false
 ): Promise<void> => {
+  assertRuntimeCompany(companyId);
+  assertRuntimeCompany(whatsapp.companyId);
   await whatsapp.update({ status: "OPENING" });
 
   sendWhatsappUpdate(whatsapp);
