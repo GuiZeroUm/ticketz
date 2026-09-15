@@ -22,9 +22,13 @@ Produção: https://acnorte.espacowhats.com.br. Tenant/companyId: 9.
 5. Publicar **AC Norte Produção** no Dokploy. Não publicar o compose dev. Não executar seeds em produção; o compose dedicado executa somente migrations e o servidor.
 6. Validar saúde HTTP/HTTPS, login, atendimentos, contatos, SGA, filas e reconexão das sessões existentes sem QR Code. Conferir também a saúde dos demais tenants.
 
-## Homologação das cobranças
+## Cobranças automáticas
 
-O primeiro rollout mantém `ACNORTE_BILLING_SEND_ENABLED=false` e a configuração do tenant desativada. `ACNORTE_BILLING_TEST_NUMBER` define exclusivamente o destino do botão de teste. O compose de produção força vazias as duas variáveis de seleção de boleto real: os testes usam PDF sintético **SEM VALOR — NÃO PAGAR**, nunca os boletos de homologação do dev.
+A produção usa uma liberação dupla: `ACNORTE_BILLING_SEND_ENABLED=true` no ambiente persistido e configuração auditada `enabled=true` no tenant. A régua cobre −5, −3, −1, 0, +1, +3, +5, +25, +30 e +90 dias; as quatro etapas até o vencimento enviam o PDF atual do SGA. A janela inicial é 5h–17h em `America/Rio_Branco`, com ordem/horários distribuídos pelo dia e um único envio por ciclo.
+
+A conexão principal pode permanecer desabilitada fora do expediente. A automação não falha, não troca de remetente e não envia até que o usuário habilite a conexão selecionada. As conexões antigas podem continuar desabilitadas para preservar histórico e sessões; não é necessário excluí-las para concentrar o envio na principal.
+
+`ACNORTE_BILLING_TEST_NUMBER` define exclusivamente o destino do botão de teste. O compose de produção força vazias as duas variáveis de seleção de boleto real: os testes usam PDF sintético **SEM VALOR — NÃO PAGAR**, nunca os boletos de homologação do dev.
 
 Um teste de horário pode ser cadastrado em **Agendamentos**, como envio único, público **selecionado** com apenas o contato autorizado e fuso `America/Rio_Branco`. Ele verifica o agendador operacional, não a elegibilidade de boletos da régua SGA. Confira a data UTC correspondente, `nextRunAt`, uma única entrega pendente e o isolamento `QUEUE_PREFIX=acnorte-production`. Esse teste não ativa cobranças aos associados. Após o horário, o histórico deve ser consultado; cadastro agendado não é confirmação antecipada de entrega.
 

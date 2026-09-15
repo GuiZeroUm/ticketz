@@ -31,7 +31,7 @@ jest.mock("../transport", () => ({
   sendBillingMessage: jest.fn(),
   testPdf: jest.fn(() => Buffer.from("%PDF-test"))
 }));
-const now = new Date("2026-09-14T15:00:00Z");
+const now = new Date("2026-09-14T21:59:00Z");
 const bill = {
   id: "b1",
   number: "123",
@@ -178,6 +178,7 @@ it.each([
   "unowned",
   "wrongTenant",
   "paused",
+  "disconnected",
   "outsideWindow",
   "stale",
   "ambiguous",
@@ -192,6 +193,12 @@ it.each([
   if (condition === "wrongTenant")
     (sgaEnabled as jest.Mock).mockResolvedValue(false);
   if (condition === "paused") config.enabled = false;
+  if (condition === "disconnected")
+    (Whatsapp.findOne as jest.Mock).mockResolvedValue({
+      id: 10,
+      companyId: 9,
+      status: "DISCONNECTED"
+    });
   if (condition === "outsideWindow")
     jest.setSystemTime(new Date("2026-09-14T23:00:00Z"));
   if (condition === "stale") source.stored.status = "error";
@@ -205,6 +212,17 @@ it.each([
   }
   await processBilling(9);
   expect(sendBillingMessage).not.toHaveBeenCalled();
+});
+it("allows an administrator to arm the automation while its selected connection is disabled", async () => {
+  (Whatsapp.findOne as jest.Mock).mockResolvedValue({
+    id: 10,
+    companyId: 9,
+    status: "DISCONNECTED"
+  });
+  await expect(saveBillingConfig(9, 1, config)).resolves.toMatchObject({
+    enabled: true,
+    whatsappId: 10
+  });
 });
 it.each([
   { data_pagamento: "2026-09-14" },
