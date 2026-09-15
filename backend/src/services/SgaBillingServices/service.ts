@@ -31,6 +31,11 @@ import {
   sendBillingMessage,
   testPdf
 } from "./transport";
+import {
+  syncBillingDeliveryVisibility,
+  syncSentBillingVisibility,
+  BillingDelivery
+} from "./visibility";
 
 type Delivery = {
   id: string;
@@ -43,6 +48,9 @@ type Delivery = {
   createdAt: Date;
   updatedAt: Date;
   messageId: string;
+  companyId?: number;
+  contactId?: number | null;
+  whatsappId?: number | null;
 };
 const query = <T extends object>(
   sql: string,
@@ -408,6 +416,23 @@ export const processBilling = async (
         pdf
       );
       await update(companyId, delivery.id, "SENT", null, messageId);
+      try {
+        await syncBillingDeliveryVisibility({
+          id: delivery.id,
+          companyId,
+          contactId: contact.id,
+          whatsappId: whatsapp.id,
+          messageId,
+          body,
+          stage: step.offset,
+          status: "SENT"
+        });
+      } catch (error) {
+        logger.warn(
+          { error, deliveryId: delivery.id },
+          "SGA billing sent but conversation projection will retry"
+        );
+      }
     } catch (error) {
       await update(
         companyId,
@@ -584,6 +609,11 @@ export const startSgaBilling = (): void => {
     if (running) return;
     running = true;
     try {
+      const sent = await query<BillingDelivery>(
+        'SELECT id,"companyId","contactId","whatsappId","messageId",body,stage,status FROM "SgaBillingDeliveries" WHERE "companyId"=:companyId AND status=\'SENT\' AND "messageId" IS NOT NULL AND "contactId" IS NOT NULL ORDER BY id DESC LIMIT 500',
+        { companyId }
+      );
+      await syncSentBillingVisibility(sent);
       await processBilling(companyId);
     } catch {
       logger.warn("SGA billing cycle failed; delivery ledger preserved");

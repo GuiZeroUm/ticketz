@@ -276,20 +276,24 @@ export default function Sga() {
               "overdueMembers",
               "overdueAmount",
               "overdueBills"
-            ].map(key => (
-              <Grid item xs={6} md={4} lg={2} key={key}>
-                <Paper elevation={0} className={classes.stat}>
-                  <Typography variant="body2" color="textSecondary">
-                    {t(key)}
-                  </Typography>
-                  <Typography variant="h5">
-                    {key === "overdueAmount"
-                      ? currency(summary[key])
-                      : summary[key].toLocaleString("pt-BR")}
-                  </Typography>
-                </Paper>
-              </Grid>
-            ))}
+            ]
+              .filter(
+                key => admin || !["linked", "overdueMembers"].includes(key)
+              )
+              .map(key => (
+                <Grid item xs={6} md={4} lg={2} key={key}>
+                  <Paper elevation={0} className={classes.stat}>
+                    <Typography variant="body2" color="textSecondary">
+                      {t(key)}
+                    </Typography>
+                    <Typography variant="h5">
+                      {key === "overdueAmount"
+                        ? currency(summary[key])
+                        : summary[key].toLocaleString("pt-BR")}
+                    </Typography>
+                  </Paper>
+                </Grid>
+              ))}
           </Grid>
           <Box mt={2}>
             <Typography variant="body2" color="textSecondary">

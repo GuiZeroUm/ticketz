@@ -16,6 +16,9 @@ interface MessageData {
   ticketId: number;
   body: string;
   contactId?: number;
+  remoteJid?: string;
+  participant?: string;
+  dataJson?: string;
   fromMe?: boolean;
   read?: boolean;
   mediaType?: string;
@@ -25,6 +28,7 @@ interface MessageData {
   queueId?: number;
   channel?: string;
   userId?: number;
+  quotedMsgId?: string;
 }
 interface Request {
   messageData: MessageData;
