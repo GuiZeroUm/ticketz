@@ -16,12 +16,14 @@ import {
   BillingConfig,
   defaults,
   parseConfig,
+  parseStoredConfig,
   localDay,
   stageFor,
   inWindow,
   freshSnapshot,
   renderReminder,
-  revalidateBill
+  revalidateBill,
+  planBillingDispatches
 } from "./policy";
 import {
   boletoUrl,
@@ -84,7 +86,7 @@ export const getBillingConfig = async (
     'SELECT config FROM "SgaBillingConfigs" WHERE "companyId"=:companyId',
     { companyId }
   );
-  return row ? parseConfig(row.config) : defaults();
+  return row ? parseStoredConfig(row.config) : defaults();
 };
 const lock = async (companyId: number, transaction: Transaction) => {
   const [row] = await query<{ locked: boolean }>(
@@ -114,7 +116,6 @@ export const saveBillingConfig = async (
   const config = parseConfig(input);
   if (config.enabled && !liveAllowed())
     throw new AppError("ERR_BILLING_SEND_DISABLED", 409);
-  if (config.enabled) await sender(companyId, config.whatsappId);
   if (
     config.whatsappId &&
     !(await Whatsapp.findOne({
@@ -174,6 +175,13 @@ export const billingOverview = async (companyId: number, day = localDay()) => {
     { companyId }
   );
   const states = new Map(delivered.map(d => [d.dedupeKey, d.status]));
+  const plan = new Map(
+    planBillingDispatches(
+      rows.filter(row => !row.reason).map(row => row.key),
+      config,
+      day
+    ).map(item => [item.key, item.scheduledAt])
+  );
   const preview = rows.map(({ bill, step, member, contact, reason, key }) => ({
     billId: bill.id,
     number: bill.number,
@@ -184,6 +192,7 @@ export const billingOverview = async (companyId: number, day = localDay()) => {
     amount: bill.amount,
     stage: step.offset,
     attachPdf: step.attachPdf,
+    scheduledAt: plan.get(key)?.toISOString() || null,
     reason: reason || states.get(key) || null
   }));
   return {
@@ -249,7 +258,20 @@ export const processBilling = async (
     );
     const config = await getBillingConfig(companyId);
     if (!inWindow(config, now)) return;
-    const whatsapp = await sender(companyId, config.whatsappId);
+    let whatsapp: Whatsapp;
+    try {
+      whatsapp = await sender(companyId, config.whatsappId);
+    } catch (error) {
+      // A conexão pode ser desligada intencionalmente fora do expediente. A
+      // configuração permanece armada e o próximo ciclo retoma sozinho assim
+      // que o usuário reconectar, sem gerar falhas ou tentar outro número.
+      if (
+        error instanceof AppError &&
+        error.message === "ERR_BILLING_CONNECTION"
+      )
+        return;
+      throw error;
+    }
     const day = localDay(now);
     const { data, rows } = await candidates(companyId, day, config);
     if (!freshSnapshot(data.stored, now)) return;
@@ -268,7 +290,13 @@ export const processBilling = async (
       { companyId }
     );
     const seen = new Set(previous.map(d => d.dedupeKey));
-    const candidate = rows.find(r => !r.reason && !seen.has(r.key));
+    const rowsByKey = new Map(rows.map(row => [row.key, row]));
+    const planned = planBillingDispatches(
+      rows.filter(row => !row.reason).map(row => row.key),
+      config,
+      day
+    ).find(item => item.scheduledAt <= now && !seen.has(item.key));
+    const candidate = planned ? rowsByKey.get(planned.key) : undefined;
     if (!candidate) return;
     const { bill, step, member, contact, key } = candidate;
     const [delivery] = await query<{ id: string }>(

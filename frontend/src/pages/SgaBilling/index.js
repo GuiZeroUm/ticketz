@@ -258,7 +258,7 @@ export default function SgaBilling() {
               label={t("startHour")}
               id="billing-start-hour"
               value={config.startHour}
-              inputProps={{ min: 8, max: 17 }}
+              inputProps={{ min: 0, max: 23 }}
               onChange={e => change("startHour", Number(e.target.value))}
             />
           </Grid>
@@ -270,7 +270,7 @@ export default function SgaBilling() {
               label={t("endHour")}
               id="billing-end-hour"
               value={config.endHour}
-              inputProps={{ min: 9, max: 18 }}
+              inputProps={{ min: 1, max: 24 }}
               onChange={e => change("endHour", Number(e.target.value))}
             />
           </Grid>
@@ -481,11 +481,17 @@ export default function SgaBilling() {
           <Table size="small" className={classes.table}>
             <TableHead>
               <TableRow>
-                {["member", "bill", "due", "amount", "stage", "status"].map(
-                  k => (
-                    <TableCell key={k}>{t(k)}</TableCell>
-                  )
-                )}
+                {[
+                  "member",
+                  "bill",
+                  "due",
+                  "amount",
+                  "stage",
+                  "planned",
+                  "status"
+                ].map(k => (
+                  <TableCell key={k}>{t(k)}</TableCell>
+                ))}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -506,6 +512,15 @@ export default function SgaBilling() {
                     })}
                   </TableCell>
                   <TableCell>{stageName(r.stage)}</TableCell>
+                  <TableCell>
+                    {r.scheduledAt
+                      ? new Date(r.scheduledAt).toLocaleTimeString("pt-BR", {
+                          timeZone: "America/Rio_Branco",
+                          hour: "2-digit",
+                          minute: "2-digit"
+                        })
+                      : "—"}
+                  </TableCell>
                   <TableCell>
                     {r.reason
                       ? t(`reasons.${r.reason}`, { defaultValue: r.reason })

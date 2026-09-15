@@ -8,7 +8,9 @@ import {
   freshSnapshot,
   renderReminder,
   revalidateBill,
-  parseConfig
+  parseConfig,
+  parseStoredConfig,
+  planBillingDispatches
 } from "../policy";
 import { DateTime } from "luxon";
 const bill: Bill = {
@@ -39,7 +41,7 @@ describe("AC Norte billing policy", () => {
     const day = DateTime.fromISO(bill.due).plus({ days: offset }).toISODate();
     expect(stageFor(bill, day)).toBe(offset);
   });
-  it.each([-4, -2, -1, 2, 4, 6, 24, 26, 29, 31, 89, 91])(
+  it.each([-6, -4, -2, 2, 4, 6, 24, 26, 29, 31, 89, 91])(
     "does not backfill other days (%d)",
     offset => {
       expect(
@@ -82,12 +84,60 @@ describe("AC Norte billing policy", () => {
       }).enabled
     ).toBe(true);
   });
+  it("upgrades the legacy eight-stage configuration without losing its edits", () => {
+    const stored = defaults();
+    stored.steps = stored.steps.filter(step => ![-5, -1].includes(step.offset));
+    stored.steps[0].body = "Texto personalizado para [nome].";
+    const parsed = parseStoredConfig(stored);
+    expect(parsed.steps.map(step => step.offset)).toEqual([...OFFSETS]);
+    expect(parsed.steps.find(step => step.offset === -3)?.body).toBe(
+      "Texto personalizado para [nome]."
+    );
+    expect(parsed.steps.find(step => step.offset === -5)?.attachPdf).toBe(true);
+    expect(parsed.steps.find(step => step.offset === -1)?.attachPdf).toBe(true);
+  });
+  it("creates a deterministic, spaced daily plan inside the Acre window", () => {
+    const config = parseConfig({
+      ...defaults(),
+      startHour: 5,
+      endHour: 17,
+      dailyLimit: 500
+    });
+    const keys = Array.from({ length: 254 }, (_, index) => `bill-${index}`);
+    const first = planBillingDispatches(keys, config, "2026-09-15");
+    const again = planBillingDispatches(
+      [...keys].reverse(),
+      config,
+      "2026-09-15"
+    );
+    expect(again).toEqual(first);
+    expect(first).toHaveLength(254);
+    expect(first.map(item => item.key)).not.toEqual(keys);
+    const start = DateTime.fromISO("2026-09-15T05:00:00", {
+      zone: config.timezone
+    }).toMillis();
+    const end = DateTime.fromISO("2026-09-15T17:00:00", {
+      zone: config.timezone
+    }).toMillis();
+    first.forEach((item, index) => {
+      expect(item.scheduledAt.getTime()).toBeGreaterThanOrEqual(start);
+      expect(item.scheduledAt.getTime()).toBeLessThan(end);
+      if (index)
+        expect(
+          item.scheduledAt.getTime() - first[index - 1].scheduledAt.getTime()
+        ).toBeGreaterThanOrEqual(30000);
+    });
+    expect(planBillingDispatches(keys, config, "2026-09-16")).not.toEqual(
+      first
+    );
+  });
   it.each([
     { startHour: 18 },
     { endHour: 8 },
     { weekdays: [] },
     { weekdays: [1, 1] },
     { dailyLimit: 1000 },
+    { startHour: 5, endHour: 6, dailyLimit: 61 },
     { timezone: "UTC" },
     { extra: true }
   ])("rejects unsafe settings %p", changes =>

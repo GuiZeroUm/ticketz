@@ -24,7 +24,7 @@ const config = {
   weekdays: [1, 2, 3, 4, 5],
   termsReviewed: false,
   excludedContactIds: [],
-  steps: [-3, 0, 1, 3, 5, 25, 30, 90].map(offset => ({
+  steps: [-5, -3, -1, 0, 1, 3, 5, 25, 30, 90].map(offset => ({
     offset,
     enabled: true,
     attachPdf: offset <= 0,
@@ -62,7 +62,7 @@ it("only administrators can access billing controls", () => {
   expect(screen.getByText("sga.billing.adminOnly")).toBeTruthy();
   expect(api.get).not.toHaveBeenCalled();
 });
-it("defaults to validation mode, shows all 8 steps, and blocks live send without connection", async () => {
+it("defaults to validation mode, shows all 10 steps, and blocks live send without connection", async () => {
   render(view());
   await screen.findByText("sga.billing.safeMode");
   expect(
@@ -124,7 +124,7 @@ it("simulation submits no phone override and clearly distinguishes it from Whats
   await screen.findByText("sga.billing.result.SIMULATED");
   expect(api.post).toHaveBeenCalledWith("/sga/billing/test", {
     mode: "simulation",
-    stage: -3,
+    stage: -5,
     requestId: expect.any(String)
   });
   fireEvent.click(screen.getByRole("button", { name: "sga.billing.simulate" }));
@@ -136,7 +136,7 @@ it("simulation submits no phone override and clearly distinguishes it from Whats
 it("unsaved edits require saving before preview or send", async () => {
   render(view());
   const input = await screen.findByRole("textbox", {
-    name: "sga.billing.stages.-3"
+    name: "sga.billing.stages.-5"
   });
   fireEvent.change(input, { target: { value: "Nova mensagem para [nome]" } });
   expect(

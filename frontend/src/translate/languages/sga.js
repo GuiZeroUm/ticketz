@@ -30,7 +30,7 @@ const pt = {
       7: "Domingo"
     },
     timingHelp:
-      "Fuso: Rio Branco (Acre). Até uma cobrança por minuto, por boleto e etapa. Somente no dia exato da etapa; fins de semana desmarcados e etapas passadas não são recuperados depois. O limite diário pode deixar boletos sem envio nesse dia.",
+      "Fuso: Rio Branco (Acre). Os horários e a ordem são distribuídos de forma aleatória e estável ao longo da janela, sem envios simultâneos. Somente no dia exato da etapa; dias desmarcados e etapas passadas não são recuperados depois. O limite diário pode deixar boletos sem envio nesse dia.",
     excluded: "IDs de contatos que não devem receber cobranças",
     excludedHelp:
       "Separe os IDs por vírgulas. Use para pedidos de interrupção, contestação ou exceções de atendimento.",
@@ -40,7 +40,9 @@ const pt = {
       "As etapas após o vencimento afirmam suspensão da proteção e possíveis medidas de cobrança. Revise essas afirmações antes de ativar. A etapa de 30 dias também exige situação inativa/cancelada do associado na consulta atual ao SGA. O sistema não inativa contratos, protesta boletos nem registra dívidas no SPC/SERASA.",
     messages: "Mensagens e documentos",
     stages: {
+      "-5": "5 dias antes",
       "-3": "3 dias antes",
+      "-1": "1 dia antes",
       0: "No vencimento",
       1: "1 dia depois",
       3: "3 dias depois",
@@ -61,10 +63,10 @@ const pt = {
     testHelp:
       "Destino de teste autorizado: {{number}}. O teste usa Guilherme Santos e um PDF fictício, sem valor. Nenhum boleto de cliente é encaminhado no teste.",
     realTestHelp:
-      "Destino de teste autorizado: {{number}}. Boleto real autorizado: {{bill}}, consultado na API SGA a cada teste. O PDF real será enviado nas duas primeiras etapas. Não efetue pagamento por este teste; os prazos das etapas são simulados. Nenhuma mensagem será enviada ao associado.",
+      "Destino de teste autorizado: {{number}}. Boleto real autorizado: {{bill}}, consultado na API SGA a cada teste. O PDF real será enviado nas quatro etapas até o vencimento. Não efetue pagamento por este teste; os prazos das etapas são simulados. Nenhuma mensagem será enviada ao associado.",
     notConfigured: "não configurado",
     noConnection:
-      "Não há conexão de envio selecionada e conectada neste ambiente. A simulação funciona sem WhatsApp; o teste real requer uma conexão exclusiva do dev.",
+      "A conexão selecionada está desabilitada ou desconectada. A configuração pode permanecer ativa: os envios ficam suspensos e retomam automaticamente quando essa mesma conexão for habilitada.",
     simulate: "Simular envio sem WhatsApp",
     sendTest: "Enviar teste ao número autorizado",
     connections: "Ver conexões",
@@ -88,6 +90,7 @@ const pt = {
     due: "Vencimento",
     amount: "Valor",
     stage: "Etapa",
+    planned: "Horário previsto",
     status: "Situação",
     eligible: "Candidato para conferência",
     empty: "Nenhum boleto corresponde às etapas nesta data.",
