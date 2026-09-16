@@ -1,5 +1,6 @@
 import axios from "axios";
 import AppError from "../../errors/AppError";
+import { logger } from "../../utils/logger";
 import { SgaRow } from "./normalize";
 
 const baseURL = "https://api.hinova.com.br/api/sga/v2/";
@@ -24,18 +25,36 @@ export const sgaRequest = async (
       validateStatus: () => true
     });
     const data = response.data;
-    if ([401, 403].includes(response.status))
-      throw new AppError("ERR_SGA_ACCESS_DENIED", 502);
+    // So o texto que a Hinova devolve no corpo, nunca o erro do axios nem os
+    // headers: sem isso a recusa chega como um codigo generico e nao da pra
+    // saber se foi token, permissao ou a consulta.
     const message = `${data?.mensagem || data?.retorno || ""} ${Array.isArray(data?.error) ? data.error.join(" ") : data?.error || ""}`;
+    if ([401, 403].includes(response.status)) {
+      logger.warn(
+        { path, status: response.status, hinova: message.trim() },
+        "SGA refused the request"
+      );
+      throw new AppError("ERR_SGA_ACCESS_DENIED", 502);
+    }
     if (
       /nenhum|nao.*encontrad|não.*encontrad/i.test(message) &&
       [200, 404, 406].includes(response.status)
     )
       return [];
-    if (response.status !== 200 || typeof data !== "object" || !data)
+    if (response.status !== 200 || typeof data !== "object" || !data) {
+      logger.warn(
+        { path, status: response.status, hinova: message.trim() },
+        "SGA answered with an unusable response"
+      );
       throw new AppError("ERR_SGA_UNAVAILABLE", 502);
-    if (/erro|negad|permiss|inv[aá]lid/i.test(message))
+    }
+    if (/erro|negad|permiss|inv[aá]lid/i.test(message)) {
+      logger.warn(
+        { path, status: response.status, hinova: message.trim() },
+        "SGA refused the request"
+      );
       throw new AppError("ERR_SGA_ACCESS_DENIED", 502);
+    }
     return data;
   } catch (error) {
     // Axios errors include the Authorization header; never propagate or log them.
