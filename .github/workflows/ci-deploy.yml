@@ -178,4 +178,5 @@ jobs:
           MCP_PUBLIC_KEY: ci-only
           MCP_CURSOR_SECRET: ci-only
           ACNORTE_SGA_TOKEN: ci-only
+          ENCRYPTION_KEY: ci-only
         run: docker compose -f docker-compose.acnorte-production.yml config --quiet
