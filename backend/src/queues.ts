@@ -16,6 +16,7 @@ import Company from "./models/Company";
 import TicketTraking from "./models/TicketTraking";
 import { GetCompanySetting } from "./helpers/CheckSettings";
 import { getWbot } from "./libs/wbot";
+import { buildMetaWbot } from "./services/MetaWhatsAppServices/MetaWbotAdapter";
 import Ticket from "./models/Ticket";
 import QueueModel from "./models/Queue";
 import UpdateTicketService, {
@@ -474,8 +475,13 @@ async function setRatingExpired(tracking: TicketTraking, threshold: Date) {
     tracking.whatsapp.complationMessage
   );
 
-  if (completionMessage && tracking.whatsapp.apiMode !== "official") {
-    const wbot = getWbot(tracking.whatsapp.id);
+  if (completionMessage) {
+    // So envia texto, entao a conexao oficial usa o adaptador em vez da
+    // sessao Baileys, que ela nao tem.
+    const wbot =
+      tracking.whatsapp.apiMode === "official"
+        ? buildMetaWbot(tracking.whatsapp)
+        : getWbot(tracking.whatsapp.id);
 
     await wbot.sendMessage(getJidOf(tracking.ticket), {
       text: formatBody(`\u200e${completionMessage}`, tracking.ticket)
