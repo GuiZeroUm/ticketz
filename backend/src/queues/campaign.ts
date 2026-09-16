@@ -13,6 +13,7 @@ import Whatsapp from "../models/Whatsapp";
 import { getMessageFileOptions } from "../services/WbotServices/SendWhatsAppMedia";
 import { getIO } from "../libs/socket";
 import ShowService from "../services/CampaignService/ShowService";
+import { CancelService } from "../services/CampaignService/CancelService";
 import sequelize from "../database";
 import { logger } from "../utils/logger";
 import { randomValue } from "../helpers/randomValue";
@@ -405,10 +406,14 @@ async function handleDispatchCampaign(job) {
     }
 
     if (campaign.whatsapp?.apiMode === "official") {
+      // Antes so pulava o disparo: a campanha ficava EM_ANDAMENTO para sempre,
+      // com zero envios e sem nada na tela dizendo por que. Cancelar deixa o
+      // estado visivel e limpa os jobs pendentes.
       logger.error(
         { campaignId, campaignShippingId },
-        "Campaign dispatch skipped: connection is in official Meta API mode, not supported for campaigns"
+        "Campaign cancelled: official Meta connections require approved templates"
       );
+      await CancelService(campaign.id);
       return;
     }
 
