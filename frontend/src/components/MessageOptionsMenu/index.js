@@ -6,7 +6,8 @@ import MenuItem from "@material-ui/core/MenuItem";
 import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
 import ConfirmationModal from "../ConfirmationModal";
-import { Dialog, Menu } from "@material-ui/core";
+import { Dialog, Menu, Tooltip } from "@material-ui/core";
+import { isOfficialApiConnection } from "../../helpers/officialApiRestriction";
 import { ReplyMessageContext } from "../../context/ReplyingMessage/ReplyingMessageContext";
 import { EditMessageContext } from "../../context/EditingMessage/EditingMessageContext";
 import toastError from "../../errors/toastError";
@@ -24,9 +25,13 @@ const MessageOptionsMenu = ({
   data,
   menuOpen,
   handleClose,
-  anchorEl
+  anchorEl,
+  ticket
 }) => {
   const classes = useStyles();
+  const restrictedTooltip = isOfficialApiConnection(ticket?.whatsapp)
+    ? i18n.t("connections.toolTips.notAvailableOfficial")
+    : null;
   const { setReplyingMessage } = useContext(ReplyMessageContext);
   const editingContext = useContext(EditMessageContext);
   const setEditingMessage = editingContext
@@ -57,6 +62,7 @@ const MessageOptionsMenu = ({
   };
 
   const handleReact = async emoji => {
+    if (restrictedTooltip) return;
     handleClose();
     api
       .post(`/messages/react/${message.id}`, {
@@ -140,28 +146,61 @@ const MessageOptionsMenu = ({
         onClose={closeMenu}
       >
         <div>
-          <div className={classes.flexContainer}>
-            {mostUsedEmojis.map((emoji, index) => (
+          <Tooltip
+            title={restrictedTooltip || ""}
+            disableHoverListener={!restrictedTooltip}
+          >
+            <div
+              className={classes.flexContainer}
+              style={restrictedTooltip ? { opacity: 0.5 } : undefined}
+            >
+              {mostUsedEmojis.map((emoji, index) => (
+                <div
+                  className={classes.emojiButton}
+                  onClick={() => handleReact(emoji)}
+                  key={index}
+                >
+                  <span style={{ fontSize: "1rem" }}>{emoji}</span>
+                </div>
+              ))}
               <div
                 className={classes.emojiButton}
-                onClick={() => handleReact(emoji)}
-                key={index}
+                onClick={() => !restrictedTooltip && openEmoji()}
               >
-                <span style={{ fontSize: "1rem" }}>{emoji}</span>
+                <span style={{ fontSize: "1rem" }}>+</span>
               </div>
-            ))}
-            <div className={classes.emojiButton} onClick={openEmoji}>
-              <span style={{ fontSize: "1rem" }}>+</span>
             </div>
-          </div>
+          </Tooltip>
           {message.fromMe && [
-            <MenuItem key="delete" onClick={handleOpenConfirmationModal}>
-              {i18n.t("messageOptionsMenu.delete")}
-            </MenuItem>,
+            <Tooltip
+              key="delete"
+              title={restrictedTooltip || ""}
+              disableHoverListener={!restrictedTooltip}
+            >
+              <span>
+                <MenuItem
+                  onClick={handleOpenConfirmationModal}
+                  disabled={!!restrictedTooltip}
+                >
+                  {i18n.t("messageOptionsMenu.delete")}
+                </MenuItem>
+              </span>
+            </Tooltip>,
             !isSticker && (
-              <MenuItem key="edit" onClick={handleEditMessage}>
-                {i18n.t("messageOptionsMenu.edit")}
-              </MenuItem>
+              <Tooltip
+                key="edit"
+                title={restrictedTooltip || ""}
+                disableHoverListener={!restrictedTooltip}
+              >
+                <span>
+                  <MenuItem
+                    onClick={handleEditMessage}
+                    disabled={!!restrictedTooltip}
+                  >
+                    {i18n.t("messageOptionsMenu.edit")}
+                  </MenuItem>
+                </span>
+              </Tooltip>
             )
           ]}
           {!isSticker &&
@@ -186,7 +225,8 @@ MessageOptionsMenu.propTypes = {
   message: PropTypes.object,
   menuOpen: PropTypes.bool.isRequired,
   handleClose: PropTypes.func.isRequired,
-  anchorEl: PropTypes.object
+  anchorEl: PropTypes.object,
+  ticket: PropTypes.object
 };
 
 export default MessageOptionsMenu;

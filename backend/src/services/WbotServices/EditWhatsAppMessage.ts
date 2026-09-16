@@ -55,6 +55,10 @@ const EditWhatsAppMessage = async ({
 
   const { ticket } = message;
 
+  if (ticket.whatsapp?.apiMode === "official") {
+    throw new AppError("ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED", 400);
+  }
+
   const wbot = await GetTicketWbot(ticket);
 
   const msg = JSON.parse(message.dataJson);

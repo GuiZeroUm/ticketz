@@ -4,6 +4,7 @@ import { getIO } from "../../libs/socket";
 import ExchangeEmbeddedSignupCodeService from "./ExchangeEmbeddedSignupCodeService";
 import RegisterPhoneNumberService from "./RegisterPhoneNumberService";
 import { SubscribeWabaWebhookService } from "./SubscribeWabaWebhookService";
+import ShowWhatsAppService from "../WhatsappService/ShowWhatsAppService";
 
 interface Request {
   whatsappId: number;
@@ -57,13 +58,15 @@ const ConnectMetaWhatsAppService = async ({
     status: "CONNECTED"
   });
 
+  const sanitized = await ShowWhatsAppService(whatsapp.id);
+
   const io = getIO();
   io.to(`company-${companyId}-admin`).emit(
     `company-${companyId}-whatsappSession`,
-    { action: "update", session: whatsapp }
+    { action: "update", session: sanitized }
   );
 
-  return whatsapp;
+  return sanitized;
 };
 
 export default ConnectMetaWhatsAppService;

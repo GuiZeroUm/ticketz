@@ -3,7 +3,9 @@ import Wavoip from "../models/Wavoip";
 import Whatsapp from "../models/Whatsapp";
 import { getWbot } from "../libs/wbot";
 
-async function refreshWhatsapp(whatsappId: number) {
+async function refreshWhatsapp(whatsappId: number, apiMode?: string) {
+  if (apiMode === "official") return;
+
   const wbot = getWbot(whatsappId);
   if (!wbot) return;
 
@@ -71,7 +73,7 @@ export const saveToken = async (
       whatsappId: Number(whatsappId)
     }));
 
-  refreshWhatsapp(whatsapp.id);
+  refreshWhatsapp(whatsapp.id, whatsapp.apiMode);
 
   return res.status(201).json(wavoip);
 };
@@ -100,7 +102,7 @@ export const deleteToken = async (
 
   await wavoip.destroy();
 
-  refreshWhatsapp(wavoip.whatsappId);
+  refreshWhatsapp(wavoip.whatsappId, wavoip.whatsapp.apiMode);
 
   return res.status(200).json({ message: "SUCCESS" });
 };

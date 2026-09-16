@@ -46,6 +46,7 @@ import toastError from "../../errors/toastError";
 import { i18n } from "../../translate/i18n";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { SocketContext } from "../../context/Socket/SocketContext";
+import { isOfficialApiConnection } from "../../helpers/officialApiRestriction";
 
 const useStyles = makeStyles(theme => ({
   mainPaper: { flex: 1, overflow: "hidden", ...theme.scrollbarStyles },
@@ -128,6 +129,7 @@ const Schedules = () => {
   const [expandedId, setExpandedId] = useState(null);
   const [deliveries, setDeliveries] = useState({});
   const [contactId, setContactId] = useState(urlContactId());
+  const [hasSendableConnection, setHasSendableConnection] = useState(true);
 
   const fetchSchedules = useCallback(async () => {
     setLoading(true);
@@ -169,6 +171,22 @@ const Schedules = () => {
   useEffect(() => {
     fetchDates();
   }, [fetchDates]);
+
+  useEffect(() => {
+    api
+      .get("/whatsapp")
+      .then(({ data }) => {
+        setHasSendableConnection(
+          data.some(
+            connection =>
+              connection.channel === "whatsapp" &&
+              connection.status === "CONNECTED" &&
+              !isOfficialApiConnection(connection)
+          )
+        );
+      })
+      .catch(() => setHasSendableConnection(true));
+  }, []);
 
   useEffect(() => {
     const socket = socketManager.GetSocket(user.companyId);
@@ -320,13 +338,25 @@ const Schedules = () => {
         <Title>{i18n.t("schedules.title")}</Title>
         <MainHeaderButtonsWrapper>
           {tab === "schedules" ? (
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={() => setScheduleModalOpen(true)}
+            <Tooltip
+              title={
+                hasSendableConnection
+                  ? ""
+                  : i18n.t("connections.toolTips.notAvailableOfficial")
+              }
+              disableHoverListener={hasSendableConnection}
             >
-              {i18n.t("schedules.buttons.add")}
-            </Button>
+              <span>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  disabled={!hasSendableConnection}
+                  onClick={() => setScheduleModalOpen(true)}
+                >
+                  {i18n.t("schedules.buttons.add")}
+                </Button>
+              </span>
+            </Tooltip>
           ) : (
             user.profile === "admin" && (
               <Button

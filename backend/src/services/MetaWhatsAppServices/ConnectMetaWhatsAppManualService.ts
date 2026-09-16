@@ -3,6 +3,7 @@ import Whatsapp from "../../models/Whatsapp";
 import { getIO } from "../../libs/socket";
 import RegisterPhoneNumberService from "./RegisterPhoneNumberService";
 import { SubscribeWabaWebhookService } from "./SubscribeWabaWebhookService";
+import ShowWhatsAppService from "../WhatsappService/ShowWhatsAppService";
 
 interface Request {
   whatsappId: number;
@@ -54,13 +55,15 @@ const ConnectMetaWhatsAppManualService = async ({
     status: "CONNECTED"
   });
 
+  const sanitized = await ShowWhatsAppService(whatsapp.id);
+
   const io = getIO();
   io.to(`company-${companyId}-admin`).emit(
     `company-${companyId}-whatsappSession`,
-    { action: "update", session: whatsapp }
+    { action: "update", session: sanitized }
   );
 
-  return whatsapp;
+  return sanitized;
 };
 
 export default ConnectMetaWhatsAppManualService;

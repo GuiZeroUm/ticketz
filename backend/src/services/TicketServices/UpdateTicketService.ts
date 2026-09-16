@@ -44,18 +44,18 @@ interface Response {
   oldUserId: number | undefined;
 }
 
+// Delega pro mesmo SendWhatsAppMessage usado no resto do arquivo (ja
+// resolve Baileys x Meta oficial sozinho) em vez de falar com o wbot
+// direto - antes chamava GetTicketWbot incondicionalmente, o que quebrava
+// (e arriscaria banir o numero, se algum dia existisse sessao Baileys)
+// pra mensagens automaticas de aceite/transferencia/chatbot numa conexao
+// oficial.
 const sendFormattedMessage = async (
   message: string,
   ticket: Ticket,
   user?: User
 ) => {
-  const messageText = formatBody(message, ticket, user);
-
-  const wbot = await GetTicketWbot(ticket);
-  const queueChangedMessage = await wbot.sendMessage(getJidOf(ticket), {
-    text: messageText
-  });
-  await verifyMessage(queueChangedMessage, ticket, ticket.contact);
+  await SendWhatsAppMessage({ body: message, ticket, userId: user?.id });
 };
 
 export function websocketUpdateTicket(ticket: Ticket, moreChannels?: string[]) {
@@ -408,7 +408,8 @@ const UpdateTicketService = async ({
       !dontRunChatbot &&
       !ticket.userId &&
       ticket.queueId &&
-      (ticket.queueId !== oldQueueId || transferTarget.connectionChanged)
+      (ticket.queueId !== oldQueueId || transferTarget.connectionChanged) &&
+      ticket.whatsapp?.apiMode !== "official"
     ) {
       const wbot = await GetTicketWbot(ticket);
       if (wbot) {

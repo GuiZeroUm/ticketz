@@ -1,5 +1,7 @@
 import { Op } from "sequelize";
+import AppError from "../../errors/AppError";
 import Contact from "../../models/Contact";
+import Whatsapp from "../../models/Whatsapp";
 import WhatsappLidMap from "../../models/WhatsappLidMap";
 import GetTicketWbot from "../../helpers/GetTicketWbot";
 import normalizePhone from "../../helpers/NormalizePhone";
@@ -56,6 +58,16 @@ const ListGroupParticipantsService = async (
   user: UserData
 ) => {
   const ticket = await assertGroupAccess(ticketId, user);
+
+  if (ticket.whatsappId) {
+    const whatsapp = await Whatsapp.findByPk(ticket.whatsappId, {
+      attributes: ["apiMode"]
+    });
+    if (whatsapp?.apiMode === "official") {
+      throw new AppError("ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED", 400);
+    }
+  }
+
   const wbot = await GetTicketWbot(ticket);
   const metadata = await wbot.groupMetadata(getJidOf(ticket));
   const participants = metadata.participants || [];

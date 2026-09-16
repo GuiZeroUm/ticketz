@@ -35,6 +35,7 @@ import {
 } from "@material-ui/core";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import ConfirmationModal from "../ConfirmationModal";
+import { isOfficialApiConnection } from "../../helpers/officialApiRestriction";
 
 const useStyles = makeStyles(theme => ({
   root: {
@@ -447,7 +448,18 @@ const CampaignModal = ({
                         <MenuItem value="">Nenhuma</MenuItem>
                         {whatsapps &&
                           whatsapps.map(whatsapp => (
-                            <MenuItem key={whatsapp.id} value={whatsapp.id}>
+                            <MenuItem
+                              key={whatsapp.id}
+                              value={whatsapp.id}
+                              disabled={isOfficialApiConnection(whatsapp)}
+                              title={
+                                isOfficialApiConnection(whatsapp)
+                                  ? i18n.t(
+                                      "connections.toolTips.notAvailableOfficial"
+                                    )
+                                  : undefined
+                              }
+                            >
                               {whatsapp.name}
                             </MenuItem>
                           ))}

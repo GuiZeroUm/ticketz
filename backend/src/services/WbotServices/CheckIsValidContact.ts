@@ -9,6 +9,10 @@ const CheckIsValidContact = async (
 ): Promise<void> => {
   const defaultWhatsapp = await GetDefaultWhatsApp(companyId);
 
+  if (defaultWhatsapp.apiMode === "official") {
+    throw new AppError("ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED", 400);
+  }
+
   const wbot = getWbot(defaultWhatsapp.id);
 
   try {

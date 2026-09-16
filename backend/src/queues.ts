@@ -474,7 +474,7 @@ async function setRatingExpired(tracking: TicketTraking, threshold: Date) {
     tracking.whatsapp.complationMessage
   );
 
-  if (completionMessage) {
+  if (completionMessage && tracking.whatsapp.apiMode !== "official") {
     const wbot = getWbot(tracking.whatsapp.id);
 
     await wbot.sendMessage(getJidOf(tracking.ticket), {

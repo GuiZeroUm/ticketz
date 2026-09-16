@@ -212,6 +212,9 @@ export const react = async (req: Request, res: Response): Promise<Response> => {
   if (ticket.isGroup) {
     await assertGroupAccess(ticketId, req.user);
   }
+  if (ticket.whatsapp?.apiMode === "official") {
+    throw new AppError("ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED", 400);
+  }
   const wbot = getWbot(ticket.whatsappId);
 
   if (!wbot) {

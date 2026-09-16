@@ -37,6 +37,10 @@ const CheckContactNumber = async (
 ): Promise<IOnWhatsapp> => {
   const defaultWhatsapp = whatsapp || (await GetDefaultWhatsApp(companyId));
 
+  if (defaultWhatsapp.apiMode === "official") {
+    throw new AppError("ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED", 400);
+  }
+
   const wbot = getWbot(defaultWhatsapp.id);
   const checked = await checker(number, wbot);
 
@@ -53,6 +57,10 @@ export const CheckNumberAndCreateContact = async (
   whatsapp: Whatsapp = null
 ): Promise<Contact> => {
   const defaultWhatsapp = whatsapp || (await GetDefaultWhatsApp(companyId));
+
+  if (defaultWhatsapp.apiMode === "official") {
+    throw new AppError("ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED", 400);
+  }
 
   const wbot = getWbot(defaultWhatsapp.id);
 

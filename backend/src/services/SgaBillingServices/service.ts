@@ -108,11 +108,16 @@ const sender = async (companyId: number, id: number | null) => {
   const whatsapp = id
     ? await Whatsapp.findOne({
         where: { id, companyId },
-        attributes: ["id", "name", "companyId", "status"]
+        attributes: ["id", "name", "companyId", "status", "apiMode"]
       })
     : null;
   if (!whatsapp || whatsapp.status !== "CONNECTED")
     throw new AppError("ERR_BILLING_CONNECTION", 409);
+  // Cobranca de boleto (PDF) so existe via Baileys hoje - Cloud API oficial
+  // ainda nao tem esse caminho (Fase 2 do projeto Meta). Nunca tenta enviar
+  // por uma conexao oficial, mesmo que ela esteja CONNECTED.
+  if (whatsapp.apiMode === "official")
+    throw new AppError("ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED", 400);
   return whatsapp;
 };
 export const saveBillingConfig = async (

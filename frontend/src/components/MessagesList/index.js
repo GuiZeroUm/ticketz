@@ -2089,6 +2089,7 @@ const MessagesList = ({
         anchorEl={anchorEl}
         menuOpen={messageOptionsMenuOpen}
         handleClose={handleCloseMessageOptionsMenu}
+        ticket={ticket}
       />
       <div
         id="messagesList"

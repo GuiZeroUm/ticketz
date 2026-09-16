@@ -11,7 +11,7 @@ const DeleteWhatsAppMessage = async (messageId: string): Promise<Message> => {
       {
         model: Ticket,
         as: "ticket",
-        include: ["contact"]
+        include: ["contact", "whatsapp"]
       }
     ]
   });
@@ -21,6 +21,10 @@ const DeleteWhatsAppMessage = async (messageId: string): Promise<Message> => {
   }
 
   const { ticket } = message;
+
+  if (ticket.whatsapp?.apiMode === "official") {
+    throw new AppError("ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED", 400);
+  }
 
   const messageToDelete = await GetWbotMessage(ticket, messageId);
 

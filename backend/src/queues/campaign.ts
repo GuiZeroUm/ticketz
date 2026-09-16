@@ -404,6 +404,14 @@ async function handleDispatchCampaign(job) {
       return;
     }
 
+    if (campaign.whatsapp?.apiMode === "official") {
+      logger.error(
+        { campaignId, campaignShippingId },
+        "Campaign dispatch skipped: connection is in official Meta API mode, not supported for campaigns"
+      );
+      return;
+    }
+
     const wbot = await GetWhatsappWbot(campaign.whatsapp);
 
     logger.info(

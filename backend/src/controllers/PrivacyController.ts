@@ -29,6 +29,10 @@ function checkWhatsapp(whatsapp: Whatsapp) {
   if (whatsapp.channel !== "whatsapp") {
     throw new AppError("ERR_NOT_APPLICABLE", 404);
   }
+
+  if (whatsapp.apiMode === "official") {
+    throw new AppError("ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED", 400);
+  }
 }
 
 export const show = async (req: Request, res: Response): Promise<Response> => {

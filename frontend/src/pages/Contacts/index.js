@@ -27,6 +27,7 @@ import MainContainer from "../../components/MainContainer";
 import toastError from "../../errors/toastError";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { SocketContext } from "../../context/Socket/SocketContext";
+import { isOfficialApiConnection } from "../../helpers/officialApiRestriction";
 
 import {
   FormControl,
@@ -102,7 +103,11 @@ const Contacts = () => {
     api.get("/whatsapp").then(({ data }) => {
       setConnections(data);
       data.forEach(connection => {
-        if (connection.channel === "whatsapp" && connection.isDefault) {
+        if (
+          connection.channel === "whatsapp" &&
+          connection.isDefault &&
+          !isOfficialApiConnection(connection)
+        ) {
           setImportConnectionId(connection.id);
         }
       });
@@ -295,7 +300,18 @@ const Contacts = () => {
                 {connections.map(
                   connection =>
                     connection.channel === "whatsapp" && (
-                      <MenuItem key={connection.id} value={connection.id}>
+                      <MenuItem
+                        key={connection.id}
+                        value={connection.id}
+                        disabled={isOfficialApiConnection(connection)}
+                        title={
+                          isOfficialApiConnection(connection)
+                            ? i18n.t(
+                                "connections.toolTips.notAvailableOfficial"
+                              )
+                            : undefined
+                        }
+                      >
                         {connection.name}
                       </MenuItem>
                     )

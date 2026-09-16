@@ -64,6 +64,11 @@ export const sendBillingMessage = async (
     !/^(?:\d{10,11}|55\d{10,11})$/.test(number)
   )
     throw new AppError("ERR_BILLING_CONNECTION", 409);
+  // Segunda camada de defesa (a primeira e o guard em service.ts:sender) -
+  // boleto em PDF so existe via Baileys hoje, nunca tentar numa conexao
+  // oficial mesmo que essa funcao venha a ser chamada de outro caminho.
+  if (whatsapp.apiMode === "official")
+    throw new AppError("ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED", 400);
   const wbot = await GetWhatsappWbot(whatsapp);
   // A Brazilian national number is accepted as input. WhatsApp routing still
   // needs a country code, and its canonical address may omit the ninth digit.

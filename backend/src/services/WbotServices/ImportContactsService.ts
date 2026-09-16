@@ -23,6 +23,10 @@ const ImportContactsService = async (
     throw new AppError("ERR_NO_WAPP_FOUND", 404);
   }
 
+  if (whatsapp.apiMode === "official") {
+    throw new AppError("ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED", 400);
+  }
+
   const wbot = getWbot(whatsapp.id);
 
   const baileysContacts = await ShowBaileysService(wbot.id);
