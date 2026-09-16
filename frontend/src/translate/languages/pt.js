@@ -2662,6 +2662,8 @@ const messages = {
           "O backend está iniciando e ainda não está pronto. Tentando novamente automaticamente."
       },
       backendErrors: {
+        ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED:
+          "Ainda não disponível para conexões via API Oficial da Meta.",
         ERR_FLOW_INVALID: "O fluxo tem dados inválidos. Revise os blocos.",
         ERR_FLOW_CONNECTION:
           "Esta conexão não é permitida. Blocos de transferência e atendimento humano encerram o fluxo.",

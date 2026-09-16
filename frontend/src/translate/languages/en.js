@@ -1996,6 +1996,8 @@ const messages = {
           "Backend is starting up and not ready yet. Retrying automatically."
       },
       backendErrors: {
+        ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED:
+          "Not available yet for Meta Official API connections.",
         ERR_FLOW_INVALID: "Invalid flow data. Review the blocks.",
         ERR_FLOW_CONNECTION:
           "This connection is not allowed. Transfer and human support blocks end the flow.",

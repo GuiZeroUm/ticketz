@@ -38,9 +38,16 @@ const loadFacebookSdk = appId => {
 // Botao "Conectar via Meta": dispara o Embedded Signup (login do proprio
 // cliente, ele escolhe a WABA/numero dele) e manda o code pro backend
 // trocar por token - nunca aceitamos token colado manualmente.
+// Meta nao garante que o postMessage WA_EMBEDDED_SIGNUP/FINISH (disparado
+// pelo popup) chegue antes do callback do FB.login rodar - as duas coisas
+// sao assincronas e independentes. Por isso o callback nao le a ref direto:
+// ele espera (com timeout) por quem chegar primeiro.
+const SIGNUP_DATA_TIMEOUT_MS = 4000;
+
 const MetaEmbeddedSignupButton = ({ whatsAppId, configId, appId, onConnected }) => {
   const [loading, setLoading] = useState(false);
-  const signupDataRef = useRef({});
+  const signupDataRef = useRef(null);
+  const pendingResolveRef = useRef(null);
 
   useEffect(() => {
     const handleMessage = event => {
@@ -48,11 +55,16 @@ const MetaEmbeddedSignupButton = ({ whatsAppId, configId, appId, onConnected }) 
       try {
         const data = JSON.parse(event.data);
         if (data.type === "WA_EMBEDDED_SIGNUP" && data.event === "FINISH") {
-          signupDataRef.current = {
+          const signupData = {
             wabaId: data.data?.waba_id,
             phoneNumberId: data.data?.phone_number_id,
             businessId: data.data?.business_id
           };
+          signupDataRef.current = signupData;
+          if (pendingResolveRef.current) {
+            pendingResolveRef.current(signupData);
+            pendingResolveRef.current = null;
+          }
         }
       } catch {
         // mensagens de outros propositos do dominio facebook.com, ignorar
@@ -62,6 +74,20 @@ const MetaEmbeddedSignupButton = ({ whatsAppId, configId, appId, onConnected }) 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
   }, []);
+
+  const waitForSignupData = () => {
+    if (signupDataRef.current) return Promise.resolve(signupDataRef.current);
+
+    return new Promise(resolve => {
+      pendingResolveRef.current = resolve;
+      setTimeout(() => {
+        if (pendingResolveRef.current === resolve) {
+          pendingResolveRef.current = null;
+          resolve(null);
+        }
+      }, SIGNUP_DATA_TIMEOUT_MS);
+    });
+  };
 
   const handleClick = async () => {
     if (!appId || !configId) {
@@ -80,7 +106,7 @@ const MetaEmbeddedSignupButton = ({ whatsAppId, configId, appId, onConnected }) 
           (async () => {
             if (response.authResponse?.code) {
               const { wabaId, phoneNumberId, businessId } =
-                signupDataRef.current;
+                (await waitForSignupData()) || {};
 
               if (!wabaId || !phoneNumberId) {
                 toast.error(

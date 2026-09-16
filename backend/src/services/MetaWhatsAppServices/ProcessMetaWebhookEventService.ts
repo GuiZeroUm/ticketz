@@ -3,10 +3,13 @@ import Message from "../../models/Message";
 import { logger } from "../../utils/logger";
 import HandleMetaInboundMessageService from "./HandleMetaInboundMessageService";
 
+// Mesma escala que MessagesList usa pra renderizar os checks (1=pendente,
+// 2=enviado, 3=entregue, 4=lido/azul) - precisa bater com o que o Baileys
+// grava em wbotMessageListener, nao com o enum bruto da Graph API.
 const STATUS_TO_ACK: Record<string, number> = {
-  sent: 1,
-  delivered: 2,
-  read: 3,
+  sent: 2,
+  delivered: 3,
+  read: 4,
   failed: -1
 };
 
