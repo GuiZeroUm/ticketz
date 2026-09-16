@@ -28,7 +28,11 @@ const MEGABYTE = 1024 * 1024;
 // dessas listas vai como documento, o unico tipo sem restricao de formato -
 // mandar um webp como "image", por exemplo, a Meta recusa.
 const KINDS: { kind: MetaMediaKind; mimetypes: string[]; limit: number }[] = [
-  { kind: "image", mimetypes: ["image/jpeg", "image/png"], limit: 5 * MEGABYTE },
+  {
+    kind: "image",
+    mimetypes: ["image/jpeg", "image/png"],
+    limit: 5 * MEGABYTE
+  },
   {
     kind: "audio",
     mimetypes: [

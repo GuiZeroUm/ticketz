@@ -1061,7 +1061,7 @@ export const verifyDeleteMessage = async (
     });
 };
 
-const quickMessage = async (
+export const quickMessage = async (
   wbot: Session,
   ticket: Ticket,
   text: string,
@@ -1329,7 +1329,7 @@ export const startQueue = async (
   }
 };
 
-const verifyQueue = async (
+export const verifyQueue = async (
   wbot: Session,
   msg: proto.IWebMessageInfo | null,
   ticket: Ticket,
@@ -1388,7 +1388,7 @@ const verifyQueue = async (
   }
 };
 
-const handleRating = async (
+export const handleRating = async (
   rate: number,
   ticket: Ticket,
   ticketTraking: TicketTraking,

@@ -21,6 +21,30 @@ export interface MetaSentMessage {
   message: { conversation: string };
 }
 
+// Envio cru, sem persistir: usado por quem ja grava a mensagem por conta
+// propria (o adaptador de wbot oficial deixa o verifyMessage gravar, igual ao
+// fluxo Baileys).
+export const postMetaText = async (
+  connection: Whatsapp,
+  to: string,
+  body: string,
+  context?: { message_id: string }
+): Promise<string> => {
+  const { data } = await getMetaGraphApiClient().post(
+    `/${connection.metaPhoneNumberId}/messages`,
+    {
+      messaging_product: "whatsapp",
+      to,
+      type: "text",
+      text: { body },
+      ...(context ? { context } : {})
+    },
+    withAuth(connection.metaAccessToken)
+  );
+
+  return data.messages[0].id as string;
+};
+
 // Equivalente ao SendWhatsAppMessage.ts, mas via WhatsApp Cloud API oficial:
 // POST /{phoneNumberId}/messages, sem socket nenhum envolvido.
 const SendMetaTextMessageService = async ({
@@ -48,19 +72,7 @@ const SendMetaTextMessageService = async ({
   }
 
   try {
-    const { data } = await client.post(
-      `/${connection.metaPhoneNumberId}/messages`,
-      {
-        messaging_product: "whatsapp",
-        to,
-        type: "text",
-        text: { body: formattedBody },
-        ...(context ? { context } : {})
-      },
-      withAuth(connection.metaAccessToken)
-    );
-
-    const wamid: string = data.messages[0].id;
+    const wamid = await postMetaText(connection, to, formattedBody, context);
 
     const sentMessage: MetaSentMessage = {
       key: { id: wamid, fromMe: true, remoteJid: to },

@@ -4,11 +4,24 @@ import CreateOrUpdateContactService from "../../ContactServices/CreateOrUpdateCo
 import FindOrCreateTicketServiceMeta from "../../TicketServices/FindOrCreateTicketServiceMeta";
 import CreateMessageService from "../../MessageServices/CreateMessageService";
 
-jest.mock("../../ContactServices/CreateOrUpdateContactService", () => jest.fn());
-jest.mock("../../TicketServices/FindOrCreateTicketServiceMeta", () => jest.fn());
+jest.mock("../../ContactServices/CreateOrUpdateContactService", () =>
+  jest.fn()
+);
+jest.mock("../../TicketServices/FindOrCreateTicketServiceMeta", () =>
+  jest.fn()
+);
 jest.mock("../../MessageServices/CreateMessageService", () => jest.fn());
 jest.mock("../DownloadMetaMediaService", () => jest.fn());
 jest.mock("../../../helpers/saveMediaFile", () => jest.fn());
+jest.mock("../HandleMetaInboundFlowService", () => ({
+  __esModule: true,
+  default: jest.fn(),
+  captureMetaRating: jest.fn().mockResolvedValue(false)
+}));
+jest.mock("../../../models/Message", () => ({
+  __esModule: true,
+  default: { count: jest.fn().mockResolvedValue(1) }
+}));
 
 const createContact = CreateOrUpdateContactService as jest.Mock;
 const findTicket = FindOrCreateTicketServiceMeta as jest.Mock;

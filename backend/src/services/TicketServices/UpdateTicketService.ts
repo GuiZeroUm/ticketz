@@ -19,6 +19,7 @@ import { _t } from "../TranslationServices/i18nService";
 import ResolveTicketTransferService from "./ResolveTicketTransferService";
 import GroupQueue from "../../models/GroupQueue";
 import { unassignedTicketRoom } from "../../helpers/TicketSocketRooms";
+import { buildMetaWbot } from "../MetaWhatsAppServices/MetaWbotAdapter";
 
 export interface UpdateTicketData {
   status?: string;
@@ -408,10 +409,14 @@ const UpdateTicketService = async ({
       !dontRunChatbot &&
       !ticket.userId &&
       ticket.queueId &&
-      (ticket.queueId !== oldQueueId || transferTarget.connectionChanged) &&
-      ticket.whatsapp?.apiMode !== "official"
+      (ticket.queueId !== oldQueueId || transferTarget.connectionChanged)
     ) {
-      const wbot = await GetTicketWbot(ticket);
+      // O menu de fila so fala texto, entao a conexao oficial usa o adaptador
+      // em vez da sessao Baileys, que ela nao tem.
+      const wbot =
+        ticket.whatsapp?.apiMode === "official"
+          ? buildMetaWbot(ticket.whatsapp)
+          : await GetTicketWbot(ticket);
       if (wbot) {
         await startQueue(wbot, ticket);
         await ticket.reload();

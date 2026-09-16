@@ -3,8 +3,7 @@ import {
   templateNameForOffset,
   toTemplateBody
 } from "../MetaTemplateFormat";
-import { DEFAULT_STEPS } from "../../SgaBillingServices/policy";
-import { reminderValues } from "../../SgaBillingServices/policy";
+import { DEFAULT_STEPS, reminderValues } from "../../SgaBillingServices/policy";
 
 describe("templateNameForOffset", () => {
   it.each([

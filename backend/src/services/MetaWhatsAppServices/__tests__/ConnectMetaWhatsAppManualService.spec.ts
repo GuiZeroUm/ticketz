@@ -12,10 +12,9 @@ jest.mock("../../../libs/socket");
 const registerPhoneNumber = RegisterPhoneNumberService as jest.MockedFunction<
   typeof RegisterPhoneNumberService
 >;
-const subscribeWabaWebhook =
-  SubscribeWabaWebhookService as jest.MockedFunction<
-    typeof SubscribeWabaWebhookService
-  >;
+const subscribeWabaWebhook = SubscribeWabaWebhookService as jest.MockedFunction<
+  typeof SubscribeWabaWebhookService
+>;
 
 describe("ConnectMetaWhatsAppManualService", () => {
   const emit = jest.fn();
@@ -77,7 +76,11 @@ describe("ConnectMetaWhatsAppManualService", () => {
       businessId: "biz-1"
     });
 
-    expect(registerPhoneNumber).toHaveBeenCalledWith("phone-1", "token-1", undefined);
+    expect(registerPhoneNumber).toHaveBeenCalledWith(
+      "phone-1",
+      "token-1",
+      undefined
+    );
     expect(subscribeWabaWebhook).toHaveBeenCalledWith("waba-1", "token-1");
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({

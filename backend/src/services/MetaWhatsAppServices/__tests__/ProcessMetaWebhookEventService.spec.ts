@@ -36,9 +36,12 @@ describe("ProcessMetaWebhookEventService ack mapping", () => {
       id: 1,
       metaPhoneNumberId: "111"
     });
-    update.mockImplementation(function updateAck(this: unknown, fields: {
-      ack: number;
-    }) {
+    update.mockImplementation(function updateAck(
+      this: unknown,
+      fields: {
+        ack: number;
+      }
+    ) {
       Object.assign(this as object, fields);
       return Promise.resolve(this);
     });

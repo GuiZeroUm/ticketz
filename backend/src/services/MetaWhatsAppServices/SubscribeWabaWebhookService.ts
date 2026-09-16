@@ -11,11 +11,7 @@ export const SubscribeWabaWebhookService = async (
   const client = getMetaGraphApiClient();
 
   try {
-    await client.post(
-      `/${wabaId}/subscribed_apps`,
-      {},
-      withAuth(accessToken)
-    );
+    await client.post(`/${wabaId}/subscribed_apps`, {}, withAuth(accessToken));
   } catch (err) {
     logger.error({ err, wabaId }, "Failed to subscribe Meta WABA webhook");
     throw new AppError("ERR_META_WEBHOOK_SUBSCRIBE_FAILED", 502);

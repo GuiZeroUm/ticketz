@@ -1,4 +1,5 @@
 import mime from "mime-types";
+import Message from "../../models/Message";
 import Whatsapp from "../../models/Whatsapp";
 import CreateOrUpdateContactService from "../ContactServices/CreateOrUpdateContactService";
 import FindOrCreateTicketServiceMeta from "../TicketServices/FindOrCreateTicketServiceMeta";
@@ -6,6 +7,9 @@ import CreateMessageService from "../MessageServices/CreateMessageService";
 import saveMediaToFile from "../../helpers/saveMediaFile";
 import { logger } from "../../utils/logger";
 import DownloadMetaMediaService from "./DownloadMetaMediaService";
+import HandleMetaInboundFlowService, {
+  captureMetaRating
+} from "./HandleMetaInboundFlowService";
 
 interface MetaContact {
   profile?: { name?: string };
@@ -116,7 +120,10 @@ const HandleMetaInboundMessageService = async (
   const isMedia = MEDIA_TYPES.includes(message.type);
 
   if (!isMedia && !message.type) {
-    logger.warn({ whatsappId: whatsapp.id }, "Meta inbound message without type");
+    logger.warn(
+      { whatsappId: whatsapp.id },
+      "Meta inbound message without type"
+    );
     return;
   }
 
@@ -126,6 +133,15 @@ const HandleMetaInboundMessageService = async (
     companyId: whatsapp.companyId,
     channel: "whatsapp"
   });
+
+  // Antes de criar/reabrir o ticket: a resposta da avaliacao so e reconhecida
+  // enquanto o ticket anterior ainda esta fechado.
+  if (
+    !isMedia &&
+    (await captureMetaRating(whatsapp, contact, describe(message)))
+  ) {
+    return;
+  }
 
   const ticket = await FindOrCreateTicketServiceMeta(
     contact,
@@ -147,8 +163,7 @@ const HandleMetaInboundMessageService = async (
     const downloaded = await DownloadMetaMediaService(whatsapp, payload.id);
     const mimetype = payload.mime_type?.split(";")[0] || downloaded.mimetype;
     const filename =
-      payload.filename ||
-      `${message.id}.${mime.extension(mimetype) || "bin"}`;
+      payload.filename || `${message.id}.${mime.extension(mimetype) || "bin"}`;
 
     media = {
       mediaUrl: await saveMediaToFile(
@@ -218,6 +233,19 @@ const HandleMetaInboundMessageService = async (
       .substring(0, 255)
       .replace(/\n/g, " "),
     ...(ticket.status === "closed" ? { status: "pending" } : {})
+  });
+
+  // Conversa nova = a mensagem que acabamos de gravar e a unica do ticket. E o
+  // que decide se a saudacao deve sair, sem precisar que a fabrica de ticket
+  // devolva um justCreated.
+  const total = await Message.count({ where: { ticketId: ticket.id } });
+
+  await HandleMetaInboundFlowService({
+    connection: whatsapp,
+    ticket,
+    contact,
+    body,
+    justCreated: total <= 1
   });
 };
 

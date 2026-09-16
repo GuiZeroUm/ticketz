@@ -44,7 +44,6 @@ const ProcessMetaWebhookEventService = async (payload: any): Promise<void> => {
       for (const message of value?.messages || []) {
         const metaContact = contacts.find((c: any) => c.wa_id === message.from);
         try {
-          // eslint-disable-next-line no-await-in-loop
           await HandleMetaInboundMessageService(whatsapp, metaContact, message);
         } catch (err) {
           logger.error(
@@ -58,18 +57,13 @@ const ProcessMetaWebhookEventService = async (payload: any): Promise<void> => {
         const ack = STATUS_TO_ACK[status.status];
         if (ack === undefined) continue;
         try {
-          // eslint-disable-next-line no-await-in-loop
           const messageToUpdate = await Message.findByPk(status.id);
           // Falha (ack -1) sempre se aplica; so a regressao de um ack
           // positivo (ex: "delivered" chegando depois de "read") e ignorada.
-          if (
-            !messageToUpdate ||
-            (ack > 0 && ack <= messageToUpdate.ack)
-          ) {
+          if (!messageToUpdate || (ack > 0 && ack <= messageToUpdate.ack)) {
             continue;
           }
 
-          // eslint-disable-next-line no-await-in-loop
           await messageToUpdate.update({ ack });
 
           // Sem isso o front so pega o ack novo num refresh manual - o

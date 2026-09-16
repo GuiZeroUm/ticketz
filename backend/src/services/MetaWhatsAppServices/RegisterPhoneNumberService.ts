@@ -32,7 +32,10 @@ const RegisterPhoneNumberService = async (
       );
       return;
     }
-    logger.error({ err, phoneNumberId }, "Failed to register Meta phone number");
+    logger.error(
+      { err, phoneNumberId },
+      "Failed to register Meta phone number"
+    );
     throw new AppError("ERR_META_PHONE_REGISTER_FAILED", 502);
   }
 };

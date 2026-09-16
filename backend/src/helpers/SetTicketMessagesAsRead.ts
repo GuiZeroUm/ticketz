@@ -53,7 +53,6 @@ const SetTicketMessagesAsRead = async (ticket: Ticket): Promise<void> => {
           ];
         }
 
-        // eslint-disable-next-line no-await-in-loop
         const messages = await Message.findAll({
           attributes: ["id", "companyId", "dataJson", "createdAt"],
           where: whereClause,
@@ -101,7 +100,6 @@ const SetTicketMessagesAsRead = async (ticket: Ticket): Promise<void> => {
         );
 
         try {
-          // eslint-disable-next-line no-await-in-loop
           await (wbot as WASocket).readMessages(messageKeys);
         } catch (err) {
           logger.error(

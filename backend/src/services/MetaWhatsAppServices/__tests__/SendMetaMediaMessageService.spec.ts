@@ -51,7 +51,11 @@ describe("resolveMetaMediaKind", () => {
 });
 
 describe("PersistMetaOutboundMessageService", () => {
-  const ticket = { id: 55, companyId: 9, update: jest.fn() } as unknown as Ticket;
+  const ticket = {
+    id: 55,
+    companyId: 9,
+    update: jest.fn()
+  } as unknown as Ticket;
 
   beforeEach(() => {
     jest.clearAllMocks();
