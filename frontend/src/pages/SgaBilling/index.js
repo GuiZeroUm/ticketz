@@ -27,6 +27,7 @@ import {
   makeStyles
 } from "@material-ui/core";
 import Alert from "@material-ui/lab/Alert";
+import FiberManualRecord from "@material-ui/icons/FiberManualRecord";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
@@ -61,7 +62,13 @@ const useStyles = makeStyles(theme => ({
   },
   table: { minWidth: 700 },
   gap: { marginTop: 16 },
-  steps: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }
+  steps: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 },
+  dot_approved: { color: theme.palette.success.main },
+  dot_pending: { color: theme.palette.info.main },
+  dot_outdated: { color: theme.palette.warning.main },
+  dot_absent: { color: theme.palette.text.disabled },
+  dot_rejected: { color: theme.palette.error.main },
+  dot_failed: { color: theme.palette.error.main }
 }));
 // Etapa aprovada na Meta envia; qualquer outro estado nao envia, e o motivo
 // muda o que o operador precisa fazer (esperar, corrigir texto ou salvar).
@@ -73,6 +80,19 @@ const templateBadge = template => {
   if (template.status === "PENDING") return "pending";
   return "rejected";
 };
+const templateSeverity = badge => {
+  if (badge === "approved") return "success";
+  if (badge === "pending") return "info";
+  if (badge === "failed" || badge === "rejected") return "error";
+  return "warning";
+};
+// Uma falha de submissao por credencial faltando no servidor nao tem nada a
+// ver com o texto da etapa; culpar o texto manda o operador para o lugar
+// errado.
+const templateHelpKey = template =>
+  template.error === "ERR_META_APP_NOT_CONFIGURED"
+    ? "template.appNotConfiguredHelp"
+    : `template.${templateBadge(template)}Help`;
 export default function SgaBilling() {
   const classes = useStyles();
   const history = useHistory();
@@ -210,7 +230,21 @@ export default function SgaBilling() {
   const official = state.connections.some(
     w => w.id === config.whatsappId && w.apiMode === "official"
   );
-  const stepTemplate = state.templates?.find(x => x.offset === step.offset);
+  const templateOf = offset => state.templates?.find(x => x.offset === offset);
+  const stepTemplate = templateOf(step.offset);
+  // Resumo das 10 etapas: o operador precisa ver de relance o que ja envia,
+  // sem abrir uma etapa por vez.
+  const templateSummary = state.templates && {
+    total: state.templates.length,
+    approved: state.templates.filter(x => templateBadge(x) === "approved")
+      .length,
+    pending: state.templates.filter(x =>
+      ["pending", "outdated"].includes(templateBadge(x))
+    ).length,
+    blocked: state.templates.filter(x =>
+      ["rejected", "failed", "absent"].includes(templateBadge(x))
+    ).length
+  };
   return (
     <div className={classes.root}>
       <div className={classes.heading}>
@@ -368,15 +402,48 @@ export default function SgaBilling() {
             <Alert severity="info">{t("template.modelHelp")}</Alert>
           </Box>
         )}
+        {templateSummary && (
+          <Box mb={2}>
+            <Alert
+              severity={
+                templateSummary.blocked
+                  ? "warning"
+                  : templateSummary.pending
+                    ? "info"
+                    : "success"
+              }
+            >
+              {t("template.summary", {
+                approved: templateSummary.approved,
+                total: templateSummary.total,
+                pending: templateSummary.pending,
+                blocked: templateSummary.blocked
+              })}
+            </Alert>
+          </Box>
+        )}
         <div className={classes.steps}>
-          {config.steps.map((s, i) => (
-            <Chip
-              key={s.offset}
-              label={stageName(s.offset)}
-              color={i === stepIndex ? "primary" : "default"}
-              onClick={() => setStepIndex(i)}
-            />
-          ))}
+          {config.steps.map((s, i) => {
+            const template = templateOf(s.offset);
+            const badge = template ? templateBadge(template) : null;
+            return (
+              <Chip
+                key={s.offset}
+                label={stageName(s.offset)}
+                color={i === stepIndex ? "primary" : "default"}
+                onClick={() => setStepIndex(i)}
+                icon={
+                  badge ? (
+                    <FiberManualRecord
+                      fontSize="small"
+                      aria-label={t(`template.${badge}`)}
+                      className={classes[`dot_${badge}`]}
+                    />
+                  ) : undefined
+                }
+              />
+            );
+          })}
         </div>
         <FormControlLabel
           control={
@@ -398,16 +465,11 @@ export default function SgaBilling() {
           />
         )}
         {stepTemplate && templateBadge(stepTemplate) !== "approved" && (
-          <Alert
-            severity={
-              templateBadge(stepTemplate) === "pending" ? "info" : "warning"
-            }
-          >
-            {t(`template.${templateBadge(stepTemplate)}Help`)}
+          <Alert severity={templateSeverity(templateBadge(stepTemplate))}>
+            {t(templateHelpKey(stepTemplate))}
             {stepTemplate.rejectedReason
               ? ` (${stepTemplate.rejectedReason})`
               : ""}
-            {stepTemplate.error ? ` (${stepTemplate.error})` : ""}
           </Alert>
         )}
         <TextField

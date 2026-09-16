@@ -72,7 +72,11 @@ const pt = {
       outdatedHelp:
         "O texto salvo é diferente do aprovado na Meta. Salve a configuração para reenviar para aprovação.",
       failedHelp:
-        "Não foi possível enviar esta etapa para aprovação. Verifique se o texto tem no máximo 1024 caracteres e tente salvar novamente."
+        "Não foi possível enviar esta etapa para aprovação. Verifique se o texto tem no máximo 1024 caracteres e tente salvar novamente.",
+      appNotConfiguredHelp:
+        "Falta a variável META_APP_ID no servidor. Ela é necessária para enviar o boleto de exemplo que a Meta exige ao aprovar um template com anexo. Preencha META_APP_ID no ambiente, reinicie e salve a configuração novamente.",
+      summary:
+        "Templates das etapas: {{approved}} de {{total}} aprovadas e já enviando · {{pending}} aguardando aprovação · {{blocked}} precisam de ação sua. Etapa sem template aprovado não envia cobrança."
     },
     variables:
       "Variáveis: [nome], [valor] e [vencimento]. Nenhum link é acrescentado automaticamente. [boleto] é opcional nos textos personalizados de cobrança.",
