@@ -1,10 +1,19 @@
 import Whatsapp from "../../../models/Whatsapp";
 import Ticket from "../../../models/Ticket";
 import { SendWhatsAppMedia } from "../SendWhatsAppMedia";
+import SendMetaMediaMessageService from "../../MetaWhatsAppServices/SendMetaMediaMessageService";
+import GetTicketWbot from "../../../helpers/GetTicketWbot";
 
 jest.mock("../../../models/Whatsapp");
-// Guards against the pre-fix code path actually reaching real filesystem/
-// storage I/O with a bogus path, which hangs instead of failing fast.
+jest.mock("../../MetaWhatsAppServices/SendMetaMediaMessageService", () => ({
+  __esModule: true,
+  default: jest.fn().mockResolvedValue({
+    key: { id: "wamid.1", fromMe: true, remoteJid: "5568999999999" },
+    message: { conversation: "photo.png" }
+  })
+}));
+// Guards against the Baileys path actually reaching real filesystem/storage
+// I/O with a bogus path, which hangs instead of failing fast.
 jest.mock("fs", () => ({
   ...jest.requireActual("fs"),
   createReadStream: jest.fn(() => ({
@@ -37,21 +46,31 @@ jest.mock("../../../helpers/GetTicketWbot", () => ({
 
 jest.setTimeout(8000);
 
-describe("SendWhatsAppMedia official mode guard", () => {
-  it("rejects media on an official-mode connection instead of touching a Baileys session", async () => {
-    (Whatsapp.findByPk as jest.Mock).mockResolvedValue({
-      apiMode: "official"
-    });
-    const ticket = { whatsappId: 5 } as Ticket;
-    const media = {
-      path: "/tmp/does-not-exist.png",
-      originalname: "photo.png",
-      mimetype: "image/png",
-      size: 10
-    } as Express.Multer.File;
+const media = {
+  path: "/tmp/does-not-exist.png",
+  originalname: "photo.png",
+  mimetype: "image/png",
+  size: 10
+} as Express.Multer.File;
 
-    await expect(SendWhatsAppMedia({ media, ticket })).rejects.toMatchObject({
-      message: "ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED"
+describe("SendWhatsAppMedia connection dispatch", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("envia pela Cloud API e nao encosta na sessao Baileys numa conexao oficial", async () => {
+    const connection = { id: 5, apiMode: "official" };
+    (Whatsapp.findByPk as jest.Mock).mockResolvedValue(connection);
+    const ticket = { whatsappId: 5 } as Ticket;
+
+    await SendWhatsAppMedia({ media, ticket, caption: "segue o boleto" });
+
+    expect(SendMetaMediaMessageService).toHaveBeenCalledWith({
+      media,
+      ticket,
+      connection,
+      caption: "segue o boleto"
     });
+    expect(GetTicketWbot).not.toHaveBeenCalled();
   });
 });

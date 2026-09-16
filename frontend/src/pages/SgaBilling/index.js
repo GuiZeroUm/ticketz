@@ -63,6 +63,16 @@ const useStyles = makeStyles(theme => ({
   gap: { marginTop: 16 },
   steps: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }
 }));
+// Etapa aprovada na Meta envia; qualquer outro estado nao envia, e o motivo
+// muda o que o operador precisa fazer (esperar, corrigir texto ou salvar).
+const templateBadge = template => {
+  if (template.error) return "failed";
+  if (template.status === "ABSENT") return "absent";
+  if (template.outdated) return "outdated";
+  if (template.status === "APPROVED") return "approved";
+  if (template.status === "PENDING") return "pending";
+  return "rejected";
+};
 export default function SgaBilling() {
   const classes = useStyles();
   const history = useHistory();
@@ -197,6 +207,10 @@ export default function SgaBilling() {
   const connected = state.connections.some(
     w => w.id === config.whatsappId && w.status === "CONNECTED"
   );
+  const official = state.connections.some(
+    w => w.id === config.whatsappId && w.apiMode === "official"
+  );
+  const stepTemplate = state.templates?.find(x => x.offset === step.offset);
   return (
     <div className={classes.root}>
       <div className={classes.heading}>
@@ -349,6 +363,11 @@ export default function SgaBilling() {
         <Typography variant="h6" gutterBottom>
           {t("messages")}
         </Typography>
+        {official && (
+          <Box mb={2}>
+            <Alert severity="info">{t("template.modelHelp")}</Alert>
+          </Box>
+        )}
         <div className={classes.steps}>
           {config.steps.map((s, i) => (
             <Chip
@@ -370,6 +389,27 @@ export default function SgaBilling() {
           label={t("stepEnabled")}
         />
         <Chip label={t(step.attachPdf ? "withPdf" : "textOnly")} />
+        {stepTemplate && (
+          <Chip
+            label={t(`template.${templateBadge(stepTemplate)}`)}
+            color={
+              templateBadge(stepTemplate) === "approved" ? "primary" : "default"
+            }
+          />
+        )}
+        {stepTemplate && templateBadge(stepTemplate) !== "approved" && (
+          <Alert
+            severity={
+              templateBadge(stepTemplate) === "pending" ? "info" : "warning"
+            }
+          >
+            {t(`template.${templateBadge(stepTemplate)}Help`)}
+            {stepTemplate.rejectedReason
+              ? ` (${stepTemplate.rejectedReason})`
+              : ""}
+            {stepTemplate.error ? ` (${stepTemplate.error})` : ""}
+          </Alert>
+        )}
         <TextField
           multiline
           minRows={7}

@@ -50,41 +50,28 @@ const mount = whatsapp =>
     </SocketContext.Provider>
   );
 
-describe("MessageInputCustom official-mode media restriction", () => {
+describe("MessageInputCustom media controls", () => {
   beforeEach(() => {
     api.request.mockResolvedValue({ data: [] });
   });
 
-  it("disables attaching media and recording audio on an official-mode connection, with a tooltip", () => {
-    mount({ apiMode: "official" });
+  // Estes controles ficaram desabilitados enquanto midia na Cloud API nao
+  // existia; a regressao a evitar agora e voltarem a ficar bloqueados.
+  it.each(["official", "baileys"])(
+    "mantem anexo e audio disponiveis numa conexao %s",
+    apiMode => {
+      mount({ apiMode });
 
-    // IconButton renders as a <span> (component="span"), so MUI communicates
-    // disabled state via aria-disabled + a CSS class, not the native
-    // `disabled` attribute - toBeDisabled() only recognizes real form
-    // controls, hence the aria-disabled assertion here.
-    expect(screen.getByLabelText("upload")).toHaveAttribute(
-      "aria-disabled",
-      "true"
-    );
-    expect(screen.getByLabelText("showRecorder")).toHaveAttribute(
-      "aria-disabled",
-      "true"
-    );
-    expect(
-      screen.getAllByTitle("connections.toolTips.notAvailableOfficial").length
-    ).toBeGreaterThan(0);
-  });
-
-  it("keeps attaching media and recording audio enabled on a Baileys connection", () => {
-    mount({ apiMode: "baileys" });
-
-    expect(screen.getByLabelText("upload")).not.toHaveAttribute(
-      "aria-disabled",
-      "true"
-    );
-    expect(screen.getByLabelText("showRecorder")).not.toHaveAttribute(
-      "aria-disabled",
-      "true"
-    );
-  });
+      // IconButton renders as a <span> (component="span"), so MUI communicates
+      // disabled state via aria-disabled, not the native `disabled` attribute.
+      expect(screen.getByLabelText("upload")).not.toHaveAttribute(
+        "aria-disabled",
+        "true"
+      );
+      expect(screen.getByLabelText("showRecorder")).not.toHaveAttribute(
+        "aria-disabled",
+        "true"
+      );
+    }
+  );
 });

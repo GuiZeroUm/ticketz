@@ -6,6 +6,8 @@ import OutOfTicketMessage from "../../models/OutOfTicketMessages";
 import { assertRuntimeCompany } from "../../helpers/tenantRuntime";
 import normalizePhone from "../../helpers/NormalizePhone";
 import { phoneKey } from "../SgaServices/normalize";
+import SendMetaTemplateMessageService from "../MetaWhatsAppServices/SendMetaTemplateMessageService";
+import { uploadMetaMedia } from "../MetaWhatsAppServices/SendMetaMediaMessageService";
 
 // URLs only come from authenticated SGA responses. No arbitrary URL or redirect
 // can cause the backend to fetch another host (or forward the SGA token).
@@ -52,11 +54,70 @@ export const fetchBoletoPdf = async (url: string): Promise<Buffer> => {
     throw new AppError("ERR_BILLING_PDF", 502);
   }
 };
+export const BOLETO_FILENAME = "boleto-ac-norte.pdf";
+
+export interface BillingOfficialDispatch {
+  template: { name: string; parameters: string[] };
+  document?: { id: string; filename: string };
+}
+
+// O boleto precisa estar na Meta antes do envio, e essa subida acontece fora
+// daqui de proposito: o chamador marca a entrega como SENDING so depois, pra
+// que uma falha de upload nao fique registrada como "talvez enviou".
+export const uploadBillingDocument = async (
+  whatsapp: Whatsapp,
+  pdf: Buffer
+): Promise<{ id: string; filename: string }> => ({
+  id: await uploadMetaMedia(whatsapp, pdf, "application/pdf", BOLETO_FILENAME),
+  filename: BOLETO_FILENAME
+});
+
+// Cobranca e mensagem iniciada pela empresa: fora da janela de 24h a Cloud
+// API so aceita template aprovado, por isso o texto livre nao serve aqui.
+const sendOfficialBillingMessage = async (
+  whatsapp: Whatsapp,
+  number: string,
+  body: string,
+  official: BillingOfficialDispatch
+): Promise<string> => {
+  const international = number.length <= 11 ? `55${number}` : number;
+  const messageId = await SendMetaTemplateMessageService({
+    whatsapp,
+    to: international,
+    name: official.template.name,
+    parameters: official.template.parameters,
+    document: official.document
+  });
+
+  // Mesmo contrato que o visibility.ts espera pra projetar a cobranca no
+  // ticket: sem documentMessage o anexo perde nome e tipo na conversa.
+  await OutOfTicketMessage.create({
+    id: messageId,
+    dataJson: JSON.stringify({
+      key: { id: messageId, fromMe: true },
+      wamid: messageId,
+      source: "meta-cloud-api",
+      message: official.document
+        ? {
+            documentMessage: {
+              fileName: official.document.filename,
+              mimetype: "application/pdf"
+            }
+          }
+        : { conversation: body }
+    }),
+    whatsappId: whatsapp.id
+  });
+
+  return messageId;
+};
+
 export const sendBillingMessage = async (
   whatsapp: Whatsapp,
   number: string,
   body: string,
-  pdf?: Buffer
+  pdf?: Buffer,
+  official?: BillingOfficialDispatch
 ): Promise<string> => {
   assertRuntimeCompany(whatsapp.companyId);
   if (
@@ -64,11 +125,12 @@ export const sendBillingMessage = async (
     !/^(?:\d{10,11}|55\d{10,11})$/.test(number)
   )
     throw new AppError("ERR_BILLING_CONNECTION", 409);
-  // Segunda camada de defesa (a primeira e o guard em service.ts:sender) -
-  // boleto em PDF so existe via Baileys hoje, nunca tentar numa conexao
-  // oficial mesmo que essa funcao venha a ser chamada de outro caminho.
-  if (whatsapp.apiMode === "official")
-    throw new AppError("ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED", 400);
+  if (whatsapp.apiMode === "official") {
+    // Falha fechado: conexao oficial sem template resolvido nunca cai no
+    // fluxo Baileys, que nao tem sessao wbot nenhuma pra essa conexao.
+    if (!official) throw new AppError("ERR_BILLING_TEMPLATE_MISSING", 409);
+    return sendOfficialBillingMessage(whatsapp, number, body, official);
+  }
   const wbot = await GetWhatsappWbot(whatsapp);
   // A Brazilian national number is accepted as input. WhatsApp routing still
   // needs a country code, and its canonical address may omit the ninth digit.

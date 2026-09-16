@@ -10,6 +10,7 @@ import {
   money
 } from "../SgaServices/normalize";
 import AppError from "../../errors/AppError";
+import { TemplatePlaceholder } from "../MetaWhatsAppServices/MetaTemplateFormat";
 
 export const OFFSETS = [-5, -3, -1, 0, 1, 3, 5, 25, 30, 90] as const;
 const footer =
@@ -213,24 +214,32 @@ export const freshSnapshot = (
   const age = now.getTime() - new Date(stored.syncedAt || 0).getTime();
   return stored.status === "ready" && age >= 0 && age < 90 * 60000;
 };
+// Os mesmos valores servem para o texto livre (Baileys) e para os parametros
+// do template (Cloud API oficial), que sao posicionais - por isso ficam numa
+// funcao unica em vez de repetidos nos dois caminhos.
+export const reminderValues = (
+  name: string,
+  bill: Pick<Bill, "due" | "amount">,
+  url: string
+): Record<TemplatePlaceholder, string> => ({
+  nome: name.trim() || "associado",
+  valor: new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL"
+  }).format(bill.amount),
+  vencimento: DateTime.fromISO(bill.due).toFormat("dd/MM/yyyy"),
+  boleto: url
+});
 export const renderReminder = (
   step: BillingStep,
   name: string,
   bill: Pick<Bill, "due" | "amount">,
   url: string
 ): string => {
-  const values = {
-    nome: name.trim() || "associado",
-    valor: new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL"
-    }).format(bill.amount),
-    vencimento: DateTime.fromISO(bill.due).toFormat("dd/MM/yyyy"),
-    boleto: url
-  };
+  const values = reminderValues(name, bill, url);
   const body = step.body.replace(
     /\[(nome|valor|vencimento|boleto)\]/g,
-    (_, key) => values[key]
+    (_, key) => values[key as TemplatePlaceholder]
   );
   return body;
 };

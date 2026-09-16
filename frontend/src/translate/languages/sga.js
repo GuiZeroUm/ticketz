@@ -54,6 +54,26 @@ const pt = {
     stepEnabled: "Habilitar esta etapa",
     withPdf: "PDF do boleto + mensagem",
     textOnly: "Mensagem de lembrete",
+    template: {
+      modelHelp:
+        "Esta conexão usa a API Oficial da Meta. Como a cobrança é iniciada pela empresa, cada etapa é enviada como um template aprovado pela Meta: ao salvar, o texto alterado é reenviado automaticamente para aprovação e a etapa volta a enviar quando for aprovada. A aprovação costuma levar de alguns minutos a algumas horas.",
+      approved: "Template aprovado",
+      pending: "Aprovação pendente",
+      rejected: "Template recusado",
+      absent: "Template não enviado",
+      outdated: "Texto alterado, aprovação pendente",
+      failed: "Falha ao enviar para aprovação",
+      pendingHelp:
+        "A Meta ainda está analisando esta etapa. Ela não envia até ser aprovada.",
+      rejectedHelp:
+        "A Meta recusou este texto. Ajuste a mensagem e salve novamente para reenviar.",
+      absentHelp:
+        "Esta etapa ainda não foi enviada para aprovação. Habilite a etapa e salve a configuração.",
+      outdatedHelp:
+        "O texto salvo é diferente do aprovado na Meta. Salve a configuração para reenviar para aprovação.",
+      failedHelp:
+        "Não foi possível enviar esta etapa para aprovação. Verifique se o texto tem no máximo 1024 caracteres e tente salvar novamente."
+    },
     variables:
       "Variáveis: [nome], [valor] e [vencimento]. Nenhum link é acrescentado automaticamente. [boleto] é opcional nos textos personalizados de cobrança.",
     save: "Salvar configuração",

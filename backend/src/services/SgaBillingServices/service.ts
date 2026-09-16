@@ -14,6 +14,7 @@ import { sgaRequest } from "../SgaServices/client";
 import { Bill, digits, normalizedText } from "../SgaServices/normalize";
 import {
   BillingConfig,
+  BillingStep,
   defaults,
   parseConfig,
   parseStoredConfig,
@@ -21,21 +22,30 @@ import {
   stageFor,
   inWindow,
   freshSnapshot,
+  reminderValues,
   renderReminder,
   revalidateBill,
   planBillingDispatches
 } from "./policy";
 import {
+  BillingOfficialDispatch,
   boletoUrl,
   fetchBoletoPdf,
   sendBillingMessage,
-  testPdf
+  testPdf,
+  uploadBillingDocument
 } from "./transport";
+import {
+  PLACEHOLDER_EXAMPLES,
+  templateNameForOffset,
+  toTemplateBody
+} from "../MetaWhatsAppServices/MetaTemplateFormat";
 import {
   syncBillingDeliveryVisibility,
   syncSentBillingVisibility,
   BillingDelivery
 } from "./visibility";
+import { billingTemplateStates, submitBillingTemplates } from "./templates";
 
 type Delivery = {
   id: string;
@@ -108,17 +118,47 @@ const sender = async (companyId: number, id: number | null) => {
   const whatsapp = id
     ? await Whatsapp.findOne({
         where: { id, companyId },
-        attributes: ["id", "name", "companyId", "status", "apiMode"]
+        // As colunas meta* sao obrigatorias aqui: e esta instancia que chega
+        // no transporte, e sem elas o envio oficial nao tem nem numero nem
+        // token.
+        attributes: [
+          "id",
+          "name",
+          "companyId",
+          "status",
+          "apiMode",
+          "metaWabaId",
+          "metaPhoneNumberId",
+          "metaAccessToken"
+        ]
       })
     : null;
   if (!whatsapp || whatsapp.status !== "CONNECTED")
     throw new AppError("ERR_BILLING_CONNECTION", 409);
-  // Cobranca de boleto (PDF) so existe via Baileys hoje - Cloud API oficial
-  // ainda nao tem esse caminho (Fase 2 do projeto Meta). Nunca tenta enviar
-  // por uma conexao oficial, mesmo que ela esteja CONNECTED.
-  if (whatsapp.apiMode === "official")
-    throw new AppError("ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED", 400);
   return whatsapp;
+};
+// Traduz a etapa da regua no template aprovado equivalente. Os parametros do
+// template sao posicionais, e a ordem vem do mesmo toTemplateBody usado na
+// submissao - e o que garante que [nome] caia em {{1}} nas duas pontas.
+const officialDispatch = async (
+  whatsapp: Whatsapp,
+  step: BillingStep | undefined,
+  memberName: string,
+  bill: Pick<Bill, "due" | "amount">,
+  url: string,
+  pdf?: Buffer
+): Promise<BillingOfficialDispatch | undefined> => {
+  if (whatsapp.apiMode !== "official") return undefined;
+  if (!step) throw new AppError("ERR_BILLING_CONFIG", 400);
+  const { variables } = toTemplateBody(step.body);
+  const values = reminderValues(memberName, bill, url);
+  return {
+    template: {
+      name: templateNameForOffset(step.offset),
+      parameters: variables.map(key => values[key])
+    },
+    document: pdf ? await uploadBillingDocument(whatsapp, pdf) : undefined
+  };
 };
 export const saveBillingConfig = async (
   companyId: number,
@@ -129,13 +169,19 @@ export const saveBillingConfig = async (
   const config = parseConfig(input);
   if (config.enabled && !liveAllowed())
     throw new AppError("ERR_BILLING_SEND_DISABLED", 409);
-  if (
-    config.whatsappId &&
-    !(await Whatsapp.findOne({
-      where: { id: config.whatsappId, companyId },
-      attributes: ["id"]
-    }))
-  )
+  const connection = config.whatsappId
+    ? await Whatsapp.findOne({
+        where: { id: config.whatsappId, companyId },
+        attributes: [
+          "id",
+          "companyId",
+          "apiMode",
+          "metaWabaId",
+          "metaAccessToken"
+        ]
+      })
+    : null;
+  if (config.whatsappId && !connection)
     throw new AppError("ERR_BILLING_CONNECTION", 400);
   await sequelize.transaction(async transaction => {
     if (!(await lock(companyId, transaction)))
@@ -150,6 +196,12 @@ export const saveBillingConfig = async (
       { replacements, transaction }
     );
   });
+  // Na Cloud API oficial o texto da cobranca so sai como template aprovado,
+  // entao salvar tambem significa reenviar para aprovacao o que mudou. Roda
+  // fora da transacao e sem lancar: a Graph API nao pode impedir o save.
+  if (connection?.apiMode === "official") {
+    await submitBillingTemplates(connection, config);
+  }
   return config;
 };
 const keyOf = (bill: Bill, offset: number) => `live:${bill.id}:${offset}`;
@@ -182,6 +234,18 @@ export const billingOverview = async (companyId: number, day = localDay()) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || Number.isNaN(Date.parse(day)))
     throw new AppError("ERR_BILLING_CONFIG", 400);
   const config = await getBillingConfig(companyId);
+  const selected = config.whatsappId
+    ? await Whatsapp.findOne({
+        where: { id: config.whatsappId, companyId },
+        attributes: [
+          "id",
+          "companyId",
+          "apiMode",
+          "metaWabaId",
+          "metaAccessToken"
+        ]
+      })
+    : null;
   const { data, rows } = await candidates(companyId, day, config);
   const delivered = await query<Delivery>(
     'SELECT "dedupeKey",status FROM "SgaBillingDeliveries" WHERE "companyId"=:companyId AND mode=\'live\'',
@@ -218,8 +282,12 @@ export const billingOverview = async (companyId: number, day = localDay()) => {
     syncedAt: data.stored.syncedAt,
     connections: await Whatsapp.findAll({
       where: { companyId },
-      attributes: ["id", "name", "status"]
+      attributes: ["id", "name", "status", "apiMode"]
     }),
+    templates:
+      selected?.apiMode === "official"
+        ? await billingTemplateStates(selected, config)
+        : null,
     counts: {
       total: preview.length,
       eligible: preview.filter(r => !r.reason).length,
@@ -412,13 +480,24 @@ export const processBilling = async (
       }
       const body = renderReminder(step, member.name, lastBill, url);
       await sender(companyId, whatsapp.id);
+      // Upload do boleto antes de marcar SENDING: falha aqui e FAILED, nao
+      // UNCERTAIN, porque nada foi enviado ainda.
+      const official = await officialDispatch(
+        whatsapp,
+        step,
+        member.name,
+        lastBill,
+        url,
+        pdf
+      );
       await update(companyId, delivery.id, "SENDING", null, null, body);
       sending = true;
       const messageId = await sendBillingMessage(
         whatsapp,
         digits(current.number),
         body,
-        pdf
+        pdf,
+        official
       );
       await update(companyId, delivery.id, "SENT", null, messageId);
       try {
@@ -565,6 +644,19 @@ export const runBillingTest = async (
         ? await fetchBoletoPdf(url)
         : testPdf()
       : undefined;
+    // Numa conexao oficial o teste sai com o texto do template aprovado: o
+    // aviso de "[TESTE - SEM COBRANCA REAL]" do preview nao cabe, porque o
+    // corpo da mensagem e fixado na aprovacao da Meta.
+    const official = whatsapp
+      ? await officialDispatch(
+          whatsapp,
+          config.steps.find(s => s.offset === offset),
+          preview.memberName,
+          bill,
+          url || PLACEHOLDER_EXAMPLES.boleto,
+          pdf
+        )
+      : undefined;
     const [delivery] = await query<{ id: string }>(
       'INSERT INTO "SgaBillingDeliveries" ("companyId","billId","memberId","billNumber","dueDate",stage,"localDay",status,mode,"dedupeKey",body,"whatsappId") VALUES (:companyId,:billId,:memberId,:billNumber,:dueDate,:stage,:day,:status,:mode,:key,:body,:whatsappId) RETURNING id',
       {
@@ -596,7 +688,8 @@ export const runBillingTest = async (
         whatsapp,
         number,
         preview.body,
-        pdf
+        pdf,
+        official
       );
       await update(companyId, delivery.id, "SENT", null, messageId);
       return { ...preview, status: "SENT", messageId };

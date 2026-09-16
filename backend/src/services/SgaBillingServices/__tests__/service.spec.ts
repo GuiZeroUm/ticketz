@@ -165,7 +165,8 @@ it("sends only once per boleto/stage regardless of multiple vehicles or repeated
     expect.anything(),
     contact.number,
     expect.stringContaining("Olá, Guilherme Santos"),
-    expect.any(Buffer)
+    expect.any(Buffer),
+    undefined
   );
   const sending = (sequelize.query as jest.Mock).mock.calls.find(
     ([sql, o]) =>
@@ -307,7 +308,8 @@ it("real test uses only the server allowlisted number and deduplicates request I
     expect.anything(),
     "5568992081954",
     expect.stringContaining("Guilherme Santos"),
-    expect.any(Buffer)
+    expect.any(Buffer),
+    undefined
   );
 });
 describe("authorized real boleto tests", () => {
@@ -344,7 +346,8 @@ describe("authorized real boleto tests", () => {
       expect.anything(),
       "5568992081954",
       result.body,
-      Buffer.from("%PDF-demo")
+      Buffer.from("%PDF-demo"),
+      undefined
     );
     await runBillingTest(9, 1, 0, "test", "test_1234567890123456");
     expect(sendBillingMessage).toHaveBeenCalledTimes(1);
@@ -356,6 +359,7 @@ describe("authorized real boleto tests", () => {
       expect.anything(),
       "5568992081954",
       expect.stringContaining("BOLETO REAL"),
+      undefined,
       undefined
     );
   });
