@@ -10,6 +10,7 @@ import GroupQueue from "../../models/GroupQueue";
 import { incrementGroupUnread } from "../WhatsappGroupServices/GroupUnreadService";
 import { emitContact } from "../ContactServices/CreateOrUpdateContactService";
 import { unassignedTicketRoom } from "../../helpers/TicketSocketRooms";
+import { sendMessageWebPush } from "../WebPushServices/WebPushService";
 
 interface MessageData {
   id: string;
@@ -158,6 +159,12 @@ const CreateMessageService = async ({
   }
 
   await emitContact(message.ticket.contact, "update");
+  void sendMessageWebPush(message).catch(error => {
+    logger.warn(
+      { err: error, companyId, ticketId: message.ticketId },
+      "Could not send Web Push notification"
+    );
+  });
   logger.debug(
     {
       company: companyId,

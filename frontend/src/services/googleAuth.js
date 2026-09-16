@@ -11,6 +11,23 @@ const INTENT_TTL = 10 * 60 * 1000;
 let clerkPromise;
 let loadedKey;
 
+// Only these two internal destinations are accepted; never use a caller URL.
+export function googleFlowPaths(flow = "web") {
+  if (flow !== "web" && flow !== "mobile")
+    throw socialError("ERR_SOCIAL_LOGIN_INVALID");
+  const root = flow === "mobile" ? "/login/mobile/google" : "/login/google";
+  return {
+    root,
+    callback: `${root}/callback`,
+    complete: `${root}/complete`,
+    continue: `${root}/continue`,
+    error: `${root}/error`
+  };
+}
+
+const intentKey = flow =>
+  flow === "mobile" ? `${INTENT_KEY}.mobile` : INTENT_KEY;
+
 export const socialError = code => Object.assign(new Error(code), { code });
 
 export function isGoogleConfigured(config) {
@@ -35,13 +52,17 @@ export async function loadGoogleClerk(config) {
   }
   if (!clerkPromise) {
     loadedKey = config.publishableKey;
+    // The mobile bridge is a standalone full-page entry outside AuthProvider.
+    // Its SDK defaults must also remain in that flow during OAuth redirects.
+    const mobileEntry = window.location.pathname.startsWith("/login/mobile");
+    const paths = googleFlowPaths(mobileEntry ? "mobile" : "web");
     clerkPromise = loadClerkBrowser(config.publishableKey)
       .then(async clerk => {
         await clerk.load({
-          signInUrl: "/login",
-          signUpUrl: "/login",
-          signInForceRedirectUrl: GOOGLE_COMPLETE,
-          signUpForceRedirectUrl: GOOGLE_COMPLETE,
+          signInUrl: mobileEntry ? "/login/mobile/google/error" : "/login",
+          signUpUrl: mobileEntry ? "/login/mobile/google/error" : "/login",
+          signInForceRedirectUrl: paths.complete,
+          signUpForceRedirectUrl: paths.complete,
           allowedRedirectOrigins: [window.location.origin],
           localization: { locale: "pt-BR" }
         });
@@ -58,14 +79,16 @@ export async function loadGoogleClerk(config) {
   return clerkPromise;
 }
 
-export function clearGoogleIntent() {
-  sessionStorage.removeItem(INTENT_KEY);
+export function clearGoogleIntent(flow = "web") {
+  googleFlowPaths(flow);
+  sessionStorage.removeItem(intentKey(flow));
 }
 
-export function requireGoogleIntent(config) {
+export function requireGoogleIntent(config, flow = "web") {
+  googleFlowPaths(flow);
   let intent;
   try {
-    intent = JSON.parse(sessionStorage.getItem(INTENT_KEY));
+    intent = JSON.parse(sessionStorage.getItem(intentKey(flow)));
   } catch (_) {}
   if (
     !intent ||
@@ -78,13 +101,14 @@ export function requireGoogleIntent(config) {
     intent.createdAt > Date.now() ||
     Date.now() - intent.createdAt > INTENT_TTL
   ) {
-    clearGoogleIntent();
+    clearGoogleIntent(flow);
     throw socialError("ERR_SOCIAL_LOGIN_EXPIRED");
   }
   return intent;
 }
 
-export async function startGoogleSignIn(config) {
+export async function startGoogleSignIn(config, flow = "web") {
+  const paths = googleFlowPaths(flow);
   const clerk = await loadGoogleClerk(config);
   // Always start a fresh provider selection; an old Clerk session is not an app login.
   if (clerk.session) await clerk.signOut(() => Promise.resolve());
@@ -93,7 +117,7 @@ export async function startGoogleSignIn(config) {
     value => value.toString(16).padStart(2, "0")
   ).join("");
   sessionStorage.setItem(
-    INTENT_KEY,
+    intentKey(flow),
     JSON.stringify({
       origin: window.location.origin,
       slug: getCompanySlug(),
@@ -106,30 +130,31 @@ export async function startGoogleSignIn(config) {
     await clerk.client.signIn.authenticateWithRedirect({
       strategy: "oauth_google",
       oidcPrompt: "select_account",
-      redirectUrl: new URL(GOOGLE_CALLBACK, window.location.origin).href,
-      redirectUrlComplete: new URL(GOOGLE_COMPLETE, window.location.origin).href
+      redirectUrl: new URL(paths.callback, window.location.origin).href,
+      redirectUrlComplete: new URL(paths.complete, window.location.origin).href
     });
   } catch (error) {
-    clearGoogleIntent();
+    clearGoogleIntent(flow);
     throw error;
   }
 }
 
-export async function handleGoogleCallback(clerk, config) {
-  requireGoogleIntent(config);
+export async function handleGoogleCallback(clerk, config, flow = "web") {
+  const paths = googleFlowPaths(flow);
+  requireGoogleIntent(config, flow);
   await clerk.handleRedirectCallback({
-    signInUrl: GOOGLE_ERROR,
-    signUpUrl: GOOGLE_ERROR,
-    signInForceRedirectUrl: GOOGLE_COMPLETE,
-    signUpForceRedirectUrl: GOOGLE_COMPLETE,
-    continueSignUpUrl: GOOGLE_CONTINUE,
-    firstFactorUrl: GOOGLE_ERROR,
-    secondFactorUrl: GOOGLE_ERROR,
-    resetPasswordUrl: GOOGLE_ERROR,
-    verifyEmailAddressUrl: GOOGLE_ERROR,
-    verifyPhoneNumberUrl: GOOGLE_ERROR,
-    signInProtectCheckUrl: GOOGLE_ERROR,
-    signUpProtectCheckUrl: GOOGLE_ERROR
+    signInUrl: paths.error,
+    signUpUrl: paths.error,
+    signInForceRedirectUrl: paths.complete,
+    signUpForceRedirectUrl: paths.complete,
+    continueSignUpUrl: paths.continue,
+    firstFactorUrl: paths.error,
+    secondFactorUrl: paths.error,
+    resetPasswordUrl: paths.error,
+    verifyEmailAddressUrl: paths.error,
+    verifyPhoneNumberUrl: paths.error,
+    signInProtectCheckUrl: paths.error,
+    signUpProtectCheckUrl: paths.error
   });
 }
 
@@ -142,8 +167,8 @@ export function requiresOnlyLegalConsent(clerk) {
   );
 }
 
-export async function acceptGoogleLegal(clerk, config, accepted) {
-  requireGoogleIntent(config);
+export async function acceptGoogleLegal(clerk, config, accepted, flow = "web") {
+  requireGoogleIntent(config, flow);
   if (!accepted || !requiresOnlyLegalConsent(clerk))
     throw socialError("ERR_SOCIAL_LOGIN_INVALID");
   const result = await clerk.client.signUp.update({ legalAccepted: true });
@@ -152,8 +177,13 @@ export async function acceptGoogleLegal(clerk, config, accepted) {
   await clerk.setActive({ session: result.createdSessionId });
 }
 
-export async function exchangeGoogleSession(clerk, config, exchange) {
-  requireGoogleIntent(config);
+export async function exchangeGoogleSession(
+  clerk,
+  config,
+  exchange,
+  flow = "web"
+) {
+  requireGoogleIntent(config, flow);
   if (
     !clerk.session ||
     clerk.session.status !== "active" ||
@@ -164,7 +194,7 @@ export async function exchangeGoogleSession(clerk, config, exchange) {
   const token = await clerk.session.getToken({ skipCache: true });
   if (!token) throw socialError("ERR_SOCIAL_LOGIN_INVALID");
   // Consume before exchange: a callback cannot silently log in again on reload.
-  clearGoogleIntent();
+  clearGoogleIntent(flow);
   await exchange(token);
 }
 

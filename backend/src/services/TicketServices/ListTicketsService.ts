@@ -23,6 +23,7 @@ import Whatsapp from "../../models/Whatsapp";
 import { GetCompanySetting } from "../../helpers/CheckSettings";
 import ContactTag from "../../models/ContactTag";
 import { isSharedOpenView } from "./TicketVisibility";
+import { shouldApplyQueueFilter } from "./TicketQueueAccess";
 
 interface Request {
   isSearch?: boolean;
@@ -135,6 +136,15 @@ const ListTicketsService = async ({
     [Op.and]: andedOrs
   };
 
+  if (shouldApplyQueueFilter(user.profile, queueIds)) {
+    whereCondition = {
+      ...whereCondition,
+      queueId: {
+        [Op.or]: user.profile === "admin" ? [queueIds, null] : [queueIds]
+      }
+    };
+  }
+
   if (groupsTab) {
     whereCondition = { ...whereCondition, isGroup: groups === "true" };
   }
@@ -172,9 +182,14 @@ const ListTicketsService = async ({
   if (showAll === "true" && user.profile === "admin") {
     andedOrs.length = 0;
     whereCondition = {
-      [Op.and]: andedOrs,
-      queueId: { [Op.or]: [queueIds, null] }
+      [Op.and]: andedOrs
     };
+    if (shouldApplyQueueFilter(user.profile, queueIds)) {
+      whereCondition = {
+        ...whereCondition,
+        queueId: { [Op.or]: [queueIds, null] }
+      };
+    }
     if (groupsTab) {
       whereCondition = { ...whereCondition, isGroup: groups === "true" };
     }

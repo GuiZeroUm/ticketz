@@ -501,7 +501,8 @@ const messages = {
       connections: {
         title: "Connections",
         toasts: {
-          deleted: "WhatsApp connection successfully deleted!"
+          deleted: "WhatsApp connection successfully deleted!",
+          metaConnected: "Successfully connected to the Meta Official API!"
         },
         confirmationModal: {
           deleteTitle: "Delete",
@@ -517,9 +518,12 @@ const messages = {
           tryAgain: "Try Again",
           qrcode: "QR CODE",
           newQr: "New QR CODE",
-          connecting: "Connecting"
+          connecting: "Connecting",
+          connectMeta: "Connect via Meta"
         },
         toolTips: {
+          notAvailableOfficial:
+            "Not available yet for Meta Official API connections.",
           disconnected: {
             title: "Failed to initiate WhatsApp session",
             content:
@@ -1993,6 +1997,8 @@ const messages = {
           "Backend is starting up and not ready yet. Retrying automatically."
       },
       backendErrors: {
+        ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED:
+          "Not available yet for Meta Official API connections.",
         ERR_FLOW_INVALID: "Invalid flow data. Review the blocks.",
         ERR_FLOW_CONNECTION:
           "This connection is not allowed. Transfer and human support blocks end the flow.",

@@ -14,6 +14,7 @@ import UpdateWhatsAppService from "../services/WhatsappService/UpdateWhatsAppSer
 import AppError from "../errors/AppError";
 import Ticket from "../models/Ticket";
 import { sendWhatsappUpdate } from "../services/WhatsappService/SocketSendWhatsappUpdate";
+import { UnsubscribeWabaWebhookService } from "../services/MetaWhatsAppServices/SubscribeWabaWebhookService";
 
 interface WhatsappData {
   name: string;
@@ -73,7 +74,9 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     sendWhatsappUpdate(oldDefaultWhatsapp);
   }
 
-  StartWhatsAppSession(whatsapp, companyId);
+  if (whatsapp.apiMode !== "official") {
+    StartWhatsAppSession(whatsapp, companyId);
+  }
 
   return res.status(200).json(whatsapp);
 };
@@ -177,10 +180,17 @@ export const remove = async (
     }
   }
 
-  if (whatsapp.channel === "whatsapp") {
+  if (whatsapp.channel === "whatsapp" && whatsapp.apiMode !== "official") {
     await DeleteBaileysService(whatsappId);
     await cacheLayer.delFromPattern(`sessions:${whatsappId}:*`);
     removeWbot(+whatsappId);
+  }
+
+  if (whatsapp.apiMode === "official" && whatsapp.metaWabaId) {
+    await UnsubscribeWabaWebhookService(
+      whatsapp.metaWabaId,
+      whatsapp.metaAccessToken
+    );
   }
 
   await DeleteWhatsAppService(whatsappId);

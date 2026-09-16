@@ -61,6 +61,7 @@ const ShowTicketService = async (
           "name",
           "channel",
           "status",
+          "apiMode",
           "ratingMessage",
           "transferMessage",
           "complationMessage",

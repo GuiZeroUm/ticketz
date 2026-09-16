@@ -12,6 +12,7 @@ import ShowCompanyService from "../services/CompanyService/ShowCompanyService";
 import UpdateSchedulesService from "../services/CompanyService/UpdateSchedulesService";
 import DeleteCompanyService from "../services/CompanyService/DeleteCompanyService";
 import FindAllCompaniesService from "../services/CompanyService/FindAllCompaniesService";
+import SetCompanyWhatsAppModeService from "../services/CompanyService/SetCompanyWhatsAppModeService";
 import User from "../models/User";
 
 import CheckSettings from "../helpers/CheckSettings";
@@ -206,6 +207,25 @@ export const updateSchedules = async (
   const company = await UpdateSchedulesService({
     id,
     schedules
+  });
+
+  return res.status(200).json(company);
+};
+
+export const updateWhatsappMode = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { id } = req.params;
+  const { whatsappMode } = req.body as { whatsappMode: "normal" | "meta" };
+
+  if (whatsappMode !== "normal" && whatsappMode !== "meta") {
+    throw new AppError("ERR_COMPANY_INVALID_WHATSAPP_MODE");
+  }
+
+  const company = await SetCompanyWhatsAppModeService({
+    companyId: Number(id),
+    whatsappMode
   });
 
   return res.status(200).json(company);

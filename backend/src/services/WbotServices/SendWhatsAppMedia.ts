@@ -13,6 +13,7 @@ import { Readable } from "stream";
 import AppError from "../../errors/AppError";
 import GetTicketWbot from "../../helpers/GetTicketWbot";
 import Ticket from "../../models/Ticket";
+import Whatsapp from "../../models/Whatsapp";
 import { verifyMediaMessage, verifyMessage } from "./wbotMessageListener";
 import CheckSettings from "../../helpers/CheckSettings";
 import saveMediaToFile from "../../helpers/saveMediaFile";
@@ -167,6 +168,14 @@ export const SendWhatsAppMedia = async ({
   caption,
   ptt
 }: Request): Promise<WAMessage> => {
+  const connection = await Whatsapp.findByPk(ticket.whatsappId);
+
+  if (connection?.apiMode === "official") {
+    // Fase 2 (midia via Cloud API oficial) ainda nao existe - nunca cair no
+    // fluxo Baileys pra uma conexao que nao tem sessao wbot nenhuma.
+    throw new AppError("ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED", 400);
+  }
+
   try {
     const pathMedia = media.path;
 

@@ -21,6 +21,7 @@ export const StartAllWhatsAppsSessions = async (
       whatsapps.forEach(whatsapp => {
         if (
           whatsapp.channel === "whatsapp" &&
+          whatsapp.apiMode !== "official" &&
           (process.env.WHATSAPP_AUTOSTART_EXISTING_ONLY !== "true" ||
             !!whatsapp.session)
         ) {

@@ -11,13 +11,11 @@ import {
   exchangeGoogleSession,
   requireGoogleIntent,
   clearGoogleIntent,
-  GOOGLE_CALLBACK,
-  GOOGLE_COMPLETE,
-  GOOGLE_CONTINUE,
+  googleFlowPaths,
   socialError
 } from "../services/googleAuth";
 
-export function googleErrorMessage(error) {
+export function googleErrorMessage(error, language) {
   const code = error?.response?.data?.error || error?.code;
   const key =
     {
@@ -27,12 +25,13 @@ export function googleErrorMessage(error) {
       ERR_SOCIAL_LOGIN_DISABLED: "unavailable",
       ERR_SOCIAL_LOGIN_EXPIRED: "expired"
     }[code] || "failed";
-  return i18n.t(`socialLogin.${key}`);
+  return i18n.t(`socialLogin.${key}`, language ? { lng: language } : undefined);
 }
 
-export default function useGoogleLogin(exchange) {
+export default function useGoogleLogin(exchange, flow = "web") {
   const { pathname } = useLocation();
-  const callback = pathname.startsWith("/login/google/");
+  const paths = googleFlowPaths(flow);
+  const callback = pathname.startsWith(`${paths.root}/`);
   const [config, setConfig] = useState(null);
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(callback);
@@ -49,21 +48,30 @@ export default function useGoogleLogin(exchange) {
     (async () => {
       try {
         const configuration = await getGoogleConfiguration();
-        if (callback) requireGoogleIntent(configuration);
+        if (
+          flow === "mobile" &&
+          !configuration.publishableKey?.startsWith("pk_test_")
+        ) {
+          throw socialError("ERR_SOCIAL_LOGIN_DISABLED");
+        }
+        if (callback) requireGoogleIntent(configuration, flow);
         const clerk = await loadGoogleClerk(configuration);
         if (!live) return;
         client.current = clerk;
         setConfig(configuration);
         setReady(true);
         if (!callback) return;
-        if (pathname === GOOGLE_CALLBACK) {
-          await handleGoogleCallback(clerk, configuration);
-        } else if (pathname === GOOGLE_COMPLETE) {
-          await exchangeGoogleSession(clerk, configuration, token =>
-            exchangeRef.current(token)
+        if (pathname === paths.callback) {
+          await handleGoogleCallback(clerk, configuration, flow);
+        } else if (pathname === paths.complete) {
+          await exchangeGoogleSession(
+            clerk,
+            configuration,
+            token => exchangeRef.current(token),
+            flow
           );
         } else if (
-          pathname === GOOGLE_CONTINUE &&
+          pathname === paths.continue &&
           requiresOnlyLegalConsent(clerk)
         ) {
           setLegal(true);
@@ -73,9 +81,11 @@ export default function useGoogleLogin(exchange) {
       } catch (err) {
         if (live) {
           setReady(false);
-          if (callback) {
-            clearGoogleIntent();
-            setError(googleErrorMessage(err));
+          if (callback || flow === "mobile") {
+            clearGoogleIntent(flow);
+            setError(
+              googleErrorMessage(err, flow === "mobile" ? "pt" : undefined)
+            );
           }
         }
       } finally {
@@ -85,7 +95,9 @@ export default function useGoogleLogin(exchange) {
     return () => {
       live = false;
     };
-  }, [pathname, callback]);
+    // The route map is constant for each flow; it never comes from user input.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, callback, flow]);
 
   const start = async () => {
     if (!ready || running.current) return;
@@ -93,9 +105,9 @@ export default function useGoogleLogin(exchange) {
     setBusy(true);
     setError("");
     try {
-      await startGoogleSignIn(config);
+      await startGoogleSignIn(config, flow);
     } catch (err) {
-      setError(googleErrorMessage(err));
+      setError(googleErrorMessage(err, flow === "mobile" ? "pt" : undefined));
       setBusy(false);
       running.current = false;
     }
@@ -106,14 +118,17 @@ export default function useGoogleLogin(exchange) {
     running.current = true;
     setBusy(true);
     try {
-      await acceptGoogleLegal(client.current, config, accepted);
-      await exchangeGoogleSession(client.current, config, token =>
-        exchangeRef.current(token)
+      await acceptGoogleLegal(client.current, config, accepted, flow);
+      await exchangeGoogleSession(
+        client.current,
+        config,
+        token => exchangeRef.current(token),
+        flow
       );
     } catch (err) {
-      clearGoogleIntent();
+      clearGoogleIntent(flow);
       setLegal(false);
-      setError(googleErrorMessage(err));
+      setError(googleErrorMessage(err, flow === "mobile" ? "pt" : undefined));
     } finally {
       setBusy(false);
       running.current = false;

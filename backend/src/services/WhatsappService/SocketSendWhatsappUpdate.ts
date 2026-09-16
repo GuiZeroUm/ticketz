@@ -3,7 +3,18 @@ import GetWhatsappConnectionNumber from "../../helpers/GetWhatsappConnectionNumb
 import Whatsapp from "../../models/Whatsapp";
 
 export function sendWhatsappUpdate(whatsapp: Whatsapp) {
-  const { id, name, channel, status, qrcode, isDefault, updatedAt } = whatsapp;
+  const {
+    id,
+    name,
+    channel,
+    status,
+    qrcode,
+    isDefault,
+    updatedAt,
+    apiMode,
+    metaHealthStatus,
+    metaPhoneNumberId
+  } = whatsapp;
 
   const io = getIO();
   io.to(`company-${whatsapp.companyId}-admin`).emit(
@@ -18,7 +29,10 @@ export function sendWhatsappUpdate(whatsapp: Whatsapp) {
         status,
         qrcode,
         isDefault,
-        updatedAt
+        updatedAt,
+        apiMode,
+        metaHealthStatus,
+        metaPhoneNumberId
       }
     }
   );
