@@ -1,12 +1,20 @@
 import Ticket from "../../models/Ticket";
 import CreateMessageService from "../MessageServices/CreateMessageService";
 
+interface MediaPayload {
+  mediaUrl: string;
+  mimetype: string;
+  filename: string;
+  kind: "image" | "audio" | "video" | "document";
+}
+
 interface Request {
   wamid: string;
   body: string;
   ticket: Ticket;
   userId?: number;
   quotedMsgId?: string;
+  media?: MediaPayload;
 }
 
 // Persiste uma mensagem enviada via Cloud API como Message, no mesmo
@@ -18,11 +26,34 @@ const PersistMetaOutboundMessageService = async ({
   body,
   ticket,
   userId,
-  quotedMsgId
+  quotedMsgId,
+  media
 }: Request) => {
+  const preview = media ? `📎 ${media.filename}` : body;
+
   await ticket.update({
-    lastMessage: body.substring(0, 255).replace(/\n/g, " ")
+    lastMessage: preview.substring(0, 255).replace(/\n/g, " ")
   });
+
+  const dataJson: Record<string, unknown> = {
+    wamid,
+    body,
+    source: "meta-cloud-api"
+  };
+
+  if (media) {
+    dataJson.mimetype = media.mimetype;
+    // O MessagesList decide o render lendo o dataJson: sem documentMessage um
+    // PDF cai no branch de video e perde a previa e o botao de download.
+    if (media.kind === "document") {
+      dataJson.message = {
+        documentMessage: {
+          fileName: media.filename,
+          mimetype: media.mimetype
+        }
+      };
+    }
+  }
 
   const messageData = {
     id: wamid,
@@ -34,7 +65,13 @@ const PersistMetaOutboundMessageService = async ({
     read: true,
     quotedMsgId,
     ack: 1,
-    dataJson: JSON.stringify({ wamid, body, source: "meta-cloud-api" }),
+    ...(media
+      ? {
+          mediaUrl: media.mediaUrl,
+          mediaType: media.mimetype.split("/")[0]
+        }
+      : {}),
+    dataJson: JSON.stringify(dataJson),
     isEdited: false
   };
 

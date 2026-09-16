@@ -49,7 +49,6 @@ import { AuthContext } from "../../context/Auth/AuthContext";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import toastError from "../../errors/toastError";
 import { EditMessageContext } from "../../context/EditingMessage/EditingMessageContext";
-import { isOfficialApiConnection } from "../../helpers/officialApiRestriction";
 
 import useQuickMessages from "../../hooks/useQuickMessages";
 
@@ -276,33 +275,28 @@ const IconSwitch = props => {
 };
 
 const FileInput = props => {
-  const { handleChangeMedias, disableOption, restrictedTooltip } = props;
+  const { handleChangeMedias, disableOption } = props;
   const classes = useStyles();
-  const disabled = disableOption || !!restrictedTooltip;
-  const input = (
+  return (
     <>
       <input
         multiple
         type="file"
         id="upload-button"
-        disabled={disabled}
+        disabled={disableOption}
         className={classes.uploadInput}
         onChange={handleChangeMedias}
       />
       <label htmlFor="upload-button">
-        <IconButton aria-label="upload" component="span" disabled={disabled}>
+        <IconButton
+          aria-label="upload"
+          component="span"
+          disabled={disableOption}
+        >
           <AttachFileIcon className={classes.sendMessageIcons} />
         </IconButton>
       </label>
     </>
-  );
-
-  if (!restrictedTooltip) return input;
-
-  return (
-    <Tooltip title={restrictedTooltip}>
-      <span>{input}</span>
-    </Tooltip>
   );
 };
 
@@ -316,8 +310,7 @@ const ActionButtons = props => {
     handleCancelAudio,
     handleUploadAudio,
     handleStartRecording,
-    disableOption,
-    restrictedTooltip
+    disableOption
   } = props;
   const classes = useStyles();
   if (inputMessage) {
@@ -362,23 +355,15 @@ const ActionButtons = props => {
       </div>
     );
   } else {
-    const micButton = (
+    return (
       <IconButton
         aria-label="showRecorder"
         component="span"
-        disabled={disableOption || !!restrictedTooltip}
+        disabled={disableOption}
         onClick={handleStartRecording}
       >
         <MicIcon className={classes.sendMessageIcons} />
       </IconButton>
-    );
-
-    if (!restrictedTooltip) return micButton;
-
-    return (
-      <Tooltip title={restrictedTooltip}>
-        <span>{micButton}</span>
-      </Tooltip>
     );
   }
 };
@@ -1143,9 +1128,6 @@ const MessageInputCustom = props => {
   const isGroup = showTabGroups && ticket.isGroup;
   const disableOption =
     (!isGroup && loading) || recording || ticketStatus === "closed";
-  const mediaRestrictedTooltip = isOfficialApiConnection(ticket.whatsapp)
-    ? i18n.t("connections.toolTips.notAvailableOfficial")
-    : null;
 
   const renderReplyingMessage = message => {
     return (
@@ -1243,7 +1225,6 @@ const MessageInputCustom = props => {
 
           <FileInput
             disableOption={disableOption}
-            restrictedTooltip={mediaRestrictedTooltip}
             handleChangeMedias={handleChangeMedias}
           />
 
@@ -1273,8 +1254,7 @@ const MessageInputCustom = props => {
             loading={loading}
             recording={recording}
             ticketStatus={ticketStatus}
-            disabeleOption={disableOption}
-            restrictedTooltip={mediaRestrictedTooltip}
+            disableOption={disableOption}
             handleSendMessage={handleSendMessage}
             handleCancelAudio={handleCancelAudio}
             handleUploadAudio={handleUploadAudio}

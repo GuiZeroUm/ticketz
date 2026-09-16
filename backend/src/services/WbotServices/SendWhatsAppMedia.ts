@@ -20,6 +20,8 @@ import saveMediaToFile from "../../helpers/saveMediaFile";
 import { getJidOf } from "./getJidOf";
 import { logger } from "../../utils/logger";
 import { URLCharEncoder } from "../../helpers/URLCharEncoder";
+import SendMetaMediaMessageService from "../MetaWhatsAppServices/SendMetaMediaMessageService";
+import { MetaSentMessage } from "../MetaWhatsAppServices/SendMetaTextMessageService";
 
 interface Request {
   media: Express.Multer.File;
@@ -167,13 +169,16 @@ export const SendWhatsAppMedia = async ({
   ticket,
   caption,
   ptt
-}: Request): Promise<WAMessage> => {
+}: Request): Promise<WAMessage | MetaSentMessage> => {
   const connection = await Whatsapp.findByPk(ticket.whatsappId);
 
   if (connection?.apiMode === "official") {
-    // Fase 2 (midia via Cloud API oficial) ainda nao existe - nunca cair no
-    // fluxo Baileys pra uma conexao que nao tem sessao wbot nenhuma.
-    throw new AppError("ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED", 400);
+    return SendMetaMediaMessageService({
+      media,
+      ticket,
+      connection,
+      caption
+    });
   }
 
   try {
