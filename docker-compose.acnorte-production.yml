@@ -63,7 +63,10 @@ services:
       META_ALLOWED_COMPANY_IDS: ${META_ALLOWED_COMPANY_IDS:-}
       ACNORTE_SGA_ENABLED: "true"
       ACNORTE_SGA_COMPANY_ID: "9"
-      ACNORTE_SGA_TOKEN: ${ACNORTE_SGA_TOKEN:?SGA production token is required}
+      # Optional on purpose: without it, SgaServices/client.ts throws
+      # ERR_SGA_NOT_CONFIGURED per-request instead of blocking the whole
+      # deploy - the Hinova token is issued externally, not by us.
+      ACNORTE_SGA_TOKEN: ${ACNORTE_SGA_TOKEN:-}
       ACNORTE_BILLING_SEND_ENABLED: ${ACNORTE_BILLING_SEND_ENABLED:-false}
       ACNORTE_BILLING_TEST_NUMBER: ${ACNORTE_BILLING_TEST_NUMBER:-}
       # Production test buttons always use a synthetic, non-payable document.
