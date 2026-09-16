@@ -5,16 +5,33 @@ import Message from "../models/Message";
 import Ticket from "../models/Ticket";
 import { logger } from "../utils/logger";
 import GetTicketWbot from "./GetTicketWbot";
+import MarkMetaMessageAsReadService from "../services/MetaWhatsAppServices/MarkMetaMessageAsReadService";
 
 const SetTicketMessagesAsRead = async (ticket: Ticket): Promise<void> => {
   await ticket.update({ unreadMessages: 0 }, { silent: true });
-  let companyId: number;
+  // Antes so era preenchido dentro do ramo Baileys, entao em conexao oficial o
+  // socket de "nao lidas" nunca era emitido e o contador so caia no refresh.
+  let companyId: number = ticket.companyId;
 
   try {
-    const wbot =
-      ticket.whatsapp?.apiMode === "official"
-        ? null
-        : await GetTicketWbot(ticket);
+    const official = ticket.whatsapp?.apiMode === "official";
+    const wbot = official ? null : await GetTicketWbot(ticket);
+
+    if (official) {
+      // Uma chamada marca a mais nova e tudo que veio antes dela.
+      const newest = await Message.findOne({
+        attributes: ["id"],
+        where: { ticketId: ticket.id, fromMe: false, read: false },
+        order: [
+          ["createdAt", "DESC"],
+          ["id", "DESC"]
+        ]
+      });
+
+      if (newest) {
+        await MarkMetaMessageAsReadService(ticket.whatsapp, newest.id);
+      }
+    }
 
     if (wbot) {
       const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);

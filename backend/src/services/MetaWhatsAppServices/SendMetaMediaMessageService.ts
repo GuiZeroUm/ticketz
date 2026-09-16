@@ -1,7 +1,9 @@
 import fs from "fs";
+import { Readable } from "stream";
 import mime from "mime-types";
 import iconv from "iconv-lite";
 import AppError from "../../errors/AppError";
+import { convertAudioToOggOpus } from "../../helpers/mediaConversion";
 import Ticket from "../../models/Ticket";
 import Whatsapp from "../../models/Whatsapp";
 import saveMediaToFile from "../../helpers/saveMediaFile";
@@ -15,6 +17,7 @@ interface Request {
   ticket: Ticket;
   connection: Whatsapp;
   caption?: string;
+  ptt?: boolean;
 }
 
 export type MetaMediaKind = "image" | "audio" | "video" | "document";
@@ -63,6 +66,38 @@ export const resolveMetaMediaKind = (
   return match
     ? { kind: match.kind, mimetype: base, limit: match.limit }
     : { kind: "document", mimetype: base, limit: DOCUMENT_LIMIT };
+};
+
+const streamToBuffer = async (stream: Readable): Promise<Buffer> => {
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) {
+    chunks.push(Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks.map(chunk => new Uint8Array(chunk)));
+};
+
+// A Cloud API so trata como mensagem de voz o audio enviado em ogg/opus;
+// qualquer outro formato vira anexo comum, mesmo sendo gravacao. O gravador do
+// painel produz mp3, entao sem converter o audio gravado chegava como arquivo.
+const asVoiceNote = async (
+  path: string,
+  mimetype: string,
+  filename: string,
+  ptt?: boolean
+): Promise<{ content: Buffer; mimetype: string; filename: string } | null> => {
+  const wanted = ptt || filename.includes("audio-record-site");
+
+  if (!wanted || !mimetype.startsWith("audio/") || mimetype === "audio/ogg") {
+    return null;
+  }
+
+  const converted = await convertAudioToOggOpus(path);
+
+  return {
+    content: await streamToBuffer(converted.data),
+    mimetype: "audio/ogg",
+    filename: converted.filename
+  };
 };
 
 // O multipart entrega o nome do arquivo em latin1; sem isso acento virá
@@ -117,22 +152,34 @@ const SendMetaMediaMessageService = async ({
   media,
   ticket,
   connection,
-  caption
+  caption,
+  ptt
 }: Request): Promise<MetaSentMessage> => {
   if (!connection.metaPhoneNumberId || !connection.metaAccessToken) {
     throw new AppError("ERR_META_CONNECTION_NOT_CONFIGURED");
   }
 
-  const filename = decodeFilename(media);
+  const original = decodeFilename(media);
+  const voice = await asVoiceNote(
+    media.path,
+    media.mimetype || "",
+    original,
+    ptt
+  );
+
+  const filename = voice?.filename || original;
   const { kind, mimetype, limit } = resolveMetaMediaKind(
-    media.mimetype || (mime.lookup(filename) as string) || "application/octet-stream"
+    voice?.mimetype ||
+      media.mimetype ||
+      (mime.lookup(filename) as string) ||
+      "application/octet-stream"
   );
 
   if (media.size > limit) {
     throw new AppError("ERR_META_MEDIA_TOO_LARGE", 400);
   }
 
-  const content = await fs.promises.readFile(media.path);
+  const content = voice?.content || (await fs.promises.readFile(media.path));
 
   // Guarda local antes de enviar: e daqui que o painel do atendente renderiza
   // a midia depois, porque a URL da Meta expira.

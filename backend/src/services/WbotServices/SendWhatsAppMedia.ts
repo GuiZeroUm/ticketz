@@ -177,7 +177,8 @@ export const SendWhatsAppMedia = async ({
       media,
       ticket,
       connection,
-      caption
+      caption,
+      ptt
     });
   }
 
