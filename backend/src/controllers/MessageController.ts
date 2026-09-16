@@ -28,6 +28,7 @@ import { assertGroupAccess } from "../services/WhatsappGroupServices/GroupAccess
 import { markGroupRead } from "../services/WhatsappGroupServices/GroupUnreadService";
 import ShowContactService from "../services/ContactServices/ShowContactService";
 import { verifyContact } from "../services/WbotServices/verifyContact";
+import SendMetaReactionService from "../services/MetaWhatsAppServices/SendMetaReactionService";
 
 type IndexQuery = {
   nextId?: string;
@@ -213,7 +214,14 @@ export const react = async (req: Request, res: Response): Promise<Response> => {
     await assertGroupAccess(ticketId, req.user);
   }
   if (ticket.whatsapp?.apiMode === "official") {
-    throw new AppError("ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED", 400);
+    await SendMetaReactionService({
+      connection: ticket.whatsapp,
+      ticket,
+      messageId,
+      emoji,
+      userId: Number(req.user.id) || null
+    });
+    return res.send();
   }
   const wbot = getWbot(ticket.whatsappId);
 

@@ -62,7 +62,6 @@ const MessageOptionsMenu = ({
   };
 
   const handleReact = async emoji => {
-    if (restrictedTooltip) return;
     handleClose();
     api
       .post(`/messages/react/${message.id}`, {
@@ -146,31 +145,20 @@ const MessageOptionsMenu = ({
         onClose={closeMenu}
       >
         <div>
-          <Tooltip
-            title={restrictedTooltip || ""}
-            disableHoverListener={!restrictedTooltip}
-          >
-            <div
-              className={classes.flexContainer}
-              style={restrictedTooltip ? { opacity: 0.5 } : undefined}
-            >
-              {mostUsedEmojis.map((emoji, index) => (
-                <div
-                  className={classes.emojiButton}
-                  onClick={() => handleReact(emoji)}
-                  key={index}
-                >
-                  <span style={{ fontSize: "1rem" }}>{emoji}</span>
-                </div>
-              ))}
+          <div className={classes.flexContainer}>
+            {mostUsedEmojis.map((emoji, index) => (
               <div
                 className={classes.emojiButton}
-                onClick={() => !restrictedTooltip && openEmoji()}
+                onClick={() => handleReact(emoji)}
+                key={index}
               >
-                <span style={{ fontSize: "1rem" }}>+</span>
+                <span style={{ fontSize: "1rem" }}>{emoji}</span>
               </div>
+            ))}
+            <div className={classes.emojiButton} onClick={openEmoji}>
+              <span style={{ fontSize: "1rem" }}>+</span>
             </div>
-          </Tooltip>
+          </div>
           {message.fromMe && [
             <Tooltip
               key="delete"
@@ -212,9 +200,20 @@ const MessageOptionsMenu = ({
           <MenuItem onClick={handleReplyMessage}>
             {i18n.t("messageOptionsMenu.reply")}
           </MenuItem>
-          <MenuItem key="forward" onClick={handleOpenForwardModal}>
-            {i18n.t("messageOptionsMenu.forward")}
-          </MenuItem>
+          <Tooltip
+            key="forward"
+            title={restrictedTooltip || ""}
+            disableHoverListener={!restrictedTooltip}
+          >
+            <span>
+              <MenuItem
+                onClick={handleOpenForwardModal}
+                disabled={!!restrictedTooltip}
+              >
+                {i18n.t("messageOptionsMenu.forward")}
+              </MenuItem>
+            </span>
+          </Tooltip>
         </div>
       </Menu>
     </>
