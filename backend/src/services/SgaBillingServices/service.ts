@@ -45,7 +45,11 @@ import {
   syncSentBillingVisibility,
   BillingDelivery
 } from "./visibility";
-import { billingTemplateStates, submitBillingTemplates } from "./templates";
+import {
+  approvedBillingTemplate,
+  billingTemplateStates,
+  submitBillingTemplates
+} from "./templates";
 
 type Delivery = {
   id: string;
@@ -380,6 +384,19 @@ export const processBilling = async (
     const candidate = planned ? rowsByKey.get(planned.key) : undefined;
     if (!candidate) return;
     const { bill, step, member, contact, key } = candidate;
+    // Espera a aprovacao sem abrir entrega: a chave do dia nao e consumida,
+    // entao o mesmo boleto ainda sai nesta data assim que a Meta aprovar. Se
+    // ja abrisse a entrega, o envio falharia e a etapa ficaria sem cobranca.
+    if (
+      whatsapp.apiMode === "official" &&
+      !(await approvedBillingTemplate(whatsapp, step))
+    ) {
+      logger.info(
+        { companyId, stage: step.offset },
+        "Billing template not approved yet, waiting before dispatching"
+      );
+      return;
+    }
     const [delivery] = await query<{ id: string }>(
       'INSERT INTO "SgaBillingDeliveries" ("companyId","billId","memberId","billNumber","dueDate",stage,"localDay","contactId","whatsappId",status,mode,"dedupeKey") VALUES (:companyId,:billId,:memberId,:number,:due,:stage,:day,:contactId,:whatsappId,\'PREPARING\',\'live\',:key) ON CONFLICT ("companyId","dedupeKey") DO NOTHING RETURNING id',
       {
@@ -632,6 +649,14 @@ export const runBillingTest = async (
       throw new AppError("ERR_BILLING_TEST_NUMBER", 409);
     const whatsapp =
       mode === "test" ? await sender(companyId, config.whatsappId) : null;
+    if (
+      whatsapp?.apiMode === "official" &&
+      !(await approvedBillingTemplate(
+        whatsapp,
+        config.steps.find(s => s.offset === offset)
+      ))
+    )
+      throw new AppError("ERR_BILLING_TEMPLATE_NOT_APPROVED", 409);
     const [{ count }] = await query<{ count: string }>(
       'SELECT COUNT(*) AS count FROM "SgaBillingDeliveries" WHERE "companyId"=:companyId AND mode=:mode AND "createdAt">NOW()-INTERVAL \'1 minute\'',
       { companyId, mode }

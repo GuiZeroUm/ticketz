@@ -72,6 +72,21 @@ export const billingTemplateStates = async (
   return config.steps.map(step => stateOf(step, templates));
 };
 
+// Uma etapa so pode enviar quando o template aprovado corresponde ao texto
+// salvo: template aprovado com texto antigo enviaria a mensagem errada, e sem
+// aprovacao a Meta recusa o envio.
+export const approvedBillingTemplate = async (
+  whatsapp: Whatsapp,
+  step: BillingStep
+): Promise<boolean> => {
+  const templates = await listMetaTemplatesSafe(whatsapp);
+  if (!templates) return false;
+
+  const template = findTemplate(templates, templateNameForOffset(step.offset));
+
+  return !!template && template.status === "APPROVED" && matches(template, step);
+};
+
 // Envia para aprovacao as etapas ativas cujo texto ainda nao existe na Meta
 // ou ficou diferente do aprovado. Nunca lanca: salvar a configuracao nao pode
 // depender da Graph API estar de pe.
