@@ -2665,6 +2665,16 @@ const messages = {
       backendErrors: {
         ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED:
           "Ainda não disponível para conexões via API Oficial da Meta.",
+        ERR_WAPP_OFFICIAL_MODE_USE_META_CONNECT:
+          "Esta conexão usa a API Oficial da Meta: não há QR Code. Use o botão de conectar pela Meta.",
+        ERR_WAPP_NOT_OFFICIAL_MODE:
+          "Esta conexão não está em modo API Oficial da Meta.",
+        ERR_COMPANY_NOT_ALLOWED_FOR_META_MODE:
+          "Esta empresa não está liberada para a API Oficial da Meta. Solicite a liberação ao suporte.",
+        ERR_COMPANY_HAS_BAILEYS_CONNECTIONS:
+          "Remova as conexões por QR Code antes de mudar a empresa para a API Oficial da Meta.",
+        ERR_COMPANY_WHATSAPP_MODE_IMMUTABLE:
+          "Esta empresa já está na API Oficial da Meta e não é possível voltar atrás.",
         ERR_META_CONNECTION_NOT_CONFIGURED:
           "A conexão da API Oficial está incompleta. Reconecte o número em Conexões.",
         ERR_META_APP_NOT_CONFIGURED:

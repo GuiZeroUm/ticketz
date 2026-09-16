@@ -58,6 +58,15 @@ export const saveToken = async (
     return res.status(400).json({ error: "ERR_BADREQUEST" });
   }
 
+  // Chamada de voz depende da sessao Baileys. Salvar o token numa conexao
+  // oficial faria o botao de ligar aparecer no atendimento sem nunca
+  // funcionar, entao recusa aqui em vez de prometer o que nao existe.
+  if (whatsapp.apiMode === "official") {
+    return res
+      .status(400)
+      .json({ error: "ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED" });
+  }
+
   const existingWavoip = await Wavoip.findOne({
     where: { whatsappId }
   });

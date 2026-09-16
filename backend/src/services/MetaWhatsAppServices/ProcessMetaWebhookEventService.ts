@@ -39,6 +39,17 @@ const ProcessMetaWebhookEventService = async (payload: any): Promise<void> => {
         continue;
       }
 
+      // Desconectar era so cosmetico: a conexao seguia criando ticket e
+      // reabrindo conversa. So DISCONNECTED barra - qualquer outro status
+      // segue processando, pra nunca perder mensagem por um estado inesperado.
+      if (whatsapp.status === "DISCONNECTED") {
+        logger.warn(
+          { whatsappId: whatsapp.id, phoneNumberId },
+          "Meta webhook event for a disconnected connection, ignoring"
+        );
+        continue;
+      }
+
       const contacts = value?.contacts || [];
 
       for (const message of value?.messages || []) {
@@ -57,7 +68,11 @@ const ProcessMetaWebhookEventService = async (payload: any): Promise<void> => {
         const ack = STATUS_TO_ACK[status.status];
         if (ack === undefined) continue;
         try {
-          const messageToUpdate = await Message.findByPk(status.id);
+          // Escopado pela empresa da conexao: a busca so pelo wamid alcancava
+          // mensagem de qualquer outro tenant.
+          const messageToUpdate = await Message.findOne({
+            where: { id: status.id, companyId: whatsapp.companyId }
+          });
           // Falha (ack -1) sempre se aplica; so a regressao de um ack
           // positivo (ex: "delivered" chegando depois de "read") e ignorada.
           if (!messageToUpdate || (ack > 0 && ack <= messageToUpdate.ack)) {

@@ -187,10 +187,7 @@ export const remove = async (
   }
 
   if (whatsapp.apiMode === "official" && whatsapp.metaWabaId) {
-    await UnsubscribeWabaWebhookService(
-      whatsapp.metaWabaId,
-      whatsapp.metaAccessToken
-    );
+    await UnsubscribeWabaWebhookService(whatsapp.id);
   }
 
   await DeleteWhatsAppService(whatsappId);

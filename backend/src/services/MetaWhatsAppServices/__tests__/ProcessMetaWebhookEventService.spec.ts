@@ -34,6 +34,8 @@ describe("ProcessMetaWebhookEventService ack mapping", () => {
     jest.clearAllMocks();
     (Whatsapp.findOne as jest.Mock).mockResolvedValue({
       id: 1,
+      companyId: 9,
+      status: "CONNECTED",
       metaPhoneNumberId: "111"
     });
     update.mockImplementation(function updateAck(
@@ -45,7 +47,7 @@ describe("ProcessMetaWebhookEventService ack mapping", () => {
       Object.assign(this as object, fields);
       return Promise.resolve(this);
     });
-    (Message.findByPk as jest.Mock).mockResolvedValue({
+    (Message.findOne as jest.Mock).mockResolvedValue({
       id: "wamid.123",
       ack: 0,
       ticketId: 55,
@@ -80,7 +82,7 @@ describe("ProcessMetaWebhookEventService ack mapping", () => {
   });
 
   it("never regresses an ack that already moved past the incoming status", async () => {
-    (Message.findByPk as jest.Mock).mockResolvedValue({
+    (Message.findOne as jest.Mock).mockResolvedValue({
       id: "wamid.123",
       ack: 4,
       ticketId: 55,

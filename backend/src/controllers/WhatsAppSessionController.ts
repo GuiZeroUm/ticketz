@@ -77,10 +77,7 @@ const remove = async (req: Request, res: Response): Promise<Response> => {
 
   if (whatsapp.apiMode === "official") {
     if (whatsapp.metaWabaId) {
-      await UnsubscribeWabaWebhookService(
-        whatsapp.metaWabaId,
-        whatsapp.metaAccessToken
-      );
+      await UnsubscribeWabaWebhookService(whatsapp.id);
     }
     await whatsapp.update({ status: "DISCONNECTED" });
     return res.status(200).json({ message: "Session disconnected." });
