@@ -226,9 +226,12 @@ export const update = async (
 
   let checked: IOnWhatsapp;
   if (!contactData.isGroup && contactData.number.match(/^\d+$/)) {
+    // Em conexao oficial nao ha como verificar o numero, e o retorno e null:
+    // o cadastro segue sem normalizar o JID em vez de falhar.
     checked = await CheckContactNumber(contactData.number, companyId);
-    const number = checked.jid.replace(/\D/g, "");
-    contactData.number = number;
+    if (checked) {
+      contactData.number = checked.jid.replace(/\D/g, "");
+    }
   }
 
   const { contactId } = req.params;
