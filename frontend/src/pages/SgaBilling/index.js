@@ -261,7 +261,9 @@ export default function SgaBilling() {
       </Box>
       {!state.fresh && (
         <Box mt={2}>
-          <Alert severity="warning">{t("stale")}</Alert>
+          <Alert severity={state.syncConfigured === false ? "error" : "warning"}>
+            {t(state.syncConfigured === false ? "syncDisabled" : "stale")}
+          </Alert>
         </Box>
       )}
       <Paper className={classes.panel} elevation={0}>

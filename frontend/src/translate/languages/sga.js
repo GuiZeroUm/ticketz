@@ -12,6 +12,8 @@ const pt = {
       "Envios reais disponíveis. A automação só funciona quando ativada, dentro da janela e com conexão ativa.",
     stale:
       "SGA sem uma sincronização concluída nos últimos 90 minutos. Envios reais ficam suspensos até a atualização.",
+    syncDisabled:
+      "A sincronização com o SGA está desligada porque falta o token (ACNORTE_SGA_TOKEN) no servidor. Nenhuma cobrança será enviada enquanto isso: preencha o token e reinicie o backend.",
     settings: "Configuração de envio",
     enabled: "Ativar cobranças automáticas",
     connection: "Conexão de envio",

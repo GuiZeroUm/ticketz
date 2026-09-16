@@ -46,6 +46,7 @@ import {
   BillingDelivery
 } from "./visibility";
 import {
+  approvedBillingOffsets,
   approvedBillingTemplate,
   billingTemplateStates,
   submitBillingTemplates
@@ -283,6 +284,10 @@ export const billingOverview = async (companyId: number, day = localDay()) => {
     testNumber: testNumber(),
     testBillNumber: realTestTarget()?.number || null,
     fresh: freshSnapshot(data.stored),
+    // Distingue sincronizacao atrasada de sincronizacao que nem existe: sem
+    // token ela nunca roda, e o aviso de "ultimos 90 minutos" sozinho parece
+    // um atraso passageiro.
+    syncConfigured: !!process.env.ACNORTE_SGA_TOKEN,
     syncedAt: data.stored.syncedAt,
     connections: await Whatsapp.findAll({
       where: { companyId },
@@ -376,27 +381,27 @@ export const processBilling = async (
     );
     const seen = new Set(previous.map(d => d.dedupeKey));
     const rowsByKey = new Map(rows.map(row => [row.key, row]));
+    // Etapa sem template aprovado e pulada, nao bloqueia o ciclo: a ordem do
+    // dia mistura as etapas, entao uma pendente no topo da fila prenderia
+    // todas as aprovadas atras dela. A chave dela tambem nao e consumida,
+    // entao o mesmo boleto ainda sai hoje quando a Meta aprovar.
+    const sendable =
+      whatsapp.apiMode === "official"
+        ? await approvedBillingOffsets(whatsapp, config)
+        : null;
     const planned = planBillingDispatches(
       rows.filter(row => !row.reason).map(row => row.key),
       config,
       day
-    ).find(item => item.scheduledAt <= now && !seen.has(item.key));
+    ).find(
+      item =>
+        item.scheduledAt <= now &&
+        !seen.has(item.key) &&
+        (!sendable || sendable.has(rowsByKey.get(item.key)?.step.offset))
+    );
     const candidate = planned ? rowsByKey.get(planned.key) : undefined;
     if (!candidate) return;
     const { bill, step, member, contact, key } = candidate;
-    // Espera a aprovacao sem abrir entrega: a chave do dia nao e consumida,
-    // entao o mesmo boleto ainda sai nesta data assim que a Meta aprovar. Se
-    // ja abrisse a entrega, o envio falharia e a etapa ficaria sem cobranca.
-    if (
-      whatsapp.apiMode === "official" &&
-      !(await approvedBillingTemplate(whatsapp, step))
-    ) {
-      logger.info(
-        { companyId, stage: step.offset },
-        "Billing template not approved yet, waiting before dispatching"
-      );
-      return;
-    }
     const [delivery] = await query<{ id: string }>(
       'INSERT INTO "SgaBillingDeliveries" ("companyId","billId","memberId","billNumber","dueDate",stage,"localDay","contactId","whatsappId",status,mode,"dedupeKey") VALUES (:companyId,:billId,:memberId,:number,:due,:stage,:day,:contactId,:whatsappId,\'PREPARING\',\'live\',:key) ON CONFLICT ("companyId","dedupeKey") DO NOTHING RETURNING id',
       {

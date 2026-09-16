@@ -7,6 +7,7 @@ import { sgaRequest } from "../../SgaServices/client";
 import { defaults } from "../policy";
 import { processBilling, runBillingTest, saveBillingConfig } from "../service";
 import { sendBillingMessage, fetchBoletoPdf } from "../transport";
+import { approvedBillingOffsets } from "../templates";
 jest.mock("../../../database", () => ({
   __esModule: true,
   default: { query: jest.fn(), transaction: jest.fn() }
@@ -29,7 +30,17 @@ jest.mock("../transport", () => ({
   boletoUrl: jest.fn(u => u),
   fetchBoletoPdf: jest.fn(),
   sendBillingMessage: jest.fn(),
-  testPdf: jest.fn(() => Buffer.from("%PDF-test"))
+  testPdf: jest.fn(() => Buffer.from("%PDF-test")),
+  uploadBillingDocument: jest.fn(async () => ({
+    id: "media.1",
+    filename: "boleto-ac-norte.pdf"
+  }))
+}));
+jest.mock("../templates", () => ({
+  approvedBillingOffsets: jest.fn(async () => new Set<number>()),
+  approvedBillingTemplate: jest.fn(async () => true),
+  billingTemplateStates: jest.fn(async () => null),
+  submitBillingTemplates: jest.fn(async () => null)
 }));
 const now = new Date("2026-09-14T21:59:00Z");
 const bill = {
@@ -154,6 +165,77 @@ afterEach(() => {
   delete process.env.ACNORTE_BILLING_SEND_ENABLED;
   delete process.env.ACNORTE_BILLING_TEST_NUMBER;
   delete process.env.TENANT_RUNTIME_EXCLUDED_COMPANY_IDS;
+});
+describe("conexao oficial: etapa sem template aprovado", () => {
+  beforeEach(() => {
+    (Whatsapp.findOne as jest.Mock).mockResolvedValue({
+      id: 10,
+      companyId: 9,
+      status: "CONNECTED",
+      apiMode: "official",
+      metaWabaId: "waba.1",
+      metaPhoneNumberId: "phone.1",
+      metaAccessToken: "token"
+    });
+    // Dois boletos vencendo em dias diferentes caem em etapas diferentes:
+    // -3 (17/09) e -1 (15/09), com "agora" em 14/09.
+    source.stored.data.bills = [
+      { ...bill },
+      { ...bill, id: "b2", number: "456", due: "2026-09-15" }
+    ];
+    // A revalidacao consulta o boleto na API pelo numero; sem responder o
+    // segundo boleto ele seria comparado com os dados do primeiro e
+    // descartado por divergencia de vencimento.
+    (sgaRequest as jest.Mock).mockImplementation(async (path: string) =>
+      path.endsWith("456")
+        ? {
+            ...apiBill,
+            codigo_boleto: "b2",
+            nosso_numero: "456",
+            data_vencimento: "2026-09-15"
+          }
+        : { ...apiBill }
+    );
+  });
+
+  // A regressao que isso fixa: a trava de aprovacao valia para o ciclo
+  // inteiro, entao uma etapa pendente no topo da fila do dia prendia todas as
+  // aprovadas atras dela e o dia inteiro ficava sem cobranca.
+  it("nao deixa a etapa pendente bloquear as aprovadas", async () => {
+    (approvedBillingOffsets as jest.Mock).mockResolvedValue(new Set([-1]));
+
+    await processBilling(9);
+
+    expect(sendBillingMessage).toHaveBeenCalledTimes(1);
+    expect(ledger).toHaveLength(1);
+    expect(ledger[0]).toMatchObject({
+      dedupeKey: "live:b2:-1",
+      status: "SENT"
+    });
+  });
+
+  it("nao consome a chave do dia da etapa que ainda espera aprovacao", async () => {
+    (approvedBillingOffsets as jest.Mock).mockResolvedValue(new Set([-1]));
+    await processBilling(9);
+
+    // Aprovada a etapa -3, o boleto dela ainda sai no mesmo dia.
+    (approvedBillingOffsets as jest.Mock).mockResolvedValue(new Set([-1, -3]));
+    await processBilling(9);
+
+    expect(ledger).toMatchObject([
+      { dedupeKey: "live:b2:-1", status: "SENT" },
+      { dedupeKey: "live:b1:-3", status: "SENT" }
+    ]);
+  });
+
+  it("nao envia nada quando nenhuma etapa tem template aprovado", async () => {
+    (approvedBillingOffsets as jest.Mock).mockResolvedValue(new Set());
+
+    await processBilling(9);
+
+    expect(sendBillingMessage).not.toHaveBeenCalled();
+    expect(ledger).toHaveLength(0);
+  });
 });
 it("sends only once per boleto/stage regardless of multiple vehicles or repeated ticks", async () => {
   await processBilling(9);

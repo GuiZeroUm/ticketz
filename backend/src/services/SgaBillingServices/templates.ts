@@ -75,6 +75,12 @@ export const billingTemplateStates = async (
 // Uma etapa so pode enviar quando o template aprovado corresponde ao texto
 // salvo: template aprovado com texto antigo enviaria a mensagem errada, e sem
 // aprovacao a Meta recusa o envio.
+const isApproved = (
+  template: MetaTemplate | undefined,
+  step: BillingStep
+): boolean =>
+  !!template && template.status === "APPROVED" && matches(template, step);
+
 export const approvedBillingTemplate = async (
   whatsapp: Whatsapp,
   step: BillingStep
@@ -82,9 +88,32 @@ export const approvedBillingTemplate = async (
   const templates = await listMetaTemplatesSafe(whatsapp);
   if (!templates) return false;
 
-  const template = findTemplate(templates, templateNameForOffset(step.offset));
+  return isApproved(
+    findTemplate(templates, templateNameForOffset(step.offset)),
+    step
+  );
+};
 
-  return !!template && template.status === "APPROVED" && matches(template, step);
+// Quais etapas podem enviar agora. O ciclo precisa do conjunto, nao de uma
+// etapa por vez: uma etapa pendente no topo da fila do dia nao pode impedir
+// as aprovadas de sair.
+export const approvedBillingOffsets = async (
+  whatsapp: Whatsapp,
+  config: BillingConfig
+): Promise<Set<number>> => {
+  const templates = await listMetaTemplatesSafe(whatsapp);
+  if (!templates) return new Set();
+
+  return new Set(
+    config.steps
+      .filter(step =>
+        isApproved(
+          findTemplate(templates, templateNameForOffset(step.offset)),
+          step
+        )
+      )
+      .map(step => step.offset)
+  );
 };
 
 // Envia para aprovacao as etapas ativas cujo texto ainda nao existe na Meta

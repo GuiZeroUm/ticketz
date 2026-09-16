@@ -402,11 +402,17 @@ export const setSgaLink = async (
 };
 
 export const startSgaSync = (): void => {
-  if (
-    process.env.ACNORTE_SGA_ENABLED !== "true" ||
-    !process.env.ACNORTE_SGA_TOKEN
-  )
+  if (process.env.ACNORTE_SGA_ENABLED !== "true") return;
+  // Sem token nao existe sincronizacao nenhuma, e sem sincronizacao a regua de
+  // cobranca nunca considera o snapshot fresco e para de enviar. Isso saia
+  // daqui calado antes, o que fez o sintoma aparecer so como "SGA sem
+  // sincronizacao nos ultimos 90 minutos" na tela de cobrancas.
+  if (!process.env.ACNORTE_SGA_TOKEN) {
+    logger.error(
+      "SGA synchronization disabled: ACNORTE_SGA_TOKEN is empty. Billing will not send until it is set and the process restarts."
+    );
     return;
+  }
   const run = async () => {
     try {
       await syncSga(companyIdConfigured());
