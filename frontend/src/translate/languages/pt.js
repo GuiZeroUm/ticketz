@@ -2665,6 +2665,24 @@ const messages = {
       backendErrors: {
         ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED:
           "Ainda não disponível para conexões via API Oficial da Meta.",
+        ERR_META_CONNECTION_NOT_CONFIGURED:
+          "A conexão da API Oficial está incompleta. Reconecte o número em Conexões.",
+        ERR_META_APP_NOT_CONFIGURED:
+          "Falta configurar META_APP_ID e META_APP_SECRET no servidor.",
+        ERR_META_MEDIA_TOO_LARGE:
+          "Arquivo grande demais para a API Oficial da Meta. O limite é 5 MB para imagem, 16 MB para áudio e vídeo e 100 MB para documento.",
+        ERR_META_MEDIA_UPLOAD:
+          "Não foi possível enviar o arquivo para a Meta. Tente novamente.",
+        ERR_META_MEDIA_NOT_FOUND:
+          "A Meta não encontrou este arquivo. Peça para o contato enviar novamente.",
+        ERR_META_TEMPLATE_BODY_TOO_LONG:
+          "O texto passa de 1024 caracteres, limite da Meta para template. Encurte a mensagem desta etapa.",
+        ERR_META_TEMPLATE_SAMPLE:
+          "Não foi possível enviar o boleto de exemplo que a Meta exige para aprovar um template com anexo.",
+        ERR_BILLING_TEMPLATE_NOT_APPROVED:
+          "Esta etapa ainda não tem template aprovado pela Meta, então não pode enviar. Salve a configuração e aguarde a aprovação.",
+        ERR_BILLING_TEMPLATE_MISSING:
+          "Envio por conexão da API Oficial exige template aprovado e esta etapa não tem um. Salve a configuração para enviar para aprovação.",
         ERR_FLOW_INVALID: "O fluxo tem dados inválidos. Revise os blocos.",
         ERR_FLOW_CONNECTION:
           "Esta conexão não é permitida. Blocos de transferência e atendimento humano encerram o fluxo.",
