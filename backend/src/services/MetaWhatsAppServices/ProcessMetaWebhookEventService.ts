@@ -1,6 +1,7 @@
 import Whatsapp from "../../models/Whatsapp";
 import Message from "../../models/Message";
 import { logger } from "../../utils/logger";
+import { getIO } from "../../libs/socket";
 import HandleMetaInboundMessageService from "./HandleMetaInboundMessageService";
 
 // Mesma escala que MessagesList usa pra renderizar os checks (1=pendente,
@@ -58,10 +59,20 @@ const ProcessMetaWebhookEventService = async (payload: any): Promise<void> => {
         if (ack === undefined) continue;
         try {
           // eslint-disable-next-line no-await-in-loop
-          await Message.update(
-            { ack },
-            { where: { id: status.id } }
-          );
+          const messageToUpdate = await Message.findByPk(status.id);
+          if (!messageToUpdate || ack <= messageToUpdate.ack) continue;
+
+          // eslint-disable-next-line no-await-in-loop
+          await messageToUpdate.update({ ack });
+
+          // Sem isso o front so pega o ack novo num refresh manual - o
+          // Baileys (handleMsgAck) sempre emite esse mesmo evento.
+          getIO()
+            .to(messageToUpdate.ticketId.toString())
+            .emit(`company-${messageToUpdate.companyId}-appMessage`, {
+              action: "update",
+              message: messageToUpdate
+            });
         } catch (err) {
           logger.error(
             { err, wamid: status.id },
