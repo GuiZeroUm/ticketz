@@ -67,8 +67,12 @@ export const snapshot = async (
   );
   return rows[0];
 };
-export const syncSga = async (companyId: number): Promise<void> => {
+export const syncSga = async (companyId: number): Promise<boolean> => {
   await assertSgaTenant(companyId);
+  // Devolve se sincronizou: a falha e engolida aqui dentro (o snapshot
+  // anterior e preservado de proposito), entao quem agenda so descobre pelo
+  // retorno que precisa tentar de novo.
+  let synced = false;
   await sequelize.transaction(async transaction => {
     const [lock] = await sequelize.query<{ locked: boolean }>(
       "SELECT pg_try_advisory_xact_lock(73421, :companyId) AS locked",
@@ -179,6 +183,7 @@ export const syncSga = async (companyId: number): Promise<void> => {
         },
         "SGA synchronization completed"
       );
+      synced = true;
     } catch (error) {
       const code =
         error instanceof AppError ? error.message : "ERR_SGA_SYNC_FAILED";
@@ -192,6 +197,8 @@ export const syncSga = async (companyId: number): Promise<void> => {
       );
     }
   });
+
+  return synced;
 };
 
 export const loadSga = async (companyId: number, transaction?: Transaction) => {
@@ -413,13 +420,36 @@ export const startSgaSync = (): void => {
     );
     return;
   }
+  // A regua de cobranca exige snapshot de ate 90 minutos e o ciclo normal e de
+  // 60: uma unica falha da Hinova deixava ate uma hora sem envio nenhum,
+  // esperando a proxima hora cheia. Falhou, tenta de novo em 5 minutos.
+  const RETRY_DELAY = 5 * 60 * 1000;
+  let running = false;
+  let retry: NodeJS.Timeout | null = null;
+
   const run = async () => {
+    if (running) return;
+    running = true;
+
+    if (retry) {
+      clearTimeout(retry);
+      retry = null;
+    }
+
     try {
-      await syncSga(companyIdConfigured());
-    } catch {
-      logger.warn("SGA background synchronization could not start");
+      if (!(await syncSga(companyIdConfigured()))) {
+        retry = setTimeout(run, RETRY_DELAY);
+        retry.unref();
+      }
+    } catch (error) {
+      logger.warn({ error }, "SGA background synchronization could not start");
+      retry = setTimeout(run, RETRY_DELAY);
+      retry.unref();
+    } finally {
+      running = false;
     }
   };
+
   setTimeout(run, 15000).unref();
   setInterval(run, 60 * 60 * 1000).unref();
 };
