@@ -60,7 +60,14 @@ const ProcessMetaWebhookEventService = async (payload: any): Promise<void> => {
         try {
           // eslint-disable-next-line no-await-in-loop
           const messageToUpdate = await Message.findByPk(status.id);
-          if (!messageToUpdate || ack <= messageToUpdate.ack) continue;
+          // Falha (ack -1) sempre se aplica; so a regressao de um ack
+          // positivo (ex: "delivered" chegando depois de "read") e ignorada.
+          if (
+            !messageToUpdate ||
+            (ack > 0 && ack <= messageToUpdate.ack)
+          ) {
+            continue;
+          }
 
           // eslint-disable-next-line no-await-in-loop
           await messageToUpdate.update({ ack });
