@@ -161,6 +161,13 @@ services:
       VOICE_TRANSCRIPTION_PROVIDER: ${VOICE_TRANSCRIPTION_PROVIDER:-groq}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      META_APP_ID: ${META_APP_ID:-}
+      META_APP_SECRET: ${META_APP_SECRET:-}
+      META_CONFIG_ID: ${META_CONFIG_ID:-}
+      META_WEBHOOK_VERIFY_TOKEN: ${META_WEBHOOK_VERIFY_TOKEN:-}
+      META_GRAPH_API_VERSION: ${META_GRAPH_API_VERSION:-v21.0}
+      META_ALLOWED_COMPANY_IDS: ${META_ALLOWED_COMPANY_IDS:-}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
     volumes:
       - backend_public:/usr/src/app/public
       - backend_private:/usr/src/app/private
