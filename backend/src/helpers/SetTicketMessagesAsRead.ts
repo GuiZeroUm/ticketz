@@ -11,7 +11,10 @@ const SetTicketMessagesAsRead = async (ticket: Ticket): Promise<void> => {
   let companyId: number;
 
   try {
-    const wbot = await GetTicketWbot(ticket);
+    const wbot =
+      ticket.whatsapp?.apiMode === "official"
+        ? null
+        : await GetTicketWbot(ticket);
 
     if (wbot) {
       const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);

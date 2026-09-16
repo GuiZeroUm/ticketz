@@ -163,7 +163,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   const { channel } = ticket;
   if (channel === "whatsapp") {
     await SetTicketMessagesAsRead(ticket);
-    if (!ticket.isGroup) {
+    if (!ticket.isGroup && ticket.whatsapp?.apiMode !== "official") {
       const contact = await ShowContactService(ticket.contactId, companyId);
       if (!contact.number.includes("@") && !contact.whatsappLidMap) {
         await verifyContact(
