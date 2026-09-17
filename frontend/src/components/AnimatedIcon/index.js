@@ -215,6 +215,7 @@ export const Tags = Tag;
 export const List = icon("List");
 export const Megaphone = icon("Megaphone");
 export const Banknote = icon("Banknote");
+export const ReceiptText = icon("ReceiptText");
 export const Pencil = icon("Pencil");
 export const Refresh = icon("Refresh");
 export const Plus = icon("Plus");

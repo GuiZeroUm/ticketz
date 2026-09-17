@@ -98,6 +98,14 @@ export const icons = {
     path("m7 15 2 6h3l-2-5"),
     path("M21 9v6")
   ],
+  ReceiptText: [
+    path(
+      "M4 2v20l2-1.5L8 22l2-1.5L12 22l2-1.5L16 22l2-1.5L20 22V2l-2 1.5L16 2l-2 1.5L12 2l-2 1.5L8 2 6 3.5Z"
+    ),
+    path("M8 8h8"),
+    path("M8 12h8"),
+    path("M8 16h5")
+  ],
   Banknote: [
     rect(2, 6, 20, 12, 2),
     circle(12, 12, 2),

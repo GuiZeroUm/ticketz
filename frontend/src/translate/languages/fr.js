@@ -915,6 +915,7 @@ const messages = {
           annoucements: "Annonces",
           chats: "Chat Interne",
           financeiro: "Financier",
+          cobranca: "Billing",
           logout: "Déconnexion",
           management: "Gestion",
           kanban: "Kanban",

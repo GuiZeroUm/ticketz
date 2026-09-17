@@ -45,9 +45,13 @@ import moment from "moment";
 import AppError from "../../errors/AppError";
 import GetSuperSettingService from "../SettingServices/GetSuperSettingService";
 import {
+  AbacateChargeResult,
   abacateCheckStatus,
+  abacateCreateCharge,
   abacateCreateSubscription,
-  abacateWebhook
+  abacateReceiptUrl,
+  abacateWebhook,
+  PaymentMethod
 } from "./AbacatePayServices";
 import Invoices from "../../models/Invoices";
 import { getIO } from "../../libs/socket";
@@ -81,6 +85,32 @@ export const payGatewayCreateSubscription = async (
       throw new AppError("Unsupported payment gateway", 400);
     }
   }
+};
+
+// Cria a cobrança de uma fatura arbitrária (usado pela Central de Cobrança,
+// que lança cobranças em nome de outros tenants).
+export const payGatewayCreateCharge = async (
+  invoice: Invoices,
+  method: PaymentMethod,
+  taxId?: string
+): Promise<AbacateChargeResult> => {
+  const paymentGateway = await GetSuperSettingService({
+    key: "_paymentGateway"
+  });
+
+  switch (paymentGateway) {
+    case "abacatepay": {
+      return abacateCreateCharge(invoice, method, taxId);
+    }
+    default: {
+      throw new AppError("ERR_PAYMENT_GATEWAY_NOT_CONFIGURED", 400);
+    }
+  }
+};
+
+export const payGatewayReceiptUrl = (invoice: Invoices): string | null => {
+  if (invoice.payGw === "abacatepay") return abacateReceiptUrl(invoice);
+  return null;
 };
 
 export const payGatewayReceiveWebhook = async (
@@ -141,7 +171,7 @@ export const processInvoicePaid = async (invoice: Invoices) => {
     );
     processedInvoice = lockedInvoice;
 
-    if (lockedInvoice.origem === "sistema") {
+    if (["sistema", "manual"].includes(lockedInvoice.origem)) {
       await enqueueWebhook(
         "fatura.paga",
         lockedInvoice.companyId,

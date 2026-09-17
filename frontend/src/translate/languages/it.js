@@ -913,6 +913,7 @@ const messages = {
           annoucements: "Informazioni",
           chats: "Chat Interna",
           financeiro: "Finanziario",
+          cobranca: "Billing",
           logout: "Esci",
           management: "Gestione",
           kanban: "Kanban",

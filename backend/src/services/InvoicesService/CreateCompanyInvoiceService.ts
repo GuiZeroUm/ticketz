@@ -14,9 +14,12 @@ const invoicePrice = (company: Company, plan: Plan, dueDate: string): number =>
     ? (priceForDueDate(company, dueDate) ?? plan.value)
     : (company.saleValue ?? plan.value);
 
+// Só a fatura que *esta* rotina gerou pode ser refeita. Cobrança lançada à
+// mão na Central de Cobrança (origem "manual") e lançamento vindo da
+// plataforma ficam de fora: seriam apagados sem o financeiro saber.
 const mutableInvoiceWhere = {
   status: "open",
-  origem: { [Op.ne]: "plataforma" },
+  origem: "sistema",
   externalRef: null,
   [Op.or]: [{ txId: null }, { txId: "" }]
 };
