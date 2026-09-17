@@ -1128,6 +1128,10 @@ const MessageInputCustom = props => {
   const isGroup = showTabGroups && ticket.isGroup;
   const disableOption =
     (!isGroup && loading) || recording || ticketStatus === "closed";
+  // Gravar bloqueia o resto da barra, mas nao pode bloquear os botoes da
+  // propria gravacao: cancelar e enviar sao a unica saida do modo gravacao.
+  const disableActionButtons =
+    (!isGroup && loading) || ticketStatus === "closed";
 
   const renderReplyingMessage = message => {
     return (
@@ -1254,7 +1258,7 @@ const MessageInputCustom = props => {
             loading={loading}
             recording={recording}
             ticketStatus={ticketStatus}
-            disableOption={disableOption}
+            disableOption={disableActionButtons}
             handleSendMessage={handleSendMessage}
             handleCancelAudio={handleCancelAudio}
             handleUploadAudio={handleUploadAudio}
