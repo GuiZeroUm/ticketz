@@ -3,6 +3,8 @@ import HandleMetaInboundMessageService from "../HandleMetaInboundMessageService"
 import CreateOrUpdateContactService from "../../ContactServices/CreateOrUpdateContactService";
 import FindOrCreateTicketServiceMeta from "../../TicketServices/FindOrCreateTicketServiceMeta";
 import CreateMessageService from "../../MessageServices/CreateMessageService";
+import DownloadMetaMediaService from "../DownloadMetaMediaService";
+import saveMediaToFile from "../../../helpers/saveMediaFile";
 
 jest.mock("../../ContactServices/CreateOrUpdateContactService", () =>
   jest.fn()
@@ -26,6 +28,8 @@ jest.mock("../../../models/Message", () => ({
 const createContact = CreateOrUpdateContactService as jest.Mock;
 const findTicket = FindOrCreateTicketServiceMeta as jest.Mock;
 const createMessage = CreateMessageService as jest.Mock;
+const downloadMedia = DownloadMetaMediaService as jest.Mock;
+const saveMedia = saveMediaToFile as jest.Mock;
 
 const whatsapp = { id: 16, companyId: 9 } as Whatsapp;
 const ticket = { id: 55, status: "open", update: jest.fn() };
@@ -50,6 +54,11 @@ describe("HandleMetaInboundMessageService", () => {
     jest.clearAllMocks();
     createContact.mockResolvedValue({ id: 42 });
     findTicket.mockResolvedValue(ticket);
+    downloadMedia.mockResolvedValue({
+      content: Buffer.from("x"),
+      mimetype: "audio/ogg"
+    });
+    saveMedia.mockResolvedValue("55/audio.oga");
   });
 
   // A regressao a evitar: tipo fora da lista sumia sem deixar rastro, e o
@@ -122,5 +131,44 @@ describe("HandleMetaInboundMessageService", () => {
     await inbound({ type: "text", text: { body: "oi" } });
 
     expect(savedMessage().body).toBe("oi");
+  });
+
+  // A Meta so manda filename em documento. Em audio/imagem o nome e inventado
+  // aqui a partir do wamid, e ele estava vazando como legenda embaixo da midia.
+  it("nao inventa legenda para audio sem legenda", async () => {
+    await inbound({
+      type: "audio",
+      audio: { id: "media.1", mime_type: "audio/ogg; codecs=opus", voice: true }
+    });
+
+    expect(savedMessage().body).toBe("");
+    expect(ticket.update).toHaveBeenCalledWith(
+      expect.objectContaining({ lastMessage: "📎 Áudio" })
+    );
+  });
+
+  it("preserva a legenda que o cliente escreveu na imagem", async () => {
+    await inbound({
+      type: "image",
+      image: { id: "media.2", mime_type: "image/jpeg", caption: "segue o erro" }
+    });
+
+    expect(savedMessage().body).toBe("segue o erro");
+  });
+
+  // Documento e o unico caso em que o nome e real, e o atendente precisa dele.
+  it("usa o nome real do documento na lista de tickets", async () => {
+    await inbound({
+      type: "document",
+      document: {
+        id: "media.3",
+        mime_type: "application/pdf",
+        filename: "boleto-outubro.pdf"
+      }
+    });
+
+    expect(ticket.update).toHaveBeenCalledWith(
+      expect.objectContaining({ lastMessage: "📎 boleto-outubro.pdf" })
+    );
   });
 });

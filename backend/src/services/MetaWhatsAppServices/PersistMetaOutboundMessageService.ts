@@ -1,5 +1,6 @@
 import Ticket from "../../models/Ticket";
 import CreateMessageService from "../MessageServices/CreateMessageService";
+import { mediaLabel } from "./mediaLabel";
 
 interface MediaPayload {
   mediaUrl: string;
@@ -29,7 +30,14 @@ const PersistMetaOutboundMessageService = async ({
   quotedMsgId,
   media
 }: Request) => {
-  const preview = media ? `📎 ${media.filename}` : body;
+  // Documento e o unico caso em que o nome do arquivo diz algo ao atendente; um
+  // audio gravado no navegador viraria "audio-record-site-...ogg" na lista.
+  const preview = media
+    ? `📎 ${mediaLabel(
+        media.kind,
+        media.kind === "document" ? media.filename : undefined
+      )}`
+    : body;
 
   await ticket.update({
     lastMessage: preview.substring(0, 255).replace(/\n/g, " ")

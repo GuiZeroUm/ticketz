@@ -220,16 +220,18 @@ const SendMetaMediaMessageService = async ({
 
     const wamid: string = data.messages[0].id;
 
+    // Sem legenda o corpo fica vazio, como no Baileys: o nome do arquivo ja
+    // aparece no proprio balao do documento, e nos outros tipos e so ruido.
     await PersistMetaOutboundMessageService({
       wamid,
-      body: caption || filename,
+      body: caption || "",
       ticket,
       media: { mediaUrl, mimetype, filename, kind }
     });
 
     return {
       key: { id: wamid, fromMe: true, remoteJid: to },
-      message: { conversation: caption || filename }
+      message: { conversation: caption || "" }
     };
   } catch (err) {
     logger.error(

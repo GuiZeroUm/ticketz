@@ -107,6 +107,42 @@ describe("PersistMetaOutboundMessageService", () => {
     expect(JSON.parse(messageData.dataJson).message).toBeUndefined();
   });
 
+  // O gravador do navegador nomeia o arquivo sozinho; esse nome aparecia na
+  // lista de tickets como se fosse o que o atendente escreveu.
+  it("resume o audio gravado na lista em vez de mostrar o nome do arquivo", async () => {
+    await PersistMetaOutboundMessageService({
+      wamid: "wamid.4",
+      body: "",
+      ticket,
+      media: {
+        mediaUrl: "media/9/1/55/abc/audio-record-site-1789.ogg",
+        mimetype: "audio/ogg",
+        filename: "audio-record-site-1789.ogg",
+        kind: "audio"
+      }
+    });
+
+    expect(ticket.update).toHaveBeenCalledWith({ lastMessage: "📎 Áudio" });
+  });
+
+  it("mantem o nome do documento na lista, que e o que o atendente reconhece", async () => {
+    await PersistMetaOutboundMessageService({
+      wamid: "wamid.5",
+      body: "",
+      ticket,
+      media: {
+        mediaUrl: "media/9/1/55/abc/boleto.pdf",
+        mimetype: "application/pdf",
+        filename: "boleto.pdf",
+        kind: "document"
+      }
+    });
+
+    expect(ticket.update).toHaveBeenCalledWith({
+      lastMessage: "📎 boleto.pdf"
+    });
+  });
+
   it("mantem o contrato antigo de mensagem de texto sem midia", async () => {
     await PersistMetaOutboundMessageService({
       wamid: "wamid.3",

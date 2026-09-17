@@ -7,6 +7,7 @@ import CreateMessageService from "../MessageServices/CreateMessageService";
 import saveMediaToFile from "../../helpers/saveMediaFile";
 import { logger } from "../../utils/logger";
 import DownloadMetaMediaService from "./DownloadMetaMediaService";
+import { mediaLabel } from "./mediaLabel";
 import HandleMetaInboundFlowService, {
   captureMetaRating
 } from "./HandleMetaInboundFlowService";
@@ -155,13 +156,19 @@ const HandleMetaInboundMessageService = async (
     ? (message[message.type as keyof MetaInboundMessage] as MetaMediaPayload)
     : undefined;
 
-  let body = isMedia ? payload?.caption || "" : describe(message);
-  let media: { mediaUrl: string; mimetype: string; filename: string } | null =
-    null;
+  const body = isMedia ? payload?.caption || "" : describe(message);
+  let media: {
+    mediaUrl: string;
+    mimetype: string;
+    filename: string;
+    label: string;
+  } | null = null;
 
   if (payload?.id) {
     const downloaded = await DownloadMetaMediaService(whatsapp, payload.id);
     const mimetype = payload.mime_type?.split(";")[0] || downloaded.mimetype;
+    // So documento chega com nome de verdade; nos outros tipos inventamos um a
+    // partir do wamid, que serve pra gravar em disco mas nao pode ir pra tela.
     const filename =
       payload.filename || `${message.id}.${mime.extension(mimetype) || "bin"}`;
 
@@ -171,12 +178,9 @@ const HandleMetaInboundMessageService = async (
         { destination: ticket }
       ),
       mimetype,
-      filename
+      filename,
+      label: mediaLabel(message.type, payload.filename)
     };
-
-    if (!body) {
-      body = filename;
-    }
   }
 
   const dataJson: Record<string, unknown> = {
@@ -229,7 +233,7 @@ const HandleMetaInboundMessageService = async (
   await CreateMessageService({ messageData, companyId: whatsapp.companyId });
 
   await ticket.update({
-    lastMessage: (media ? `📎 ${media.filename}` : body)
+    lastMessage: (media ? `📎 ${media.label}` : body)
       .substring(0, 255)
       .replace(/\n/g, " "),
     ...(ticket.status === "closed" ? { status: "pending" } : {})
