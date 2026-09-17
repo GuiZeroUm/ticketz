@@ -28,7 +28,16 @@ const ShowUserService = async (
       {
         model: Company,
         as: "company",
-        attributes: ["id", "name", "dueDate", "status", "platformStatus"]
+        // `slug` viaja junto porque o frontend decide por ele quem enxerga a
+        // Central de Cobrança, e este service alimenta o /auth/refresh_token.
+        attributes: [
+          "id",
+          "name",
+          "slug",
+          "dueDate",
+          "status",
+          "platformStatus"
+        ]
       }
     ],
     order: [[{ model: Queue, as: "queues" }, "name", "ASC"]]
