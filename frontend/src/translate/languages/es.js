@@ -980,6 +980,7 @@ const messages = {
           annoucements: "Anuncios",
           chats: "Chat Interno",
           financeiro: "Financiero",
+          cobranca: "Cobranza",
           logout: "Cerrar sesión",
           management: "Gerencia",
           kanban: "Kanban",

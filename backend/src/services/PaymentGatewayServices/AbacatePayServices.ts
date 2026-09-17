@@ -325,14 +325,26 @@ const createHostedCheckout = async (
   };
 };
 
-export const abacateCreateSubscription = async (
-  req: Request,
-  res: Response
-): Promise<Response> => {
-  const { invoiceId } = req.body;
-  const method: PaymentMethod = (req.body.method || "pix") as PaymentMethod;
+export interface AbacateChargeResult {
+  method: PaymentMethod;
+  qrcode?: { qrcode: string };
+  brCodeBase64?: string;
+  redirectUrl?: string;
+  barCode?: string;
+  valor: { original: number };
+}
+
+// Cria a cobrança de uma fatura já carregada. Fica separada do handler HTTP
+// porque a Central de Cobrança lança cobranças para *outros* tenants: lá não
+// existe `req.user.companyId` para filtrar a fatura, a empresa vem da própria
+// fatura.
+export const abacateCreateCharge = async (
+  invoice: Invoices,
+  method: PaymentMethod = "pix",
+  rawTaxId = ""
+): Promise<AbacateChargeResult> => {
   // aceita CPF/CNPJ com máscara; envia só dígitos pro gateway
-  const taxId = String(req.body.taxId || "").replace(/\D/g, "");
+  const taxId = String(rawTaxId || "").replace(/\D/g, "");
 
   if (!["pix", "card", "boleto"].includes(method)) {
     throw new AppError("Método de pagamento inválido", 400);
@@ -342,15 +354,11 @@ export const abacateCreateSubscription = async (
     throw new AppError("CPF/CNPJ é obrigatório para pagamento via boleto", 400);
   }
 
-  try {
-    const invoice = await Invoices.findOne({
-      where: { id: invoiceId, companyId: req.user.companyId },
-      include: { model: Company, as: "company" }
-    });
-    if (!invoice) {
-      throw new AppError("Invoice not found", 404);
-    }
+  if (invoice.status !== "open") {
+    throw new AppError("ERR_INVOICE_NOT_OPEN", 409);
+  }
 
+  try {
     // O valor base é sempre o da fatura no servidor (não confia no cliente).
     // Cartão usa a faixa de taxa que cobre o parcelamento máximo (até 3x).
     const baseValue = Number(invoice.value) || 0;
@@ -368,6 +376,10 @@ export const abacateCreateSubscription = async (
       await invoice.update({
         txId: pix.id,
         payGw: "abacatepay",
+        forma: method,
+        // No PIX o "link" é o copia-e-cola: é o que a Central de Cobrança
+        // manda pro cliente no WhatsApp.
+        linkPagamento: pix.brCode,
         payGwData: JSON.stringify({
           method,
           baseValue,
@@ -380,12 +392,12 @@ export const abacateCreateSubscription = async (
 
       abacatePollCheckStatus(invoice);
 
-      return res.json({
+      return {
         method: "pix",
         qrcode: { qrcode: pix.brCode },
         brCodeBase64: pix.brCodeBase64,
         valor: { original: grossed }
-      });
+      };
     }
 
     if (method === "boleto") {
@@ -400,6 +412,8 @@ export const abacateCreateSubscription = async (
       await invoice.update({
         txId: boleto.id,
         payGw: "abacatepay",
+        forma: method,
+        linkPagamento: boleto.url,
         payGwData: JSON.stringify({
           method,
           baseValue,
@@ -410,12 +424,12 @@ export const abacateCreateSubscription = async (
       });
       await invoice.reload();
 
-      return res.json({
+      return {
         method: "boleto",
         redirectUrl: boleto.url,
         barCode: boleto.barCode,
         valor: { original: grossed }
-      });
+      };
     }
 
     // cartão -> checkout hospedado (parcelamento definido no AbacatePay)
@@ -426,6 +440,8 @@ export const abacateCreateSubscription = async (
     await invoice.update({
       txId: checkout.id,
       payGw: "abacatepay",
+      forma: method,
+      linkPagamento: checkout.url,
       payGwData: JSON.stringify({
         method,
         baseValue,
@@ -437,24 +453,42 @@ export const abacateCreateSubscription = async (
     });
     await invoice.reload();
 
-    return res.json({
+    return {
       method: "card",
       redirectUrl: checkout.url,
       valor: { original: grossed }
-    });
+    };
   } catch (error) {
     if (error instanceof AppError) {
       throw error;
     }
     logger.error(
       { err: error?.response?.data || error?.message || error },
-      "abacateCreateSubscription error"
+      "abacateCreateCharge error"
     );
     throw new AppError(
       "Problema encontrado, entre em contato com o suporte!",
       400
     );
   }
+};
+
+export const abacateCreateSubscription = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { invoiceId } = req.body;
+  const method: PaymentMethod = (req.body.method || "pix") as PaymentMethod;
+
+  const invoice = await Invoices.findOne({
+    where: { id: invoiceId, companyId: req.user.companyId },
+    include: { model: Company, as: "company" }
+  });
+  if (!invoice) {
+    throw new AppError("Invoice not found", 404);
+  }
+
+  return res.json(await abacateCreateCharge(invoice, method, req.body.taxId));
 };
 
 // ---------------------------------------------------------------------------
@@ -585,21 +619,33 @@ export const abacateCheckStatus = async (
       return false;
     }
 
+    let checked: Record<string, unknown> | null = null;
+
     if (parsed.method === "card") {
       // Cartão usa checkout hospedado (id bill_...). Não há GET /checkouts/{id};
       // consultamos a lista e casamos pelo id.
       const response = await client.get("/checkouts/list");
       const list = unwrap(response.data);
-      const found = Array.isArray(list)
-        ? list.find((b: any) => b.id === invoice.txId)
+      checked = Array.isArray(list)
+        ? list.find((b: Record<string, unknown>) => b.id === invoice.txId)
         : null;
-      status = found?.status || "";
+      status = String(checked?.status || "");
     } else {
       // pix (transparente)
       const response = await client.get("/transparents/check", {
         params: { id: invoice.txId }
       });
-      status = unwrap(response.data)?.status || "";
+      checked = unwrap(response.data);
+      status = String(checked?.status || "");
+    }
+
+    // Guardamos a última consulta junto do payload da criação: é dela que sai
+    // o comprovante exibido na Central de Cobrança quando a AbacatePay o
+    // devolve.
+    if (checked) {
+      await invoice.update({
+        payGwData: JSON.stringify({ ...parsed, checked })
+      });
     }
 
     if (PAID_STATUSES.includes(String(status).toUpperCase())) {
@@ -772,4 +818,53 @@ export const abacateGetPix = async (params: {
     }
     throw error;
   }
+};
+
+// ---------------------------------------------------------------------------
+// Comprovante
+// ---------------------------------------------------------------------------
+
+// A AbacatePay devolve a URL do comprovante em campos diferentes conforme o
+// produto (checkout, transparente, transferência) e não documenta um único
+// lugar. Varremos o payload guardado atrás da primeira URL plausível; quando
+// não existe nenhuma, a Central de Cobrança cai no recibo próprio.
+const RECEIPT_KEYS = [
+  "receiptUrl",
+  "receipt_url",
+  "invoiceUrl",
+  "paymentUrl",
+  "url"
+];
+
+export const abacateReceiptUrl = (invoice: Invoices): string | null => {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(invoice.payGwData || "{}");
+  } catch {
+    return null;
+  }
+
+  const seen = new Set<unknown>();
+  const walk = (node: unknown): string | null => {
+    if (!node || typeof node !== "object" || seen.has(node)) return null;
+    seen.add(node);
+    const record = node as Record<string, unknown>;
+
+    // eslint-disable-next-line no-restricted-syntax
+    for (const key of RECEIPT_KEYS) {
+      const value = record[key];
+      if (typeof value === "string" && /^https?:\/\//.test(value)) {
+        return value;
+      }
+    }
+
+    // eslint-disable-next-line no-restricted-syntax
+    for (const value of Object.values(record)) {
+      const found = walk(value);
+      if (found) return found;
+    }
+    return null;
+  };
+
+  return walk(parsed);
 };

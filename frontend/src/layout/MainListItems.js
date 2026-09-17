@@ -21,10 +21,12 @@ import {
   Megaphone as AnnouncementIcon,
   MessageSquare as ForumIcon,
   Banknote as LocalAtmIcon,
+  ReceiptText as ReceiptIcon,
   Pencil as BorderColorIcon
 } from "../components/AnimatedIcon";
 import { WhatsAppsContext } from "../context/WhatsApp/WhatsAppsContext";
 import { AuthContext } from "../context/Auth/AuthContext";
+import { podeVerCentralCobranca } from "../helpers/billingConsole";
 import { SocketContext } from "../context/Socket/SocketContext";
 import { isArray } from "lodash";
 import api from "../services/api";
@@ -195,6 +197,9 @@ const MainListItems = props => {
     icone
   });
   const administrador = user.profile === "admin";
+  // Central de Cobrança: só no tenant dono da plataforma. O backend repete a
+  // checagem; aqui é pra não oferecer um menu que responderia 401.
+  const centralCobranca = podeVerCentralCobranca(user);
   const grupos = [
     {
       chave: "redesign.operacao",
@@ -288,6 +293,9 @@ const MainListItems = props => {
               item("/users", "users", <PeopleAltOutlinedIcon />),
               item("/announcements", "annoucements", <AnnouncementIcon />),
               item("/financeiro", "financeiro", <LocalAtmIcon />),
+              ...(centralCobranca
+                ? [item("/cobranca", "cobranca", <ReceiptIcon />)]
+                : []),
               item("/settings", "settings", <SettingsOutlinedIcon />)
             ]
           : []),
