@@ -49,11 +49,13 @@ import metaWhatsappRoutes from "./metaWhatsappRoutes";
 import metaWhatsappWebhookRoutes from "./metaWhatsappWebhookRoutes";
 import webPushRoutes from "./webPushRoutes";
 import billingAdminRoutes from "./billingAdminRoutes";
+import prospeccaoRoutes from "./prospeccaoRoutes";
 
 const routes = Router();
 
 routes.use(platformRoutes);
 routes.use(billingAdminRoutes);
+routes.use(prospeccaoRoutes);
 routes.use(taskBoardRoutes);
 routes.use(voiceRoutes);
 routes.use(whatsappGroupRoutes);

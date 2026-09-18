@@ -22,11 +22,13 @@ import {
   MessageSquare as ForumIcon,
   Banknote as LocalAtmIcon,
   ReceiptText as ReceiptIcon,
-  Pencil as BorderColorIcon
+  Pencil as BorderColorIcon,
+  Search as SearchIcon
 } from "../components/AnimatedIcon";
 import { WhatsAppsContext } from "../context/WhatsApp/WhatsAppsContext";
 import { AuthContext } from "../context/Auth/AuthContext";
 import { podeVerCentralCobranca } from "../helpers/billingConsole";
+import { podeVerProspeccao } from "../helpers/prospeccao";
 import { SocketContext } from "../context/Socket/SocketContext";
 import { isArray } from "lodash";
 import api from "../services/api";
@@ -200,6 +202,9 @@ const MainListItems = props => {
   // Central de Cobrança: só no tenant dono da plataforma. O backend repete a
   // checagem; aqui é pra não oferecer um menu que responderia 401.
   const centralCobranca = podeVerCentralCobranca(user);
+  // Prospecção: mesma ideia da Central de Cobrança — só no tenant dono da
+  // ferramenta, e o backend repete a checagem.
+  const prospeccao = podeVerProspeccao(user);
   const grupos = [
     {
       chave: "redesign.operacao",
@@ -254,7 +259,10 @@ const MainListItems = props => {
               }
             ]
           : []),
-        item("/schedules", "schedules", <EventIcon />)
+        item("/schedules", "schedules", <EventIcon />),
+        ...(prospeccao
+          ? [item("/prospeccao", "prospeccao", <SearchIcon />)]
+          : [])
       ]
     },
     {

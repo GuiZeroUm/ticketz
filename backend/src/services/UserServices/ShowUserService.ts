@@ -28,6 +28,9 @@ const ShowUserService = async (
       {
         model: Company,
         as: "company",
+        // `slug` viaja junto porque o frontend decide por ele quem enxerga as
+        // telas exclusivas do tenant dono (Central de Cobrança, Prospecção), e
+        // este service alimenta o /auth/refresh_token.
         attributes: [
           "id",
           "name",

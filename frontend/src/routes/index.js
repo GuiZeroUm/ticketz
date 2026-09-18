@@ -11,6 +11,7 @@ import Connections from "../pages/Connections/";
 import SettingsCustom from "../pages/SettingsCustom/";
 import Financeiro from "../pages/Financeiro/";
 import CentralCobranca from "../pages/CentralCobranca/";
+import Prospeccao from "../pages/Prospeccao/";
 import Users from "../pages/Users";
 import Contacts from "../pages/Contacts/";
 import Queues from "../pages/Queues/";
@@ -152,6 +153,12 @@ const Routes = () => {
                       exact
                       path="/cobranca"
                       component={CentralCobranca}
+                      isPrivate
+                    />
+                    <Route
+                      exact
+                      path="/prospeccao"
+                      component={Prospeccao}
                       isPrivate
                     />
                     <Route exact path="/queues" component={Queues} isPrivate />

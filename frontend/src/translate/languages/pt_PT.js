@@ -957,6 +957,7 @@ const messages = {
           chats: "Chat Interno",
           financeiro: "Financeiro",
           cobranca: "Cobrança",
+          prospeccao: "Prospeção",
           logout: "Sair",
           management: "Gestão",
           kanban: "Kanban",
