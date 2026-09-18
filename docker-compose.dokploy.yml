@@ -165,6 +165,7 @@ services:
       PROSPECCAO_BRIDGE_URL: ${PROSPECCAO_BRIDGE_URL:-http://179.199.139.11:8001}
       PROSPECCAO_WEBHOOK_URL: ${PROSPECCAO_WEBHOOK_URL:-http://hermes-bridge:8000/webhook/prospeccao}
       PROSPECCAO_API_KEY: ${PROSPECCAO_API_KEY:-}
+      PROSPECCAO_API_KEY_FILE: /run/secrets/prospeccao_api_key
       PROSPECCAO_SLUGS: ${PROSPECCAO_SLUGS:-teste}
     volumes:
       - backend_public:/usr/src/app/public
@@ -172,6 +173,7 @@ services:
     secrets:
       - wacalls_internal_token
       - wacalls_media_token_secret
+      - prospeccao_api_key
     healthcheck:
       test:
         - CMD-SHELL
@@ -264,3 +266,5 @@ secrets:
     file: /etc/dokploy/secrets/espaco_whats_wacalls_internal_token
   wacalls_media_token_secret:
     file: /etc/dokploy/secrets/espaco_whats_wacalls_media_token_secret
+  prospeccao_api_key:
+    file: /etc/dokploy/secrets/espaco_whats_prospeccao_api_key
