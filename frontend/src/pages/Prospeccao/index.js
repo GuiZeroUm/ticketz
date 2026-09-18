@@ -86,13 +86,14 @@ const FORM_INICIAL = {
 
 const CHAVE_ULTIMO_JOB = "prospeccaoUltimoJob";
 
-// O enriquecimento roda lead a lead e depende da velocidade dos sites deles:
-// 5-8 minutos é o normal numa busca de 10 leads.
+// Entre a raspagem terminar e o primeiro lead aparecer no bridge roda o
+// enriquecimento via Instagram, que é a etapa mais lenta de todas: numa busca
+// de 10 leads medimos 4min50s só aí, com a raspagem levando pouco mais de um
+// minuto. Lista vazia depois da raspagem é o estado normal desse intervalo, não
+// um resultado — por isso não existe aqui nenhuma folga curta declarando
+// "nenhum lead": só o orçamento total abaixo interrompe o acompanhamento.
 const INTERVALO_POLL_MS = 6000;
-const LIMITE_TOTAL_MS = 8 * 60 * 1000;
-// A raspagem pode terminar antes de o bridge gravar os leads. Só declaramos
-// "nenhum lead" depois dessa folga.
-const FOLGA_SEM_LEADS_MS = 90 * 1000;
+const LIMITE_TOTAL_MS = 15 * 60 * 1000;
 
 const rotuloProduto = slug =>
   String(slug || "")
@@ -194,24 +195,12 @@ const Prospeccao = () => {
           return;
         }
 
-        const semLeadsHaMuito =
-          data.raspagemTerminou &&
-          (data.leads || []).length === 0 &&
-          raspagemTerminouEm.current &&
-          Date.now() - raspagemTerminouEm.current > FOLGA_SEM_LEADS_MS;
-
-        if (semLeadsHaMuito) {
-          setAcompanhando(false);
-          setAviso(
-            "A busca terminou sem nenhum lead. Tente outro nicho ou cidade, ou desmarque o filtro de WhatsApp."
-          );
-          return;
-        }
-
         if (Date.now() - inicioDoJob.current > LIMITE_TOTAL_MS) {
           setAcompanhando(false);
           setAviso(
-            "A geração dos rascunhos está demorando mais que o normal. Os leads prontos já aparecem abaixo — use Atualizar para buscar o resto."
+            (data.leads || []).length === 0
+              ? "A busca ainda não devolveu nenhum lead. O enriquecimento pode estar lento — clique em Atualizar daqui a alguns minutos antes de tentar outro nicho ou cidade."
+              : "A geração dos rascunhos está demorando mais que o normal. Os leads prontos já aparecem abaixo — use Atualizar para buscar o resto."
           );
           return;
         }
@@ -317,7 +306,7 @@ const Prospeccao = () => {
   );
 
   // Uma busca em andamento não bloqueia a próxima: `inicia` derruba o poll
-  // anterior. Esperar 8 minutos para poder corrigir a cidade seria pior.
+  // anterior. Esperar a busca inteira para corrigir a cidade seria pior.
   const podeBuscar =
     !iniciando && !!form.nicho.trim() && !!form.cidade.trim() && !!form.produto;
 
@@ -327,10 +316,17 @@ const Prospeccao = () => {
       return "Raspando o Google Maps. Isso costuma levar de 1 a 3 minutos.";
     }
     if (leads.length === 0) {
-      return "Raspagem concluída. Aguardando os primeiros leads...";
+      // A espera aqui passa de cinco minutos sem nada na tela mudar; dizer há
+      // quanto tempo é o que diferencia "está trabalhando" de "travou".
+      const minutos = raspagemTerminouEm.current
+        ? Math.floor((Date.now() - raspagemTerminouEm.current) / 60000)
+        : 0;
+      return `Raspagem concluída. Enriquecendo os leads pelo Instagram — costuma levar de 3 a 6 minutos${
+        minutos >= 1 ? ` (${minutos} min até agora)` : ""
+      }.`;
     }
     if (progresso.pendentes > 0) {
-      return `Enriquecendo e escrevendo os rascunhos: ${prontos} de ${leads.length} prontos.`;
+      return `Escrevendo os rascunhos: ${prontos} de ${leads.length} prontos.`;
     }
     return "Finalizando...";
   };
