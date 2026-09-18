@@ -1,3 +1,4 @@
+import { readFileSync } from "fs";
 import Company from "../models/Company";
 import User from "../models/User";
 
@@ -34,6 +35,21 @@ export const canUseProspeccao = (
 
 const trimTrailingSlash = (url: string): string => url.replace(/\/+$/, "");
 
+// Mesmo arranjo do WaCalls: em produção a chave chega como docker secret (um
+// arquivo), e não pelo ambiente — assim ela não aparece no `docker inspect`
+// nem na tela de variáveis do Dokploy. A variável direta continua valendo para
+// desenvolvimento e testes.
+const apiKeyFromEnvOrFile = (): string => {
+  const direta = process.env.PROSPECCAO_API_KEY?.trim() || "";
+  const arquivo = process.env.PROSPECCAO_API_KEY_FILE?.trim() || "";
+  if (direta || !arquivo) return direta;
+  try {
+    return readFileSync(arquivo, "utf8").trim();
+  } catch {
+    return "";
+  }
+};
+
 export interface ProspeccaoConfig {
   apiUrl: string;
   bridgeUrl: string;
@@ -53,7 +69,7 @@ export const prospeccaoConfig = (): ProspeccaoConfig => {
       process.env.PROSPECCAO_API_URL?.trim() || "http://179.199.139.11:8000"
     ),
     bridgeUrl,
-    apiKey: process.env.PROSPECCAO_API_KEY?.trim() || "",
+    apiKey: apiKeyFromEnvOrFile(),
     // Quem chama esse webhook é o prospeccao-api, não o nosso backend: o
     // endereço precisa fazer sentido de dentro do projeto Compose da
     // prospecção, onde o bridge é vizinho de rede. Usar o nome do serviço

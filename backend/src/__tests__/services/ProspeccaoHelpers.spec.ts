@@ -1,3 +1,6 @@
+import fs from "fs";
+import os from "os";
+import path from "path";
 import Company from "../../models/Company";
 import User from "../../models/User";
 import {
@@ -75,9 +78,36 @@ describe("helpers/prospeccao", () => {
 
     it("só se considera configurada quando existe chave", () => {
       delete process.env.PROSPECCAO_API_KEY;
+      delete process.env.PROSPECCAO_API_KEY_FILE;
       expect(isProspeccaoConfigured()).toBe(false);
       process.env.PROSPECCAO_API_KEY = "chave-de-teste";
       expect(isProspeccaoConfigured()).toBe(true);
+    });
+
+    it("lê a chave do arquivo do secret quando não vem pelo ambiente", () => {
+      const caminho = path.join(os.tmpdir(), `prospeccao-${Date.now()}.key`);
+      // O docker secret costuma terminar em newline; a chave não pode levá-la
+      // junto para o header.
+      fs.writeFileSync(caminho, "chave-do-arquivo\n");
+      delete process.env.PROSPECCAO_API_KEY;
+      process.env.PROSPECCAO_API_KEY_FILE = caminho;
+
+      expect(prospeccaoConfig().apiKey).toBe("chave-do-arquivo");
+
+      fs.unlinkSync(caminho);
+    });
+
+    it("a variável direta tem prioridade sobre o arquivo", () => {
+      process.env.PROSPECCAO_API_KEY = "chave-do-ambiente";
+      process.env.PROSPECCAO_API_KEY_FILE = "/caminho/que/nao/existe";
+      expect(prospeccaoConfig().apiKey).toBe("chave-do-ambiente");
+    });
+
+    it("não derruba o backend quando o arquivo do secret não existe", () => {
+      delete process.env.PROSPECCAO_API_KEY;
+      process.env.PROSPECCAO_API_KEY_FILE = "/caminho/que/nao/existe";
+      expect(prospeccaoConfig().apiKey).toBe("");
+      expect(isProspeccaoConfigured()).toBe(false);
     });
   });
 });
