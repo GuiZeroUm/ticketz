@@ -1995,6 +1995,18 @@ const messages = {
           "Backend is starting up and not ready yet. Retrying automatically."
       },
       backendErrors: {
+        ERR_PROSPECCAO_NAO_CONFIGURADA:
+          "Prospecting is not configured on this server yet.",
+        ERR_PROSPECCAO_CHAVE_INVALIDA:
+          "The prospecting access key was rejected. Contact support.",
+        ERR_PROSPECCAO_INDISPONIVEL:
+          "The prospecting service did not respond. Try again in a few minutes.",
+        ERR_PROSPECCAO_BUSCA_INVALIDA:
+          "The prospecting service rejected this search. Check the niche and city.",
+        ERR_PROSPECCAO_BUSCA_NAO_ENCONTRADA:
+          "This search no longer exists in the prospecting service.",
+        ERR_PROSPECCAO_NICHO_CIDADE_OBRIGATORIOS:
+          "Enter a niche and a city to search for leads.",
         ERR_FLOW_INVALID: "Invalid flow data. Review the blocks.",
         ERR_FLOW_CONNECTION:
           "This connection is not allowed. Transfer and human support blocks end the flow.",

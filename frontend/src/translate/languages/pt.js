@@ -2661,6 +2661,18 @@ const messages = {
           "O backend está iniciando e ainda não está pronto. Tentando novamente automaticamente."
       },
       backendErrors: {
+        ERR_PROSPECCAO_NAO_CONFIGURADA:
+          "A prospecção ainda não foi configurada neste servidor.",
+        ERR_PROSPECCAO_CHAVE_INVALIDA:
+          "A chave de acesso à prospecção foi recusada. Avise o suporte.",
+        ERR_PROSPECCAO_INDISPONIVEL:
+          "O serviço de prospecção não respondeu. Tente de novo em alguns minutos.",
+        ERR_PROSPECCAO_BUSCA_INVALIDA:
+          "O serviço de prospecção recusou esta busca. Revise o nicho e a cidade.",
+        ERR_PROSPECCAO_BUSCA_NAO_ENCONTRADA:
+          "Esta busca não existe mais no serviço de prospecção.",
+        ERR_PROSPECCAO_NICHO_CIDADE_OBRIGATORIOS:
+          "Informe o nicho e a cidade para buscar leads.",
         ERR_FLOW_INVALID: "O fluxo tem dados inválidos. Revise os blocos.",
         ERR_FLOW_CONNECTION:
           "Esta conexão não é permitida. Blocos de transferência e atendimento humano encerram o fluxo.",
