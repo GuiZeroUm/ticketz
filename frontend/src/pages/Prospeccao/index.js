@@ -118,6 +118,9 @@ const Prospeccao = () => {
   const inicioDoJob = useRef(null);
   const raspagemTerminouEm = useRef(null);
   const montado = useRef(true);
+  // Trocar de busca não cancela a requisição que já saiu: sem isso, a resposta
+  // atrasada da busca anterior sobrescreveria os leads da nova.
+  const jobAcompanhado = useRef(null);
 
   useEffect(() => {
     montado.current = true;
@@ -165,7 +168,7 @@ const Prospeccao = () => {
     async idDoJob => {
       try {
         const { data } = await api.get(`/prospeccao/buscas/${idDoJob}`);
-        if (!montado.current) return;
+        if (!montado.current || jobAcompanhado.current !== idDoJob) return;
 
         setProgresso(data);
         setLeads(data.leads || []);
@@ -218,7 +221,7 @@ const Prospeccao = () => {
           INTERVALO_POLL_MS
         );
       } catch (err) {
-        if (!montado.current) return;
+        if (!montado.current || jobAcompanhado.current !== idDoJob) return;
         setAcompanhando(false);
         toastError(err);
       }
@@ -229,6 +232,7 @@ const Prospeccao = () => {
   const acompanha = useCallback(
     idDoJob => {
       if (temporizador.current) clearTimeout(temporizador.current);
+      jobAcompanhado.current = idDoJob;
       setAcompanhando(true);
       setAviso("");
       consulta(idDoJob);
@@ -312,12 +316,10 @@ const Prospeccao = () => {
     [leads]
   );
 
+  // Uma busca em andamento não bloqueia a próxima: `inicia` derruba o poll
+  // anterior. Esperar 8 minutos para poder corrigir a cidade seria pior.
   const podeBuscar =
-    !iniciando &&
-    !acompanhando &&
-    !!form.nicho.trim() &&
-    !!form.cidade.trim() &&
-    !!form.produto;
+    !iniciando && !!form.nicho.trim() && !!form.cidade.trim() && !!form.produto;
 
   const mensagemDeEtapa = () => {
     if (!progresso) return "Enviando a busca...";
