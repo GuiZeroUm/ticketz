@@ -46,11 +46,13 @@ import taskBoardRoutes from "./taskBoardRoutes";
 import voiceRoutes from "./voiceRoutes";
 import whatsappGroupRoutes from "./whatsappGroupRoutes";
 import billingAdminRoutes from "./billingAdminRoutes";
+import prospeccaoRoutes from "./prospeccaoRoutes";
 
 const routes = Router();
 
 routes.use(platformRoutes);
 routes.use(billingAdminRoutes);
+routes.use(prospeccaoRoutes);
 routes.use(taskBoardRoutes);
 routes.use(voiceRoutes);
 routes.use(whatsappGroupRoutes);

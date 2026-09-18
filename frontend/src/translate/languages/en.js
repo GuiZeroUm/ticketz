@@ -1024,6 +1024,7 @@ const messages = {
           chats: "Internal Chat",
           financeiro: "Financial",
           cobranca: "Billing",
+          prospeccao: "Prospecting",
           logout: "Logout",
           management: "Management",
           kanban: "Kanban",
