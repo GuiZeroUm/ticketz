@@ -1648,6 +1648,8 @@ const messages = {
           "Il backend si sta avviando e non è ancora pronto. Nuovo tentativo automatico."
       },
       backendErrors: {
+        ERR_PROSPECCAO_SEM_CONEXAO:
+          "Nessuna connessione WhatsApp disponibile per aprire la conversazione.",
         ERR_PROSPECCAO_LEAD_NAO_ENCONTRADO:
           "Questo lead non è più nella tua base.",
         ERR_PROSPECCAO_LEAD_SEM_TELEFONE:

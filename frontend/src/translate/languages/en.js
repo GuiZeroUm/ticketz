@@ -1995,6 +1995,8 @@ const messages = {
           "Backend is starting up and not ready yet. Retrying automatically."
       },
       backendErrors: {
+        ERR_PROSPECCAO_SEM_CONEXAO:
+          "No WhatsApp connection available to open the conversation.",
         ERR_PROSPECCAO_LEAD_NAO_ENCONTRADO:
           "This lead is no longer in your base.",
         ERR_PROSPECCAO_LEAD_SEM_TELEFONE:
