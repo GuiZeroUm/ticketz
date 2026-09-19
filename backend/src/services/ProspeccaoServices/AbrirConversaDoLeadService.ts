@@ -4,7 +4,7 @@ import Contact from "../../models/Contact";
 import ContactCustomField from "../../models/ContactCustomField";
 import ProspeccaoLead from "../../models/ProspeccaoLead";
 import Ticket from "../../models/Ticket";
-import CreateContactService from "../ContactServices/CreateContactService";
+import { CheckNumberAndCreateContact } from "../WbotServices/CheckNumber";
 import CreateTicketService from "../TicketServices/CreateTicketService";
 
 interface Request {
@@ -36,25 +36,23 @@ const informacoesAdicionais = (lead: ProspeccaoLead) => {
   return campos;
 };
 
-const buscaContatoExistente = async (
-  telefone: string,
-  companyId: number
-): Promise<Contact | null> => {
-  // Mesma tolerância de 8/9 dígitos que o CreateContactService aplica: sem
-  // isso criaríamos um contato paralelo para quem já está na agenda.
-  const variacoes = [telefone];
-  if (
-    telefone.startsWith("55") &&
-    telefone.length === 13 &&
-    telefone[4] === "9"
-  ) {
-    variacoes.push(`${telefone.slice(0, 4)}${telefone.slice(5)}`);
-  } else if (telefone.startsWith("55") && telefone.length === 12) {
-    variacoes.push(`${telefone.slice(0, 4)}9${telefone.slice(4)}`);
-  }
-  return Contact.findOne({
-    where: { companyId, number: { [Op.in]: variacoes } }
+// O contato já existente não é sobrescrito, mas o que a prospecção descobriu e
+// ainda falta lá é informação nova e útil.
+const aplicaInformacoesAdicionais = async (
+  contact: Contact,
+  lead: ProspeccaoLead
+): Promise<void> => {
+  const atuais = await ContactCustomField.findAll({
+    where: { contactId: contact.id }
   });
+  const nomes = new Set(atuais.map(campo => campo.name));
+  const faltando = informacoesAdicionais(lead).filter(
+    campo => !nomes.has(campo.name)
+  );
+  if (!faltando.length) return;
+  await ContactCustomField.bulkCreate(
+    faltando.map(campo => ({ ...campo, contactId: contact.id })) as never
+  );
 };
 
 const AbrirConversaDoLeadService = async ({
@@ -73,30 +71,22 @@ const AbrirConversaDoLeadService = async ({
 
   const textoFinal = String(rascunho ?? lead.rascunho ?? "").trim();
 
-  let contact = await buscaContatoExistente(lead.telefone, companyId);
+  // Criar o contato direto pelo CreateContactService deixava o número sem
+  // conferência no WhatsApp e sem mapeamento de LID: o ticket abria, mas o
+  // envio morria em ERR_WAPP_CONTACT_NOT_FOUND. Este é o mesmo caminho que a
+  // tela de Contatos usa, e por ser find-or-create ele também conserta contatos
+  // criados antes desta correção. De quebra, o número gravado passa a ser o que
+  // o WhatsApp confirma, resolvendo divergência de nono dígito.
+  const contact = await CheckNumberAndCreateContact(
+    lead.telefone,
+    lead.nome || lead.telefone,
+    companyId
+  );
   if (!contact) {
-    contact = await CreateContactService({
-      name: lead.nome || lead.telefone,
-      number: lead.telefone,
-      companyId,
-      extraInfo: informacoesAdicionais(lead) as never
-    });
-  } else {
-    // Contato que já existia não é sobrescrito, mas o que a prospecção
-    // descobriu e ainda falta lá é informação nova e útil.
-    const atuais = await ContactCustomField.findAll({
-      where: { contactId: contact.id }
-    });
-    const nomes = new Set(atuais.map(campo => campo.name));
-    const faltando = informacoesAdicionais(lead).filter(
-      campo => !nomes.has(campo.name)
-    );
-    if (faltando.length) {
-      await ContactCustomField.bulkCreate(
-        faltando.map(campo => ({ ...campo, contactId: contact!.id })) as never
-      );
-    }
+    throw new AppError("ERR_PROSPECCAO_SEM_CONEXAO", 503);
   }
+
+  await aplicaInformacoesAdicionais(contact, lead);
 
   let ticket: Ticket;
   try {

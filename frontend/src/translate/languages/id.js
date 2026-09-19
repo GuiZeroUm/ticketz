@@ -1670,6 +1670,8 @@ const messages = {
           "Backend sedang memulai dan belum siap. Mencoba lagi secara otomatis."
       },
       backendErrors: {
+        ERR_PROSPECCAO_SEM_CONEXAO:
+          "Tidak ada koneksi WhatsApp untuk membuka percakapan.",
         ERR_PROSPECCAO_LEAD_NAO_ENCONTRADO:
           "Lead ini sudah tidak ada di basis Anda.",
         ERR_PROSPECCAO_LEAD_SEM_TELEFONE:
