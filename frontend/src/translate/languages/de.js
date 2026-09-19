@@ -1659,6 +1659,10 @@ const messages = {
           "Das Backend startet noch und ist noch nicht bereit. Automatischer neuer Versuch."
       },
       backendErrors: {
+        ERR_PROSPECCAO_LEAD_NAO_ENCONTRADO:
+          "Dieser Lead ist nicht mehr in deiner Basis.",
+        ERR_PROSPECCAO_LEAD_SEM_TELEFONE:
+          "Dieser Lead hat keine Telefonnummer für ein Gespräch.",
         ERR_PROSPECCAO_NAO_CONFIGURADA:
           "Die Akquise ist auf diesem Server noch nicht eingerichtet.",
         ERR_PROSPECCAO_CHAVE_INVALIDA:

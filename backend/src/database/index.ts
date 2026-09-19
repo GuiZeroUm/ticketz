@@ -3,6 +3,7 @@ import User from "../models/User";
 import Setting from "../models/Setting";
 import Contact from "../models/Contact";
 import ContactTag from "../models/ContactTag";
+import ProspeccaoLead from "../models/ProspeccaoLead";
 import Ticket from "../models/Ticket";
 import Whatsapp from "../models/Whatsapp";
 import WhatsappLidMap from "../models/WhatsappLidMap";
@@ -135,7 +136,8 @@ const models = [
   VoiceConnection,
   VoiceCall,
   GroupQueue,
-  GroupReadState
+  GroupReadState,
+  ProspeccaoLead
 ];
 
 sequelize.addModels(models);

@@ -1,10 +1,5 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState
-} from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useHistory } from "react-router-dom";
 import { toast } from "react-toastify";
 
 import {
@@ -19,6 +14,7 @@ import {
   Paper,
   Select,
   Switch,
+  TablePagination,
   TextField,
   Typography
 } from "@material-ui/core";
@@ -59,13 +55,18 @@ const useStyles = makeStyles(theme => ({
   barra: {
     marginTop: theme.spacing(1)
   },
+  filtros: {
+    padding: theme.spacing(1.5),
+    marginBottom: theme.spacing(1.5),
+    display: "flex",
+    alignItems: "center",
+    gap: theme.spacing(2),
+    flexWrap: "wrap"
+  },
   vazio: {
     padding: theme.spacing(4),
     textAlign: "center",
     color: theme.palette.text.secondary
-  },
-  contador: {
-    margin: theme.spacing(1, 0.5, 1.5)
   }
 }));
 
@@ -73,6 +74,12 @@ const TONS = [
   { value: "curta", label: "Curta (1-2 frases)" },
   { value: "media", label: "Média (3-4 frases)" },
   { value: "longa", label: "Longa (um parágrafo)" }
+];
+
+const FILTROS = [
+  { value: "todos", label: "Todos os leads" },
+  { value: "nao_contatados", label: "Ainda não contactados" },
+  { value: "contatados", label: "Já contactados" }
 ];
 
 const FORM_INICIAL = {
@@ -104,23 +111,35 @@ const rotuloProduto = slug =>
 
 const Prospeccao = () => {
   const classes = useStyles();
+  const history = useHistory();
 
   const [form, setForm] = useState(FORM_INICIAL);
   const [produtos, setProdutos] = useState([]);
+
   const [jobId, setJobId] = useState(null);
-  const [leads, setLeads] = useState([]);
-  const [rascunhos, setRascunhos] = useState({});
   const [progresso, setProgresso] = useState(null);
   const [iniciando, setIniciando] = useState(false);
   const [acompanhando, setAcompanhando] = useState(false);
   const [aviso, setAviso] = useState("");
+
+  const [leads, setLeads] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [pagina, setPagina] = useState(0);
+  const [porPagina, setPorPagina] = useState(10);
+  const [filtro, setFiltro] = useState("todos");
+  const [busca, setBusca] = useState("");
+  const [buscaAplicada, setBuscaAplicada] = useState("");
+  const [carregandoLista, setCarregandoLista] = useState(false);
+
+  const [rascunhos, setRascunhos] = useState({});
+  const [abrindo, setAbrindo] = useState(null);
 
   const temporizador = useRef(null);
   const inicioDoJob = useRef(null);
   const raspagemTerminouEm = useRef(null);
   const montado = useRef(true);
   // Trocar de busca não cancela a requisição que já saiu: sem isso, a resposta
-  // atrasada da busca anterior sobrescreveria os leads da nova.
+  // atrasada da busca anterior sobrescreveria o progresso da nova.
   const jobAcompanhado = useRef(null);
 
   useEffect(() => {
@@ -151,19 +170,41 @@ const Prospeccao = () => {
     carregaProdutos();
   }, []);
 
-  // Rascunho editado na tela vence o que veio da API: o poll seguinte não pode
-  // apagar o que a pessoa acabou de escrever.
-  const sincronizaRascunhos = useCallback(novosLeads => {
-    setRascunhos(atual => {
-      const proximo = { ...atual };
-      novosLeads.forEach(lead => {
-        if (proximo[lead.id] === undefined && lead.rascunho) {
-          proximo[lead.id] = lead.rascunho;
+  const carregaLeads = useCallback(async () => {
+    setCarregandoLista(true);
+    try {
+      const { data } = await api.get("/prospeccao/leads", {
+        params: {
+          filtro,
+          searchParam: buscaAplicada,
+          pageNumber: pagina + 1,
+          perPage: porPagina
         }
       });
-      return proximo;
-    });
-  }, []);
+      if (!montado.current) return;
+      setLeads(data.leads || []);
+      setTotal(data.count || 0);
+      // Rascunho editado na tela vence o que veio do servidor: uma atualização
+      // de lista não pode apagar o que a pessoa acabou de escrever.
+      setRascunhos(atual => {
+        const proximo = { ...atual };
+        (data.leads || []).forEach(lead => {
+          if (proximo[lead.id] === undefined && lead.rascunho) {
+            proximo[lead.id] = lead.rascunho;
+          }
+        });
+        return proximo;
+      });
+    } catch (err) {
+      if (montado.current) toastError(err);
+    } finally {
+      if (montado.current) setCarregandoLista(false);
+    }
+  }, [filtro, buscaAplicada, pagina, porPagina]);
+
+  useEffect(() => {
+    carregaLeads();
+  }, [carregaLeads]);
 
   const consulta = useCallback(
     async idDoJob => {
@@ -172,8 +213,9 @@ const Prospeccao = () => {
         if (!montado.current || jobAcompanhado.current !== idDoJob) return;
 
         setProgresso(data);
-        setLeads(data.leads || []);
-        sincronizaRascunhos(data.leads || []);
+        // O poll ingere os leads novos na base; a lista recarrega para mostrar
+        // os rascunhos conforme vão ficando prontos.
+        carregaLeads();
 
         if (data.raspagemTerminou && !raspagemTerminouEm.current) {
           raspagemTerminouEm.current = Date.now();
@@ -191,14 +233,18 @@ const Prospeccao = () => {
 
         if (data.concluido) {
           setAcompanhando(false);
-          setAviso("");
+          setAviso(
+            data.repetidos > 0
+              ? `Busca concluída: ${data.novos} lead(s) novo(s). ${data.repetidos} já estavam na sua base e foram ignorados.`
+              : ""
+          );
           return;
         }
 
         if (Date.now() - inicioDoJob.current > LIMITE_TOTAL_MS) {
           setAcompanhando(false);
           setAviso(
-            (data.leads || []).length === 0
+            (data.total || 0) === 0
               ? "A busca ainda não devolveu nenhum lead. O enriquecimento pode estar lento — clique em Atualizar daqui a alguns minutos antes de tentar outro nicho ou cidade."
               : "A geração dos rascunhos está demorando mais que o normal. Os leads prontos já aparecem abaixo — use Atualizar para buscar o resto."
           );
@@ -215,7 +261,7 @@ const Prospeccao = () => {
         toastError(err);
       }
     },
-    [sincronizaRascunhos]
+    [carregaLeads]
   );
 
   const acompanha = useCallback(
@@ -230,8 +276,11 @@ const Prospeccao = () => {
   );
 
   // Buscar leads leva minutos: se a pessoa recarregar a tela no meio, ela volta
-  // acompanhando a mesma busca em vez de perder o trabalho.
+  // acompanhando a mesma busca em vez de perder o acompanhamento.
+  const restaurou = useRef(false);
   useEffect(() => {
+    if (restaurou.current) return;
+    restaurou.current = true;
     const salvo = localStorage.getItem(CHAVE_ULTIMO_JOB);
     if (!salvo) return;
     setJobId(salvo);
@@ -264,8 +313,6 @@ const Prospeccao = () => {
       });
 
       if (temporizador.current) clearTimeout(temporizador.current);
-      setLeads([]);
-      setRascunhos({});
       setProgresso(null);
       setJobId(data.jobId);
       localStorage.setItem(CHAVE_ULTIMO_JOB, data.jobId);
@@ -291,22 +338,42 @@ const Prospeccao = () => {
   const alteraRascunho = (id, texto) =>
     setRascunhos(atual => ({ ...atual, [id]: texto }));
 
+  const abreConversa = async lead => {
+    const texto = rascunhos[lead.id] ?? lead.rascunho ?? "";
+    setAbrindo(lead.id);
+    try {
+      const { data } = await api.post(`/prospeccao/leads/${lead.id}/conversa`, {
+        rascunho: texto
+      });
+      // O MessageInput lê o rascunho do sessionStorage pela chave do ticket:
+      // é assim que a conversa abre com a mensagem já escrita, sem enviar.
+      if (texto.trim()) {
+        sessionStorage.setItem(`messageDraft-${data.ticketId}`, texto.trim());
+      }
+      history.push(`/tickets/${data.ticketUuid}`);
+    } catch (err) {
+      toastError(err);
+    } finally {
+      if (montado.current) setAbrindo(null);
+    }
+  };
+
   // Depois que o poll desiste (ou quando a pessoa volta na tela horas depois),
   // Atualizar é o jeito de buscar o que ficou pronto no meio tempo.
   const atualiza = () => {
+    carregaLeads();
     if (!jobId) return;
     inicioDoJob.current = Date.now();
     raspagemTerminouEm.current = null;
     acompanha(jobId);
   };
 
-  const prontos = useMemo(
-    () => leads.filter(lead => lead.status !== "pendente").length,
-    [leads]
-  );
+  const aplicaBusca = event => {
+    event.preventDefault();
+    setPagina(0);
+    setBuscaAplicada(busca.trim());
+  };
 
-  // Uma busca em andamento não bloqueia a próxima: `inicia` derruba o poll
-  // anterior. Esperar a busca inteira para corrigir a cidade seria pior.
   const podeBuscar =
     !iniciando && !!form.nicho.trim() && !!form.cidade.trim() && !!form.produto;
 
@@ -315,7 +382,7 @@ const Prospeccao = () => {
     if (!progresso.raspagemTerminou) {
       return "Raspando o Google Maps. Isso costuma levar de 1 a 3 minutos.";
     }
-    if (leads.length === 0) {
+    if ((progresso.total || 0) === 0) {
       // A espera aqui passa de cinco minutos sem nada na tela mudar; dizer há
       // quanto tempo é o que diferencia "está trabalhando" de "travou".
       const minutos = raspagemTerminouEm.current
@@ -326,7 +393,9 @@ const Prospeccao = () => {
       }.`;
     }
     if (progresso.pendentes > 0) {
-      return `Escrevendo os rascunhos: ${prontos} de ${leads.length} prontos.`;
+      return `Escrevendo os rascunhos: ${
+        progresso.total - progresso.pendentes
+      } de ${progresso.total} prontos.`;
     }
     return "Finalizando...";
   };
@@ -339,7 +408,7 @@ const Prospeccao = () => {
           <Button
             variant="outlined"
             color="primary"
-            disabled={!jobId || acompanhando}
+            disabled={acompanhando || carregandoLista}
             startIcon={<RefreshIcon />}
             onClick={atualiza}
           >
@@ -448,7 +517,8 @@ const Prospeccao = () => {
                     label="Só quem tem WhatsApp"
                   />
                   <Typography variant="body2" color="textSecondary">
-                    Cada lead a mais soma tempo de enriquecimento e custo de IA.
+                    Leads que já estão na sua base são ignorados
+                    automaticamente.
                   </Typography>
                 </div>
               </Grid>
@@ -465,14 +535,61 @@ const Prospeccao = () => {
           </Paper>
         )}
 
-        {leads.length > 0 && (
-          <Typography
-            variant="body2"
-            color="textSecondary"
-            className={classes.contador}
-          >
-            {prontos} de {leads.length} leads com rascunho pronto
-          </Typography>
+        <Paper className={classes.filtros} variant="outlined">
+          <FormControl variant="outlined" size="small">
+            <InputLabel id="prospeccao-filtro">Mostrar</InputLabel>
+            <Select
+              labelId="prospeccao-filtro"
+              label="Mostrar"
+              value={filtro}
+              onChange={event => {
+                setPagina(0);
+                setFiltro(event.target.value);
+              }}
+              style={{ minWidth: 200 }}
+            >
+              {FILTROS.map(opcao => (
+                <MenuItem key={opcao.value} value={opcao.value}>
+                  {opcao.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <form onSubmit={aplicaBusca}>
+            <TextField
+              label="Buscar por nome, categoria ou @"
+              variant="outlined"
+              size="small"
+              value={busca}
+              onChange={event => setBusca(event.target.value)}
+              onBlur={aplicaBusca}
+              style={{ minWidth: 260 }}
+            />
+          </form>
+
+          <TablePagination
+            component="div"
+            count={total}
+            page={pagina}
+            onChangePage={(_evento, novaPagina) => setPagina(novaPagina)}
+            rowsPerPage={porPagina}
+            rowsPerPageOptions={[10, 25, 50, 100]}
+            onChangeRowsPerPage={evento => {
+              setPorPagina(Number(evento.target.value));
+              setPagina(0);
+            }}
+            labelRowsPerPage="Leads por página"
+            labelDisplayedRows={({ from, to, count }) =>
+              `${from}-${to} de ${count}`
+            }
+          />
+        </Paper>
+
+        {carregandoLista && leads.length === 0 && (
+          <div className={classes.vazio}>
+            <CircularProgress size={24} />
+          </div>
         )}
 
         {leads.map(lead => (
@@ -480,20 +597,26 @@ const Prospeccao = () => {
             key={lead.id}
             lead={lead}
             rascunho={rascunhos[lead.id] ?? lead.rascunho ?? ""}
+            abrindo={abrindo === lead.id}
             onRascunhoChange={alteraRascunho}
+            onAbrirConversa={abreConversa}
             onCopiar={copia}
           />
         ))}
 
-        {!jobId && !acompanhando && (
+        {!carregandoLista && leads.length === 0 && (
           <div className={classes.vazio}>
             <Typography variant="body1">
-              Escolha um nicho e uma cidade para buscar leads no Google Maps.
+              {total === 0 && filtro === "todos" && !buscaAplicada
+                ? "Nenhum lead ainda. Escolha um nicho e uma cidade para buscar no Google Maps."
+                : "Nenhum lead com esse filtro."}
             </Typography>
-            <Typography variant="body2">
-              O sistema enriquece cada lead pelo Instagram e escreve um rascunho
-              de mensagem pronto para mandar no WhatsApp.
-            </Typography>
+            {total === 0 && filtro === "todos" && !buscaAplicada && (
+              <Typography variant="body2">
+                O sistema enriquece cada lead pelo Instagram e escreve um
+                rascunho pronto para mandar no WhatsApp.
+              </Typography>
+            )}
           </div>
         )}
       </Paper>

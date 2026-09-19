@@ -9,6 +9,11 @@ const prospeccaoRoutes = express.Router();
 prospeccaoRoutes.use("/prospeccao", isAuth, isProspeccaoUser);
 
 prospeccaoRoutes.get("/prospeccao/produtos", ProspeccaoController.produtos);
+prospeccaoRoutes.get("/prospeccao/leads", ProspeccaoController.leads);
+prospeccaoRoutes.post(
+  "/prospeccao/leads/:leadId/conversa",
+  ProspeccaoController.abrirConversa
+);
 prospeccaoRoutes.post("/prospeccao/buscas", ProspeccaoController.store);
 prospeccaoRoutes.get("/prospeccao/buscas/:jobId", ProspeccaoController.show);
 

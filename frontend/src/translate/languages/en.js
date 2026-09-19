@@ -1995,6 +1995,10 @@ const messages = {
           "Backend is starting up and not ready yet. Retrying automatically."
       },
       backendErrors: {
+        ERR_PROSPECCAO_LEAD_NAO_ENCONTRADO:
+          "This lead is no longer in your base.",
+        ERR_PROSPECCAO_LEAD_SEM_TELEFONE:
+          "This lead has no phone number to start a conversation.",
         ERR_PROSPECCAO_NAO_CONFIGURADA:
           "Prospecting is not configured on this server yet.",
         ERR_PROSPECCAO_CHAVE_INVALIDA:

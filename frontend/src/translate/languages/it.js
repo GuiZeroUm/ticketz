@@ -1648,6 +1648,10 @@ const messages = {
           "Il backend si sta avviando e non è ancora pronto. Nuovo tentativo automatico."
       },
       backendErrors: {
+        ERR_PROSPECCAO_LEAD_NAO_ENCONTRADO:
+          "Questo lead non è più nella tua base.",
+        ERR_PROSPECCAO_LEAD_SEM_TELEFONE:
+          "Questo lead non ha telefono per aprire una conversazione.",
         ERR_PROSPECCAO_NAO_CONFIGURADA:
           "La prospezione non è ancora configurata su questo server.",
         ERR_PROSPECCAO_CHAVE_INVALIDA:
