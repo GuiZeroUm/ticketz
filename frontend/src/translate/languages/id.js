@@ -1670,6 +1670,10 @@ const messages = {
           "Backend sedang memulai dan belum siap. Mencoba lagi secara otomatis."
       },
       backendErrors: {
+        ERR_PROSPECCAO_LEAD_NAO_ENCONTRADO:
+          "Lead ini sudah tidak ada di basis Anda.",
+        ERR_PROSPECCAO_LEAD_SEM_TELEFONE:
+          "Lead ini tidak punya nomor telepon untuk membuka percakapan.",
         ERR_PROSPECCAO_NAO_CONFIGURADA:
           "Prospek belum dikonfigurasi di server ini.",
         ERR_PROSPECCAO_CHAVE_INVALIDA:

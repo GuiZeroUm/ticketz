@@ -1,30 +1,39 @@
 import { Request, Response } from "express";
 import * as Yup from "yup";
 import AppError from "../errors/AppError";
+import ProspeccaoLead from "../models/ProspeccaoLead";
 import {
   criarBusca,
   listarLeads,
   listarProdutos,
-  statusDaBusca,
-  Lead
+  statusDaBusca
 } from "../services/ProspeccaoServices/ProspeccaoApi";
+import SyncProspeccaoLeadsService from "../services/ProspeccaoServices/SyncProspeccaoLeadsService";
+import ListProspeccaoLeadsService from "../services/ProspeccaoServices/ListProspeccaoLeadsService";
+import AbrirConversaDoLeadService from "../services/ProspeccaoServices/AbrirConversaDoLeadService";
 
 const STATUS_TERMINAIS = ["ok", "failed", "timeout"];
 
-const serializaLead = (lead: Lead) => ({
+const serializaLead = (lead: ProspeccaoLead, contatados: Set<number>) => ({
   id: lead.id,
+  jobId: lead.jobId,
   nome: lead.nome,
-  telefone: lead.telefone,
+  telefone: lead.telefoneExibicao || lead.telefone,
+  temTelefone: !!lead.telefone,
   categoria: lead.categoria,
   endereco: lead.endereco,
-  instagramHandle: lead.instagram_handle,
-  instagramBio: lead.instagram_bio,
-  instagramSeguidores: lead.instagram_seguidores,
-  instagramWhatsapp: lead.instagram_whatsapp,
-  idiomaSugerido: lead.idioma_sugerido,
+  instagramHandle: lead.instagramHandle,
+  instagramBio: lead.instagramBio,
+  instagramSeguidores: lead.instagramSeguidores,
+  idiomaSugerido: lead.idiomaSugerido,
   status: lead.status,
   rascunho: lead.rascunho,
-  erro: lead.erro
+  erro: lead.erro,
+  contactId: lead.contactId,
+  ticketId: lead.ticketId,
+  abertoEm: lead.abertoEm,
+  contatado: !!lead.contactId && contatados.has(lead.contactId),
+  createdAt: lead.createdAt
 });
 
 export const produtos = async (
@@ -88,26 +97,83 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
 
 // Uma chamada só para a tela: o status da raspagem e os rascunhos vivem em
 // serviços diferentes, mas quem está olhando a tela só quer saber se já pode
-// mandar mensagem.
+// mandar mensagem. Aproveitamos o poll para trazer os leads novos para a base.
 export const show = async (req: Request, res: Response): Promise<Response> => {
   const { jobId } = req.params;
+  const { companyId } = req.user;
 
   const statusBusca = await statusDaBusca(jobId);
   const raspagemTerminou = STATUS_TERMINAIS.includes(statusBusca);
 
-  // Enquanto o Google Maps não devolve nada não existe lead para consultar;
-  // poupa uma ida ao bridge a cada poll.
-  const leads = raspagemTerminou ? await listarLeads(jobId) : [];
-  const pendentes = leads.filter(lead => lead.status === "pendente").length;
+  let pendentes = 0;
+  let total = 0;
+  let ingeridos = { novos: 0, atualizados: 0, ignorados: 0 };
+
+  if (raspagemTerminou) {
+    const leads = await listarLeads(jobId);
+    total = leads.length;
+    pendentes = leads.filter(lead => lead.status === "pendente").length;
+    ingeridos = await SyncProspeccaoLeadsService({
+      companyId: Number(companyId),
+      jobId,
+      leads
+    });
+  }
 
   return res.json({
     jobId,
     statusBusca,
     raspagemTerminou,
     pendentes,
-    // Só é "concluído" quando todo lead saiu de pendente. Lista vazia não conta:
-    // o bridge ainda pode estar gravando os leads que acabou de receber.
-    concluido: raspagemTerminou && leads.length > 0 && pendentes === 0,
-    leads: leads.map(serializaLead)
+    total,
+    novos: ingeridos.novos,
+    repetidos: ingeridos.ignorados,
+    // Só é "concluído" quando todo lead saiu de pendente. Lista vazia não
+    // conta: o enriquecimento ainda pode estar rodando lá fora.
+    concluido: raspagemTerminou && total > 0 && pendentes === 0
   });
+};
+
+export const leads = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { filtro, searchParam, pageNumber, perPage } = req.query as Record<
+    string,
+    string
+  >;
+
+  const resultado = await ListProspeccaoLeadsService({
+    companyId: Number(companyId),
+    filtro,
+    searchParam,
+    pageNumber,
+    perPage
+  });
+
+  return res.json({
+    leads: resultado.leads.map(lead =>
+      serializaLead(lead, resultado.contatados)
+    ),
+    count: resultado.count,
+    hasMore: resultado.hasMore,
+    pageNumber: resultado.pageNumber,
+    perPage: resultado.perPage
+  });
+};
+
+export const abrirConversa = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { companyId, id: userId } = req.user;
+  const { leadId } = req.params;
+  const { rascunho } = req.body;
+
+  const resultado = await AbrirConversaDoLeadService({
+    leadId: Number(leadId),
+    companyId: Number(companyId),
+    userId: Number(userId),
+    rascunho
+  });
+
+  return res.json(resultado);
 };

@@ -10,6 +10,7 @@ import {
   prospeccaoConfig,
   prospeccaoSlugs
 } from "../../helpers/prospeccao";
+import { normalizaTelefone } from "../../services/ProspeccaoServices/SyncProspeccaoLeadsService";
 
 type CompanyLike = Pick<Company, "slug">;
 type UserLike = Pick<User, "profile" | "super">;
@@ -108,6 +109,41 @@ describe("helpers/prospeccao", () => {
       process.env.PROSPECCAO_API_KEY_FILE = "/caminho/que/nao/existe";
       expect(prospeccaoConfig().apiKey).toBe("");
       expect(isProspeccaoConfigured()).toBe(false);
+    });
+  });
+
+  // É a chave que decide se uma busca nova está trazendo um lead inédito ou
+  // repetindo alguém que já foi trabalhado.
+  describe("normalizaTelefone", () => {
+    it("acrescenta DDI a telefone brasileiro formatado", () => {
+      expect(normalizaTelefone("(68) 99988-4999")).toBe("5568999884999");
+    });
+
+    it("mantém número que já veio com DDI", () => {
+      expect(normalizaTelefone("5568999999999")).toBe("5568999999999");
+    });
+
+    it("aceita telefone fixo com DDD", () => {
+      expect(normalizaTelefone("(68) 3223-4455")).toBe("556832234455");
+    });
+
+    it("repassa número estrangeiro sem inventar DDI", () => {
+      expect(normalizaTelefone("+351 912 345 678")).toBe("351912345678");
+    });
+
+    it("cai para o WhatsApp do Instagram quando não há telefone", () => {
+      expect(normalizaTelefone(null, "5568999999999")).toBe("5568999999999");
+    });
+
+    it("devolve vazio quando não há telefone utilizável", () => {
+      expect(normalizaTelefone("", null, undefined)).toBe("");
+      expect(normalizaTelefone("sem numero")).toBe("");
+    });
+
+    it("gera a mesma chave para o mesmo número escrito de formas diferentes", () => {
+      expect(normalizaTelefone("(68) 99988-4999")).toBe(
+        normalizaTelefone("+55 68 99988 4999")
+      );
     });
   });
 });

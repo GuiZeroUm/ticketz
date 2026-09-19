@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   Chip,
+  CircularProgress,
   IconButton,
   Paper,
   TextField,
@@ -16,8 +17,7 @@ import FileCopyOutlinedIcon from "@material-ui/icons/FileCopyOutlined";
 import InstagramIcon from "@material-ui/icons/Instagram";
 import RoomOutlinedIcon from "@material-ui/icons/RoomOutlined";
 import ErrorOutlineIcon from "@material-ui/icons/ErrorOutline";
-
-import { linkWhatsapp, telefoneDoLead } from "../../helpers/prospeccao";
+import CheckCircleOutlineIcon from "@material-ui/icons/CheckCircleOutline";
 
 const useStyles = makeStyles(theme => ({
   card: {
@@ -52,6 +52,11 @@ const useStyles = makeStyles(theme => ({
   icone: {
     fontSize: "1rem"
   },
+  etiquetas: {
+    display: "flex",
+    alignItems: "center",
+    gap: theme.spacing(0.5)
+  },
   bio: {
     marginTop: theme.spacing(1),
     fontStyle: "italic",
@@ -82,14 +87,22 @@ const formataSeguidores = total => {
   return `${(total / 1000).toFixed(total < 10000 ? 1 : 0)}k seguidores`;
 };
 
-const CardLead = ({ lead, rascunho, onRascunhoChange, onCopiar }) => {
+const CardLead = ({
+  lead,
+  rascunho,
+  abrindo,
+  onRascunhoChange,
+  onAbrirConversa,
+  onCopiar
+}) => {
   const classes = useStyles();
 
-  const telefone = telefoneDoLead(lead);
   const seguidores = formataSeguidores(lead.instagramSeguidores);
-  const link = linkWhatsapp(telefone, rascunho);
   const pendente = lead.status === "pendente";
   const falhou = lead.status === "falhou";
+  const instagram = lead.instagramHandle
+    ? `https://instagram.com/${lead.instagramHandle}`
+    : "";
 
   return (
     <Paper className={classes.card} variant="outlined">
@@ -117,10 +130,20 @@ const CardLead = ({ lead, rascunho, onRascunhoChange, onCopiar }) => {
             )}
           </div>
         </div>
-        {pendente && <Chip size="small" label="Gerando rascunho..." />}
-        {lead.idiomaSugerido && !pendente && (
-          <Chip size="small" variant="outlined" label={lead.idiomaSugerido} />
-        )}
+        <div className={classes.etiquetas}>
+          {lead.contatado && (
+            <Chip
+              size="small"
+              color="primary"
+              icon={<CheckCircleOutlineIcon />}
+              label="Mensagem enviada"
+            />
+          )}
+          {pendente && <Chip size="small" label="Gerando rascunho..." />}
+          {lead.idiomaSugerido && !pendente && (
+            <Chip size="small" variant="outlined" label={lead.idiomaSugerido} />
+          )}
+        </div>
       </div>
 
       {lead.instagramBio && (
@@ -157,8 +180,8 @@ const CardLead = ({ lead, rascunho, onRascunhoChange, onCopiar }) => {
           <div className={classes.acoes}>
             <Tooltip
               title={
-                telefone
-                  ? ""
+                lead.temTelefone
+                  ? "Cria o contato e abre a conversa com o rascunho no campo de mensagem"
                   : "Esse lead não tem telefone nem WhatsApp no Instagram"
               }
             >
@@ -167,16 +190,33 @@ const CardLead = ({ lead, rascunho, onRascunhoChange, onCopiar }) => {
                 <Button
                   variant="contained"
                   color="primary"
-                  startIcon={<WhatsAppIcon />}
-                  disabled={!telefone}
-                  href={link || undefined}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  startIcon={
+                    abrindo ? (
+                      <CircularProgress size={16} color="inherit" />
+                    ) : (
+                      <WhatsAppIcon />
+                    )
+                  }
+                  disabled={!lead.temTelefone || abrindo}
+                  onClick={() => onAbrirConversa(lead)}
                 >
                   Abrir no WhatsApp
                 </Button>
               </span>
             </Tooltip>
+
+            {instagram && (
+              <Button
+                variant="outlined"
+                startIcon={<InstagramIcon />}
+                href={instagram}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Abrir Instagram
+              </Button>
+            )}
+
             <Tooltip title="Copiar rascunho">
               <span>
                 <IconButton
@@ -188,6 +228,7 @@ const CardLead = ({ lead, rascunho, onRascunhoChange, onCopiar }) => {
                 </IconButton>
               </span>
             </Tooltip>
+
             {lead.telefone && (
               <Box component="span" color="text.secondary" fontSize="0.8125rem">
                 {lead.telefone}
