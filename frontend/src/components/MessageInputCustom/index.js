@@ -55,6 +55,7 @@ import useQuickMessages from "../../hooks/useQuickMessages";
 
 import Compressor from "compressorjs";
 import LinearWithValueLabel from "./ProgressBarCustom";
+import useRascunhoDoTicket from "./useRascunhoDoTicket";
 import WhatsMarked from "react-whatsmarked";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSignature } from "@fortawesome/free-solid-svg-icons";
@@ -877,20 +878,7 @@ const MessageInputCustom = props => {
   const [currentPresence, setCurrentPresence] = useState(null);
   const [presenceTimeout, setPresenceTimeout] = useState(null);
 
-  useEffect(() => {
-    if (!inputMessage) {
-      sessionStorage.removeItem("messageDraft-" + ticketId);
-      return;
-    }
-    sessionStorage.setItem("messageDraft-" + ticketId, inputMessage);
-  }, [inputMessage]);
-
-  useEffect(() => {
-    const draftMessage = sessionStorage.getItem("messageDraft-" + ticketId);
-    if (draftMessage) {
-      setInputMessage(draftMessage);
-    }
-  }, [ticketId]);
+  useRascunhoDoTicket(ticketId, inputMessage, setInputMessage);
 
   useEffect(() => {
     const socket = socketManager.GetSocket();
