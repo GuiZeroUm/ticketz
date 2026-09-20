@@ -121,6 +121,45 @@ export const syncPushSubscription = async () => {
   }
 };
 
+/**
+ * Indica se ESTE dispositivo ja tem inscricao de push. Serve para o sistema
+ * nao exibir a notificacao local em cima da que vai chegar pelo push, o que
+ * faria o aparelho alertar duas vezes pela mesma mensagem.
+ */
+export const hasActivePushSubscription = async () => {
+  if (!isPushSupported() || getNotificationPermission() !== "granted") {
+    return false;
+  }
+  try {
+    const registration =
+      await navigator.serviceWorker.getRegistration(SERVICE_WORKER_PATH);
+    const subscription = await registration?.pushManager.getSubscription();
+    return Boolean(subscription);
+  } catch (err) {
+    return false;
+  }
+};
+
+/**
+ * Numero no icone do app. Com o sistema aberto quem manda na contagem e a
+ * tela, que conhece os tickets de verdade; o service worker so cuida disso
+ * enquanto o app esta fechado.
+ */
+export const updateAppBadge = async count => {
+  if (!("setAppBadge" in navigator)) {
+    return;
+  }
+  try {
+    if (count > 0) {
+      await navigator.setAppBadge(count);
+    } else {
+      await navigator.clearAppBadge();
+    }
+  } catch (err) {
+    // Badging indisponivel neste contexto: nada mais a fazer.
+  }
+};
+
 export const disablePushNotifications = async () => {
   if (!isPushSupported()) {
     return;

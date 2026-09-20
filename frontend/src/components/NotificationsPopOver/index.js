@@ -26,9 +26,11 @@ import {
   closeLocalNotification,
   enablePushNotifications,
   getNotificationPermission,
+  hasActivePushSubscription,
   isPushSupported,
   showLocalNotification,
-  syncPushSubscription
+  syncPushSubscription,
+  updateAppBadge
 } from "../../services/pushNotifications";
 
 const defaultLogoFavicon = "/branding/icon.png";
@@ -66,6 +68,9 @@ const NotificationsPopOver = props => {
   });
   const [play] = useSound(alertSound, { volume: props.volume });
   const soundAlertRef = useRef();
+  // Ref e nao state: o handler do socket e registrado uma vez por efeito e
+  // capturaria um valor velho se isso fosse state.
+  const pushActiveRef = useRef(false);
   const { getSetting } = useSettings();
 
   const socketManager = useContext(SocketContext);
@@ -112,13 +117,23 @@ const NotificationsPopOver = props => {
     // notificacao para PWA instalado na tela de inicio. Com a permissao ja
     // concedida, so refazemos a inscricao para este login.
     if (getNotificationPermission() === "granted") {
-      syncPushSubscription();
+      syncPushSubscription().then(() => {
+        hasActivePushSubscription().then(active => {
+          pushActiveRef.current = active;
+        });
+      });
     }
   }, []);
 
   useEffect(() => {
     setNotifications(tickets);
   }, [tickets]);
+
+  // Com o sistema aberto a contagem confiavel e a da tela, entao ela assume o
+  // numero do icone no lugar do que o service worker deixou.
+  useEffect(() => {
+    updateAppBadge(notifications.length);
+  }, [notifications.length]);
 
   useEffect(() => {
     ticketIdRef.current = ticketIdUrl;
@@ -230,15 +245,20 @@ const NotificationsPopOver = props => {
       ? "🪪"
       : message.body;
 
-    showLocalNotification(
-      `${i18n.t("tickets.notification.message")} ${contact.name}`,
-      {
-        body: `${format(new Date(), "HH:mm")}\n${body}`,
-        icon: contact.profilePicUrl,
-        tag: ticket.id,
-        url: `/tickets/${ticket.uuid}`
-      }
-    );
+    // Com push ativo neste dispositivo a mesma mensagem ja vai chegar pelo
+    // service worker. Exibir tambem a local faria o aparelho alertar duas
+    // vezes. O som continua tocando nos dois casos.
+    if (!pushActiveRef.current) {
+      showLocalNotification(
+        `${i18n.t("tickets.notification.message")} ${contact.name}`,
+        {
+          body: `${format(new Date(), "HH:mm")}\n${body}`,
+          icon: contact.profilePicUrl,
+          tag: ticket.id,
+          url: `/tickets/${ticket.uuid}`
+        }
+      );
+    }
 
     soundAlertRef.current();
   };
@@ -248,7 +268,9 @@ const NotificationsPopOver = props => {
     // notificacao, entao e daqui que sai o pedido de permissao. Sem gesto o
     // Safari ignora o requestPermission em silencio.
     if (isPushSupported() && getNotificationPermission() === "default") {
-      enablePushNotifications();
+      enablePushNotifications().then(result => {
+        pushActiveRef.current = Boolean(result?.ok);
+      });
     }
     setIsOpen(prevState => !prevState);
   };

@@ -5,6 +5,26 @@
 
 const DEFAULT_ICON = "/branding/icon.png";
 
+// O numero no icone do app sai da Badging API. Como as notificacoes usam o id
+// do ticket como tag, uma notificacao por ticket sobrevive na bandeja e a
+// contagem delas equivale aos atendimentos com mensagem nao lida - o mesmo
+// numero que o sino mostra dentro do sistema.
+const updateAppBadge = async () => {
+  if (!self.navigator || !("setAppBadge" in self.navigator)) {
+    return;
+  }
+  try {
+    const shown = await self.registration.getNotifications();
+    if (shown.length > 0) {
+      await self.navigator.setAppBadge(shown.length);
+    } else {
+      await self.navigator.clearAppBadge();
+    }
+  } catch (e) {
+    // Badging nao suportado ou negado: a notificacao em si nao pode falhar.
+  }
+};
+
 self.addEventListener("install", () => {
   // Assume o controle sem esperar as abas antigas fecharem, senao uma versao
   // nova do worker so passaria a valer no proximo dia de uso.
@@ -42,7 +62,12 @@ self.addEventListener("push", event => {
     options.renotify = true;
   }
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    (async () => {
+      await self.registration.showNotification(title, options);
+      await updateAppBadge();
+    })()
+  );
 });
 
 self.addEventListener("notificationclick", event => {
@@ -52,6 +77,8 @@ self.addEventListener("notificationclick", event => {
 
   event.waitUntil(
     (async () => {
+      await updateAppBadge();
+
       const clientList = await self.clients.matchAll({
         type: "window",
         includeUncontrolled: true

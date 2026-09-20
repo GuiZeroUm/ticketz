@@ -1,11 +1,12 @@
 import { Op } from "sequelize";
 import { isWebPushConfigured } from "../../config/webPush";
 import { GetCompanySetting } from "../../helpers/CheckSettings";
+import Contact from "../../models/Contact";
 import GroupQueue from "../../models/GroupQueue";
 import Message from "../../models/Message";
+import Ticket from "../../models/Ticket";
 import User from "../../models/User";
 import UserQueue from "../../models/UserQueue";
-import UserSocketSession from "../../models/UserSocketSession";
 import { logger } from "../../utils/logger";
 import SendPushNotificationService from "./SendPushNotificationService";
 
@@ -75,17 +76,42 @@ const resolveRecipients = async (message: Message): Promise<number[]> => {
   return listCompanyAdminIds(message.companyId);
 };
 
-// Quem está com o socket conectado já recebeu o alerta pelo websocket. Mandar
-// push para essas pessoas faria o aparelho tocar duas vezes pela mesma
-// mensagem. O ciclo de vida da sessão é confiável: o boot do servidor zera
-// todas, o connect cria e o disconnect desativa.
-const filterOfflineUserIds = async (userIds: number[]): Promise<number[]> => {
-  const sessions = await UserSocketSession.findAll({
-    where: { userId: { [Op.in]: userIds }, active: true },
-    attributes: ["userId"]
-  });
-  const onlineIds = new Set(sessions.map(session => session.userId));
-  return userIds.filter(userId => !onlineIds.has(userId));
+const formatPhoneNumber = (number: string): string => {
+  const digits = (number || "").replace(/\D/g, "");
+  if (digits.length === 13 && digits.startsWith("55")) {
+    return `(${digits.slice(2, 4)}) ${digits.slice(4, 9)}-${digits.slice(9)}`;
+  }
+  if (digits.length === 12 && digits.startsWith("55")) {
+    return `(${digits.slice(2, 4)}) ${digits.slice(4, 8)}-${digits.slice(8)}`;
+  }
+  return digits ? `+${digits}` : "";
+};
+
+// Contato que nunca definiu um pushname fica com o identificador do WhatsApp
+// (um LID de 15 dígitos) no lugar do nome. Mostrar o telefone formatado é bem
+// mais útil na notificação do que esse número interno.
+const resolveDisplayName = (contact: Contact): string => {
+  const name = contact?.name?.trim();
+  if (name && !/^\d+$/.test(name)) {
+    return name;
+  }
+  return formatPhoneNumber(contact?.number) || name || "Contato";
+};
+
+// Sem essa linha a notificação não diz se o atendimento já tem dono, que é a
+// informação que decide se alguém precisa agir agora.
+const resolveStatusLabel = (ticket: Ticket): string => {
+  if (ticket.status === "open") {
+    return ticket.user?.name
+      ? `Em atendimento · ${ticket.user.name}`
+      : "Em atendimento";
+  }
+  if (ticket.status === "pending") {
+    return ticket.queue?.name
+      ? `Aguardando · ${ticket.queue.name}`
+      : "Aguardando";
+  }
+  return ticket.queue?.name || "";
 };
 
 const buildBody = (message: Message): string => {
@@ -129,22 +155,25 @@ const NotifyNewMessageService = async (message: Message): Promise<void> => {
       }
     }
 
-    const recipientIds = await resolveRecipients(message);
-    if (!recipientIds.length) {
-      return;
-    }
-
-    const userIds = await filterOfflineUserIds(recipientIds);
+    // O push vai para todos os destinatários, inclusive quem está com o
+    // sistema aberto. Filtrar por sessão de socket ativa parecia evitar alerta
+    // duplicado, mas o iOS suspende o PWA sem disparar disconnect: a sessão
+    // ficava presa em active=true e bloqueava todo push seguinte. Quem está
+    // com o app aberto suprime a notificação local no próprio dispositivo.
+    const userIds = await resolveRecipients(message);
     if (!userIds.length) {
       return;
     }
+
+    const statusLabel = resolveStatusLabel(ticket);
+    const text = buildBody(message);
 
     await SendPushNotificationService({
       userIds,
       companyId: message.companyId,
       payload: {
-        title: `Mensagem de ${ticket.contact?.name || "contato"}`,
-        body: buildBody(message),
+        title: resolveDisplayName(ticket.contact),
+        body: statusLabel ? `${statusLabel}\n${text}` : text,
         icon: ticket.contact?.profilePicUrl || undefined,
         tag: String(ticket.id),
         url: `/tickets/${ticket.uuid}`

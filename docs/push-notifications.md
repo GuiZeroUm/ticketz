@@ -37,9 +37,30 @@ antes. O push cobre justamente quem está com o app fechado.
 
 Mensagem `fromMe` ou já lida não gera push.
 
-Destinatários com sessão de socket ativa (`UserSocketSessions.active`) são
-removidos da lista antes do envio: eles já receberam o alerta pelo websocket, e
-o push faria o aparelho tocar duas vezes pela mesma mensagem.
+O push vai para todos os destinatários, inclusive quem está com o sistema
+aberto em outro aparelho. Uma primeira versão filtrava quem tinha sessão de
+socket ativa para evitar alerta duplicado, mas o iOS suspende o PWA sem
+disparar `disconnect`: a sessão ficava presa em `active = true` e bloqueava
+todo push seguinte daquele usuário. A duplicata é resolvida no cliente — um
+dispositivo com inscrição de push não exibe a notificação local, porque a
+mesma mensagem já vai chegar pelo service worker.
+
+## Conteúdo da notificação
+
+- **Título**: nome do contato. Contato sem pushname fica gravado com o
+  identificador do WhatsApp (um LID de 15 dígitos); nesse caso o título mostra
+  o telefone formatado, que é bem mais legível.
+- **Corpo**: primeira linha com a situação do atendimento (`Aguardando · Fila`
+  ou `Em atendimento · Responsável`), segunda linha com a mensagem.
+- **Tag**: id do ticket, então mensagens seguidas do mesmo contato substituem a
+  notificação anterior em vez de empilhar uma por mensagem.
+
+## Número no ícone do app
+
+Usa a Badging API. Com o app fechado, o service worker conta as notificações
+na bandeja — como a tag é o id do ticket, esse número equivale aos
+atendimentos com mensagem não lida. Com o app aberto, o
+`NotificationsPopOver` assume e grava a contagem real da tela.
 
 ## Configuração
 
