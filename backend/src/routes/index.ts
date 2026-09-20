@@ -47,6 +47,7 @@ import voiceRoutes from "./voiceRoutes";
 import whatsappGroupRoutes from "./whatsappGroupRoutes";
 import billingAdminRoutes from "./billingAdminRoutes";
 import prospeccaoRoutes from "./prospeccaoRoutes";
+import pushRoutes from "./pushRoutes";
 
 const routes = Router();
 
@@ -91,6 +92,7 @@ routes.use(chatRoutes);
 routes.use(subscriptionRoutes);
 routes.use(invoiceRoutes);
 routes.use(ticketTagRoutes);
+routes.use(pushRoutes);
 routes.use(pwaRoutes);
 routes.use(versionRoutes);
 routes.use(ticketzOSSRoutes);

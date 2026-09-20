@@ -152,6 +152,11 @@ services:
       MCP_PUBLIC_KEY: ${MCP_PUBLIC_KEY}
       MCP_CURSOR_SECRET: ${MCP_CURSOR_SECRET}
       MCP_KEY_ID: ${MCP_KEY_ID:-espaco-whats-mcp-1}
+      # Web Push (notificacao com o app fechado). Sem o par VAPID o recurso
+      # fica desligado e o sistema segue notificando so com o app aberto.
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
       WACALLS_INTERNAL_URL: http://wacalls:8080
       WACALLS_INTERNAL_TOKEN: ${WACALLS_INTERNAL_TOKEN:-}
       WACALLS_INTERNAL_TOKEN_FILE: /run/secrets/wacalls_internal_token

@@ -9,6 +9,7 @@ import { logger } from "../../utils/logger";
 import GroupQueue from "../../models/GroupQueue";
 import { incrementGroupUnread } from "../WhatsappGroupServices/GroupUnreadService";
 import { emitContact } from "../ContactServices/CreateOrUpdateContactService";
+import NotifyNewMessageService from "../PushNotificationServices/NotifyNewMessageService";
 
 interface MessageData {
   id: string;
@@ -54,15 +55,18 @@ export const websocketCreateMessage = async (message: Message) => {
       recipients = recipients.to(`queue-${item.queueId}-notification`);
     });
     recipients.emit(`company-${message.companyId}-appMessage`, payload);
-    return;
+  } else {
+    io.to(message.ticketId.toString())
+      .to(`company-${message.companyId}-${message.ticket.status}`)
+      .to(`company-${message.companyId}-notification`)
+      .to(`queue-${message.ticket.queueId}-${message.ticket.status}`)
+      .to(`queue-${message.ticket.queueId}-notification`)
+      .emit(`company-${message.companyId}-appMessage`, payload);
   }
 
-  io.to(message.ticketId.toString())
-    .to(`company-${message.companyId}-${message.ticket.status}`)
-    .to(`company-${message.companyId}-notification`)
-    .to(`queue-${message.ticket.queueId}-${message.ticket.status}`)
-    .to(`queue-${message.ticket.queueId}-notification`)
-    .emit(`company-${message.companyId}-appMessage`, payload);
+  // O push vai depois do emit: quem está com o app aberto já foi notificado
+  // pelo websocket, e o push atende justamente quem está com o app fechado.
+  await NotifyNewMessageService(message);
 };
 
 const CreateMessageService = async ({

@@ -95,6 +95,11 @@ services:
       MCP_PUBLIC_KEY: ${ACNORTE_MCP_PUBLIC_KEY}
       MCP_CURSOR_SECRET: ${ACNORTE_MCP_CURSOR_SECRET}
       MCP_KEY_ID: ${ACNORTE_MCP_KEY_ID:-acnorte-mcp-1}
+      # Web Push (notificacao com o app fechado). Sem o par VAPID o recurso
+      # fica desligado e o sistema segue notificando so com o app aberto.
+      VAPID_PUBLIC_KEY: ${ACNORTE_VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${ACNORTE_VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${ACNORTE_VAPID_SUBJECT:-}
       WACALLS_ENABLED: "false"
       WACALLS_ALLOWED_COMPANY_IDS: ""
     volumes:

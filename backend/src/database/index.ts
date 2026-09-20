@@ -65,6 +65,7 @@ import VoiceConnection from "../models/VoiceConnection";
 import VoiceCall from "../models/VoiceCall";
 import GroupQueue from "../models/GroupQueue";
 import GroupReadState from "../models/GroupReadState";
+import PushSubscription from "../models/PushSubscription";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const dbConfig = require("../config/database");
@@ -137,7 +138,8 @@ const models = [
   VoiceCall,
   GroupQueue,
   GroupReadState,
-  ProspeccaoLead
+  ProspeccaoLead,
+  PushSubscription
 ];
 
 sequelize.addModels(models);
