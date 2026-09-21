@@ -4,6 +4,7 @@ import Ticket from "../../models/Ticket";
 import Whatsapp from "../../models/Whatsapp";
 import { Session } from "../../libs/wbot";
 import { postMetaText } from "./SendMetaTextMessageService";
+import { postMetaInteractiveMenu } from "./SendMetaInteractiveMessageService";
 
 // Saudacao, fora de horario, menu de fila, chatbot e avaliacao vivem no
 // wbotMessageListener e usam o wbot so para enviar texto - nenhuma delas chama
@@ -31,6 +32,24 @@ export const buildMetaWbot = (connection: Whatsapp): Session => {
 
       return {
         key: { id: wamid, fromMe: true, remoteJid: jid },
+        message: { conversation: body },
+        status: 1,
+        messageTimestamp: Math.floor(Date.now() / 1000)
+      };
+    },
+    sendMenuMessage: async (jid, body, options) => {
+      const to = jid.replace(/\D/g, "");
+      const wamid = await postMetaInteractiveMenu(
+        connection,
+        to,
+        body,
+        options
+      );
+
+      return {
+        key: { id: wamid, fromMe: true, remoteJid: jid },
+        // O historico interno registra o texto introdutorio; os botoes ficam
+        // no payload da Meta e a resposta recebida guarda o titulo escolhido.
         message: { conversation: body },
         status: 1,
         messageTimestamp: Math.floor(Date.now() / 1000)

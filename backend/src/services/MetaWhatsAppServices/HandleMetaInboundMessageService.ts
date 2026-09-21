@@ -1,5 +1,4 @@
 import mime from "mime-types";
-import Message from "../../models/Message";
 import Whatsapp from "../../models/Whatsapp";
 import CreateOrUpdateContactService from "../ContactServices/CreateOrUpdateContactService";
 import FindOrCreateTicketServiceMeta from "../TicketServices/FindOrCreateTicketServiceMeta";
@@ -47,16 +46,37 @@ interface MetaInboundMessage {
     phones?: { phone?: string }[];
   }[];
   reaction?: { message_id?: string; emoji?: string };
-  button?: { text?: string };
+  button?: { text?: string; payload?: string };
   interactive?: {
-    button_reply?: { title?: string };
-    list_reply?: { title?: string };
+    button_reply?: { id?: string; title?: string };
+    list_reply?: { id?: string; title?: string };
   };
   order?: { product_items?: unknown[] };
   errors?: { title?: string; message?: string }[];
 }
 
 const MEDIA_TYPES = ["image", "audio", "video", "document", "sticker"];
+
+// O atendente ve o titulo escolhido, mas o motor do fluxo precisa do id
+// estavel enviado no botao/lista ("1", "2", "#"...). Usar o titulo para os
+// dois fins fazia a escolha nativa nunca casar com QueueOption.option.
+const flowInput = (message: MetaInboundMessage): string => {
+  if (message.type === "button") {
+    return message.button?.payload || message.button?.text || "";
+  }
+
+  if (message.type === "interactive") {
+    return (
+      message.interactive?.button_reply?.id ||
+      message.interactive?.list_reply?.id ||
+      message.interactive?.button_reply?.title ||
+      message.interactive?.list_reply?.title ||
+      ""
+    );
+  }
+
+  return describe(message);
+};
 
 // Tudo que nao e midia vira texto legivel. O que nao existe aqui some da tela
 // sem deixar rastro, e o atendente nem fica sabendo que chegou algo - por isso
@@ -144,7 +164,7 @@ const HandleMetaInboundMessageService = async (
     return;
   }
 
-  const ticket = await FindOrCreateTicketServiceMeta(
+  const { ticket, justCreated } = await FindOrCreateTicketServiceMeta(
     contact,
     whatsapp.id,
     1,
@@ -187,6 +207,11 @@ const HandleMetaInboundMessageService = async (
     wamid: message.id,
     source: "meta-cloud-api"
   };
+
+  const selectionId = flowInput(message);
+  if (selectionId && selectionId !== body) {
+    dataJson.interactiveSelectionId = selectionId;
+  }
 
   if (media) {
     dataJson.mimetype = media.mimetype;
@@ -239,17 +264,12 @@ const HandleMetaInboundMessageService = async (
     ...(ticket.status === "closed" ? { status: "pending" } : {})
   });
 
-  // Conversa nova = a mensagem que acabamos de gravar e a unica do ticket. E o
-  // que decide se a saudacao deve sair, sem precisar que a fabrica de ticket
-  // devolva um justCreated.
-  const total = await Message.count({ where: { ticketId: ticket.id } });
-
   await HandleMetaInboundFlowService({
     connection: whatsapp,
     ticket,
     contact,
-    body,
-    justCreated: total <= 1
+    body: selectionId,
+    justCreated
   });
 };
 

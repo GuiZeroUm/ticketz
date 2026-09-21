@@ -170,6 +170,8 @@ const HandleMetaInboundFlowService = async ({
     }
   }
 
+  const hadQueueBeforeThisMessage = !!ticket.queueId;
+
   if (!ticket.queue && !ticket.userId && whatsapp.queues?.length >= 1) {
     await verifyQueue(wbot, msg, ticket, contact);
   }
@@ -191,7 +193,10 @@ const HandleMetaInboundFlowService = async ({
   }
 
   if (ticket.queue && ticket.chatbot) {
-    await handleChartbot(ticket, msg, wbot, ticket.queue === null);
+    // Se esta mesma resposta acabou de escolher a fila, ela nao pode ser
+    // reaproveitada como resposta do primeiro nivel dentro da fila. Antes o
+    // numero "1" podia escolher a fila e imediatamente atravessar outro bloco.
+    await handleChartbot(ticket, msg, wbot, !hadQueueBeforeThisMessage);
   }
 };
 

@@ -1164,6 +1164,45 @@ const sendMenu = async (
       ? (currentOption as Queue).greetingMessage
       : (currentOption as QueueOption).message;
 
+  const formattedMessage = formatBody(
+    message?.trim() || "Selecione uma opção:",
+    ticket
+  );
+
+  const nativeOptions = currentOption.options.map(option => ({
+    id: String(option.option),
+    title: option.title
+  }));
+
+  // A Cloud API suporta no maximo 10 itens. O retorno ao menu principal entra
+  // como opcao selecionavel quando ha espaco; com 10 itens, o menu continua
+  // nativo e o atalho # permanece aceito pelo motor do fluxo.
+  if (sendBackToMain && nativeOptions.length < 10) {
+    nativeOptions.push({
+      id: "#",
+      title: _t("Back to Main Menu", ticket)
+    });
+  }
+
+  if (wbot.sendMenuMessage && nativeOptions.length <= 10) {
+    try {
+      const sendMsg = await wbot.sendMenuMessage(
+        getJidOf(ticket),
+        formattedMessage,
+        nativeOptions
+      );
+      await verifyMessage(sendMsg, ticket, ticket.contact);
+      return;
+    } catch (error) {
+      // O chatbot nao pode desaparecer se a Graph API rejeitar um payload
+      // interativo. Mantemos o menu textual como degradacao segura.
+      logger.warn(
+        { error, ticketId: ticket.id },
+        "Could not send native chatbot menu; falling back to text"
+      );
+    }
+  }
+
   const botText = async () => {
     const showNumericIcons =
       currentOption.options.length <= 10 &&
@@ -1189,9 +1228,7 @@ const sendMenu = async (
       )}`;
     }
 
-    const textMessage = {
-      text: formatBody(`${message}\n\n${options}`, ticket)
-    };
+    const textMessage = { text: `${formattedMessage}\n\n${options}` };
 
     const sendMsg = await wbot.sendMessage(getJidOf(ticket), textMessage);
 
@@ -1360,6 +1397,28 @@ export const verifyQueue = async (
   const choosenQueue = selectedOption ? queues[+selectedOption - 1] : null;
 
   const botText = async () => {
+    const nativeOptions = queues.map((queue, index) => ({
+      id: String(index + 1),
+      title: queue.name
+    }));
+
+    if (wbot.sendMenuMessage && nativeOptions.length <= 10) {
+      try {
+        const sendMsg = await wbot.sendMenuMessage(
+          getJidOf(ticket),
+          formatBody(greetingMessage?.trim() || "Selecione um setor:", ticket),
+          nativeOptions
+        );
+        await verifyMessage(sendMsg, ticket, ticket.contact);
+        return;
+      } catch (error) {
+        logger.warn(
+          { error, ticketId: ticket.id },
+          "Could not send native queue menu; falling back to text"
+        );
+      }
+    }
+
     let options = "";
 
     queues.forEach((queue, index) => {

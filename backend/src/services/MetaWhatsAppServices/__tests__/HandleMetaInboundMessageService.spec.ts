@@ -5,6 +5,7 @@ import FindOrCreateTicketServiceMeta from "../../TicketServices/FindOrCreateTick
 import CreateMessageService from "../../MessageServices/CreateMessageService";
 import DownloadMetaMediaService from "../DownloadMetaMediaService";
 import saveMediaToFile from "../../../helpers/saveMediaFile";
+import HandleMetaInboundFlowService from "../HandleMetaInboundFlowService";
 
 jest.mock("../../ContactServices/CreateOrUpdateContactService", () =>
   jest.fn()
@@ -20,16 +21,13 @@ jest.mock("../HandleMetaInboundFlowService", () => ({
   default: jest.fn(),
   captureMetaRating: jest.fn().mockResolvedValue(false)
 }));
-jest.mock("../../../models/Message", () => ({
-  __esModule: true,
-  default: { count: jest.fn().mockResolvedValue(1) }
-}));
 
 const createContact = CreateOrUpdateContactService as jest.Mock;
 const findTicket = FindOrCreateTicketServiceMeta as jest.Mock;
 const createMessage = CreateMessageService as jest.Mock;
 const downloadMedia = DownloadMetaMediaService as jest.Mock;
 const saveMedia = saveMediaToFile as jest.Mock;
+const handleFlow = HandleMetaInboundFlowService as jest.Mock;
 
 const whatsapp = { id: 16, companyId: 9 } as Whatsapp;
 const ticket = { id: 55, status: "open", update: jest.fn() };
@@ -53,7 +51,7 @@ describe("HandleMetaInboundMessageService", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     createContact.mockResolvedValue({ id: 42 });
-    findTicket.mockResolvedValue(ticket);
+    findTicket.mockResolvedValue({ ticket, justCreated: true });
     downloadMedia.mockResolvedValue({
       content: Buffer.from("x"),
       mimetype: "audio/ogg"
@@ -116,6 +114,24 @@ describe("HandleMetaInboundMessageService", () => {
     await inbound({ type, ...payload });
 
     expect(savedMessage().body).toBe(expected);
+  });
+
+  it("exibe o titulo escolhido e entrega o id do botao ao fluxo", async () => {
+    await inbound({
+      type: "interactive",
+      interactive: {
+        list_reply: { id: "3", title: "BOLETOS" }
+      }
+    });
+
+    expect(savedMessage().body).toBe("BOLETOS");
+    expect(handleFlow).toHaveBeenCalledWith(
+      expect.objectContaining({ body: "3", justCreated: true })
+    );
+    expect(
+      JSON.parse(createMessage.mock.calls[0][0].messageData.dataJson)
+        .interactiveSelectionId
+    ).toBe("3");
   });
 
   it("nunca descarta um tipo desconhecido em silencio", async () => {
