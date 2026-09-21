@@ -9,6 +9,9 @@ interface Request {
   name: string;
   parameters: string[];
   document?: { id: string; filename: string };
+  // A cobranca so cria template em pt_BR, mas a WABA pode ter templates em
+  // outros idiomas e a Meta casa nome + idioma.
+  language?: string;
 }
 
 // Envia uma mensagem de template aprovado. E o unico caminho possivel para
@@ -19,7 +22,8 @@ const SendMetaTemplateMessageService = async ({
   to,
   name,
   parameters,
-  document
+  document,
+  language
 }: Request): Promise<string> => {
   if (!whatsapp.metaPhoneNumberId || !whatsapp.metaAccessToken) {
     throw new AppError("ERR_META_CONNECTION_NOT_CONFIGURED");
@@ -49,7 +53,7 @@ const SendMetaTemplateMessageService = async ({
       type: "template",
       template: {
         name,
-        language: { code: TEMPLATE_LANGUAGE },
+        language: { code: language || TEMPLATE_LANGUAGE },
         ...(components.length ? { components } : {})
       }
     },

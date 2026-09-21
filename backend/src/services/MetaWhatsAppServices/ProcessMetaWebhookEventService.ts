@@ -66,6 +66,27 @@ const ProcessMetaWebhookEventService = async (payload: any): Promise<void> => {
 
       for (const status of value?.statuses || []) {
         const ack = STATUS_TO_ACK[status.status];
+
+        // A Meta so conta o motivo real da falha aqui (131047 = fora da
+        // janela de 24h, 132xxx = problema no template). Descartar
+        // `status.errors` deixava o atendente sem nenhuma pista de por que a
+        // mensagem nao chegou.
+        if (status.errors?.length) {
+          logger.warn(
+            {
+              wamid: status.id,
+              recipient: status.recipient_id,
+              whatsappId: whatsapp.id,
+              graphErrors: status.errors.map((error: any) => ({
+                code: error.code,
+                title: error.title,
+                details: error.error_data?.details
+              }))
+            },
+            "Meta reported a delivery failure"
+          );
+        }
+
         if (ack === undefined) continue;
         try {
           // Escopado pela empresa da conexao: a busca so pelo wamid alcancava

@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useContext, useRef } from "react";
+import React, {
+  useCallback,
+  useState,
+  useEffect,
+  useContext,
+  useRef
+} from "react";
 import withWidth, { isWidthUp } from "@material-ui/core/withWidth";
 import "emoji-mart/css/emoji-mart.css";
 import { Picker } from "emoji-mart";
@@ -42,6 +48,8 @@ import Autocomplete from "@material-ui/lab/Autocomplete";
 import { isString, isEmpty, isObject, has } from "lodash";
 
 import { i18n } from "../../translate/i18n";
+import TemplateMessageModal from "../TemplateMessageModal";
+import { isOfficialApiConnection } from "../../helpers/officialApiRestriction";
 import api from "../../services/api";
 import RecordingTimer from "./RecordingTimer";
 import { ReplyMessageContext } from "../../context/ReplyingMessage/ReplyingMessageContext";
@@ -68,6 +76,22 @@ const useStyles = makeStyles(theme => ({
     flexDirection: "column",
     alignItems: "center",
     borderTop: `1px solid ${theme.palette.divider}`
+  },
+
+  serviceWindowBar: {
+    width: "calc(100% - 24px)",
+    margin: "12px 12px 0 12px",
+    padding: theme.spacing(1, 1.5),
+    borderRadius: 8,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: theme.spacing(1),
+    backgroundColor: theme.palette.action.hover
+  },
+
+  serviceWindowText: {
+    flex: 1
   },
 
   newMessageBox: {
@@ -862,6 +886,63 @@ const MessageInputCustom = props => {
   const [currentPresence, setCurrentPresence] = useState(null);
   const [presenceTimeout, setPresenceTimeout] = useState(null);
 
+  // Conexao oficial da Meta: texto livre so vale nas 24h seguintes a ultima
+  // mensagem do cliente. Fora disso o unico envio aceito e um template
+  // aprovado, entao a barra precisa saber em que lado da janela esta.
+  const isOfficial = isOfficialApiConnection(ticket?.whatsapp);
+  const [serviceWindow, setServiceWindow] = useState(null);
+  const [templates, setTemplates] = useState([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
+
+  const loadServiceWindow = useCallback(async () => {
+    if (!isOfficial || !ticketId) return;
+
+    setLoadingTemplates(true);
+    try {
+      const { data } = await api.get(`/tickets/${ticketId}/templates`);
+      setServiceWindow(data.window);
+      setTemplates(data.templates || []);
+    } catch (err) {
+      // A tela do atendimento nao pode quebrar porque a Graph API respondeu
+      // mal; sem resposta, o envio segue liberado e o backend barra se
+      // precisar.
+      setServiceWindow(null);
+      setTemplates([]);
+    } finally {
+      setLoadingTemplates(false);
+    }
+  }, [isOfficial, ticketId]);
+
+  useEffect(() => {
+    loadServiceWindow();
+  }, [loadServiceWindow]);
+
+  // Mensagem recebida reabre a janela na hora; sem isso o atendente ficava
+  // bloqueado ate recarregar a pagina.
+  useEffect(() => {
+    if (!isOfficial || !ticketId) return undefined;
+
+    const companyId = localStorage.getItem("companyId");
+    const appMessageSocket = socketManager.GetSocket(companyId);
+
+    const onAppMessage = data => {
+      if (
+        data.action === "create" &&
+        !data.message?.fromMe &&
+        Number(data.message?.ticketId) === Number(ticketId)
+      ) {
+        loadServiceWindow();
+      }
+    };
+
+    appMessageSocket.on(`company-${companyId}-appMessage`, onAppMessage);
+
+    return () => {
+      appMessageSocket.off(`company-${companyId}-appMessage`, onAppMessage);
+    };
+  }, [isOfficial, ticketId, socketManager, loadServiceWindow]);
+
   useEffect(() => {
     if (!inputMessage) {
       sessionStorage.removeItem("messageDraft-" + ticketId);
@@ -1126,12 +1207,19 @@ const MessageInputCustom = props => {
   };
 
   const isGroup = showTabGroups && ticket.isGroup;
+  // Janela fechada: a Meta recusa texto livre e midia (131047). Bloquear aqui
+  // evita a mensagem que "sumia" sem o atendente entender o motivo.
+  const windowClosed =
+    isOfficial && !isGroup && !!serviceWindow && !serviceWindow.open;
   const disableOption =
-    (!isGroup && loading) || recording || ticketStatus === "closed";
+    (!isGroup && loading) ||
+    recording ||
+    ticketStatus === "closed" ||
+    windowClosed;
   // Gravar bloqueia o resto da barra, mas nao pode bloquear os botoes da
   // propria gravacao: cancelar e enviar sao a unica saida do modo gravacao.
   const disableActionButtons =
-    (!isGroup && loading) || ticketStatus === "closed";
+    (!isGroup && loading) || ticketStatus === "closed" || windowClosed;
 
   const renderReplyingMessage = message => {
     return (
@@ -1217,6 +1305,29 @@ const MessageInputCustom = props => {
       <Paper square elevation={0} className={classes.mainWrapper}>
         {(replyingMessage && renderReplyingMessage(replyingMessage)) ||
           (editingMessage && renderReplyingMessage(editingMessage))}
+        {windowClosed && ticketStatus !== "closed" && (
+          <div className={classes.serviceWindowBar}>
+            <Typography variant="body2" className={classes.serviceWindowText}>
+              {i18n.t("messagesInput.serviceWindowClosed")}
+            </Typography>
+            <Button
+              size="small"
+              color="primary"
+              variant="contained"
+              onClick={() => setTemplateModalOpen(true)}
+            >
+              {i18n.t("messagesInput.sendTemplate")}
+            </Button>
+          </div>
+        )}
+        <TemplateMessageModal
+          open={templateModalOpen}
+          onClose={() => setTemplateModalOpen(false)}
+          ticketId={ticketId}
+          templates={templates}
+          loading={loadingTemplates}
+          onSent={loadServiceWindow}
+        />
         <div className={`${classes.newMessageBox} conversa-caixa-mensagem`}>
           {isMobile() || (
             <EmojiOptions

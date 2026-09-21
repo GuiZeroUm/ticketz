@@ -16,6 +16,7 @@ export interface MetaTemplate {
   name: string;
   status: string;
   language: string;
+  category?: string;
   components?: {
     type: string;
     format?: string;
@@ -47,7 +48,7 @@ export const listMetaTemplates = async (
       ...withAuth(whatsapp.metaAccessToken),
       params: {
         limit: 200,
-        fields: "id,name,status,language,components,rejected_reason"
+        fields: "id,name,status,language,category,components,rejected_reason"
       }
     }
   );

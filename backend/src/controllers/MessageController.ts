@@ -30,6 +30,8 @@ import ShowContactService from "../services/ContactServices/ShowContactService";
 import { verifyContact } from "../services/WbotServices/verifyContact";
 import SendMetaReactionService from "../services/MetaWhatsAppServices/SendMetaReactionService";
 import AssertTicketAccessService from "../services/TicketServices/AssertTicketAccessService";
+import GetTicketServiceWindowService from "../services/TicketServices/TicketServiceWindowService";
+import SendTicketTemplateService from "../services/MetaWhatsAppServices/SendTicketTemplateService";
 
 type IndexQuery = {
   nextId?: string;
@@ -167,6 +169,20 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     await AssertTicketAccessService(ticket, req.user);
   }
   const { channel } = ticket;
+
+  // Falha cedo e com o motivo certo: fora da janela de 24h a Cloud API recusa
+  // texto livre (131047) e a mensagem sumia sem explicacao para o atendente.
+  if (
+    channel === "whatsapp" &&
+    !ticket.isGroup &&
+    ticket.whatsapp?.apiMode === "official"
+  ) {
+    const window = await GetTicketServiceWindowService(ticket);
+    if (!window.open) {
+      throw new AppError("ERR_META_WINDOW_CLOSED", 403);
+    }
+  }
+
   if (channel === "whatsapp") {
     await SetTicketMessagesAsRead(ticket);
     if (!ticket.isGroup && ticket.whatsapp?.apiMode !== "official") {
@@ -194,6 +210,36 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   } else if (channel === "whatsapp") {
     await SendWhatsAppMessage({ body, ticket, userId, quotedMsg });
   }
+
+  return res.send();
+};
+
+// Unico caminho aceito pela Meta para iniciar conversa ou reengajar fora da
+// janela de 24h.
+export const storeTemplate = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { ticketId } = req.params;
+  const { name, language, parameters } = req.body;
+  const { companyId } = req.user;
+  const userId = Number(req.user.id) || null;
+
+  const ticket = await ShowTicketService(ticketId, companyId);
+
+  if (ticket.isGroup) {
+    throw new AppError("ERR_META_TEMPLATE_ON_GROUP", 400);
+  }
+
+  await AssertTicketAccessService(ticket, req.user);
+
+  await SendTicketTemplateService({
+    ticket,
+    name,
+    language,
+    parameters: Array.isArray(parameters) ? parameters : [],
+    userId
+  });
 
   return res.send();
 };

@@ -1,4 +1,8 @@
-import { getMetaGraphApiClient, withAuth } from "./MetaGraphApiClient";
+import {
+  getMetaGraphApiClient,
+  MetaGraphApiError,
+  withAuth
+} from "./MetaGraphApiClient";
 import AppError from "../../errors/AppError";
 import Whatsapp from "../../models/Whatsapp";
 import Ticket from "../../models/Ticket";
@@ -90,6 +94,13 @@ const SendMetaTextMessageService = async ({
     return sentMessage;
   } catch (err) {
     logger.error({ err, ticketId: ticket.id }, "Failed to send Meta message");
+
+    // 131047: passaram mais de 24h desde a ultima mensagem do cliente. O erro
+    // generico nao dizia ao atendente que ele precisa usar um template.
+    if (err instanceof MetaGraphApiError && err.graphCode === 131047) {
+      throw new AppError("ERR_META_WINDOW_CLOSED", 403);
+    }
+
     throw new AppError("ERR_SENDING_WAPP_MSG");
   }
 };

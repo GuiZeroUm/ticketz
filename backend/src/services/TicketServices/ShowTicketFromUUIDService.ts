@@ -42,7 +42,10 @@ const ShowTicketUUIDService = async (uuid: string): Promise<Ticket> => {
       {
         model: Whatsapp,
         as: "whatsapp",
-        attributes: ["id", "name"],
+        // `apiMode` e `channel` faltavam aqui, entao
+        // isOfficialApiConnection(ticket.whatsapp) era sempre falso na tela do
+        // atendimento e nenhuma restricao de modo oficial chegava a valer.
+        attributes: ["id", "name", "channel", "apiMode"],
         include: ["wavoip"]
       },
       {

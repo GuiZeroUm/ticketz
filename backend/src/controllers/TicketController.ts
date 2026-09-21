@@ -15,6 +15,9 @@ import { assertGroupAccess } from "../services/WhatsappGroupServices/GroupAccess
 import AppError from "../errors/AppError";
 import { unassignedTicketRoom } from "../helpers/TicketSocketRooms";
 import AssertTicketAccessService from "../services/TicketServices/AssertTicketAccessService";
+import GetTicketServiceWindowService from "../services/TicketServices/TicketServiceWindowService";
+import ListTicketTemplatesService from "../services/MetaWhatsAppServices/ListTicketTemplatesService";
+import Whatsapp from "../models/Whatsapp";
 import ShowUserService from "../services/UserServices/ShowUserService";
 
 type IndexQuery = {
@@ -292,6 +295,41 @@ export const transferOptions = async (
   });
 
   return res.status(200).json(options);
+};
+
+// A tela do atendimento precisa saber, numa chamada so, se ainda da pra mandar
+// texto livre e, se nao der, quais templates estao aprovados para reabrir a
+// conversa.
+export const templates = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { ticketId } = req.params;
+  const { companyId } = req.user;
+
+  const ticket = await ShowTicketService(ticketId, companyId);
+
+  if (ticket.isGroup) {
+    await assertGroupAccess(ticketId, req.user);
+  } else {
+    await AssertTicketAccessService(ticket, req.user);
+  }
+
+  const window = await GetTicketServiceWindowService(ticket);
+  const connection = await Whatsapp.findByPk(ticket.whatsappId);
+  const official = connection?.apiMode === "official";
+
+  // A lista so importa quando a janela fechou; buscar sempre gastaria uma
+  // chamada a Graph API a cada atendimento aberto, sem serventia nenhuma.
+  const needsTemplates = official && !window.open;
+
+  return res.status(200).json({
+    official,
+    window,
+    templates: needsTemplates
+      ? await ListTicketTemplatesService(connection)
+      : []
+  });
 };
 
 export const remove = async (

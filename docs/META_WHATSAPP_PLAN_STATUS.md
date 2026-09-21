@@ -126,6 +126,43 @@ contatos do telefone, CheckNumber/GetProfilePicUrl/editar-apagar mensagem
 enviada. Mesmo padrão já usado em Conexões (disabled + Tooltip). Vale criar
 um hook único (`useOfficialApiRestriction`) pra não duplicar em cada tela.
 
+## Janela de 24h e templates no Atendimento — feita
+
+A Cloud API só aceita texto livre nas 24h seguintes à última mensagem **do
+cliente**. Fora dessa janela (inclusive no primeiro contato), o único envio que
+chega é um template aprovado pela Meta. Antes disso existir, a mensagem saía
+como `type: "text"`, a Meta recusava com `131047` e o atendente não tinha como
+saber que ela não chegou.
+
+Backend:
+
+- `TicketServices/TicketServiceWindowService.ts` — última `Message` do ticket
+  com `fromMe: false`; devolve `{ open, lastInboundAt, expiresAt }`. Sem
+  migration: o dado já está em `Messages`.
+- `MetaWhatsAppServices/ListTicketTemplatesService.ts` — templates `APPROVED`
+  da WABA, com cache de 5 min (sem ele, cada atendimento aberto viraria uma
+  chamada à Graph API). Templates com header de mídia ficam de fora: exigem
+  handle de upload, que é o fluxo da cobrança.
+- `MetaWhatsAppServices/SendTicketTemplateService.ts` — valida, envia via
+  `SendMetaTemplateMessageService` e persiste a mensagem já com as variáveis
+  aplicadas, pro chat mostrar o que o cliente recebeu.
+- `GET /tickets/:ticketId/templates` → `{ official, window, templates }`.
+- `POST /messages/:ticketId/template` → `{ name, language, parameters }`.
+- `MessageController.store` recusa texto/mídia com `ERR_META_WINDOW_CLOSED`
+  (403) antes de chamar a Graph API; `SendMetaTextMessageService` mapeia o
+  `131047` pro mesmo código.
+- `ProcessMetaWebhookEventService` passou a logar `status.errors[]`, que é por
+  onde a falha de entrega chega de forma assíncrona.
+
+Frontend: `TemplateMessageModal` + barra de aviso no `MessageInputCustom`, que
+desabilita input/anexo/áudio enquanto a janela estiver fechada e reabre sozinha
+quando chega mensagem do cliente.
+
+**Pré-requisito operacional:** só aparecem templates aprovados na WABA. Um
+template genérico de primeiro contato precisa ser criado e aprovado no
+Gerenciador de Negócios da Meta — os `cobranca_*` que existem hoje foram
+criados pelo módulo de cobrança e têm placeholders próprios.
+
 ## Checklist manual pra ativar a acnorte (fora do código)
 
 1. Criar App no Meta for Developers (Business → produto WhatsApp + Facebook

@@ -40,6 +40,13 @@ messageRoutes.post(
 );
 
 messageRoutes.post(
+  "/messages/:ticketId/template",
+  isAuth,
+  isCompliant,
+  MessageController.storeTemplate
+);
+
+messageRoutes.post(
   "/messages/edit/:messageId",
   isAuth,
   isCompliant,
