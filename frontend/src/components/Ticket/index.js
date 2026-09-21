@@ -26,6 +26,7 @@ import { AuthContext } from "../../context/Auth/AuthContext";
 
 import { SocketContext } from "../../context/Socket/SocketContext";
 import useSettings from "../../hooks/useSettings";
+import { shouldShowGroupsTab } from "../../helpers/groupTabs";
 
 const useStyles = makeStyles(theme => ({
   root: {
@@ -105,12 +106,10 @@ const Ticket = () => {
   useEffect(() => {
     Promise.all([getSetting("CheckMsgIsGroup"), getSetting("groupsTab")]).then(
       ([ignoreGroups, groupsTab]) => {
-        setShowTabGroups(
-          ignoreGroups === "disabled" && groupsTab === "enabled"
-        );
+        setShowTabGroups(shouldShowGroupsTab(user, ignoreGroups, groupsTab));
       }
     );
-  }, []);
+  }, [getSetting, user]);
 
   useEffect(() => {
     setLoading(true);

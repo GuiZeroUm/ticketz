@@ -32,6 +32,7 @@ import {
   syncPushSubscription,
   updateAppBadge
 } from "../../services/pushNotifications";
+import { shouldShowGroupsTab } from "../../helpers/groupTabs";
 
 const defaultLogoFavicon = "/branding/icon.png";
 
@@ -95,12 +96,10 @@ const NotificationsPopOver = props => {
 
     Promise.all([getSetting("CheckMsgIsGroup"), getSetting("groupsTab")]).then(
       ([ignoreGroups, groupsTab]) => {
-        setShowTabGroups(
-          ignoreGroups === "disabled" && groupsTab === "enabled"
-        );
+        setShowTabGroups(shouldShowGroupsTab(user, ignoreGroups, groupsTab));
       }
     );
-  }, [getSetting]);
+  }, [getSetting, user]);
 
   useEffect(() => {
     soundAlertRef.current = play;

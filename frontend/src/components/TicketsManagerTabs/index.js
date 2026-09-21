@@ -35,6 +35,7 @@ import useSettings from "../../hooks/useSettings";
 import { ContactSelect } from "../ContactSelect";
 import api from "../../services/api";
 import { SocketContext } from "../../context/Socket/SocketContext";
+import { shouldShowGroupsTab } from "../../helpers/groupTabs";
 
 const useStyles = makeStyles(theme => ({
   ticketsWrapper: {
@@ -204,12 +205,10 @@ const TicketsManagerTabs = () => {
   useEffect(() => {
     Promise.all([getSetting("CheckMsgIsGroup"), getSetting("groupsTab")]).then(
       ([ignoreGroups, groupsTab]) => {
-        setShowTabGroups(
-          ignoreGroups === "disabled" && groupsTab === "enabled"
-        );
+        setShowTabGroups(shouldShowGroupsTab(user, ignoreGroups, groupsTab));
       }
     );
-  }, []);
+  }, [getSetting, user]);
 
   useEffect(() => {
     if (!showTabGroups) {
