@@ -52,8 +52,8 @@ import { EditMessageContext } from "../../context/EditingMessage/EditingMessageC
 
 import useQuickMessages from "../../hooks/useQuickMessages";
 
-import Compressor from "compressorjs";
 import LinearWithValueLabel from "./ProgressBarCustom";
+import { prepareMediaUpload } from "./prepareMediaUpload";
 import useRascunhoDoTicket from "./useRascunhoDoTicket";
 import WhatsMarked from "react-whatsmarked";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -934,63 +934,31 @@ const MessageInputCustom = props => {
     setLoading(true);
     e.preventDefault();
 
-    const formData = new FormData();
-    formData.append("fromMe", true);
+    try {
+      const preparedMedias = await prepareMediaUpload(medias);
+      const formData = new FormData();
+      formData.append("fromMe", true);
 
-    medias.forEach(async (media, idx) => {
-      const file = media;
+      preparedMedias.forEach(({ file, filename }) => {
+        formData.append("medias", file, filename);
+        formData.append("body", filename);
+      });
 
-      if (!file) {
-        return;
-      }
+      await api.post(`/messages/${ticketId}`, formData, {
+        onUploadProgress: event => {
+          if (!event.total) return;
+          const progress = Math.round((event.loaded * 100) / event.total);
+          setPercentLoading(Math.max(1, progress));
+        }
+      });
 
-      if (media?.type.split("/")[0] == "image") {
-        new Compressor(file, {
-          quality: 0.7,
-
-          async success(media) {
-            //const formData = new FormData();
-            // The third parameter is required for server
-            //formData.append('file', result, result.name);
-
-            formData.append("medias", media, media.name);
-            formData.append("body", media.name);
-          },
-          error(err) {
-            alert("erro");
-            console.log(err.message);
-          }
-        });
-      } else {
-        formData.append("medias", media);
-        formData.append("body", media.name);
-      }
-    });
-
-    setTimeout(async () => {
-      try {
-        await api
-          .post(`/messages/${ticketId}`, formData, {
-            onUploadProgress: event => {
-              let progress = Math.round((event.loaded * 100) / event.total);
-              setPercentLoading(progress);
-            }
-          })
-          .then(response => {
-            setLoading(false);
-            setMedias([]);
-            setPercentLoading(0);
-          })
-          .catch(err => {
-            setLoading(false);
-            setMedias([]);
-            setPercentLoading(0);
-            toastError(err);
-          });
-      } catch (err) {
-        toastError(err);
-      }
-    }, 2000);
+      setMedias([]);
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setLoading(false);
+      setPercentLoading(0);
+    }
   };
 
   const handlePresenceUpdate = presence => {
