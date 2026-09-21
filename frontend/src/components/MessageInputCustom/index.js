@@ -114,12 +114,29 @@ const useStyles = makeStyles(theme => ({
 
   viewMediaInputWrapper: {
     display: "flex",
+    width: "calc(100% - 24px)",
+    margin: "12px 12px 0 12px",
     padding: "10px 13px",
     position: "relative",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#eee",
-    borderTop: "1px solid rgba(0, 0, 0, 0.12)"
+    gap: theme.spacing(1),
+    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: 10,
+    backgroundColor: theme.palette.action.hover
+  },
+
+  selectedMediaNames: {
+    flex: 1,
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap"
+  },
+
+  selectedMediaProgress: {
+    flex: 1,
+    minWidth: 0
   },
 
   emojiBox: {
@@ -304,6 +321,7 @@ const FileInput = props => {
 const ActionButtons = props => {
   const {
     inputMessage,
+    hasMedia,
     loading,
     recording,
     ticketStatus,
@@ -314,7 +332,7 @@ const ActionButtons = props => {
     disableOption
   } = props;
   const classes = useStyles();
-  if (inputMessage) {
+  if (inputMessage || hasMedia) {
     return (
       <IconButton
         aria-label="sendMessage"
@@ -851,6 +869,7 @@ const MessageInputCustom = props => {
   const [percentLoading, setPercentLoading] = useState(0);
 
   const inputRef = useRef();
+  const uploadingMediaRef = useRef(false);
   const { setReplyingMessage, replyingMessage } =
     useContext(ReplyMessageContext);
   const { setEditingMessage, editingMessage } = useContext(EditMessageContext);
@@ -922,6 +941,9 @@ const MessageInputCustom = props => {
 
     const selectedMedias = Array.from(e.target.files);
     setMedias(selectedMedias);
+    // O input permanece montado enquanto a legenda e editada. Limpar o valor
+    // permite remover e selecionar novamente o mesmo arquivo.
+    e.target.value = "";
   };
 
   const handleInputPaste = e => {
@@ -931,17 +953,28 @@ const MessageInputCustom = props => {
   };
 
   const handleUploadMedia = async e => {
+    e?.preventDefault();
+    if (!medias.length || uploadingMediaRef.current || loading) return;
+
+    uploadingMediaRef.current = true;
     setLoading(true);
-    e.preventDefault();
+    handlePresenceUpdate(null);
 
     try {
       const preparedMedias = await prepareMediaUpload(medias);
       const formData = new FormData();
       formData.append("fromMe", true);
 
+      const text = inputMessage.trim();
+      const caption = text
+        ? signMessage
+          ? `*${user?.name}:*\n${text}`
+          : text
+        : "";
+      formData.append("body", caption);
+
       preparedMedias.forEach(({ file, filename }) => {
         formData.append("medias", file, filename);
-        formData.append("body", filename);
       });
 
       await api.post(`/messages/${ticketId}`, formData, {
@@ -953,9 +986,14 @@ const MessageInputCustom = props => {
       });
 
       setMedias([]);
+      setInputMessage("");
+      setShowEmoji(false);
+      setReplyingMessage(null);
+      setEditingMessage(null);
     } catch (err) {
       toastError(err);
     } finally {
+      uploadingMediaRef.current = false;
       setLoading(false);
       setPercentLoading(0);
     }
@@ -1131,95 +1169,91 @@ const MessageInputCustom = props => {
     );
   };
 
-  if (medias.length > 0)
-    return (
-      <Paper elevation={0} square className={classes.viewMediaInputWrapper}>
-        <IconButton
-          aria-label="cancel-upload"
-          component="span"
-          disabled={disableOption}
-          onClick={e => setMedias([])}
-        >
-          <CancelIcon className={classes.sendMessageIcons} />
-        </IconButton>
+  return (
+    <Paper square elevation={0} className={classes.mainWrapper}>
+      {(replyingMessage && renderReplyingMessage(replyingMessage)) ||
+        (editingMessage && renderReplyingMessage(editingMessage))}
+      {medias.length > 0 && (
+        <div className={classes.viewMediaInputWrapper}>
+          <IconButton
+            aria-label="cancel-upload"
+            component="span"
+            disabled={disableOption}
+            onClick={() => setMedias([])}
+          >
+            <CancelIcon className={classes.sendMessageIcons} />
+          </IconButton>
 
-        {loading ? (
-          <div>
-            {/*<CircularProgress className={classes.circleLoading} />*/}
-            <LinearWithValueLabel progress={percentLoading} />
-          </div>
-        ) : (
-          <span>
-            {medias[0]?.name}
-            {/* <img src={media.preview} alt=""></img> */}
-          </span>
-        )}
-        <IconButton
-          aria-label="send-upload"
-          component="span"
-          onClick={handleUploadMedia}
-          disabled={disableOption}
-        >
-          <SendIcon className={classes.sendMessageIcons} />
-        </IconButton>
-      </Paper>
-    );
-  else {
-    return (
-      <Paper square elevation={0} className={classes.mainWrapper}>
-        {(replyingMessage && renderReplyingMessage(replyingMessage)) ||
-          (editingMessage && renderReplyingMessage(editingMessage))}
-        <div className={`${classes.newMessageBox} conversa-caixa-mensagem`}>
-          {isMobile() || (
-            <EmojiOptions
-              disabled={disableOption}
-              handleAddEmoji={handleAddEmoji}
-              showEmoji={showEmoji}
-              setShowEmoji={setShowEmoji}
-            />
+          {loading ? (
+            <div className={classes.selectedMediaProgress}>
+              <LinearWithValueLabel progress={percentLoading} />
+            </div>
+          ) : (
+            <Typography
+              variant="body2"
+              className={classes.selectedMediaNames}
+              title={medias.map(media => media.name).join(", ")}
+            >
+              {medias.map(media => media.name).join(", ")}
+            </Typography>
           )}
-
-          <FileInput
-            disableOption={disableOption}
-            handleChangeMedias={handleChangeMedias}
-          />
-
-          <IconSwitch
-            setter={setSignMessage}
-            value={signMessage}
-            icon={faSignature}
-            tooltip={i18n.t("messagesInput.signMessage")}
-          />
-
-          <CustomInput
-            loading={loading}
-            inputRef={inputRef}
-            ticketStatus={(isGroup && "open") || ticketStatus}
-            inputMessage={inputMessage}
-            setInputMessage={setInputMessage}
-            // handleChangeInput={handleChangeInput}
-            handleSendMessage={handleSendMessage}
-            handleInputPaste={handleInputPaste}
-            handleChangeMedias={handleChangeMedias}
-            handlePresenceUpdate={handlePresenceUpdate}
-            disableOption={disableOption}
-          />
-
-          <ActionButtons
-            inputMessage={inputMessage}
-            loading={loading}
-            recording={recording}
-            ticketStatus={ticketStatus}
-            disabeleOption={disableOption}
-            handleSendMessage={handleSendMessage}
-            handleCancelAudio={handleCancelAudio}
-            handleUploadAudio={handleUploadAudio}
-            handleStartRecording={handleStartRecording}
-          />
         </div>
-      </Paper>
-    );
-  }
+      )}
+      <div className={`${classes.newMessageBox} conversa-caixa-mensagem`}>
+        {isMobile() || (
+          <EmojiOptions
+            disabled={disableOption}
+            handleAddEmoji={handleAddEmoji}
+            showEmoji={showEmoji}
+            setShowEmoji={setShowEmoji}
+          />
+        )}
+
+        <FileInput
+          disableOption={disableOption}
+          handleChangeMedias={handleChangeMedias}
+        />
+
+        <IconSwitch
+          setter={setSignMessage}
+          value={signMessage}
+          icon={faSignature}
+          tooltip={i18n.t("messagesInput.signMessage")}
+        />
+
+        <CustomInput
+          loading={loading}
+          inputRef={inputRef}
+          ticketStatus={(isGroup && "open") || ticketStatus}
+          inputMessage={inputMessage}
+          setInputMessage={setInputMessage}
+          // handleChangeInput={handleChangeInput}
+          handleSendMessage={
+            medias.length ? handleUploadMedia : handleSendMessage
+          }
+          handleInputPaste={handleInputPaste}
+          handleChangeMedias={handleChangeMedias}
+          handlePresenceUpdate={handlePresenceUpdate}
+          disableOption={disableOption}
+        />
+
+        <ActionButtons
+          inputMessage={inputMessage}
+          hasMedia={medias.length > 0}
+          loading={loading}
+          recording={recording}
+          ticketStatus={ticketStatus}
+          disableOption={disableOption}
+          handleSendMessage={
+            medias.length ? handleUploadMedia : handleSendMessage
+          }
+          handleCancelAudio={handleCancelAudio}
+          handleUploadAudio={handleUploadAudio}
+          handleStartRecording={handleStartRecording}
+        />
+      </div>
+    </Paper>
+  );
 };
 
 export default withWidth()(MessageInputCustom);

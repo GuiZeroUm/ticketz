@@ -28,6 +28,7 @@ import { assertGroupAccess } from "../services/WhatsappGroupServices/GroupAccess
 import { markGroupRead } from "../services/WhatsappGroupServices/GroupUnreadService";
 import ShowContactService from "../services/ContactServices/ShowContactService";
 import { verifyContact } from "../services/WbotServices/verifyContact";
+import normalizeMediaCaption from "../helpers/normalizeMediaCaption";
 
 type IndexQuery = {
   nextId?: string;
@@ -175,9 +176,10 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
 
   if (medias) {
     if (channel === "whatsapp") {
+      const caption = normalizeMediaCaption(body);
       await Promise.all(
         medias.map(async (media: Express.Multer.File) => {
-          await SendWhatsAppMedia({ media, ticket });
+          await SendWhatsAppMedia({ media, ticket, caption });
           fs.unlinkSync(media.path);
         })
       );
