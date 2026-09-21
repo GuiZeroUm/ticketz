@@ -1,6 +1,12 @@
 import React from "react";
 import "@testing-library/jest-dom";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor
+} from "@testing-library/react";
 import MessageInputCustom from "./index";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { ReplyMessageContext } from "../../context/ReplyingMessage/ReplyingMessageContext";
@@ -11,9 +17,11 @@ import api from "../../services/api";
 
 jest.mock("../../translate/i18n", () => ({ i18n: { t: key => key } }));
 jest.mock("../../services/api", () => ({
+  get: jest.fn(),
   post: jest.fn(),
   request: jest.fn()
 }));
+jest.mock("../../errors/toastError", () => jest.fn());
 // withWidth's real implementation never resolves a width in jsdom (no
 // matchMedia/theme provider here) and silently renders nothing - this test
 // isn't about responsive behavior, so make it a pass-through HOC.
@@ -67,6 +75,13 @@ const mount = whatsapp =>
 
 describe("MessageInputCustom media controls", () => {
   beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+    jest.clearAllMocks();
+    api.get.mockResolvedValue({
+      data: { window: { open: true }, templates: [] }
+    });
+    api.post.mockResolvedValue({ data: {} });
     api.request.mockResolvedValue({ data: [] });
   });
 
@@ -112,5 +127,57 @@ describe("MessageInputCustom media controls", () => {
       "aria-disabled",
       "true"
     );
+  });
+
+  it("mantem o texto editavel e envia a midia com legenda", async () => {
+    const { container } = mount({ apiMode: "official" });
+    const input = screen.getByRole("textbox");
+    const video = new File(["video"], "demonstracao.mp4", {
+      type: "video/mp4"
+    });
+
+    fireEvent.change(input, { target: { value: "Segue a demonstração" } });
+    fireEvent.change(container.querySelector("#upload-button"), {
+      target: { files: [video] }
+    });
+
+    expect(screen.getByRole("textbox")).toBe(input);
+    expect(input).toHaveValue("Segue a demonstração");
+    expect(screen.getByText("demonstracao.mp4")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText("sendMessage"));
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
+    const [url, form] = api.post.mock.calls[0];
+    expect(url).toBe("/messages/1");
+    expect(form.get("body")).toBe("*Agente:*\nSegue a demonstração");
+    expect(form.getAll("medias")).toHaveLength(1);
+
+    await waitFor(() => {
+      expect(input).toHaveValue("");
+      expect(screen.queryByText("demonstracao.mp4")).not.toBeInTheDocument();
+    });
+  });
+
+  it("preserva a legenda e o anexo quando o envio falha", async () => {
+    api.post.mockRejectedValueOnce(new Error("offline"));
+    const { container } = mount({ apiMode: "baileys" });
+    const input = screen.getByRole("textbox");
+
+    fireEvent.change(input, { target: { value: "Não perder este texto" } });
+    fireEvent.change(container.querySelector("#upload-button"), {
+      target: {
+        files: [
+          new File(["pdf"], "documento.pdf", {
+            type: "application/pdf"
+          })
+        ]
+      }
+    });
+    fireEvent.click(screen.getByLabelText("sendMessage"));
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
+    expect(input).toHaveValue("Não perder este texto");
+    expect(screen.getByText("documento.pdf")).toBeInTheDocument();
   });
 });

@@ -32,6 +32,7 @@ import SendMetaReactionService from "../services/MetaWhatsAppServices/SendMetaRe
 import AssertTicketAccessService from "../services/TicketServices/AssertTicketAccessService";
 import GetTicketServiceWindowService from "../services/TicketServices/TicketServiceWindowService";
 import SendTicketTemplateService from "../services/MetaWhatsAppServices/SendTicketTemplateService";
+import normalizeMediaCaption from "../helpers/normalizeMediaCaption";
 
 type IndexQuery = {
   nextId?: string;
@@ -200,9 +201,10 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
 
   if (medias) {
     if (channel === "whatsapp") {
+      const caption = normalizeMediaCaption(body);
       await Promise.all(
         medias.map(async (media: Express.Multer.File) => {
-          await SendWhatsAppMedia({ media, ticket });
+          await SendWhatsAppMedia({ media, ticket, caption });
           fs.unlinkSync(media.path);
         })
       );
