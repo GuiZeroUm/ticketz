@@ -3,6 +3,8 @@ import React, { useContext, useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
+import { canSeeTicket } from "../../helpers/ticketAccess";
+import { i18n } from "../../translate/i18n";
 
 import {
   Box,
@@ -77,12 +79,9 @@ export default function TicketMessagesDialog({ open, handleClose, ticketId }) {
         const fetchTicket = async () => {
           try {
             const { data } = await api.get("/tickets/" + ticketId);
-            const { queueId } = data;
-            const { queues, profile } = user;
 
-            const queueAllowed = queues.find(q => q.id === queueId);
-            if (queueAllowed === undefined && profile !== "admin") {
-              toast.error("Acesso não permitido");
+            if (!canSeeTicket(user, data)) {
+              toast.error(i18n.t("backendErrors.ERR_NO_PERMISSION"));
               history.push("/tickets");
               return;
             }

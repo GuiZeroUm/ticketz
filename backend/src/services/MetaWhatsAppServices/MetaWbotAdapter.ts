@@ -1,4 +1,5 @@
 import { proto } from "libzapitu-rf";
+import AppError from "../../errors/AppError";
 import Ticket from "../../models/Ticket";
 import Whatsapp from "../../models/Whatsapp";
 import { Session } from "../../libs/wbot";
@@ -12,8 +13,16 @@ import { postMetaText } from "./SendMetaTextMessageService";
 //
 // O envio aqui e cru de proposito: quem chama grava a mensagem com
 // verifyMessage logo depois, exatamente como no Baileys.
-export const buildMetaWbot = (connection: Whatsapp): Session =>
-  ({
+export const buildMetaWbot = (connection: Whatsapp): Session => {
+  // Sem isso uma conexao carregada com attributes parciais (ShowTicketService
+  // nao traz as credenciais) monta `POST /undefined/messages` sem token e a
+  // Graph API responde OAuthException 190, um erro que nao diz nada sobre a
+  // causa real.
+  if (!connection?.metaPhoneNumberId || !connection?.metaAccessToken) {
+    throw new AppError("ERR_META_CONNECTION_NOT_CONFIGURED");
+  }
+
+  return {
     id: connection.id,
     sendMessage: async (jid: string, content: { text?: string }) => {
       const to = jid.replace(/\D/g, "");
@@ -27,7 +36,8 @@ export const buildMetaWbot = (connection: Whatsapp): Session =>
         messageTimestamp: Math.floor(Date.now() / 1000)
       };
     }
-  }) as unknown as Session;
+  } as unknown as Session;
+};
 
 // As mesmas funcoes leem o texto recebido via getBodyMessage(msg.message), que
 // so precisa de conversation - o resto do proto nao e tocado.

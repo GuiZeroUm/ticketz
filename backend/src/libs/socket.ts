@@ -256,11 +256,11 @@ export const initIO = (httpServer: Server): SocketIO => {
           const userQueueIds = user.queues.map(queue => queue.id);
           let allowed = ticket.userId === user.id || user.profile === "admin";
           if (!allowed && !ticket.isGroup) {
+            // `status === "open"` liberava qualquer atendimento aberto da
+            // empresa, inclusive de setores dos quais o usuario nao participa.
+            // Sem fila continua liberado: e o pool de triagem.
             allowed =
-              ticket.queueId === null ||
-              ticket.status === "open" ||
-              (ticket.status === "pending" &&
-                userQueueIds.includes(ticket.queueId));
+              ticket.queueId === null || userQueueIds.includes(ticket.queueId);
           }
           if (!allowed && ticket.isGroup) {
             allowed = Boolean(
@@ -346,18 +346,22 @@ export const initIO = (httpServer: Server): SocketIO => {
             `Admin ${user.id} of company ${user.companyId} joined ${status} tickets channel.`
           );
           socket.join(`company-${user.companyId}-${status}`);
-        } else if (status === "open") {
-          socket.join(`company-${user.companyId}-open`);
-        } else {
+        } else if (status === "pending") {
+          // A fila de espera e coletiva: as filas do atendente mais o pool de
+          // quem ainda nao foi roteado para um setor.
           socket.join(unassignedTicketRoom(user.companyId, status));
-          if (status === "pending") {
-            user.queues.forEach(queue => {
-              logger.debug(
-                `User ${user.id} of company ${user.companyId} joined queue ${queue.id} pending tickets channel.`
-              );
-              socket.join(`queue-${queue.id}-pending`);
-            });
-          }
+          user.queues.forEach(queue => {
+            logger.debug(
+              `User ${user.id} of company ${user.companyId} joined queue ${queue.id} pending tickets channel.`
+            );
+            socket.join(`queue-${queue.id}-pending`);
+          });
+        } else {
+          // Nenhuma sala coletiva para "Atendendo": `company-X-open` entregava
+          // os atendimentos abertos da empresa inteira e enchia a lista do
+          // atendente com tickets de outros setores. O que e dele chega por
+          // `user-<id>` e a remocao da lista por `company-X-mainchannel`.
+          logger.debug(`User ${user.id} cannot subscribe to ${status}`);
         }
       }
     });
@@ -369,18 +373,14 @@ export const initIO = (httpServer: Server): SocketIO => {
             `Admin ${user.id} of company ${user.companyId} leaved ${status} tickets channel.`
           );
           socket.leave(`company-${user.companyId}-${status}`);
-        } else if (status === "open") {
-          socket.leave(`company-${user.companyId}-open`);
-        } else {
+        } else if (status === "pending") {
           socket.leave(unassignedTicketRoom(user.companyId, status));
-          if (status === "pending") {
-            user.queues.forEach(queue => {
-              logger.debug(
-                `User ${user.id} of company ${user.companyId} leaved queue ${queue.id} pending tickets channel.`
-              );
-              socket.leave(`queue-${queue.id}-pending`);
-            });
-          }
+          user.queues.forEach(queue => {
+            logger.debug(
+              `User ${user.id} of company ${user.companyId} leaved queue ${queue.id} pending tickets channel.`
+            );
+            socket.leave(`queue-${queue.id}-pending`);
+          });
         }
       }
     });

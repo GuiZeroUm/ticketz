@@ -150,9 +150,12 @@ const NotificationsPopOver = props => {
         !data.message.read &&
         (data.ticket.userId === user?.id ||
           (data.ticket.isGroup && !data.ticket.userId) ||
+          // Ticket sem fila e o pool de triagem, visivel para todo atendente.
+          // Notificar so o admin deixava a operacao sem aviso nenhum de
+          // conversa nova sempre que a conexao nao roteia por fila - que e o
+          // caso da AC Norte.
           (!data.ticket.userId &&
-            (queueIds.includes(data.ticket.queueId) ||
-              (!data.ticket.queueId && profile === "admin"))))
+            (queueIds.includes(data.ticket.queueId) || !data.ticket.queueId)))
       ) {
         setNotifications(prevState => {
           const ticketIndex = prevState.findIndex(t => t.id === data.ticket.id);

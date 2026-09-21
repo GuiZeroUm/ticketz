@@ -14,6 +14,8 @@ import ListTicketsServiceKanban from "../services/TicketServices/ListTicketsServ
 import { assertGroupAccess } from "../services/WhatsappGroupServices/GroupAccessService";
 import AppError from "../errors/AppError";
 import { unassignedTicketRoom } from "../helpers/TicketSocketRooms";
+import AssertTicketAccessService from "../services/TicketServices/AssertTicketAccessService";
+import ShowUserService from "../services/UserServices/ShowUserService";
 
 type IndexQuery = {
   isSearch?: string;
@@ -74,6 +76,18 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 
   if (queueIdsStringified) {
     queueIds = JSON.parse(queueIdsStringified);
+  }
+
+  // `queueIds` chega cru do querystring. Sem intersectar com as filas do
+  // usuario, bastava editar a URL para listar os atendimentos de qualquer
+  // setor. Uma selecao vazia continua sendo vazia (o atendente desmarcou tudo
+  // no filtro); so a ausencia do parametro assume todas as filas dele.
+  if (req.user.profile !== "admin") {
+    const requestUser = await ShowUserService(userId);
+    const allowedQueueIds = (requestUser.queues || []).map(queue => queue.id);
+    queueIds = queueIdsStringified
+      ? queueIds.filter(queueId => allowedQueueIds.includes(Number(queueId)))
+      : allowedQueueIds;
   }
 
   if (tagIdsStringified) {
@@ -199,6 +213,8 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
 
   if (contact.isGroup) {
     await assertGroupAccess(ticketId, req.user);
+  } else {
+    await AssertTicketAccessService(contact, req.user);
   }
 
   return res.status(200).json(contact);
@@ -212,8 +228,14 @@ export const showFromUUID = async (
 
   const ticket: Ticket = await ShowTicketUUIDService(uuid);
 
+  if (ticket.companyId !== req.user.companyId) {
+    throw new AppError("ERR_NO_TICKET_FOUND", 404);
+  }
+
   if (ticket.isGroup) {
     await assertGroupAccess(ticket.id, req.user);
+  } else {
+    await AssertTicketAccessService(ticket, req.user);
   }
 
   return res.status(200).json(ticket);
@@ -231,6 +253,8 @@ export const update = async (
     if (current.contact?.groupMode !== "ticket") {
       throw new AppError("ERR_GROUP_CONVERSATION_NOT_TICKET", 400);
     }
+  } else {
+    await AssertTicketAccessService(current, req.user);
   }
 
   const { ticket } = await updateMutex.runExclusive(async () => {
@@ -258,6 +282,8 @@ export const transferOptions = async (
     if (current.contact?.groupMode !== "ticket") {
       throw new AppError("ERR_GROUP_CONVERSATION_NOT_TICKET", 400);
     }
+  } else {
+    await AssertTicketAccessService(current, req.user);
   }
 
   const options = await GetTicketTransferOptionsService({

@@ -7,6 +7,7 @@ import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
 import ConfirmationModal from "../ConfirmationModal";
 import TransferTicketModalCustom from "../TransferTicketModalCustom";
+import { canActOnTicket } from "../../helpers/ticketAccess";
 import toastError from "../../errors/toastError";
 import { Can } from "../Can";
 import { AuthContext } from "../../context/Auth/AuthContext";
@@ -112,7 +113,7 @@ const TicketOptionsMenu = ({
             {i18n.t("ticketOptionsMenu.schedule")}
           </MenuItem>
         )}
-        {!isGroupConversation && (
+        {!isGroupConversation && canActOnTicket(user, ticket) && (
           <MenuItem onClick={handleOpenTransferModal}>
             {i18n.t("ticketOptionsMenu.transfer")}
           </MenuItem>

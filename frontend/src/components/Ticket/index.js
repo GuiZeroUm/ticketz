@@ -21,6 +21,7 @@ import api from "../../services/api";
 import { ReplyMessageProvider } from "../../context/ReplyingMessage/ReplyingMessageContext";
 import { EditMessageProvider } from "../../context/EditingMessage/EditingMessageContext";
 import toastError from "../../errors/toastError";
+import { canSeeTicket } from "../../helpers/ticketAccess";
 import { AuthContext } from "../../context/Auth/AuthContext";
 
 import { SocketContext } from "../../context/Socket/SocketContext";
@@ -117,16 +118,9 @@ const Ticket = () => {
       const fetchTicket = async () => {
         try {
           const { data } = await api.get("/tickets/u/" + ticketId);
-          const { queueId } = data;
-          const { queues, profile } = user;
 
-          const queueAllowed = queues.find(q => q.id === queueId);
-          if (
-            queueAllowed === undefined &&
-            profile !== "admin" &&
-            !data.isGroup
-          ) {
-            toast.error("Acesso não permitido");
+          if (!data.isGroup && !canSeeTicket(user, data)) {
+            toast.error(i18n.t("backendErrors.ERR_NO_PERMISSION"));
             history.push("/tickets");
             return;
           }

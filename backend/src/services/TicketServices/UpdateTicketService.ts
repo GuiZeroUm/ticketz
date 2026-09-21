@@ -20,6 +20,7 @@ import ResolveTicketTransferService from "./ResolveTicketTransferService";
 import GroupQueue from "../../models/GroupQueue";
 import { unassignedTicketRoom } from "../../helpers/TicketSocketRooms";
 import { buildMetaWbot } from "../MetaWhatsAppServices/MetaWbotAdapter";
+import Whatsapp from "../../models/Whatsapp";
 
 export interface UpdateTicketData {
   status?: string;
@@ -162,6 +163,12 @@ const UpdateTicketService = async ({
       }
     }
 
+    // Unica regra de autorizacao que sobra aqui: atendimento ja aceito so e
+    // mexido pelo dono ou por um admin. Aceitar um pendente sem fila nao exige
+    // mais perfil admin - sem fila e o pool de triagem, e enquanto o contato
+    // nao for roteado para um setor a fila de espera inteira ficava travada.
+    // Quem pode ver (e portanto agir sobre) o ticket e decidido antes, no
+    // AssertTicketAccessService chamado pelo controller.
     if (user && ticket.status !== "pending") {
       if (user.profile !== "admin" && ticket.userId !== user.id) {
         throw new AppError("ERR_FORBIDDEN", 403);
@@ -188,14 +195,6 @@ const UpdateTicketService = async ({
     const oldStatus = ticket.status;
     const oldUserId = ticket.user?.id;
     const oldQueueId = ticket.queueId;
-
-    // only admin can accept pending tickets that have no queue
-    if (!oldQueueId && userId && oldStatus === "pending" && status === "open") {
-      const acceptUser = await User.findByPk(userId);
-      if (acceptUser.profile !== "admin") {
-        throw new AppError("ERR_NO_PERMISSION", 403);
-      }
-    }
 
     if (oldStatus === "closed") {
       await CheckContactOpenTickets(
@@ -404,70 +403,92 @@ const UpdateTicketService = async ({
 
     ticketTraking.save();
 
-    if (
-      !isGroup &&
-      !dontRunChatbot &&
-      !ticket.userId &&
-      ticket.queueId &&
-      (ticket.queueId !== oldQueueId || transferTarget.connectionChanged)
-    ) {
-      // O menu de fila so fala texto, entao a conexao oficial usa o adaptador
-      // em vez da sessao Baileys, que ela nao tem.
-      const wbot =
-        ticket.whatsapp?.apiMode === "official"
-          ? buildMetaWbot(ticket.whatsapp)
-          : await GetTicketWbot(ticket);
-      if (wbot) {
-        await startQueue(wbot, ticket);
-        await ticket.reload();
+    // Daqui pra baixo o ticket ja esta gravado. Mensageria que falhe depois
+    // do commit nao pode transformar uma transferencia concluida em erro 500:
+    // o atendimento ja mudou de fila, e devolver 500 fez os atendentes
+    // repetirem a operacao achando que ela nao tinha funcionado.
+    try {
+      if (
+        !isGroup &&
+        !dontRunChatbot &&
+        !ticket.userId &&
+        ticket.queueId &&
+        (ticket.queueId !== oldQueueId || transferTarget.connectionChanged)
+      ) {
+        // O menu de fila so fala texto, entao a conexao oficial usa o
+        // adaptador em vez da sessao Baileys, que ela nao tem. A conexao vem
+        // do banco inteira porque ShowTicketService carrega `whatsapp` com uma
+        // lista curta de attributes, sem as credenciais da Cloud API.
+        const wbot =
+          ticket.whatsapp?.apiMode === "official"
+            ? buildMetaWbot(await Whatsapp.findByPk(ticket.whatsappId))
+            : await GetTicketWbot(ticket);
+        if (wbot) {
+          await startQueue(wbot, ticket);
+          await ticket.reload();
+        }
       }
+    } catch (chatbotError) {
+      logger.error(
+        { ticketId: ticket.id, message: chatbotError?.message },
+        "Could not run the queue chatbot after updating the ticket."
+      );
     }
 
-    if (
-      !isGroup &&
-      !ticket.chatbot &&
-      !ticket.contact.disableBot &&
-      !fromChatbot &&
-      !dontRunChatbot
-    ) {
-      let accepted = false;
+    // Mesmo motivo do bloco acima: aviso de aceite/transferencia que nao sai
+    // nao invalida a mudanca que ja foi gravada.
+    try {
       if (
-        ticket.userId &&
-        ticket.status === "open" &&
-        ticket.userId !== oldUserId
+        !isGroup &&
+        !ticket.chatbot &&
+        !ticket.contact.disableBot &&
+        !fromChatbot &&
+        !dontRunChatbot
       ) {
-        const acceptedMessage = await GetCompanySetting(
-          companyId,
-          "ticketAcceptedMessage",
-          ""
-        );
+        let accepted = false;
+        if (
+          ticket.userId &&
+          ticket.status === "open" &&
+          ticket.userId !== oldUserId
+        ) {
+          const acceptedMessage = await GetCompanySetting(
+            companyId,
+            "ticketAcceptedMessage",
+            ""
+          );
 
-        if (acceptedMessage && ticket.whatsapp?.status === "CONNECTED") {
-          const acceptUser = await User.findByPk(userId);
-          await sendFormattedMessage(acceptedMessage, ticket, acceptUser);
-          accepted = true;
+          if (acceptedMessage && ticket.whatsapp?.status === "CONNECTED") {
+            const acceptUser = await User.findByPk(userId);
+            await sendFormattedMessage(acceptedMessage, ticket, acceptUser);
+            accepted = true;
+          }
+        }
+
+        if (
+          !accepted &&
+          oldQueueId &&
+          ticket.queueId &&
+          (oldQueueId !== ticket.queueId || transferTarget.connectionChanged) &&
+          ticket.whatsapp?.status === "CONNECTED"
+        ) {
+          const systemTransferMessage = await GetCompanySetting(
+            companyId,
+            "transferMessage",
+            ""
+          );
+          const transferMessage =
+            ticket.whatsapp.transferMessage || systemTransferMessage;
+
+          if (transferMessage) {
+            await sendFormattedMessage(transferMessage, ticket);
+          }
         }
       }
-
-      if (
-        !accepted &&
-        oldQueueId &&
-        ticket.queueId &&
-        (oldQueueId !== ticket.queueId || transferTarget.connectionChanged) &&
-        ticket.whatsapp?.status === "CONNECTED"
-      ) {
-        const systemTransferMessage = await GetCompanySetting(
-          companyId,
-          "transferMessage",
-          ""
-        );
-        const transferMessage =
-          ticket.whatsapp.transferMessage || systemTransferMessage;
-
-        if (transferMessage) {
-          await sendFormattedMessage(transferMessage, ticket);
-        }
-      }
+    } catch (noticeError) {
+      logger.error(
+        { ticketId: ticket.id, message: noticeError?.message },
+        "Could not send the accept/transfer notice."
+      );
     }
 
     if (justClose && status === "closed") {

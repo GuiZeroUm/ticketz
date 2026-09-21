@@ -1643,6 +1643,13 @@ const messages = {
         fieldQueueLabel: "Transferir para fila",
         fieldQueuePlaceholder: "Selecione uma fila",
         noOptions: "Nenhum usuário encontrado com esse nome",
+        noConnection:
+          "Não foi possível identificar a conexão deste atendimento. Recarregue a página e tente de novo.",
+        noQueue: "Selecione a fila de destino.",
+        userWithoutQueues:
+          "O usuário escolhido não participa de nenhuma fila desta conexão.",
+        connectionWithoutQueues:
+          "Nenhuma fila disponível nesta conexão. Vincule a fila à conexão em Conexões.",
         buttons: {
           ok: "Transferir",
           cancel: "Cancelar"
@@ -2552,7 +2559,22 @@ const messages = {
           "Reabra ou aceite esse ticket para enviar uma mensagem.",
         signMessage: "Assinar",
         replying: "Respondendo",
-        editing: "Editando"
+        editing: "Editando",
+        serviceWindowClosed:
+          "Faz mais de 24 horas desde a última mensagem do cliente. Para falar com ele de novo, envie um template aprovado.",
+        sendTemplate: "Enviar template"
+      },
+      templateMessageModal: {
+        title: "Enviar template aprovado",
+        help: "O primeiro contato e as conversas fora da janela de 24 horas só chegam ao cliente por um template aprovado pela Meta.",
+        fieldLabel: "Template",
+        variableLabel: "Variável {{index}}",
+        noTemplates:
+          "Nenhum template aprovado nesta conexão. Crie e aprove um template no Gerenciador de Negócios da Meta.",
+        buttons: {
+          ok: "Enviar",
+          cancel: "Cancelar"
+        }
       },
       message: {
         edited: "Editada",
@@ -2792,6 +2814,17 @@ const messages = {
           "Selecione uma fila ao trocar a conexão.",
         ERR_QUEUE_NOT_AVAILABLE_FOR_CONNECTION:
           "Esta fila não está vinculada à conexão selecionada.",
+        ERR_QUEUE_NOT_FOUND: "A fila escolhida não existe mais.",
+        ERR_WAPP_OFFICIAL_MODE_ONLY:
+          "Esta ação só existe em conexões da API Oficial da Meta.",
+        ERR_META_TEMPLATE_ON_GROUP:
+          "Template não pode ser enviado para um grupo.",
+        ERR_META_WINDOW_CLOSED:
+          "A janela de 24 horas com este contato está fechada. Use um template aprovado para reabrir a conversa.",
+        ERR_META_TEMPLATE_INVALID:
+          "A Meta recusou este template. Confira o nome, o idioma e as variáveis.",
+        ERR_META_TEMPLATE_NOT_APPROVED:
+          "Este template não está aprovado na Meta.",
         ERR_SESSION_EXPIRED: "Sessão expirada. Por favor entre.",
         ERR_USER_CREATION_DISABLED:
           "A criação do usuário foi desabilitada pelo administrador.",

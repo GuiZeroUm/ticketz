@@ -141,3 +141,25 @@ it("keeps allowing an admin to reopen a ticket assigned to another user", async 
   expect(result.ticket.status).toBe("open");
   expect(countEvent).toHaveBeenCalledWith(10, "ticket-reopen");
 });
+
+// Na AC Norte a conexao oficial nao tem fila vinculada, entao todo contato
+// novo entra sem fila. Deixar so o admin aceitar travava a fila de espera
+// inteira (era a origem dos ERR_NO_PERMISSION em producao).
+it("lets a regular agent accept a pending ticket that has no queue", async () => {
+  const ticket = makeClosedTicket(null);
+  ticket.status = "pending";
+  ticket.queueId = null;
+  ticket.userId = null;
+  ticket.user = null;
+  showTicket.mockResolvedValue(ticket);
+  findUser.mockResolvedValue({ id: 5, companyId: 10, profile: "user" } as User);
+
+  const result = await UpdateTicketService({
+    ticketData: { status: "open", userId: 5 },
+    ticketId: ticket.id,
+    reqUserId: 5
+  });
+
+  expect(result.ticket.status).toBe("open");
+  expect(result.ticket.userId).toBe(5);
+});

@@ -20,6 +20,8 @@ import Autocomplete, {
   createFilterOptions
 } from "@material-ui/lab/Autocomplete";
 
+import { toast } from "react-toastify";
+
 import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
 import ButtonWithSpinner from "../ButtonWithSpinner";
@@ -156,7 +158,19 @@ const TransferTicketModalCustom = ({
 
   const handleSaveTicket = async event => {
     event.preventDefault();
-    if (!ticketid || !selectedQueue || !selectedWhatsappId) return;
+    if (!ticketid) return;
+
+    // Sem conexao resolvida o submit saia em silencio e o atendente ficava
+    // clicando em Transferir sem nenhum retorno na tela.
+    if (!selectedWhatsappId) {
+      toast.error(i18n.t("transferTicketModal.noConnection"));
+      return;
+    }
+
+    if (!selectedQueue) {
+      toast.error(i18n.t("transferTicketModal.noQueue"));
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -165,7 +179,7 @@ const TransferTicketModalCustom = ({
         whatsappId: selectedWhatsappId
       };
 
-      if (selectedUser?.id) {
+      if (typeof selectedUser === "object" && selectedUser?.id) {
         data.userId = selectedUser.id;
       } else {
         data.status = "pending";
@@ -267,17 +281,32 @@ const TransferTicketModalCustom = ({
                     </MenuItem>
                   ))}
                 </Select>
+                {queues.length === 0 && (
+                  <Typography
+                    className={classes.hint}
+                    variant="caption"
+                    color="error"
+                  >
+                    {selectedUser
+                      ? i18n.t("transferTicketModal.userWithoutQueues")
+                      : i18n.t("transferTicketModal.connectionWithoutQueues")}
+                  </Typography>
+                )}
               </FormControl>
 
               {!hideUserSelection && (
                 <Autocomplete
                   className={classes.field}
-                  getOptionLabel={option => `${option.name}`}
+                  getOptionLabel={option =>
+                    typeof option === "string"
+                      ? option
+                      : `${option?.name ?? ""}`
+                  }
                   onChange={(_event, newValue) => {
-                    setSelectedUser(newValue);
-                    const userQueueIds = newValue?.queues?.map(
-                      queue => queue.id
-                    );
+                    const picked =
+                      typeof newValue === "object" ? newValue : null;
+                    setSelectedUser(picked);
+                    const userQueueIds = picked?.queues?.map(queue => queue.id);
                     if (
                       Array.isArray(userQueueIds) &&
                       !userQueueIds.includes(Number(selectedQueue))

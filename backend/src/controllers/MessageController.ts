@@ -29,6 +29,7 @@ import { markGroupRead } from "../services/WhatsappGroupServices/GroupUnreadServ
 import ShowContactService from "../services/ContactServices/ShowContactService";
 import { verifyContact } from "../services/WbotServices/verifyContact";
 import SendMetaReactionService from "../services/MetaWhatsAppServices/SendMetaReactionService";
+import AssertTicketAccessService from "../services/TicketServices/AssertTicketAccessService";
 
 type IndexQuery = {
   nextId?: string;
@@ -57,8 +58,10 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
     await assertGroupAccess(ticketId, req.user);
   }
 
-  const sharedTicket =
-    requestedTicket?.queueId === null || requestedTicket?.status === "open";
+  // Ticket sem fila e o pool de triagem e fica liberado; `status === "open"`
+  // liberava o historico de qualquer atendimento aberto da empresa, inclusive
+  // de setores dos quais o usuario nao participa.
+  const sharedTicket = requestedTicket?.queueId === null;
 
   if (profile !== "admin" && !requestedTicket?.isGroup && !sharedTicket) {
     const user = await User.findByPk(req.user.id, {
@@ -160,6 +163,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     if (ticket.contact?.groupMode !== "ticket") {
       await markGroupRead(Number(ticketId), Number(req.user.id), companyId);
     }
+  } else {
+    await AssertTicketAccessService(ticket, req.user);
   }
   const { channel } = ticket;
   if (channel === "whatsapp") {

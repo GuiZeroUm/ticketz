@@ -36,6 +36,7 @@ import {
 } from "../AnimatedIcon";
 import { BotaoIcone } from "../interface";
 import canReopenTicket from "./canReopenTicket";
+import { canActOnTicket } from "../../helpers/ticketAccess";
 
 const useStyles = makeStyles(theme => ({
   actionButtons: {
@@ -176,7 +177,7 @@ const TicketActionButtonsCustom = ({
               </Tooltip>
             )}
 
-          {!isGroupConversation && (
+          {!isGroupConversation && canActOnTicket(user, ticket) && (
             <>
               <Tooltip title={i18n.t("messagesList.header.buttons.return")}>
                 <IconButton
@@ -231,7 +232,7 @@ const TicketActionButtonsCustom = ({
             ? acoes => (
                 <>
                   <span className="conversa-separador" />
-                  {!isGroupConversation && (
+                  {!isGroupConversation && canActOnTicket(user, ticket) && (
                     <BotaoIcone
                       titulo={i18n.t("ticketOptionsMenu.transfer")}
                       onClick={acoes.transferir}

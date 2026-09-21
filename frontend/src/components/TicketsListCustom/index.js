@@ -20,8 +20,8 @@ import { SocketContext } from "../../context/Socket/SocketContext";
 import toastError from "../../errors/toastError";
 import {
   getTicketQueueId,
-  isSharedOpenTicketView,
-  isTicketQueueVisible
+  isTicketQueueVisible,
+  isUnansweredPoolTicket
 } from "./ticketVisibility";
 
 const useStyles = makeStyles(theme => ({
@@ -236,9 +236,8 @@ const TicketsListCustom = props => {
 
   useEffect(() => {
     const queueIds = queues.map(q => q.id);
-    const sharedOpenView = isSharedOpenTicketView(profile, status, groups);
     const filteredTickets = tickets.filter(ticket =>
-      isTicketQueueVisible(ticket, queueIds, sharedOpenView)
+      isTicketQueueVisible(ticket, queueIds)
     );
 
     if (profile === "user" && !groups) {
@@ -251,7 +250,6 @@ const TicketsListCustom = props => {
   useEffect(() => {
     const companyId = localStorage.getItem("companyId");
     const socket = socketManager.GetSocket(companyId);
-    const sharedOpenView = isSharedOpenTicketView(profile, status, groups);
 
     const shouldUpdateTicket = ticket => {
       return (
@@ -264,17 +262,25 @@ const TicketsListCustom = props => {
               ticket.contact.tags.some(t => t.id === tag)
           )) &&
         (!users?.length || users.some(u => u === ticket.userId)) &&
-        (sharedOpenView ||
-          getTicketQueueId(ticket) === null ||
+        (getTicketQueueId(ticket) === null ||
           !ticket.userId ||
           ticket.userId === user?.id ||
           showAll) &&
-        isTicketQueueVisible(ticket, selectedQueueIds, sharedOpenView)
+        isTicketQueueVisible(ticket, selectedQueueIds)
       );
     };
 
     const notBelongsToUserQueues = ticket =>
-      !isTicketQueueVisible(ticket, selectedQueueIds, sharedOpenView);
+      !isTicketQueueVisible(ticket, selectedQueueIds);
+
+    // Um ticket do pool entra na lista do atendente quando o cliente escreve,
+    // nao quando a cobranca dispara. Admin continua vendo tudo.
+    const skipUnansweredPoolTicket = ticket =>
+      profile !== "admin" &&
+      isUnansweredPoolTicket(
+        ticket,
+        ticketsListRef.current.map(item => item.id)
+      );
 
     const onConnectTicketList = () => {
       if (groups) {
@@ -301,7 +307,8 @@ const TicketsListCustom = props => {
       if (
         data.action === "update" &&
         data.ticket.status === status &&
-        shouldUpdateTicket(data.ticket)
+        shouldUpdateTicket(data.ticket) &&
+        !skipUnansweredPoolTicket(data.ticket)
       ) {
         dispatch({
           type: "UPDATE_TICKET",
@@ -349,10 +356,15 @@ const TicketsListCustom = props => {
       if (
         profile === "user" &&
         !groups &&
-        !sharedOpenView &&
         eventQueueId !== null &&
         queueIds.indexOf(eventQueueId) === -1
       ) {
+        return;
+      }
+
+      // Mensagem enviada pela empresa nao coloca um ticket novo na fila de
+      // espera; so a resposta do cliente traz o atendimento para o pool.
+      if (data.message?.fromMe && skipUnansweredPoolTicket(data.ticket)) {
         return;
       }
 

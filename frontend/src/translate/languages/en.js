@@ -984,6 +984,13 @@ const messages = {
         fieldQueueLabel: "Transfer to queue",
         fieldQueuePlaceholder: "Select a queue",
         noOptions: "No user found with that name",
+        noConnection:
+          "Could not resolve the connection of this ticket. Reload the page and try again.",
+        noQueue: "Select the destination queue.",
+        userWithoutQueues:
+          "The selected user does not belong to any queue of this connection.",
+        connectionWithoutQueues:
+          "No queue available on this connection. Link the queue to the connection under Connections.",
         buttons: {
           ok: "Transfer",
           cancel: "Cancel"
@@ -1888,7 +1895,22 @@ const messages = {
         placeholderClosed: "Reopen or accept this ticket to send a message.",
         signMessage: "Sign",
         replying: "Replying",
-        editing: "Editing"
+        editing: "Editing",
+        serviceWindowClosed:
+          "More than 24 hours have passed since the last customer message. Send an approved template to reach them again.",
+        sendTemplate: "Send template"
+      },
+      templateMessageModal: {
+        title: "Send approved template",
+        help: "The first contact and any conversation outside the 24 hour window only reach the customer through a template approved by Meta.",
+        fieldLabel: "Template",
+        variableLabel: "Variable {{index}}",
+        noTemplates:
+          "No approved template on this connection. Create and approve one in the Meta Business Manager.",
+        buttons: {
+          ok: "Send",
+          cancel: "Cancel"
+        }
       },
       message: {
         edited: "Edited",
@@ -2096,6 +2118,18 @@ const messages = {
           "Select a queue when changing the connection.",
         ERR_QUEUE_NOT_AVAILABLE_FOR_CONNECTION:
           "This queue is not linked to the selected connection.",
+        ERR_QUEUE_NOT_FOUND: "The chosen queue no longer exists.",
+        ERR_WAPP_OFFICIAL_MODE_ONLY:
+          "This action only exists on Meta Official API connections.",
+        ERR_META_TEMPLATE_ON_GROUP: "A template cannot be sent to a group.",
+        ERR_META_CONNECTION_NOT_CONFIGURED:
+          "The official API connection is incomplete. Reconnect the number under Connections.",
+        ERR_META_WINDOW_CLOSED:
+          "The 24 hour window with this contact is closed. Use an approved template to reopen the conversation.",
+        ERR_META_TEMPLATE_INVALID:
+          "Meta rejected this template. Check its name, language and variables.",
+        ERR_META_TEMPLATE_NOT_APPROVED:
+          "This template is not approved on Meta.",
         ERR_SESSION_EXPIRED: "Session expired. Please log in.",
         ERR_USER_CREATION_DISABLED:
           "User creation has been disabled by the administrator.",
