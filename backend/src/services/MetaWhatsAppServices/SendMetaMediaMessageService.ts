@@ -23,6 +23,10 @@ interface Request {
 export type MetaMediaKind = "image" | "audio" | "video" | "document";
 
 const MEGABYTE = 1024 * 1024;
+// A upload do navegador ja terminou quando chegamos aqui. Video pode levar
+// mais que os 20s padrao do client HTTP, especialmente em conexoes moveis;
+// mantenha uma margem para a Graph API concluir sem deixar a requisicao presa.
+export const META_MEDIA_UPLOAD_TIMEOUT_MS = 5 * 60 * 1000;
 
 // Formatos e limites que a Cloud API aceita por tipo. Qualquer mimetype fora
 // dessas listas vai como documento, o unico tipo sem restricao de formato -
@@ -134,8 +138,8 @@ export const uploadMetaMedia = async (
     form,
     {
       ...withAuth(connection.metaAccessToken),
-      // O client compartilhado usa 20s, curto demais pra upload de arquivo.
-      timeout: 120000,
+      // O client compartilhado usa 20s, curto demais pra upload de video.
+      timeout: META_MEDIA_UPLOAD_TIMEOUT_MS,
       maxBodyLength: Infinity,
       maxContentLength: Infinity
     }

@@ -1,4 +1,7 @@
-import { resolveMetaMediaKind } from "../SendMetaMediaMessageService";
+import {
+  META_MEDIA_UPLOAD_TIMEOUT_MS,
+  resolveMetaMediaKind
+} from "../SendMetaMediaMessageService";
 import PersistMetaOutboundMessageService from "../PersistMetaOutboundMessageService";
 import CreateMessageService from "../../MessageServices/CreateMessageService";
 import Ticket from "../../../models/Ticket";
@@ -10,6 +13,10 @@ const createMessage = CreateMessageService as jest.MockedFunction<
 >;
 
 describe("resolveMetaMediaKind", () => {
+  it("gives the Graph API enough time to receive a video", () => {
+    expect(META_MEDIA_UPLOAD_TIMEOUT_MS).toBe(5 * 60 * 1000);
+  });
+
   it.each([
     ["image/jpeg", "image"],
     ["image/png", "image"],
