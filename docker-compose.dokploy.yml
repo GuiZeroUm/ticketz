@@ -150,6 +150,11 @@ services:
       MCP_PUBLIC_KEY: ${MCP_PUBLIC_KEY}
       MCP_CURSOR_SECRET: ${MCP_CURSOR_SECRET}
       MCP_KEY_ID: ${MCP_KEY_ID:-espaco-whats-mcp-1}
+      # Web Push (notificacao com o app fechado). Sem o par VAPID o recurso
+      # fica desligado e o sistema segue notificando so com o app aberto.
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
       WACALLS_INTERNAL_URL: http://wacalls:8080
       WACALLS_INTERNAL_TOKEN: ${WACALLS_INTERNAL_TOKEN:-}
       WACALLS_INTERNAL_TOKEN_FILE: /run/secrets/wacalls_internal_token
@@ -158,12 +163,22 @@ services:
       VOICE_TRANSCRIPTION_PROVIDER: ${VOICE_TRANSCRIPTION_PROVIDER:-groq}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # Prospecção: serviços de um projeto Compose separado, alcançáveis só pelo
+      # IP do host (o prospeccao-api não está na dokploy-network). Sem a chave a
+      # tela responde 503 em vez de quebrar.
+      PROSPECCAO_API_URL: ${PROSPECCAO_API_URL:-http://179.199.139.11:8000}
+      PROSPECCAO_BRIDGE_URL: ${PROSPECCAO_BRIDGE_URL:-http://179.199.139.11:8001}
+      PROSPECCAO_WEBHOOK_URL: ${PROSPECCAO_WEBHOOK_URL:-http://hermes-bridge:8000/webhook/prospeccao}
+      PROSPECCAO_API_KEY: ${PROSPECCAO_API_KEY:-}
+      PROSPECCAO_API_KEY_FILE: /run/secrets/prospeccao_api_key
+      PROSPECCAO_SLUGS: ${PROSPECCAO_SLUGS:-teste}
     volumes:
       - backend_public:/usr/src/app/public
       - backend_private:/usr/src/app/private
     secrets:
       - wacalls_internal_token
       - wacalls_media_token_secret
+      - prospeccao_api_key
     healthcheck:
       test:
         - CMD-SHELL
@@ -256,3 +271,5 @@ secrets:
     file: /etc/dokploy/secrets/espaco_whats_wacalls_internal_token
   wacalls_media_token_secret:
     file: /etc/dokploy/secrets/espaco_whats_wacalls_media_token_secret
+  prospeccao_api_key:
+    file: /etc/dokploy/secrets/espaco_whats_prospeccao_api_key

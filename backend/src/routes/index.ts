@@ -49,11 +49,16 @@ import whatsappGroupRoutes from "./whatsappGroupRoutes";
 import metaWhatsappRoutes from "./metaWhatsappRoutes";
 import metaWhatsappWebhookRoutes from "./metaWhatsappWebhookRoutes";
 import webPushRoutes from "./webPushRoutes";
+import billingAdminRoutes from "./billingAdminRoutes";
+import prospeccaoRoutes from "./prospeccaoRoutes";
+import pushRoutes from "./pushRoutes";
 
 const routes = Router();
 routes.use(sgaRoutes);
 
 routes.use(platformRoutes);
+routes.use(billingAdminRoutes);
+routes.use(prospeccaoRoutes);
 routes.use(taskBoardRoutes);
 routes.use(voiceRoutes);
 routes.use(whatsappGroupRoutes);
@@ -93,6 +98,7 @@ routes.use(chatRoutes);
 routes.use(subscriptionRoutes);
 routes.use(invoiceRoutes);
 routes.use(ticketTagRoutes);
+routes.use(pushRoutes);
 routes.use(pwaRoutes);
 routes.use(versionRoutes);
 routes.use(ticketzOSSRoutes);

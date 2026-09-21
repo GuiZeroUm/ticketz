@@ -1694,6 +1694,8 @@ const messages = {
           annoucements: "Informativos",
           chats: "Chat Interno",
           financeiro: "Financeiro",
+          cobranca: "Cobrança",
+          prospeccao: "Prospecção",
           logout: "Sair",
           management: "Gerência",
           kanban: "Kanban",
@@ -2715,6 +2717,24 @@ const messages = {
           "Esta etapa ainda não tem template aprovado pela Meta, então não pode enviar. Salve a configuração e aguarde a aprovação.",
         ERR_BILLING_TEMPLATE_MISSING:
           "Envio por conexão da API Oficial exige template aprovado e esta etapa não tem um. Salve a configuração para enviar para aprovação.",
+        ERR_PROSPECCAO_SEM_CONEXAO:
+          "Nenhuma conexão de WhatsApp disponível para abrir a conversa.",
+        ERR_PROSPECCAO_LEAD_NAO_ENCONTRADO:
+          "Esse lead não está mais na sua base.",
+        ERR_PROSPECCAO_LEAD_SEM_TELEFONE:
+          "Esse lead não tem telefone para abrir conversa.",
+        ERR_PROSPECCAO_NAO_CONFIGURADA:
+          "A prospecção ainda não foi configurada neste servidor.",
+        ERR_PROSPECCAO_CHAVE_INVALIDA:
+          "A chave de acesso à prospecção foi recusada. Avise o suporte.",
+        ERR_PROSPECCAO_INDISPONIVEL:
+          "O serviço de prospecção não respondeu. Tente de novo em alguns minutos.",
+        ERR_PROSPECCAO_BUSCA_INVALIDA:
+          "O serviço de prospecção recusou esta busca. Revise o nicho e a cidade.",
+        ERR_PROSPECCAO_BUSCA_NAO_ENCONTRADA:
+          "Esta busca não existe mais no serviço de prospecção.",
+        ERR_PROSPECCAO_NICHO_CIDADE_OBRIGATORIOS:
+          "Informe o nicho e a cidade para buscar leads.",
         ERR_FLOW_INVALID: "O fluxo tem dados inválidos. Revise os blocos.",
         ERR_FLOW_CONNECTION:
           "Esta conexão não é permitida. Blocos de transferência e atendimento humano encerram o fluxo.",

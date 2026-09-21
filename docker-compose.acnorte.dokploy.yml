@@ -104,6 +104,11 @@ services:
       ACNORTE_BILLING_TEST_NUMBER: ${ACNORTE_BILLING_TEST_NUMBER:-}
       ACNORTE_BILLING_TEST_BILL_NUMBER: ${ACNORTE_BILLING_TEST_BILL_NUMBER:-}
       ACNORTE_BILLING_TEST_MEMBER_ID: ${ACNORTE_BILLING_TEST_MEMBER_ID:-}
+      # Web Push (notificacao com o app fechado). Sem o par VAPID o recurso
+      # fica desligado e o sistema segue notificando so com o app aberto.
+      VAPID_PUBLIC_KEY: ${ACNORTE_VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${ACNORTE_VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${ACNORTE_VAPID_SUBJECT:-}
       WACALLS_ENABLED: "false"
       WACALLS_ALLOWED_COMPANY_IDS: ""
     volumes:

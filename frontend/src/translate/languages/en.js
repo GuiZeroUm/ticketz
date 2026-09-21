@@ -1034,6 +1034,8 @@ const messages = {
           annoucements: "Announcements",
           chats: "Internal Chat",
           financeiro: "Financial",
+          cobranca: "Billing",
+          prospeccao: "Prospecting",
           logout: "Logout",
           management: "Management",
           kanban: "Kanban",
@@ -2021,6 +2023,24 @@ const messages = {
       backendErrors: {
         ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED:
           "Not available yet for Meta Official API connections.",
+        ERR_PROSPECCAO_SEM_CONEXAO:
+          "No WhatsApp connection available to open the conversation.",
+        ERR_PROSPECCAO_LEAD_NAO_ENCONTRADO:
+          "This lead is no longer in your base.",
+        ERR_PROSPECCAO_LEAD_SEM_TELEFONE:
+          "This lead has no phone number to start a conversation.",
+        ERR_PROSPECCAO_NAO_CONFIGURADA:
+          "Prospecting is not configured on this server yet.",
+        ERR_PROSPECCAO_CHAVE_INVALIDA:
+          "The prospecting access key was rejected. Contact support.",
+        ERR_PROSPECCAO_INDISPONIVEL:
+          "The prospecting service did not respond. Try again in a few minutes.",
+        ERR_PROSPECCAO_BUSCA_INVALIDA:
+          "The prospecting service rejected this search. Check the niche and city.",
+        ERR_PROSPECCAO_BUSCA_NAO_ENCONTRADA:
+          "This search no longer exists in the prospecting service.",
+        ERR_PROSPECCAO_NICHO_CIDADE_OBRIGATORIOS:
+          "Enter a niche and a city to search for leads.",
         ERR_FLOW_INVALID: "Invalid flow data. Review the blocks.",
         ERR_FLOW_CONNECTION:
           "This connection is not allowed. Transfer and human support blocks end the flow.",

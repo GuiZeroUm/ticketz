@@ -927,6 +927,8 @@ const messages = {
           annoucements: "Pengumuman",
           chats: "Chat Internal",
           financeiro: "Finansial",
+          cobranca: "Billing",
+          prospeccao: "Prospek",
           logout: "Logout",
           management: "Management",
           kanban: "Kanban",
@@ -1669,6 +1671,24 @@ const messages = {
           "Backend sedang memulai dan belum siap. Mencoba lagi secara otomatis."
       },
       backendErrors: {
+        ERR_PROSPECCAO_SEM_CONEXAO:
+          "Tidak ada koneksi WhatsApp untuk membuka percakapan.",
+        ERR_PROSPECCAO_LEAD_NAO_ENCONTRADO:
+          "Lead ini sudah tidak ada di basis Anda.",
+        ERR_PROSPECCAO_LEAD_SEM_TELEFONE:
+          "Lead ini tidak punya nomor telepon untuk membuka percakapan.",
+        ERR_PROSPECCAO_NAO_CONFIGURADA:
+          "Prospek belum dikonfigurasi di server ini.",
+        ERR_PROSPECCAO_CHAVE_INVALIDA:
+          "Kunci akses prospek ditolak. Hubungi dukungan.",
+        ERR_PROSPECCAO_INDISPONIVEL:
+          "Layanan prospek tidak merespons. Coba lagi beberapa menit.",
+        ERR_PROSPECCAO_BUSCA_INVALIDA:
+          "Layanan prospek menolak pencarian ini. Periksa niche dan kota.",
+        ERR_PROSPECCAO_BUSCA_NAO_ENCONTRADA:
+          "Pencarian ini sudah tidak ada di layanan prospek.",
+        ERR_PROSPECCAO_NICHO_CIDADE_OBRIGATORIOS:
+          "Isi niche dan kota untuk mencari lead.",
         ERR_FLOW_INVALID: "Invalid flow data. Review the blocks.",
         ERR_FLOW_CONNECTION:
           "This connection is not allowed. Transfer and human support blocks end the flow.",

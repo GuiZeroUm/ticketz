@@ -22,7 +22,16 @@ import { AuthContext } from "../../context/Auth/AuthContext";
 import { SocketContext } from "../../context/Socket/SocketContext";
 import Favicon from "react-favicon";
 import useSettings from "../../hooks/useSettings";
-import WebPushSetup from "../WebPushSetup";
+import {
+  closeLocalNotification,
+  enablePushNotifications,
+  getNotificationPermission,
+  hasActivePushSubscription,
+  isPushSupported,
+  showLocalNotification,
+  syncPushSubscription,
+  updateAppBadge
+} from "../../services/pushNotifications";
 
 const defaultLogoFavicon = "/branding/icon.png";
 
@@ -53,17 +62,16 @@ const NotificationsPopOver = props => {
   const { profile, queues } = user;
   const [queueIds, setQueueIds] = useState(queues.map(q => q.id));
 
-  const [, setDesktopNotifications] = useState([]);
-
   const { tickets, refetch: refetchTickets } = useTickets({
     notClosed: "true",
     withUnreadMessages: "true"
   });
   const [play] = useSound(alertSound, { volume: props.volume });
   const soundAlertRef = useRef();
+  // Ref e nao state: o handler do socket e registrado uma vez por efeito e
+  // capturaria um valor velho se isso fosse state.
+  const pushActiveRef = useRef(false);
   const { getSetting } = useSettings();
-
-  const historyRef = useRef(history);
 
   const socketManager = useContext(SocketContext);
 
@@ -77,17 +85,7 @@ const NotificationsPopOver = props => {
       return prevState;
     });
 
-    setDesktopNotifications(prevState => {
-      const notfiticationIndex = prevState.findIndex(
-        n => n.tag === String(ticketId)
-      );
-      if (notfiticationIndex !== -1) {
-        prevState[notfiticationIndex].close();
-        prevState.splice(notfiticationIndex, 1);
-        return [...prevState];
-      }
-      return prevState;
-    });
+    closeLocalNotification(ticketId);
   }
 
   useEffect(() => {
@@ -106,17 +104,36 @@ const NotificationsPopOver = props => {
 
   useEffect(() => {
     soundAlertRef.current = play;
-
-    if (!("Notification" in window)) {
-      console.log("This browser doesn't support notifications");
-    } else {
-      Notification.requestPermission();
-    }
   }, [play]);
+
+  useEffect(() => {
+    if (!isPushSupported()) {
+      console.log("This browser doesn't support push notifications");
+      return;
+    }
+
+    // Pedir a permissao aqui nao funciona: o Safari (desktop e iOS) so aceita
+    // requestPermission dentro de um gesto do usuario, e o iOS so entrega
+    // notificacao para PWA instalado na tela de inicio. Com a permissao ja
+    // concedida, so refazemos a inscricao para este login.
+    if (getNotificationPermission() === "granted") {
+      syncPushSubscription().then(() => {
+        hasActivePushSubscription().then(active => {
+          pushActiveRef.current = active;
+        });
+      });
+    }
+  }, []);
 
   useEffect(() => {
     setNotifications(tickets);
   }, [tickets]);
+
+  // Com o sistema aberto a contagem confiavel e a da tela, entao ela assume o
+  // numero do icone no lugar do que o service worker deixou.
+  useEffect(() => {
+    updateAppBadge(notifications.length);
+  }, [notifications.length]);
 
   useEffect(() => {
     ticketIdRef.current = ticketIdUrl;
@@ -231,43 +248,33 @@ const NotificationsPopOver = props => {
       ? "🪪"
       : message.body;
 
-    const options = {
-      body: `${format(new Date(), "HH:mm")}\n${body}`,
-      icon: contact.profilePicUrl,
-      tag: ticket.id,
-      renotify: true
-    };
-
-    try {
-      const notification = new Notification(
+    // Com push ativo neste dispositivo a mesma mensagem ja vai chegar pelo
+    // service worker. Exibir tambem a local faria o aparelho alertar duas
+    // vezes. O som continua tocando nos dois casos.
+    if (!pushActiveRef.current) {
+      showLocalNotification(
         `${i18n.t("tickets.notification.message")} ${contact.name}`,
-        options
-      );
-
-      notification.onclick = e => {
-        e.preventDefault();
-        window.focus();
-        historyRef.current.push(`/tickets/${ticket.uuid}`);
-      };
-
-      setDesktopNotifications(prevState => {
-        const notfiticationIndex = prevState.findIndex(
-          n => n.tag === notification.tag
-        );
-        if (notfiticationIndex !== -1) {
-          prevState[notfiticationIndex] = notification;
-          return [...prevState];
+        {
+          body: `${format(new Date(), "HH:mm")}\n${body}`,
+          icon: contact.profilePicUrl,
+          tag: ticket.id,
+          url: `/tickets/${ticket.uuid}`
         }
-        return [notification, ...prevState];
-      });
-    } catch (e) {
-      console.error("Failed to push browser notification");
+      );
     }
 
     soundAlertRef.current();
   };
 
   const handleClick = () => {
+    // Unico ponto da tela que e um gesto do usuario e tem relacao direta com
+    // notificacao, entao e daqui que sai o pedido de permissao. Sem gesto o
+    // Safari ignora o requestPermission em silencio.
+    if (isPushSupported() && getNotificationPermission() === "default") {
+      enablePushNotifications().then(result => {
+        pushActiveRef.current = Boolean(result?.ok);
+      });
+    }
     setIsOpen(prevState => !prevState);
   };
 
@@ -343,7 +350,6 @@ const NotificationsPopOver = props => {
         classes={{ paper: classes.popoverPaper }}
         onClose={handleClickAway}
       >
-        <WebPushSetup />
         <List dense className={classes.tabContainer}>
           {notifications.length === 0 ? (
             <ListItem>

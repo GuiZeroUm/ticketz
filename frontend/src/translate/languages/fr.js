@@ -915,6 +915,8 @@ const messages = {
           annoucements: "Annonces",
           chats: "Chat Interne",
           financeiro: "Financier",
+          cobranca: "Billing",
+          prospeccao: "Prospection",
           logout: "Déconnexion",
           management: "Gestion",
           kanban: "Kanban",
@@ -1654,6 +1656,24 @@ const messages = {
           "Le backend démarre et n'est pas encore prêt. Nouvelle tentative automatique."
       },
       backendErrors: {
+        ERR_PROSPECCAO_SEM_CONEXAO:
+          "Aucune connexion WhatsApp disponible pour ouvrir la conversation.",
+        ERR_PROSPECCAO_LEAD_NAO_ENCONTRADO:
+          "Ce lead n'est plus dans votre base.",
+        ERR_PROSPECCAO_LEAD_SEM_TELEFONE:
+          "Ce lead n'a pas de téléphone pour ouvrir une conversation.",
+        ERR_PROSPECCAO_NAO_CONFIGURADA:
+          "La prospection n'est pas encore configurée sur ce serveur.",
+        ERR_PROSPECCAO_CHAVE_INVALIDA:
+          "La clé d'accès à la prospection a été refusée. Contactez le support.",
+        ERR_PROSPECCAO_INDISPONIVEL:
+          "Le service de prospection n'a pas répondu. Réessayez dans quelques minutes.",
+        ERR_PROSPECCAO_BUSCA_INVALIDA:
+          "Le service de prospection a refusé cette recherche. Vérifiez la niche et la ville.",
+        ERR_PROSPECCAO_BUSCA_NAO_ENCONTRADA:
+          "Cette recherche n'existe plus dans le service de prospection.",
+        ERR_PROSPECCAO_NICHO_CIDADE_OBRIGATORIOS:
+          "Indiquez la niche et la ville pour chercher des leads.",
         ERR_FLOW_INVALID: "Invalid flow data. Review the blocks.",
         ERR_FLOW_CONNECTION:
           "This connection is not allowed. Transfer and human support blocks end the flow.",

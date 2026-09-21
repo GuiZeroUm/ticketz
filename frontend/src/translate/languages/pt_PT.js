@@ -957,6 +957,8 @@ const messages = {
           annoucements: "Informativos",
           chats: "Chat Interno",
           financeiro: "Financeiro",
+          cobranca: "Cobrança",
+          prospeccao: "Prospeção",
           logout: "Sair",
           management: "Gestão",
           kanban: "Kanban",
@@ -1714,6 +1716,24 @@ const messages = {
           "O backend está a iniciar e ainda não está pronto. A tentar novamente automaticamente."
       },
       backendErrors: {
+        ERR_PROSPECCAO_SEM_CONEXAO:
+          "Nenhuma ligação de WhatsApp disponível para abrir a conversa.",
+        ERR_PROSPECCAO_LEAD_NAO_ENCONTRADO:
+          "Esse lead já não está na sua base.",
+        ERR_PROSPECCAO_LEAD_SEM_TELEFONE:
+          "Esse lead não tem telefone para abrir conversa.",
+        ERR_PROSPECCAO_NAO_CONFIGURADA:
+          "A prospeção ainda não foi configurada neste servidor.",
+        ERR_PROSPECCAO_CHAVE_INVALIDA:
+          "A chave de acesso à prospeção foi recusada. Avise o suporte.",
+        ERR_PROSPECCAO_INDISPONIVEL:
+          "O serviço de prospeção não respondeu. Tente novamente dentro de alguns minutos.",
+        ERR_PROSPECCAO_BUSCA_INVALIDA:
+          "O serviço de prospeção recusou esta pesquisa. Reveja o nicho e a cidade.",
+        ERR_PROSPECCAO_BUSCA_NAO_ENCONTRADA:
+          "Esta pesquisa já não existe no serviço de prospeção.",
+        ERR_PROSPECCAO_NICHO_CIDADE_OBRIGATORIOS:
+          "Indique o nicho e a cidade para procurar leads.",
         ERR_FLOW_INVALID: "O fluxo tem dados inválidos. Revise os blocos.",
         ERR_FLOW_CONNECTION:
           "Esta conexão não é permitida. Blocos de transferência e atendimento humano encerram o fluxo.",

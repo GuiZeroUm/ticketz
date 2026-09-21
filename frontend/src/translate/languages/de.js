@@ -918,6 +918,8 @@ const messages = {
           annoucements: "Ankündigungen",
           chats: "Interner Chat",
           financeiro: "Finanzen",
+          cobranca: "Billing",
+          prospeccao: "Akquise",
           logout: "Abmelden",
           management: "Management",
           kanban: "Kanban",
@@ -1657,6 +1659,24 @@ const messages = {
           "Das Backend startet noch und ist noch nicht bereit. Automatischer neuer Versuch."
       },
       backendErrors: {
+        ERR_PROSPECCAO_SEM_CONEXAO:
+          "Keine WhatsApp-Verbindung verfügbar, um das Gespräch zu öffnen.",
+        ERR_PROSPECCAO_LEAD_NAO_ENCONTRADO:
+          "Dieser Lead ist nicht mehr in deiner Basis.",
+        ERR_PROSPECCAO_LEAD_SEM_TELEFONE:
+          "Dieser Lead hat keine Telefonnummer für ein Gespräch.",
+        ERR_PROSPECCAO_NAO_CONFIGURADA:
+          "Die Akquise ist auf diesem Server noch nicht eingerichtet.",
+        ERR_PROSPECCAO_CHAVE_INVALIDA:
+          "Der Zugriffsschlüssel für die Akquise wurde abgelehnt. Bitte den Support informieren.",
+        ERR_PROSPECCAO_INDISPONIVEL:
+          "Der Akquise-Dienst hat nicht geantwortet. Versuche es in einigen Minuten erneut.",
+        ERR_PROSPECCAO_BUSCA_INVALIDA:
+          "Der Akquise-Dienst hat diese Suche abgelehnt. Prüfe Nische und Stadt.",
+        ERR_PROSPECCAO_BUSCA_NAO_ENCONTRADA:
+          "Diese Suche existiert im Akquise-Dienst nicht mehr.",
+        ERR_PROSPECCAO_NICHO_CIDADE_OBRIGATORIOS:
+          "Gib Nische und Stadt an, um Leads zu suchen.",
         ERR_FLOW_INVALID: "Invalid flow data. Review the blocks.",
         ERR_FLOW_CONNECTION:
           "This connection is not allowed. Transfer and human support blocks end the flow.",

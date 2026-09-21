@@ -3,6 +3,7 @@ import User from "../models/User";
 import Setting from "../models/Setting";
 import Contact from "../models/Contact";
 import ContactTag from "../models/ContactTag";
+import ProspeccaoLead from "../models/ProspeccaoLead";
 import Ticket from "../models/Ticket";
 import Whatsapp from "../models/Whatsapp";
 import WhatsappLidMap from "../models/WhatsappLidMap";
@@ -65,6 +66,7 @@ import VoiceCall from "../models/VoiceCall";
 import GroupQueue from "../models/GroupQueue";
 import GroupReadState from "../models/GroupReadState";
 import WebPushSubscription from "../models/WebPushSubscription";
+import PushSubscription from "../models/PushSubscription";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const dbConfig = require("../config/database");
@@ -137,7 +139,9 @@ const models = [
   VoiceCall,
   GroupQueue,
   GroupReadState,
-  WebPushSubscription
+  ProspeccaoLead,
+  WebPushSubscription,
+  PushSubscription
 ];
 
 sequelize.addModels(models);

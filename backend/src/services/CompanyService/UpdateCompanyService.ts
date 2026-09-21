@@ -229,7 +229,7 @@ const UpdateCompanyService = async (
         status: "open",
         billingType: "regular",
         dueDate: { [Op.lte]: dueDate },
-        origem: { [Op.ne]: "plataforma" },
+        origem: "sistema",
         externalRef: null,
         [Op.or]: [{ txId: null }, { txId: "" }]
       },
@@ -254,7 +254,7 @@ const UpdateCompanyService = async (
         companyId: company.id,
         status: "open",
         billingType: "regular",
-        origem: { [Op.ne]: "plataforma" },
+        origem: "sistema",
         externalRef: null,
         [Op.or]: [{ txId: null }, { txId: "" }]
       },
@@ -268,7 +268,7 @@ const UpdateCompanyService = async (
         companyId: company.id,
         status: "open",
         billingType: "regular",
-        origem: { [Op.ne]: "plataforma" },
+        origem: "sistema",
         externalRef: null,
         [Op.or]: [{ txId: null }, { txId: "" }]
       },

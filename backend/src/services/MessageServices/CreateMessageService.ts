@@ -10,7 +10,7 @@ import GroupQueue from "../../models/GroupQueue";
 import { incrementGroupUnread } from "../WhatsappGroupServices/GroupUnreadService";
 import { emitContact } from "../ContactServices/CreateOrUpdateContactService";
 import { unassignedTicketRoom } from "../../helpers/TicketSocketRooms";
-import { sendMessageWebPush } from "../WebPushServices/WebPushService";
+import NotifyNewMessageService from "../PushNotificationServices/NotifyNewMessageService";
 
 interface MessageData {
   id: string;
@@ -60,15 +60,13 @@ export const websocketCreateMessage = async (message: Message) => {
       recipients = recipients.to(`queue-${item.queueId}-notification`);
     });
     recipients.emit(`company-${message.companyId}-appMessage`, payload);
-    return;
-  }
-
-  let recipients = io
-    .to(message.ticketId.toString())
-    .to(`company-${message.companyId}-${message.ticket.status}`)
-    .to(`company-${message.companyId}-notification`)
-    .to(`queue-${message.ticket.queueId}-${message.ticket.status}`)
-    .to(`queue-${message.ticket.queueId}-notification`);
+  } else {
+    let recipients = io
+      .to(message.ticketId.toString())
+      .to(`company-${message.companyId}-${message.ticket.status}`)
+      .to(`company-${message.companyId}-notification`)
+      .to(`queue-${message.ticket.queueId}-${message.ticket.status}`)
+      .to(`queue-${message.ticket.queueId}-notification`);
 
   if (message.ticket.queueId === null) {
     recipients = recipients
@@ -77,6 +75,11 @@ export const websocketCreateMessage = async (message: Message) => {
   }
 
   recipients.emit(`company-${message.companyId}-appMessage`, payload);
+  }
+
+  // O push vai depois do emit: quem está com o app aberto já foi notificado
+  // pelo websocket, e o push atende justamente quem está com o app fechado.
+  await NotifyNewMessageService(message);
 };
 
 const CreateMessageService = async ({
@@ -159,12 +162,6 @@ const CreateMessageService = async ({
   }
 
   await emitContact(message.ticket.contact, "update");
-  void sendMessageWebPush(message).catch(error => {
-    logger.warn(
-      { err: error, companyId, ticketId: message.ticketId },
-      "Could not send Web Push notification"
-    );
-  });
   logger.debug(
     {
       company: companyId,

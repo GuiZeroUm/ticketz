@@ -913,6 +913,8 @@ const messages = {
           annoucements: "Informazioni",
           chats: "Chat Interna",
           financeiro: "Finanziario",
+          cobranca: "Billing",
+          prospeccao: "Prospezione",
           logout: "Esci",
           management: "Gestione",
           kanban: "Kanban",
@@ -1646,6 +1648,24 @@ const messages = {
           "Il backend si sta avviando e non è ancora pronto. Nuovo tentativo automatico."
       },
       backendErrors: {
+        ERR_PROSPECCAO_SEM_CONEXAO:
+          "Nessuna connessione WhatsApp disponibile per aprire la conversazione.",
+        ERR_PROSPECCAO_LEAD_NAO_ENCONTRADO:
+          "Questo lead non è più nella tua base.",
+        ERR_PROSPECCAO_LEAD_SEM_TELEFONE:
+          "Questo lead non ha telefono per aprire una conversazione.",
+        ERR_PROSPECCAO_NAO_CONFIGURADA:
+          "La prospezione non è ancora configurata su questo server.",
+        ERR_PROSPECCAO_CHAVE_INVALIDA:
+          "La chiave di accesso alla prospezione è stata rifiutata. Avvisa il supporto.",
+        ERR_PROSPECCAO_INDISPONIVEL:
+          "Il servizio di prospezione non ha risposto. Riprova tra qualche minuto.",
+        ERR_PROSPECCAO_BUSCA_INVALIDA:
+          "Il servizio di prospezione ha rifiutato questa ricerca. Controlla nicchia e città.",
+        ERR_PROSPECCAO_BUSCA_NAO_ENCONTRADA:
+          "Questa ricerca non esiste più nel servizio di prospezione.",
+        ERR_PROSPECCAO_NICHO_CIDADE_OBRIGATORIOS:
+          "Indica nicchia e città per cercare lead.",
         ERR_FLOW_INVALID: "Invalid flow data. Review the blocks.",
         ERR_FLOW_CONNECTION:
           "This connection is not allowed. Transfer and human support blocks end the flow.",
