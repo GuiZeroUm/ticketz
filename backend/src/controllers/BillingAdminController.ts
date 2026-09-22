@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import * as Yup from "yup";
+import { Op } from "sequelize";
 import AppError from "../errors/AppError";
 import Company from "../models/Company";
 import Invoices from "../models/Invoices";
@@ -19,6 +20,7 @@ import ListBillingInvoicesService from "../services/BillingAdminServices/ListBil
 import SendBillingChargeService, {
   defaultChargeMessage
 } from "../services/BillingAdminServices/SendBillingChargeService";
+import DeleteBillingInvoiceService from "../services/BillingAdminServices/DeleteBillingInvoiceService";
 import { serializeBillingInvoice } from "../services/BillingAdminServices/SerializeBillingInvoice";
 import { BillingFilters } from "../services/BillingAdminServices/BillingAdminQuery";
 
@@ -29,7 +31,8 @@ const filtersFrom = (req: Request): BillingFilters => {
 };
 
 const loadInvoice = async (id: string): Promise<Invoices> => {
-  const invoice = await Invoices.findByPk(id, {
+  const invoice = await Invoices.findOne({
+    where: { id, status: { [Op.ne]: "deleted" } },
     include: [
       {
         model: Company,
@@ -199,6 +202,14 @@ export const update = async (
   return res.json(invoiceDetail(await loadInvoice(req.params.id)));
 };
 
+export const remove = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  await DeleteBillingInvoiceService(req.params.id);
+  return res.status(204).send();
+};
+
 // Reconsulta o gateway sob demanda: o webhook é a via normal, mas o
 // financeiro precisa de um "atualizar" quando o cliente diz que já pagou.
 export const refresh = async (
@@ -255,7 +266,7 @@ export const updateClient = async (
     if (req.body[field] !== undefined) payload[field] = req.body[field];
   });
 
-  await UpdateCompanyService(payload as never);
+  await UpdateCompanyService(payload as never, { billingCentralized: true });
   const [updated] = await ListBillingClientsService({
     searchParam: undefined,
     includeOwner: true

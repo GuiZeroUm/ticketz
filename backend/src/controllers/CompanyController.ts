@@ -17,6 +17,10 @@ import User from "../models/User";
 import CheckSettings from "../helpers/CheckSettings";
 import { OpenHoursData } from "../helpers/checkOpenHours";
 import { normalizeCompanyTimezone } from "../services/CompanyService/CompanyTimezoneService";
+import {
+  hasCentralizedBillingFields,
+  isBillingConsoleCompany
+} from "../helpers/billingConsole";
 
 type IndexQuery = {
   searchParam: string;
@@ -175,6 +179,15 @@ export const update = async (
   res: Response
 ): Promise<Response> => {
   const companyData: CompanyData = req.body;
+
+  if (hasCentralizedBillingFields(companyData as Record<string, unknown>)) {
+    const requesterCompany = await Company.findByPk(req.user.companyId, {
+      attributes: ["id", "slug"]
+    });
+    if (isBillingConsoleCompany(requesterCompany)) {
+      throw new AppError("ERR_BILLING_MANAGED_IN_CENTRAL", 409);
+    }
+  }
 
   try {
     await companySchema

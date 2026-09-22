@@ -49,7 +49,8 @@ const ModalCobranca = ({
   aberto,
   aoFechar,
   gatewayPronto,
-  aoAtualizar
+  aoAtualizar,
+  aoExcluir
 }) => {
   const [fatura, setFatura] = useState(null);
   const [carregando, setCarregando] = useState(false);
@@ -155,6 +156,20 @@ const ModalCobranca = ({
     setConfirmacao(null);
   };
 
+  const handleExcluir = async () => {
+    setCarregando(true);
+    try {
+      await api.delete(`/billing-admin/invoices/${invoiceId}`);
+      toast.success("Cobrança excluída.");
+      aoExcluir(invoiceId);
+      setConfirmacao(null);
+      aoFechar();
+    } catch (err) {
+      toastError(err);
+    }
+    setCarregando(false);
+  };
+
   const copiar = texto => {
     navigator.clipboard?.writeText(texto);
     toast.success("Copiado.");
@@ -167,17 +182,25 @@ const ModalCobranca = ({
     <>
       <ConfirmationModal
         title={
-          confirmacao === "paid"
-            ? "Marcar como paga?"
-            : "Cancelar esta cobrança?"
+          confirmacao === "delete"
+            ? "Excluir esta cobrança?"
+            : confirmacao === "paid"
+              ? "Marcar como paga?"
+              : "Cancelar esta cobrança?"
         }
         open={!!confirmacao}
         onClose={() => setConfirmacao(null)}
-        onConfirm={() => handleTransicao(confirmacao)}
+        onConfirm={() =>
+          confirmacao === "delete"
+            ? handleExcluir()
+            : handleTransicao(confirmacao)
+        }
       >
-        {confirmacao === "paid"
-          ? "A baixa manual confirma o recebimento e avança o vencimento do cliente para o próximo ciclo."
-          : "A cobrança deixa de valer e sai dos totais em aberto."}
+        {confirmacao === "delete"
+          ? "A cobrança sairá das telas e não será recriada automaticamente. Cobranças pagas não podem ser excluídas."
+          : confirmacao === "paid"
+            ? "A baixa manual confirma o recebimento e avança o vencimento do cliente para o próximo ciclo."
+            : "A cobrança deixa de valer e sai dos totais em aberto."}
       </ConfirmationModal>
 
       <Dialog open={aberto} onClose={aoFechar} maxWidth="md" fullWidth>
@@ -365,6 +388,15 @@ const ModalCobranca = ({
           ) : null}
         </DialogContent>
         <DialogActions>
+          {fatura && fatura.status !== "paid" ? (
+            <Button
+              color="secondary"
+              onClick={() => setConfirmacao("delete")}
+              disabled={carregando}
+            >
+              Excluir cobrança
+            </Button>
+          ) : null}
           {aberta ? (
             <>
               <Button

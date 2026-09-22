@@ -4,6 +4,7 @@ import Invoices from "../../models/Invoices";
 import Plan from "../../models/Plan";
 import {
   canUseBillingConsole,
+  hasCentralizedBillingFields,
   isBillingConsoleCompany
 } from "../../helpers/billingConsole";
 import {
@@ -12,6 +13,7 @@ import {
 } from "../../services/BillingAdminServices/BillingAdminQuery";
 import BillingOverviewService from "../../services/BillingAdminServices/BillingOverviewService";
 import CreateBillingInvoiceService from "../../services/BillingAdminServices/CreateBillingInvoiceService";
+import DeleteBillingInvoiceService from "../../services/BillingAdminServices/DeleteBillingInvoiceService";
 import {
   defaultChargeMessage,
   toWhatsAppNumber
@@ -45,6 +47,9 @@ const invoicesCreate = Invoices.create as jest.MockedFunction<
 const invoicesFindAll = Invoices.findAll as jest.MockedFunction<
   typeof Invoices.findAll
 >;
+const invoicesFindByPk = Invoices.findByPk as jest.MockedFunction<
+  typeof Invoices.findByPk
+>;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -76,6 +81,39 @@ describe("acesso à Central de Cobrança", () => {
     expect(
       canUseBillingConsole({ profile: "user", super: false } as never)
     ).toBe(false);
+  });
+
+  it("identifica os campos financeiros que pertencem à Central", () => {
+    expect(hasCentralizedBillingFields({ name: "AC Norte" })).toBe(false);
+    expect(hasCentralizedBillingFields({ dueDate: "2026-10-19" })).toBe(true);
+    expect(hasCentralizedBillingFields({ planId: 2 })).toBe(true);
+  });
+});
+
+describe("DeleteBillingInvoiceService", () => {
+  it("oculta a cobrança sem apagar o tombstone do ciclo", async () => {
+    const update = jest.fn().mockResolvedValue(undefined);
+    invoicesFindByPk.mockResolvedValue({
+      id: 12,
+      status: "open",
+      update
+    } as unknown as Invoices);
+
+    await DeleteBillingInvoiceService(12);
+
+    expect(update).toHaveBeenCalledWith({ status: "deleted" });
+  });
+
+  it("não permite excluir uma cobrança paga", async () => {
+    invoicesFindByPk.mockResolvedValue({
+      id: 12,
+      status: "paid"
+    } as Invoices);
+
+    await expect(DeleteBillingInvoiceService(12)).rejects.toMatchObject({
+      message: "ERR_PAID_INVOICE_CANNOT_BE_DELETED",
+      statusCode: 409
+    });
   });
 });
 

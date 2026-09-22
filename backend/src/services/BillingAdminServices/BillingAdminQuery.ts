@@ -24,7 +24,9 @@ const isDate = (value?: string): boolean =>
 // que o financeiro usa pra falar de "cobranças de setembro", mesmo que a
 // fatura tenha sido lançada antes.
 export const invoiceWhere = (filters: BillingFilters): WhereOptions => {
-  const where: Record<string | symbol, any> = {};
+  const where: Record<string | symbol, any> = {
+    status: { [Op.ne]: "deleted" }
+  };
 
   if (isDate(filters.startDate) || isDate(filters.endDate)) {
     where.dueDate = {};

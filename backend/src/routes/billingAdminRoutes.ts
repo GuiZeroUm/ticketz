@@ -41,6 +41,10 @@ billingAdminRoutes.put(
   "/billing-admin/invoices/:id",
   BillingAdminController.update
 );
+billingAdminRoutes.delete(
+  "/billing-admin/invoices/:id",
+  BillingAdminController.remove
+);
 billingAdminRoutes.post(
   "/billing-admin/invoices/:id/charge",
   BillingAdminController.charge

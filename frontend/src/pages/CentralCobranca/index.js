@@ -309,6 +309,7 @@ const CentralCobranca = () => {
         aoFechar={() => setFaturaAberta(null)}
         gatewayPronto={!!gateway.configured}
         aoAtualizar={aplicarFatura}
+        aoExcluir={() => recarregarTudo()}
       />
       <ModalCliente
         cliente={clienteAberto}

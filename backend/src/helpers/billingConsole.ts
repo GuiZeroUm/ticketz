@@ -8,6 +8,28 @@ import User from "../models/User";
 // próprio e não pode ganhar a tela.
 const DEFAULT_SLUGS = ["teste"];
 
+// Estes campos definem o ciclo financeiro do cliente. No tenant dono da
+// Central eles só podem ser alterados pela própria Central de Cobrança; a tela
+// genérica de empresas continua cuidando dos dados operacionais.
+export const CENTRALIZED_BILLING_FIELDS = [
+  "planId",
+  "saleValue",
+  "introValue",
+  "introMonths",
+  "trialDays",
+  "dueDay",
+  "dueDate",
+  "recurrence"
+] as const;
+
+export const hasCentralizedBillingFields = (
+  payload?: Record<string, unknown> | null
+): boolean =>
+  !!payload &&
+  CENTRALIZED_BILLING_FIELDS.some(field =>
+    Object.prototype.hasOwnProperty.call(payload, field)
+  );
+
 const clean = (slug?: string | null): string =>
   String(slug ?? "")
     .trim()
