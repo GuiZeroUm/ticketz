@@ -16,7 +16,9 @@ describe("invoice tenant and transition security", () => {
     (Invoice.findOne as jest.Mock).mockResolvedValue({ id: 9 });
     await ShowInvoiceService(9, 42);
     expect(Invoice.findOne).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 9, companyId: 42 } })
+      expect.objectContaining({
+        where: expect.objectContaining({ id: 9, companyId: 42 })
+      })
     );
   });
 
