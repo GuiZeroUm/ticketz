@@ -1,5 +1,11 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useHistory } from "react-router-dom";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState
+} from "react";
+import { Redirect, useHistory } from "react-router-dom";
 import { toast } from "react-toastify";
 
 import {
@@ -21,6 +27,7 @@ import {
 import { makeStyles } from "@material-ui/core/styles";
 import SearchIcon from "@material-ui/icons/Search";
 import RefreshIcon from "@material-ui/icons/Refresh";
+import SettingsIcon from "@material-ui/icons/Settings";
 
 import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
@@ -30,6 +37,9 @@ import api from "../../services/api";
 import toastError from "../../errors/toastError";
 
 import CardLead from "./CardLead";
+import AutomationDialog from "./AutomationDialog";
+import { AuthContext } from "../../context/Auth/AuthContext";
+import { podeVerProspeccao } from "../../helpers/prospeccao";
 
 const useStyles = makeStyles(theme => ({
   painel: {
@@ -78,13 +88,21 @@ const TONS = [
 
 const FILTROS = [
   { value: "todos", label: "Todos os leads" },
-  { value: "nao_contatados", label: "Ainda não contactados" },
-  { value: "contatados", label: "Já contactados" }
+  { value: "nao_contatados", label: "Não contatados" },
+  { value: "conversa_aberta", label: "Conversa aberta" },
+  { value: "agendados", label: "Envio agendado" },
+  { value: "pausados", label: "Pausados" },
+  { value: "contatados", label: "Mensagem enviada" },
+  { value: "respondidos", label: "Cliente respondeu" },
+  { value: "falhas", label: "Falha no envio" },
+  { value: "fechados", label: "Fechado sem resposta" }
 ];
 
 const FORM_INICIAL = {
   nicho: "",
-  cidade: "",
+  countryCode: "BR",
+  stateCode: "",
+  cityName: "",
   maxResultados: 10,
   produto: "",
   tom: "media",
@@ -109,12 +127,27 @@ const rotuloProduto = slug =>
     .map(parte => parte.charAt(0).toUpperCase() + parte.slice(1))
     .join(" ");
 
-const Prospeccao = () => {
+const countryLabel = country => {
+  try {
+    return new Intl.DisplayNames(["pt-BR"], { type: "region" }).of(
+      country.code
+    );
+  } catch (_) {
+    return country.name;
+  }
+};
+
+const ProspeccaoContent = () => {
   const classes = useStyles();
   const history = useHistory();
 
   const [form, setForm] = useState(FORM_INICIAL);
   const [produtos, setProdutos] = useState([]);
+  const [countries, setCountries] = useState([]);
+  const [states, setStates] = useState([]);
+  const [cities, setCities] = useState([]);
+  const [automation, setAutomation] = useState({ enabled: false });
+  const [automationOpen, setAutomationOpen] = useState(false);
 
   const [jobId, setJobId] = useState(null);
   const [progresso, setProgresso] = useState(null);
@@ -149,6 +182,72 @@ const Prospeccao = () => {
       if (temporizador.current) clearTimeout(temporizador.current);
     };
   }, []);
+
+  useEffect(() => {
+    Promise.all([
+      api.get("/prospeccao/localidades/paises"),
+      api.get("/prospeccao/localidades/estados", { params: { pais: "BR" } }),
+      api.get("/prospeccao/localidades/cidades", { params: { pais: "BR" } }),
+      api.get("/prospeccao/automacao")
+    ])
+      .then(([countryList, stateList, cityList, automationResult]) => {
+        setCountries(countryList.data || []);
+        setStates(stateList.data || []);
+        setCities(cityList.data || []);
+        setAutomation(automationResult.data || { enabled: false });
+      })
+      .catch(toastError);
+  }, []);
+
+  const changeCountry = async event => {
+    const countryCode = event.target.value;
+    setForm(current => ({
+      ...current,
+      countryCode,
+      stateCode: "",
+      cityName: ""
+    }));
+    try {
+      const [{ data: nextStates }, { data: nextCities }] = await Promise.all([
+        api.get("/prospeccao/localidades/estados", {
+          params: { pais: countryCode }
+        }),
+        api.get("/prospeccao/localidades/cidades", {
+          params: { pais: countryCode }
+        })
+      ]);
+      setStates(nextStates || []);
+      setCities(nextCities || []);
+    } catch (error) {
+      toastError(error);
+    }
+  };
+
+  const changeState = async event => {
+    const stateCode = event.target.value;
+    setForm(current => ({ ...current, stateCode, cityName: "" }));
+    try {
+      const { data } = await api.get("/prospeccao/localidades/cidades", {
+        params: { pais: form.countryCode, estado: stateCode || undefined }
+      });
+      setCities(data || []);
+    } catch (error) {
+      toastError(error);
+    }
+  };
+
+  const toggleAutomation = async event => {
+    event.stopPropagation();
+    try {
+      const { data } = await api.patch("/prospeccao/automacao/ativacao", {
+        enabled: !automation.enabled
+      });
+      setAutomation(data);
+    } catch (error) {
+      toastError(error);
+      if (!automation.enabled) setAutomationOpen(true);
+    }
+  };
 
   useEffect(() => {
     const carregaProdutos = async () => {
@@ -299,13 +398,15 @@ const Prospeccao = () => {
 
   const inicia = async event => {
     event.preventDefault();
-    if (!form.nicho.trim() || !form.cidade.trim() || !form.produto) return;
+    if (!form.nicho.trim() || !form.countryCode || !form.produto) return;
 
     setIniciando(true);
     try {
       const { data } = await api.post("/prospeccao/buscas", {
         nicho: form.nicho.trim(),
-        cidade: form.cidade.trim(),
+        countryCode: form.countryCode,
+        stateCode: form.stateCode || undefined,
+        cityName: form.cityName || undefined,
         maxResultados: Number(form.maxResultados) || 10,
         tom: form.tom,
         produto: form.produto,
@@ -375,7 +476,7 @@ const Prospeccao = () => {
   };
 
   const podeBuscar =
-    !iniciando && !!form.nicho.trim() && !!form.cidade.trim() && !!form.produto;
+    !iniciando && !!form.nicho.trim() && !!form.countryCode && !!form.produto;
 
   const mensagemDeEtapa = () => {
     if (!progresso) return "Enviando a busca...";
@@ -414,6 +515,20 @@ const Prospeccao = () => {
           >
             Atualizar
           </Button>
+          <Button
+            variant="outlined"
+            color="primary"
+            startIcon={<SettingsIcon />}
+            onClick={() => setAutomationOpen(true)}
+          >
+            Envio automático
+            <Switch
+              size="small"
+              color="primary"
+              checked={!!automation.enabled}
+              onClick={toggleAutomation}
+            />
+          </Button>
         </MainHeaderButtonsWrapper>
       </MainHeader>
 
@@ -432,18 +547,57 @@ const Prospeccao = () => {
                   onChange={alteraCampo("nicho")}
                 />
               </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <TextField
-                  label="Cidade"
-                  placeholder="Rio Branco, AC"
-                  fullWidth
-                  variant="outlined"
-                  size="small"
-                  value={form.cidade}
-                  onChange={alteraCampo("cidade")}
-                />
+              <Grid item xs={12} sm={4} md={2}>
+                <FormControl variant="outlined" size="small" fullWidth>
+                  <InputLabel>País</InputLabel>
+                  <Select
+                    label="País"
+                    value={form.countryCode}
+                    onChange={changeCountry}
+                  >
+                    {countries.map(item => (
+                      <MenuItem key={item.code} value={item.code}>
+                        {countryLabel(item)}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
-              <Grid item xs={6} sm={4} md={2}>
+              <Grid item xs={12} sm={4} md={2}>
+                <FormControl variant="outlined" size="small" fullWidth>
+                  <InputLabel>Estado (opcional)</InputLabel>
+                  <Select
+                    label="Estado (opcional)"
+                    value={form.stateCode}
+                    onChange={changeState}
+                  >
+                    <MenuItem value="">Todos</MenuItem>
+                    {states.map(item => (
+                      <MenuItem key={item.code} value={item.code}>
+                        {item.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={4} md={2}>
+                <FormControl variant="outlined" size="small" fullWidth>
+                  <InputLabel>Cidade (opcional)</InputLabel>
+                  <Select
+                    label="Cidade (opcional)"
+                    value={form.cityName}
+                    onChange={alteraCampo("cityName")}
+                  >
+                    <MenuItem value="">Todas</MenuItem>
+                    {cities.map(item => (
+                      <MenuItem key={item} value={item}>
+                        {item}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={6} sm={4} md={1}>
                 <TextField
                   label="Quantos leads"
                   type="number"
@@ -455,7 +609,7 @@ const Prospeccao = () => {
                   onChange={alteraCampo("maxResultados")}
                 />
               </Grid>
-              <Grid item xs={6} sm={4} md={2}>
+              <Grid item xs={6} sm={4} md={1}>
                 <FormControl variant="outlined" size="small" fullWidth>
                   <InputLabel id="prospeccao-produto">Produto</InputLabel>
                   <Select
@@ -620,8 +774,20 @@ const Prospeccao = () => {
           </div>
         )}
       </Paper>
+      <AutomationDialog
+        open={automationOpen}
+        onClose={() => setAutomationOpen(false)}
+        products={produtos}
+        onSaved={setAutomation}
+      />
     </MainContainer>
   );
+};
+
+const Prospeccao = () => {
+  const { user } = useContext(AuthContext);
+  if (!podeVerProspeccao(user)) return <Redirect to="/" />;
+  return <ProspeccaoContent />;
 };
 
 export default Prospeccao;

@@ -27,6 +27,7 @@ const SQL_TEM_MENSAGEM = `EXISTS (
   SELECT 1 FROM "Messages" m
   WHERE m."contactId" = "ProspeccaoLead"."contactId"
     AND m."fromMe" = true
+    AND m."companyId" = "ProspeccaoLead"."companyId"
 )`;
 
 export const normalizaPaginacao = (
@@ -58,6 +59,30 @@ const ListProspeccaoLeadsService = async ({
     condicoes.push(
       Sequelize.literal(`NOT ${SQL_TEM_MENSAGEM}`) as unknown as WhereOptions
     );
+    condicoes.push({
+      [Op.or]: [{ deliveryStatus: null }, { deliveryStatus: "NOT_CONTACTED" }]
+    } as WhereOptions);
+  } else if (filtro === "conversa_aberta") {
+    condicoes.push({
+      ticketId: { [Op.ne]: null },
+      [Op.or]: [
+        { deliveryStatus: null },
+        { deliveryStatus: "OPEN_CONVERSATION" }
+      ]
+    } as WhereOptions);
+    condicoes.push(
+      Sequelize.literal(`NOT ${SQL_TEM_MENSAGEM}`) as unknown as WhereOptions
+    );
+  } else if (filtro === "agendados") {
+    condicoes.push({ deliveryStatus: { [Op.in]: ["QUEUED", "SENDING"] } });
+  } else if (filtro === "pausados") {
+    condicoes.push({ deliveryStatus: "PAUSED" });
+  } else if (filtro === "respondidos") {
+    condicoes.push({ deliveryStatus: "REPLIED" });
+  } else if (filtro === "falhas") {
+    condicoes.push({ deliveryStatus: "FAILED" });
+  } else if (filtro === "fechados") {
+    condicoes.push({ deliveryStatus: "CLOSED_NO_REPLY" });
   }
 
   const busca = String(searchParam || "").trim();
@@ -92,9 +117,10 @@ const ListProspeccaoLeadsService = async ({
       `SELECT DISTINCT m."contactId" AS "contactId"
          FROM "Messages" m
         WHERE m."fromMe" = true
+          AND m."companyId" = :companyId
           AND m."contactId" IN (:contactIds)`,
       {
-        replacements: { contactIds },
+        replacements: { contactIds, companyId },
         type: "SELECT" as never
       }
     );

@@ -7,21 +7,27 @@ import { getIO } from "../../libs/socket";
 import FindOrCreateATicketTrakingService from "./FindOrCreateATicketTrakingService";
 import Contact from "../../models/Contact";
 import { incrementCounter } from "../CounterServices/IncrementCounter";
+import Whatsapp from "../../models/Whatsapp";
 
 interface Request {
   contactId: number;
   userId: number;
   companyId: number;
   queueId?: number;
+  whatsappId?: number;
 }
 
 const CreateTicketService = async ({
   contactId,
   userId,
   queueId,
-  companyId
+  companyId,
+  whatsappId
 }: Request): Promise<Ticket> => {
-  const defaultWhatsapp = await GetDefaultWhatsApp(companyId);
+  const defaultWhatsapp = whatsappId
+    ? await Whatsapp.findOne({ where: { id: whatsappId, companyId } })
+    : await GetDefaultWhatsApp(companyId);
+  if (!defaultWhatsapp) throw new AppError("ERR_WAPP_NOT_FOUND");
 
   let ticket = await CheckContactOpenTickets(
     contactId,

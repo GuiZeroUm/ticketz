@@ -11,6 +11,17 @@ import {
 import SyncProspeccaoLeadsService from "../services/ProspeccaoServices/SyncProspeccaoLeadsService";
 import ListProspeccaoLeadsService from "../services/ProspeccaoServices/ListProspeccaoLeadsService";
 import AbrirConversaDoLeadService from "../services/ProspeccaoServices/AbrirConversaDoLeadService";
+import {
+  listCities,
+  listCountries,
+  listStates,
+  resolveLocation
+} from "../services/ProspeccaoServices/LocalidadesService";
+import {
+  getAutomation,
+  saveAutomation,
+  setAutomationEnabled
+} from "../services/ProspeccaoServices/AutomationService";
 
 const STATUS_TERMINAIS = ["ok", "failed", "timeout"];
 
@@ -33,6 +44,19 @@ const serializaLead = (lead: ProspeccaoLead, contatados: Set<number>) => ({
   ticketId: lead.ticketId,
   abertoEm: lead.abertoEm,
   contatado: !!lead.contactId && contatados.has(lead.contactId),
+  origin: lead.origin,
+  deliveryStatus:
+    lead.deliveryStatus ||
+    (lead.contactId && contatados.has(lead.contactId)
+      ? "SENT"
+      : lead.ticketId
+        ? "OPEN_CONVERSATION"
+        : "NOT_CONTACTED"),
+  scheduledSendAt: lead.scheduledSendAt,
+  autoSentAt: lead.autoSentAt,
+  repliedAt: lead.repliedAt,
+  closeDueAt: lead.closeDueAt,
+  deliveryError: lead.deliveryError,
   createdAt: lead.createdAt
 });
 
@@ -50,7 +74,10 @@ const buscaSchema = Yup.object().shape({
   profundidade: Yup.number().integer().min(1).max(50),
   tom: Yup.string().oneOf(["curta", "media", "longa"]),
   produto: Yup.string().trim().max(60).required(),
-  somenteComWhatsapp: Yup.boolean()
+  somenteComWhatsapp: Yup.boolean(),
+  countryCode: Yup.string().length(2),
+  stateCode: Yup.string().max(20),
+  cityName: Yup.string().max(120)
 });
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
@@ -61,7 +88,10 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     profundidade,
     tom,
     produto,
-    somenteComWhatsapp
+    somenteComWhatsapp,
+    countryCode,
+    stateCode,
+    cityName
   } = req.body;
 
   try {
@@ -72,19 +102,28 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
       profundidade,
       tom,
       produto,
-      somenteComWhatsapp
+      somenteComWhatsapp,
+      countryCode,
+      stateCode,
+      cityName
     });
   } catch (erro) {
     throw new AppError((erro as Yup.ValidationError).message, 400);
   }
 
-  if (!String(nicho || "").trim() || !String(cidade || "").trim()) {
+  let locationQuery = String(cidade || "").trim();
+  if (countryCode) {
+    locationQuery = (
+      await resolveLocation({ countryCode, stateCode, cityName })
+    ).query;
+  }
+  if (!String(nicho || "").trim() || !locationQuery) {
     throw new AppError("ERR_PROSPECCAO_NICHO_CIDADE_OBRIGATORIOS", 400);
   }
 
   const jobId = await criarBusca({
     nicho: String(nicho).trim(),
-    cidade: String(cidade).trim(),
+    cidade: locationQuery,
     maxResultados: maxResultados ? Number(maxResultados) : 10,
     profundidade: profundidade ? Number(profundidade) : undefined,
     somenteComWhatsapp,
@@ -94,6 +133,45 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
 
   return res.status(202).json({ jobId });
 };
+
+export const countries = async (
+  _req: Request,
+  res: Response
+): Promise<Response> => res.json(await listCountries());
+
+export const states = async (req: Request, res: Response): Promise<Response> =>
+  res.json(await listStates(String(req.query.pais || "")));
+
+export const cities = async (req: Request, res: Response): Promise<Response> =>
+  res.json(
+    await listCities(
+      String(req.query.pais || ""),
+      String(req.query.estado || "") || undefined
+    )
+  );
+
+export const automationShow = async (
+  req: Request,
+  res: Response
+): Promise<Response> =>
+  res.json(await getAutomation(Number(req.user.companyId)));
+
+export const automationUpdate = async (
+  req: Request,
+  res: Response
+): Promise<Response> =>
+  res.json(await saveAutomation(Number(req.user.companyId), req.body));
+
+export const automationActivation = async (
+  req: Request,
+  res: Response
+): Promise<Response> =>
+  res.json(
+    await setAutomationEnabled(
+      Number(req.user.companyId),
+      req.body.enabled === true
+    )
+  );
 
 // Uma chamada só para a tela: o status da raspagem e os rascunhos vivem em
 // serviços diferentes, mas quem está olhando a tela só quer saber se já pode

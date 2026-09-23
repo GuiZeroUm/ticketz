@@ -96,6 +96,7 @@ export const criarBusca = async (busca: NovaBusca): Promise<string> => {
   const webhook = new URL(webhookUrl);
   webhook.searchParams.set("tom", tom);
   webhook.searchParams.set("produto", busca.produto);
+  if (busca.cidade) webhook.searchParams.set("cidade", busca.cidade);
 
   const payload: Record<string, unknown> = {
     idioma: "pt",
