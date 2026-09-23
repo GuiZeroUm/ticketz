@@ -56,7 +56,10 @@ const ListBillingClientsService = async (params: Request = {}) => {
   });
 
   const invoices = await Invoices.findAll({
-    where: { companyId: { [Op.in]: companies.map(c => c.id) } },
+    where: {
+      companyId: { [Op.in]: companies.map(c => c.id) },
+      status: { [Op.ne]: "deleted" }
+    },
     attributes: ["id", "companyId", "value", "status", "dueDate", "paidAt"]
   });
 

@@ -2,12 +2,21 @@ import fs from "fs";
 import Company from "../../models/Company";
 import Setting from "../../models/Setting";
 import User from "../../models/User";
+import Invoices from "../../models/Invoices";
 import CreateCompanyService from "../../services/CompanyService/CreateCompanyService";
 import DeleteCompanyService from "../../services/CompanyService/DeleteCompanyService";
+import UpdateCompanyService from "../../services/CompanyService/UpdateCompanyService";
 
 jest.mock("../../models/Company");
 jest.mock("../../models/Setting");
 jest.mock("../../models/User");
+jest.mock("../../models/Invoices");
+jest.mock("../../services/McpServices/RevokeMcpGrantsService", () => ({
+  revokeCompanyMcpGrants: jest.fn().mockResolvedValue(undefined)
+}));
+jest.mock("../../services/VoiceServices/VoiceService", () => ({
+  disableCompanyVoiceConnections: jest.fn().mockResolvedValue(undefined)
+}));
 jest.mock("../../helpers/replicateMasterSuperAdmins", () => ({
   __esModule: true,
   default: jest.fn().mockResolvedValue(undefined)
@@ -35,6 +44,15 @@ const settingFindOrCreate = Setting.findOrCreate as jest.MockedFunction<
   typeof Setting.findOrCreate
 >;
 const rmSync = fs.rmSync as jest.MockedFunction<typeof fs.rmSync>;
+const companyFindByPk = Company.findByPk as jest.MockedFunction<
+  typeof Company.findByPk
+>;
+const invoicesFindOne = Invoices.findOne as jest.MockedFunction<
+  typeof Invoices.findOne
+>;
+const invoicesDestroy = Invoices.destroy as jest.MockedFunction<
+  typeof Invoices.destroy
+>;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -98,5 +116,83 @@ describe("DeleteCompanyService", () => {
     expect(rmSync.mock.invocationCallOrder[0]).toBeLessThan(
       destroy.mock.invocationCallOrder[0]
     );
+  });
+});
+
+describe("UpdateCompanyService billing reconciliation", () => {
+  const company = () =>
+    ({
+      id: 9,
+      name: "AC Norte",
+      status: true,
+      planId: 2,
+      dueDate: "2026-09-19",
+      dueDay: 19,
+      trialDays: 0,
+      trialEndsAt: null,
+      saleValue: null,
+      introValue: null,
+      introMonths: null,
+      update: jest.fn().mockResolvedValue(undefined)
+    }) as unknown as Company;
+
+  it("não reconstrói a fatura quando o vencimento não mudou", async () => {
+    companyFindByPk.mockResolvedValue(company());
+
+    await UpdateCompanyService(
+      {
+        id: 9,
+        name: "AC Norte",
+        dueDate: "2026-09-19"
+      },
+      { billingCentralized: true }
+    );
+
+    expect(invoicesFindOne).not.toHaveBeenCalled();
+    expect(invoicesDestroy).not.toHaveBeenCalled();
+  });
+
+  it("remove a fatura automática sem cobrança ao mudar o vencimento", async () => {
+    companyFindByPk.mockResolvedValue(company());
+    invoicesFindOne.mockResolvedValue(null);
+    invoicesDestroy.mockResolvedValue(1);
+
+    await UpdateCompanyService(
+      {
+        id: 9,
+        name: "AC Norte",
+        dueDate: "2026-10-19"
+      },
+      { billingCentralized: true }
+    );
+
+    expect(invoicesDestroy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          companyId: 9,
+          status: "open",
+          origem: "sistema"
+        })
+      })
+    );
+  });
+
+  it("bloqueia a mudança quando a cobrança já foi emitida no gateway", async () => {
+    companyFindByPk.mockResolvedValue(company());
+    invoicesFindOne.mockResolvedValue({ id: 14 } as Invoices);
+
+    await expect(
+      UpdateCompanyService(
+        {
+          id: 9,
+          name: "AC Norte",
+          dueDate: "2026-10-19"
+        },
+        { billingCentralized: true }
+      )
+    ).rejects.toMatchObject({
+      message: "ERR_ACTIVE_CHARGE_PREVENTS_DUE_DATE_CHANGE",
+      statusCode: 409
+    });
   });
 });

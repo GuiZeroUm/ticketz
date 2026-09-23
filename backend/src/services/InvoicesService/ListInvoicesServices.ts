@@ -17,6 +17,7 @@ const ListInvoicesServices = async ({
   pageNumber = "1"
 }: Request): Promise<Response> => {
   const whereCondition = {
+    status: { [Op.ne]: "deleted" },
     [Op.or]: [
       {
         name: Sequelize.where(

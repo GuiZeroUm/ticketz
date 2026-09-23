@@ -13,7 +13,8 @@ import {
   TableCell,
   TableRow,
   IconButton,
-  Select
+  Select,
+  Typography
 } from "@material-ui/core";
 import { Formik, Form, Field } from "formik";
 import ButtonWithSpinner from "../ButtonWithSpinner";
@@ -36,6 +37,7 @@ import moment from "moment";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { i18n } from "../../translate/i18n";
 import { timeZonesNames } from "@vvo/tzdb";
+import { podeVerCentralCobranca } from "../../helpers/billingConsole";
 
 const initialDueDate = () => moment().add(3, "days").format("YYYY-MM-DD");
 
@@ -100,6 +102,7 @@ export function CompanyForm(props) {
   const [partners, setPartners] = useState([]);
   const [modalUser, setModalUser] = useState(false);
   const [firstUser, setFirstUser] = useState({});
+  const { user } = useContext(AuthContext);
   const [whatsappMode, setWhatsappMode] = useState(
     initialValue.whatsappMode || "normal"
   );
@@ -131,6 +134,8 @@ export function CompanyForm(props) {
   });
 
   const { list: listPlans } = usePlans();
+  const billingManagedInCentral =
+    podeVerCentralCobranca(user) && record.id !== undefined;
 
   useEffect(() => {
     async function fetchData() {
@@ -197,6 +202,18 @@ export function CompanyForm(props) {
         : Number(normalizedData.introMonths);
     normalizedData.trialDays = Number(normalizedData.trialDays);
     normalizedData.dueDay = Number(normalizedData.dueDay);
+    if (billingManagedInCentral) {
+      [
+        "planId",
+        "saleValue",
+        "introValue",
+        "introMonths",
+        "trialDays",
+        "dueDay",
+        "dueDate",
+        "recurrence"
+      ].forEach(field => delete normalizedData[field]);
+    }
     onSubmit(normalizedData);
     setRecord({ ...initialValue, dueDate: "" });
   };
@@ -358,26 +375,28 @@ export function CompanyForm(props) {
                   margin="dense"
                 />
               </Grid>
-              <Grid xs={12} sm={6} md={2} item>
-                <FormControl margin="dense" variant="outlined" fullWidth>
-                  <InputLabel htmlFor="plan-selection">Plano</InputLabel>
-                  <Field
-                    as={Select}
-                    id="plan-selection"
-                    label="Plano"
-                    labelId="plan-selection-label"
-                    name="planId"
-                    margin="dense"
-                    required
-                  >
-                    {plans.map((plan, key) => (
-                      <MenuItem key={key} value={plan.id}>
-                        {plan.name}
-                      </MenuItem>
-                    ))}
-                  </Field>
-                </FormControl>
-              </Grid>
+              {!billingManagedInCentral && (
+                <Grid xs={12} sm={6} md={2} item>
+                  <FormControl margin="dense" variant="outlined" fullWidth>
+                    <InputLabel htmlFor="plan-selection">Plano</InputLabel>
+                    <Field
+                      as={Select}
+                      id="plan-selection"
+                      label="Plano"
+                      labelId="plan-selection-label"
+                      name="planId"
+                      margin="dense"
+                      required
+                    >
+                      {plans.map((plan, key) => (
+                        <MenuItem key={key} value={plan.id}>
+                          {plan.name}
+                        </MenuItem>
+                      ))}
+                    </Field>
+                  </FormControl>
+                </Grid>
+              )}
               <Grid xs={12} sm={6} md={2} item>
                 <FormControl margin="dense" variant="outlined" fullWidth>
                   <InputLabel htmlFor="voice-calls-selection">
@@ -431,71 +450,82 @@ export function CompanyForm(props) {
                   </Field>
                 </FormControl>
               </Grid>
-              <Grid xs={12} sm={6} md={2} item>
-                <FormControl variant="outlined" fullWidth>
-                  <Field
-                    as={TextField}
-                    label="Data de Vencimento"
-                    type="date"
-                    name="dueDate"
-                    InputLabelProps={{
-                      shrink: true
-                    }}
-                    variant="outlined"
-                    fullWidth
-                    margin="dense"
-                  />
-                </FormControl>
-              </Grid>
-              <Grid xs={12} sm={6} md={2} item>
-                <Field
-                  as={TextField}
-                  label={i18n.t("billing.trialDays")}
-                  helperText={i18n.t("billing.trialDaysHelp")}
-                  type="number"
-                  name="trialDays"
-                  inputProps={{ min: 0, max: 3650, step: 1 }}
-                  variant="outlined"
-                  fullWidth
-                  margin="dense"
-                  required
-                />
-              </Grid>
-              <Grid xs={12} sm={6} md={2} item>
-                <Field
-                  as={TextField}
-                  label={i18n.t("billing.dueDay")}
-                  helperText={i18n.t("billing.dueDayHelp")}
-                  type="number"
-                  name="dueDay"
-                  inputProps={{ min: 1, max: 31, step: 1 }}
-                  variant="outlined"
-                  fullWidth
-                  margin="dense"
-                  required
-                />
-              </Grid>
-              <Grid xs={12} sm={6} md={2} item>
-                <FormControl margin="dense" variant="outlined" fullWidth>
-                  <InputLabel htmlFor="recorrencia-selection">
-                    Recorrência
-                  </InputLabel>
-                  <Field
-                    as={Select}
-                    label="Recorrência"
-                    labelId="recorrencia-selection-label"
-                    id="recurrence"
-                    name="recurrence"
-                    margin="dense"
-                  >
-                    <MenuItem value="MENSAL">Mensal</MenuItem>
-                    <MenuItem value="BIMESTRAL">Bimestral</MenuItem>
-                    <MenuItem value="TRIMESTRAL">Trimestral</MenuItem>
-                    <MenuItem value="SEMESTRAL">Semestral</MenuItem>
-                    <MenuItem value="ANUAL">Anual</MenuItem>
-                  </Field>
-                </FormControl>
-              </Grid>
+              {billingManagedInCentral ? (
+                <Grid xs={12} item>
+                  <Typography variant="body2" color="textSecondary">
+                    Plano, mensalidade, teste e vencimentos são gerenciados na
+                    Central de Cobrança.
+                  </Typography>
+                </Grid>
+              ) : (
+                <>
+                  <Grid xs={12} sm={6} md={2} item>
+                    <FormControl variant="outlined" fullWidth>
+                      <Field
+                        as={TextField}
+                        label="Data de Vencimento"
+                        type="date"
+                        name="dueDate"
+                        InputLabelProps={{
+                          shrink: true
+                        }}
+                        variant="outlined"
+                        fullWidth
+                        margin="dense"
+                      />
+                    </FormControl>
+                  </Grid>
+                  <Grid xs={12} sm={6} md={2} item>
+                    <Field
+                      as={TextField}
+                      label={i18n.t("billing.trialDays")}
+                      helperText={i18n.t("billing.trialDaysHelp")}
+                      type="number"
+                      name="trialDays"
+                      inputProps={{ min: 0, max: 3650, step: 1 }}
+                      variant="outlined"
+                      fullWidth
+                      margin="dense"
+                      required
+                    />
+                  </Grid>
+                  <Grid xs={12} sm={6} md={2} item>
+                    <Field
+                      as={TextField}
+                      label={i18n.t("billing.dueDay")}
+                      helperText={i18n.t("billing.dueDayHelp")}
+                      type="number"
+                      name="dueDay"
+                      inputProps={{ min: 1, max: 31, step: 1 }}
+                      variant="outlined"
+                      fullWidth
+                      margin="dense"
+                      required
+                    />
+                  </Grid>
+                  <Grid xs={12} sm={6} md={2} item>
+                    <FormControl margin="dense" variant="outlined" fullWidth>
+                      <InputLabel htmlFor="recorrencia-selection">
+                        Recorrência
+                      </InputLabel>
+                      <Field
+                        as={Select}
+                        label="Recorrência"
+                        labelId="recorrencia-selection-label"
+                        id="recurrence"
+                        name="recurrence"
+                        margin="dense"
+                      >
+                        <MenuItem value="MENSAL">Mensal</MenuItem>
+                        <MenuItem value="BIMESTRAL">Bimestral</MenuItem>
+                        <MenuItem value="TRIMESTRAL">Trimestral</MenuItem>
+                        <MenuItem value="SEMESTRAL">Semestral</MenuItem>
+                        <MenuItem value="ANUAL">Anual</MenuItem>
+                      </Field>
+                    </FormControl>
+                  </Grid>
+                </>
+              )}
               <Grid xs={12} sm={6} md={2} item>
                 <FormControl margin="dense" variant="outlined" fullWidth>
                   <InputLabel htmlFor="partner-selection">
@@ -518,42 +548,46 @@ export function CompanyForm(props) {
                   </Field>
                 </FormControl>
               </Grid>
-              <Grid xs={12} sm={6} md={2} item>
-                <Field
-                  as={TextField}
-                  label="Preço de venda"
-                  name="saleValue"
-                  type="number"
-                  variant="outlined"
-                  className={classes.fullWidth}
-                  margin="dense"
-                  helperText="Vazio = valor do plano"
-                />
-              </Grid>
-              <Grid xs={12} sm={6} md={2} item>
-                <Field
-                  as={TextField}
-                  label="Valor dos primeiros meses"
-                  name="introValue"
-                  type="number"
-                  variant="outlined"
-                  className={classes.fullWidth}
-                  margin="dense"
-                  helperText="Opcional. Vazio = sempre o preço de venda"
-                />
-              </Grid>
-              <Grid xs={12} sm={6} md={2} item>
-                <Field
-                  as={TextField}
-                  label="Durante quantos meses"
-                  name="introMonths"
-                  type="number"
-                  variant="outlined"
-                  className={classes.fullWidth}
-                  margin="dense"
-                  helperText="Depois volta ao preço de venda"
-                />
-              </Grid>
+              {!billingManagedInCentral && (
+                <>
+                  <Grid xs={12} sm={6} md={2} item>
+                    <Field
+                      as={TextField}
+                      label="Preço de venda"
+                      name="saleValue"
+                      type="number"
+                      variant="outlined"
+                      className={classes.fullWidth}
+                      margin="dense"
+                      helperText="Vazio = valor do plano"
+                    />
+                  </Grid>
+                  <Grid xs={12} sm={6} md={2} item>
+                    <Field
+                      as={TextField}
+                      label="Valor dos primeiros meses"
+                      name="introValue"
+                      type="number"
+                      variant="outlined"
+                      className={classes.fullWidth}
+                      margin="dense"
+                      helperText="Opcional. Vazio = sempre o preço de venda"
+                    />
+                  </Grid>
+                  <Grid xs={12} sm={6} md={2} item>
+                    <Field
+                      as={TextField}
+                      label="Durante quantos meses"
+                      name="introMonths"
+                      type="number"
+                      variant="outlined"
+                      className={classes.fullWidth}
+                      margin="dense"
+                      helperText="Depois volta ao preço de venda"
+                    />
+                  </Grid>
+                </>
+              )}
               {record.id !== undefined && (
                 <>
                   <Grid xs={12} sm={6} md={3} item>
@@ -636,18 +670,20 @@ export function CompanyForm(props) {
                           Excluir
                         </ButtonWithSpinner>
                       </Grid>
-                      <Grid xs={6} md={2} item>
-                        <ButtonWithSpinner
-                          style={{ marginTop: 7 }}
-                          className={classes.fullWidth}
-                          loading={loading}
-                          onClick={() => incrementDueDate()}
-                          variant="contained"
-                          color="primary"
-                        >
-                          + Vencimento
-                        </ButtonWithSpinner>
-                      </Grid>
+                      {!billingManagedInCentral && (
+                        <Grid xs={6} md={2} item>
+                          <ButtonWithSpinner
+                            style={{ marginTop: 7 }}
+                            className={classes.fullWidth}
+                            loading={loading}
+                            onClick={() => incrementDueDate()}
+                            variant="contained"
+                            color="primary"
+                          >
+                            + Vencimento
+                          </ButtonWithSpinner>
+                        </Grid>
+                      )}
                       <Grid xs={6} md={1} item>
                         <ButtonWithSpinner
                           style={{ marginTop: 7 }}

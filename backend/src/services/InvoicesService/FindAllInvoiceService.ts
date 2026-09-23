@@ -1,4 +1,5 @@
 import Invoices from "../../models/Invoices";
+import { Op } from "sequelize";
 
 const FindAllPlanService = async (companyId: number): Promise<Invoices[]> => {
   const invoice = await Invoices.findAll({
@@ -16,7 +17,8 @@ const FindAllPlanService = async (companyId: number): Promise<Invoices[]> => {
       "updatedAt"
     ],
     where: {
-      companyId
+      companyId,
+      status: { [Op.ne]: "deleted" }
     },
     order: [["id", "ASC"]]
   });

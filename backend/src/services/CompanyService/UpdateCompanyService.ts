@@ -43,7 +43,7 @@ interface CompanyData {
 
 const UpdateCompanyService = async (
   companyData: CompanyData,
-  options: { transaction?: Transaction } = {}
+  options: { transaction?: Transaction; billingCentralized?: boolean } = {}
 ): Promise<Company> => {
   const { transaction } = options;
   const company = await Company.findByPk(companyData.id, { transaction });
@@ -135,6 +135,29 @@ const UpdateCompanyService = async (
     }
   }
 
+  const dueDateChanged =
+    dueDate !== undefined && dueDate !== null && dueDate !== previousDueDate;
+
+  // Uma cobrança já emitida no gateway não pode ter seu ciclo movido por
+  // baixo dos panos: o valor/data no provedor continuariam antigos e a cron
+  // criaria outra fatura. A Central precisa excluir a cobrança primeiro.
+  if (options.billingCentralized && dueDateChanged) {
+    const chargedOpenInvoice = await Invoices.findOne({
+      where: {
+        companyId: company.id,
+        status: "open",
+        origem: "sistema",
+        externalRef: null,
+        dueDate: { [Op.ne]: dueDate },
+        txId: { [Op.not]: null, [Op.ne]: "" }
+      },
+      transaction
+    });
+    if (chargedOpenInvoice) {
+      throw new AppError("ERR_ACTIVE_CHARGE_PREVENTS_DUE_DATE_CHANGE", 409);
+    }
+  }
+
   await company.update(
     {
       name,
@@ -222,13 +245,19 @@ const UpdateCompanyService = async (
     }
   }
 
-  if (dueDate && new Date(dueDate) > new Date()) {
+  const shouldRebuildInvoice = options.billingCentralized
+    ? dueDateChanged
+    : !!dueDate && new Date(dueDate) > new Date();
+
+  if (shouldRebuildInvoice) {
     await Invoices.destroy({
       where: {
         companyId: company.id,
         status: "open",
         billingType: "regular",
-        dueDate: { [Op.lte]: dueDate },
+        ...(options.billingCentralized
+          ? {}
+          : { dueDate: { [Op.lte]: dueDate } }),
         origem: "sistema",
         externalRef: null,
         [Op.or]: [{ txId: null }, { txId: "" }]

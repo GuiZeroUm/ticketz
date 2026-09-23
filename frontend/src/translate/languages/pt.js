@@ -2757,6 +2757,12 @@ const messages = {
           "O dia do vencimento deve ser um inteiro entre 1 e 31.",
         ERR_TRIAL_ALREADY_STARTED:
           "O teste grátis não pode ser alterado após o início da cobrança.",
+        ERR_BILLING_MANAGED_IN_CENTRAL:
+          "Plano, valores e vencimentos deste cliente devem ser alterados na Central de Cobrança.",
+        ERR_ACTIVE_CHARGE_PREVENTS_DUE_DATE_CHANGE:
+          "Exclua primeiro a cobrança ativa deste cliente antes de mudar o próximo vencimento.",
+        ERR_PAID_INVOICE_CANNOT_BE_DELETED:
+          "Uma cobrança já paga não pode ser excluída.",
         ERR_TASK_BOARD_INVALID_TITLE: "Informe um título válido.",
         ERR_TASK_BOARD_INVALID_COLOR: "Informe uma cor hexadecimal válida.",
         ERR_TASK_BOARD_COLUMN_NOT_FOUND: "Coluna não encontrada.",
