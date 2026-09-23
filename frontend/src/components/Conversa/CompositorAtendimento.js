@@ -94,11 +94,13 @@ export default function CompositorAtendimento({ ticket, aoSalvarNota }) {
   }
 
   return (
-    <div className="conversa-compositor" data-modo="responder">
+    <div
+      className="conversa-compositor conversa-compositor--compact"
+      data-modo="responder"
+    >
       <div role="tabpanel">
-        <MessageInput ticket={ticket} showTabGroups />
+        <MessageInput ticket={ticket} showTabGroups compact />
       </div>
-      <div className="conversa-teclado">{i18n.t("conversa.atalho")}</div>
     </div>
   );
 }

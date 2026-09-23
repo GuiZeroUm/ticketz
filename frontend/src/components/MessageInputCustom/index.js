@@ -426,6 +426,7 @@ function UpwardPopper(props) {
 
 const CustomInput = props => {
   const {
+    compact,
     loading,
     inputRef,
     ticketStatus,
@@ -748,8 +749,8 @@ const CustomInput = props => {
                 placeholder={renderPlaceholder()}
                 multiline
                 className={classes.messageInput}
-                minRows={2}
-                maxRows={5}
+                minRows={compact ? 1 : 2}
+                maxRows={compact ? 4 : 5}
                 onPaste={onPaste}
                 endAdornment={
                   isMobile() && (
@@ -881,7 +882,7 @@ const CustomInput = props => {
 };
 
 const MessageInputCustom = props => {
-  const { ticket, showTabGroups } = props;
+  const { ticket, showTabGroups, compact = false } = props;
   const { status: ticketStatus, id: ticketId } = ticket;
   const classes = useStyles();
 
@@ -1365,7 +1366,11 @@ const MessageInputCustom = props => {
           )}
         </div>
       )}
-      <div className={`${classes.newMessageBox} conversa-caixa-mensagem`}>
+      <div
+        className={clsx(classes.newMessageBox, "conversa-caixa-mensagem", {
+          "conversa-caixa-mensagem--compact": compact
+        })}
+      >
         {isMobile() || (
           <EmojiOptions
             disabled={disableOption}
@@ -1388,6 +1393,7 @@ const MessageInputCustom = props => {
         />
 
         <CustomInput
+          compact={compact}
           loading={loading}
           inputRef={inputRef}
           ticketStatus={(isGroup && "open") || ticketStatus}

@@ -53,6 +53,7 @@ import NestedMenuItem from "material-ui-nested-menu-item";
 import GoogleAnalytics from "../components/GoogleAnalytics";
 import OnlyForSuperUser from "../components/OnlyForSuperUser";
 import NewTicketModal from "../components/NewTicketModal/index.js";
+import isAcNorte from "../helpers/isAcNorte";
 
 const drawerWidth = 260;
 const DRAWER_STORAGE_KEY = "drawerOpen";
@@ -92,6 +93,32 @@ const useStyles = makeStyles(theme => ({
     justifyContent: "flex-start",
     textAlign: "left",
     textTransform: "none"
+  },
+  ferramentasLaterais: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
+    padding: "8px 6px",
+    borderTop: `1px solid ${theme.palette.divider}`,
+    "& .MuiIconButton-root": {
+      width: 36,
+      height: 36,
+      padding: 8
+    }
+  },
+  alternarNavegacaoFlutuante: {
+    position: "fixed",
+    top: 12,
+    left: 12,
+    zIndex: theme.zIndex.drawer - 1,
+    width: 40,
+    height: 40,
+    border: `1px solid ${theme.palette.divider}`,
+    backgroundColor: theme.palette.background.paper,
+    boxShadow: theme.shadows[2],
+    "&:hover": { backgroundColor: theme.palette.background.paper }
   },
   dadosOrganizacao: {
     minWidth: 0,
@@ -349,6 +376,7 @@ const LoggedInLayout = ({ children, themeToggle }) => {
   const [drawerVariant, setDrawerVariant] = useState("permanent");
   // const [dueDate, setDueDate] = useState("");
   const { user } = useContext(AuthContext);
+  const isAcNorteLayout = isAcNorte(user);
 
   const theme = useTheme();
   const greaterThenSm = useMediaQuery(theme.breakpoints.up("sm"));
@@ -571,8 +599,13 @@ const LoggedInLayout = ({ children, themeToggle }) => {
 
   return (
     <div
-      className={`${classes.root} estrutura-app`}
-      style={{ "--largura-nav": drawerOpen ? "260px" : "72px" }}
+      className={`${classes.root} estrutura-app${
+        isAcNorteLayout ? " estrutura-app--sem-header" : ""
+      }`}
+      style={{
+        "--largura-nav": drawerOpen ? "260px" : "72px",
+        "--altura-cabecalho": isAcNorteLayout ? "0px" : "70px"
+      }}
       data-navegacao={drawerOpen ? "aberta" : "fechada"}
     >
       <Drawer
@@ -638,9 +671,50 @@ const LoggedInLayout = ({ children, themeToggle }) => {
           />
         </List>
         <Divider />
+        {isAcNorteLayout && (
+          <div className={classes.ferramentasLaterais}>
+            {wsConnectionIssue && (
+              <Tooltip title={i18n.t("common.connection")} arrow>
+                <span aria-label={i18n.t("common.connection")}>
+                  <Badge
+                    variant="dot"
+                    overlap="circular"
+                    color="secondary"
+                    className={classes.wsConnectionBadge}
+                  >
+                    <SettingsEthernetIcon
+                      className={classes.wsConnectionAlertIcon}
+                    />
+                  </Badge>
+                </span>
+              </Tooltip>
+            )}
+            <PhoneCall />
+            {user.id && <NotificationsPopOver volume={volume} />}
+            <FerramentasBarra>
+              {canAccessBackendlogs && <Backendlogs />}
+              <NotificationsVolume setVolume={setVolume} volume={volume} />
+              <AnnouncementsPopover />
+              <ChatPopover />
+            </FerramentasBarra>
+            <Tooltip
+              title={i18n.t(
+                theme.mode === "dark"
+                  ? "mainDrawer.appBar.user.lightmode"
+                  : "mainDrawer.appBar.user.darkmode"
+              )}
+            >
+              <IconButton color="inherit" onClick={toggleColorMode}>
+                {theme.mode === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+              </IconButton>
+            </Tooltip>
+          </div>
+        )}
         <Button
           className={`${classes.rodapeUsuario} nav-perfil`}
-          onClick={() => setUserModalOpen(true)}
+          onClick={event =>
+            isAcNorteLayout ? handleProfileMenu(event) : setUserModalOpen(true)
+          }
           aria-label={i18n.t("mainDrawer.appBar.user.profile")}
         >
           <AvatarUsuario usuario={user} tamanho={36} />
@@ -654,6 +728,15 @@ const LoggedInLayout = ({ children, themeToggle }) => {
           )}
         </Button>
       </Drawer>
+      {isAcNorteLayout && isMobile && !drawerOpen && (
+        <IconButton
+          className={classes.alternarNavegacaoFlutuante}
+          aria-label={i18n.t("visual.alternarNavegacao")}
+          onClick={handleDrawerToggle}
+        >
+          <PanelLeft size={18} />
+        </IconButton>
+      )}
       <UserModal
         open={userModalOpen}
         onClose={() => setUserModalOpen(false)}
@@ -663,165 +746,159 @@ const LoggedInLayout = ({ children, themeToggle }) => {
         open={aboutModalOpen}
         onClose={() => setAboutModalOpen(false)}
       />
-      <AppBar
-        position="absolute"
-        className={clsx(classes.appBar, drawerOpen && classes.appBarShift)}
-        color="primary"
+      <Menu
+        id="menu-appbar"
+        anchorEl={anchorEl}
+        getContentAnchorEl={null}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+        open={menuOpen}
+        onClose={handleCloseProfileMenu}
       >
-        <Toolbar variant="dense" className={classes.toolbar}>
-          <IconButton
-            edge="start"
-            variant="contained"
-            aria-label={i18n.t("visual.alternarNavegacao")}
-            onClick={handleDrawerToggle}
-            className={classes.menuButton}
-          >
-            <PanelLeft size={18} />
-          </IconButton>
-
-          <CaminhoPagina organizacao={user?.company?.name || theme.appName} />
-
-          <AtalhosAtendimento />
-          <div id="acoes-pagina" className="acoes-pagina" />
-          {wsConnectionIssue && (
-            <Tooltip title={i18n.t("common.connection")} arrow>
-              <span
-                aria-label={i18n.t("common.connection")}
-                className={classes.wsConnectionAlertButton}
-              >
-                <Badge
-                  variant="dot"
-                  overlap="circular"
-                  color="secondary"
-                  anchorOrigin={{ vertical: "top", horizontal: "right" }}
-                  className={classes.wsConnectionBadge}
-                >
-                  <SettingsEthernetIcon
-                    className={classes.wsConnectionAlertIcon}
-                  />
-                </Badge>
-              </span>
-            </Tooltip>
+        <div className={classes.userMenuInfoContainer}>
+          <Typography className={classes.userMenuInfoLine}>
+            {i18n.t("common.name")}: {user?.name || "-"}
+          </Typography>
+          <Typography className={classes.userMenuInfoLine}>
+            {i18n.t("common.company")}: {user?.company?.name || "-"}
+          </Typography>
+          {shouldShowCompanyDueDate && (
+            <Typography className={classes.userMenuInfoLine}>
+              {i18n.t("mainDrawer.appBar.user.subscriptionValidUntilLabel")}:{" "}
+              {companyDueDateText}
+            </Typography>
           )}
-
-          <PhoneCall />
-
-          {user.id && <NotificationsPopOver volume={volume} />}
-
-          <FerramentasBarra>
-            {canAccessBackendlogs && <Backendlogs />}
-            <NotificationsVolume setVolume={setVolume} volume={volume} />
-            <AnnouncementsPopover />
-            <ChatPopover />
-          </FerramentasBarra>
-          <Tooltip
-            title={i18n.t(
-              theme.mode === "dark"
-                ? "mainDrawer.appBar.user.lightmode"
-                : "mainDrawer.appBar.user.darkmode"
-            )}
-          >
+        </div>
+        <Divider />
+        <MenuItem onClick={handleOpenUserModal}>
+          {i18n.t("mainDrawer.appBar.user.profile")}
+        </MenuItem>
+        <MenuItem onClick={toggleColorMode}>
+          {theme.mode === "dark"
+            ? i18n.t("mainDrawer.appBar.user.lightmode")
+            : i18n.t("mainDrawer.appBar.user.darkmode")}
+        </MenuItem>
+        <NestedMenuItem
+          label={i18n.t("mainDrawer.appBar.user.language")}
+          parentMenuOpen={menuOpen}
+        >
+          {Object.keys(messages).map(m => (
+            <MenuItem key={m} onClick={() => handleChooseLanguage(m)}>
+              <div
+                style={{
+                  fontWeight: currentLanguage === m ? "bold" : "normal"
+                }}
+              >
+                {messages[m].translations.mainDrawer.appBar.i18n.language}
+              </div>
+            </MenuItem>
+          ))}
+        </NestedMenuItem>
+        <MenuItem onClick={handleOpenAboutModal}>
+          {i18n.t("about.aboutthe")} {theme.appName || "Espaço Whats"}
+        </MenuItem>
+        <MenuItem onClick={handleClickLogout}>
+          {i18n.t("mainDrawer.appBar.user.logout")}
+        </MenuItem>
+      </Menu>
+      {!isAcNorteLayout && (
+        <AppBar
+          position="absolute"
+          className={clsx(classes.appBar, drawerOpen && classes.appBarShift)}
+          color="primary"
+        >
+          <Toolbar variant="dense" className={classes.toolbar}>
             <IconButton
-              color="inherit"
-              onClick={toggleColorMode}
-              aria-label={i18n.t(
+              edge="start"
+              variant="contained"
+              aria-label={i18n.t("visual.alternarNavegacao")}
+              onClick={handleDrawerToggle}
+              className={classes.menuButton}
+            >
+              <PanelLeft size={18} />
+            </IconButton>
+
+            <CaminhoPagina organizacao={user?.company?.name || theme.appName} />
+
+            <AtalhosAtendimento />
+            <div id="acoes-pagina" className="acoes-pagina" />
+            {wsConnectionIssue && (
+              <Tooltip title={i18n.t("common.connection")} arrow>
+                <span
+                  aria-label={i18n.t("common.connection")}
+                  className={classes.wsConnectionAlertButton}
+                >
+                  <Badge
+                    variant="dot"
+                    overlap="circular"
+                    color="secondary"
+                    anchorOrigin={{ vertical: "top", horizontal: "right" }}
+                    className={classes.wsConnectionBadge}
+                  >
+                    <SettingsEthernetIcon
+                      className={classes.wsConnectionAlertIcon}
+                    />
+                  </Badge>
+                </span>
+              </Tooltip>
+            )}
+
+            <PhoneCall />
+
+            {user.id && <NotificationsPopOver volume={volume} />}
+
+            <FerramentasBarra>
+              {canAccessBackendlogs && <Backendlogs />}
+              <NotificationsVolume setVolume={setVolume} volume={volume} />
+              <AnnouncementsPopover />
+              <ChatPopover />
+            </FerramentasBarra>
+            <Tooltip
+              title={i18n.t(
                 theme.mode === "dark"
                   ? "mainDrawer.appBar.user.lightmode"
                   : "mainDrawer.appBar.user.darkmode"
               )}
             >
-              {theme.mode === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-            </IconButton>
-          </Tooltip>
-
-          <div className={classes.userInfoWrapper}>
-            <div
-              aria-label="account of current user"
-              aria-controls="menu-appbar"
-              aria-haspopup="true"
-              onClick={handleProfileMenu}
-              onKeyDown={event => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  handleProfileMenu(event);
-                }
-              }}
-              role="button"
-              tabIndex={0}
-              className={classes.profileTrigger}
-            >
-              <AvatarUsuario
-                usuario={user}
-                tamanho={32}
-                className="barra-avatar"
-              />
-            </div>
-            <Menu
-              id="menu-appbar"
-              anchorEl={anchorEl}
-              getContentAnchorEl={null}
-              anchorOrigin={{
-                vertical: "bottom",
-                horizontal: "right"
-              }}
-              transformOrigin={{
-                vertical: "top",
-                horizontal: "right"
-              }}
-              open={menuOpen}
-              onClose={handleCloseProfileMenu}
-            >
-              <div className={classes.userMenuInfoContainer}>
-                <Typography className={classes.userMenuInfoLine}>
-                  {i18n.t("common.name")}: {user?.name || "-"}
-                </Typography>
-                <Typography className={classes.userMenuInfoLine}>
-                  {i18n.t("common.company")}: {user?.company?.name || "-"}
-                </Typography>
-                {shouldShowCompanyDueDate && (
-                  <Typography className={classes.userMenuInfoLine}>
-                    {i18n.t(
-                      "mainDrawer.appBar.user.subscriptionValidUntilLabel"
-                    )}
-                    : {companyDueDateText}
-                  </Typography>
+              <IconButton
+                color="inherit"
+                onClick={toggleColorMode}
+                aria-label={i18n.t(
+                  theme.mode === "dark"
+                    ? "mainDrawer.appBar.user.lightmode"
+                    : "mainDrawer.appBar.user.darkmode"
                 )}
-              </div>
-              <Divider />
-              <MenuItem onClick={handleOpenUserModal}>
-                {i18n.t("mainDrawer.appBar.user.profile")}
-              </MenuItem>
-              <MenuItem onClick={toggleColorMode}>
-                {theme.mode === "dark"
-                  ? i18n.t("mainDrawer.appBar.user.lightmode")
-                  : i18n.t("mainDrawer.appBar.user.darkmode")}
-              </MenuItem>
-              <NestedMenuItem
-                label={i18n.t("mainDrawer.appBar.user.language")}
-                parentMenuOpen={menuOpen}
               >
-                {Object.keys(messages).map(m => (
-                  <MenuItem onClick={() => handleChooseLanguage(m)}>
-                    <div
-                      style={{
-                        fontWeight: currentLanguage === m ? "bold" : "normal"
-                      }}
-                    >
-                      {messages[m].translations.mainDrawer.appBar.i18n.language}
-                    </div>
-                  </MenuItem>
-                ))}
-              </NestedMenuItem>
-              <MenuItem onClick={handleOpenAboutModal}>
-                {i18n.t("about.aboutthe")} {theme.appName || "Espaço Whats"}
-              </MenuItem>
-              <MenuItem onClick={handleClickLogout}>
-                {i18n.t("mainDrawer.appBar.user.logout")}
-              </MenuItem>
-            </Menu>
-          </div>
-        </Toolbar>
-      </AppBar>
+                {theme.mode === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+              </IconButton>
+            </Tooltip>
+
+            <div className={classes.userInfoWrapper}>
+              <div
+                aria-label="account of current user"
+                aria-controls="menu-appbar"
+                aria-haspopup="true"
+                onClick={handleProfileMenu}
+                onKeyDown={event => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    handleProfileMenu(event);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                className={classes.profileTrigger}
+              >
+                <AvatarUsuario
+                  usuario={user}
+                  tamanho={32}
+                  className="barra-avatar"
+                />
+              </div>
+            </div>
+          </Toolbar>
+        </AppBar>
+      )}
       <NewTicketModal
         modalOpen={novoAtendimentoAberto || !!newTicketContact}
         contact={newTicketContact}
@@ -834,7 +911,7 @@ const LoggedInLayout = ({ children, themeToggle }) => {
         }}
       />
       <main className={classes.content}>
-        <div className={classes.appBarSpacer} />
+        {!isAcNorteLayout && <div className={classes.appBarSpacer} />}
         <OnlyForSuperUser user={currentUser} yes={() => <GoogleAnalytics />} />
         {children ? children : null}
       </main>

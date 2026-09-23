@@ -249,6 +249,25 @@
 .chat-compositor .conversa-modos > span {
   color: var(--ew-muted);
 }
+.chat-compositor--compact {
+  padding: 8px 12px;
+}
+.chat-compositor--compact .MuiInputBase-root {
+  min-height: 46px;
+  padding: 4px 6px;
+  border-radius: 24px;
+}
+.chat-compositor--compact .MuiInputBase-input {
+  min-height: 0;
+  max-height: 88px;
+  padding: 8px 4px;
+  line-height: 1.35;
+}
+.chat-compositor--compact .MuiIconButton-root {
+  width: 34px;
+  height: 34px;
+  padding: 7px;
+}
 .chat-vazio {
   align-items: center;
   justify-content: center;

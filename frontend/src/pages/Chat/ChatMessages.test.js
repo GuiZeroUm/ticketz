@@ -37,10 +37,12 @@ const theme = createTheme({
     chatBubbleFromMe: { main: "white" }
   }
 });
-const setup = (messages = []) =>
+const setup = (messages = [], companySlug) =>
   render(
     <ThemeProvider theme={theme}>
-      <AuthContext.Provider value={{ user: { id: 1, name: "QA" } }}>
+      <AuthContext.Provider
+        value={{ user: { id: 1, name: "QA", company: { slug: companySlug } } }}
+      >
         <ChatMessages
           chat={{ id: 7 }}
           messages={messages}
@@ -58,6 +60,18 @@ beforeEach(() => {
   URL.createObjectURL = jest.fn(() => "blob:preview");
   URL.revokeObjectURL = jest.fn();
   api.post.mockResolvedValue({ data: {} });
+});
+test("usa o compositor compacto somente no chat interno da AC Norte", () => {
+  const { container, unmount } = setup([], "acnorte");
+  expect(container.querySelector(".chat-compositor--compact")).toBeTruthy();
+  expect(screen.queryByText("conversa.responder")).toBeNull();
+
+  unmount();
+  const legacy = setup([], "outro-tenant");
+  expect(
+    legacy.container.querySelector(".chat-compositor--compact")
+  ).toBeNull();
+  expect(screen.getByText("conversa.responder")).toBeTruthy();
 });
 test("keeps draft editable with image preview, sends caption and clears only after success", async () => {
   const { container } = setup();

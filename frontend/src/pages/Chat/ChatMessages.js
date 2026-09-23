@@ -37,6 +37,7 @@ import RecordingTimer from "../../components/MessageInputCustom/RecordingTimer";
 import MediaGalleryLightbox, {
   buildMediaGalleryData
 } from "../../components/MediaGalleryLightbox";
+import isAcNorte from "../../helpers/isAcNorte";
 
 const useStyles = makeStyles(theme => ({
   mainContainer: {
@@ -204,6 +205,7 @@ export default function ChatMessages({
 }) {
   const classes = useStyles();
   const { user } = useContext(AuthContext);
+  const compactComposer = isAcNorte(user);
   const { datetimeToClient } = useDate();
   const baseRef = useRef();
   const gravador = useRef(null);
@@ -578,12 +580,16 @@ export default function ChatMessages({
         <div ref={baseRef}></div>
       </div>
       <div
-        className={`${classes.inputArea} conversa-compositor chat-compositor`}
+        className={`${classes.inputArea} conversa-compositor chat-compositor${
+          compactComposer ? " chat-compositor--compact" : ""
+        }`}
       >
-        <div className="conversa-modos">
-          <strong>{i18n.t("conversa.responder")}</strong>
-          <span>{i18n.t("conversa.somenteEquipe")}</span>
-        </div>
+        {!compactComposer && (
+          <div className="conversa-modos">
+            <strong>{i18n.t("conversa.responder")}</strong>
+            <span>{i18n.t("conversa.somenteEquipe")}</span>
+          </div>
+        )}
         <FormControl variant="outlined" fullWidth>
           {recording ? (
             <div className={classes.recorderWrapper}>
@@ -682,7 +688,9 @@ export default function ChatMessages({
             </>
           )}
         </FormControl>
-        <div className="conversa-teclado">{i18n.t("conversa.atalho")}</div>
+        {!compactComposer && (
+          <div className="conversa-teclado">{i18n.t("conversa.atalho")}</div>
+        )}
       </div>
       <MediaGalleryLightbox
         open={lightboxOpen}

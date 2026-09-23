@@ -118,6 +118,9 @@
   border-top: 1px solid var(--ew-border);
   background: var(--ew-surface);
 }
+.conversa-compositor--compact {
+  padding: 8px 12px;
+}
 .conversa-modos {
   display: flex;
   gap: 5px;
@@ -160,6 +163,11 @@
 .conversa-compositor > [role="tabpanel"]:focus-within {
   border-color: var(--ew-primary);
 }
+.conversa-compositor--compact > [role="tabpanel"] {
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+}
 .conversa-compositor [hidden] {
   display: none !important;
 }
@@ -168,6 +176,35 @@
 }
 .conversa-compositor .MuiInputBase-root {
   font-size: 13px;
+}
+.conversa-caixa-mensagem--compact {
+  flex-wrap: nowrap !important;
+  width: 100% !important;
+  min-height: 46px;
+  margin: 0 !important;
+  padding: 4px 6px !important;
+  gap: 0;
+  border-radius: 24px !important;
+}
+.conversa-caixa-mensagem--compact .conversa-entrada-texto {
+  order: 0;
+  flex: 1 1 auto;
+  flex-basis: auto;
+  min-height: 0;
+  padding: 0 4px;
+}
+.conversa-caixa-mensagem--compact .conversa-respostas-rapidas {
+  display: none;
+}
+.conversa-caixa-mensagem--compact .MuiInputBase-inputMultiline {
+  padding: 8px 4px;
+  line-height: 1.35;
+}
+.conversa-caixa-mensagem--compact .MuiIconButton-root,
+.conversa-caixa-mensagem--compact > label .MuiIconButton-root {
+  width: 34px;
+  height: 34px;
+  padding: 7px;
 }
 .conversa-teclado {
   font-size: 10px;
