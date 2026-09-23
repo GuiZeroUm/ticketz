@@ -69,7 +69,13 @@ it("preserva veículos e campos automáticos na nova aba do contato, sem exibir 
     screen.getByRole("tab", { name: "contexto.atendimento" })
   ).toBeTruthy();
   expect(screen.getByRole("tab", { name: "contexto.historico" })).toBeTruthy();
-  expect(screen.getByRole("tab", { name: "conversa.notas" })).toBeTruthy();
+  const notesTab = screen.getByRole("tab", { name: "conversa.notas" });
+  expect(notesTab).toBeTruthy();
+  expect(
+    notesTab
+      .closest('[role="tablist"]')
+      .classList.contains("contexto-tabs-grid")
+  ).toBe(true);
   expect(screen.getByTestId("sga-card").textContent).toBe("42");
   expect(screen.getByText("*CPF/CNPJ:* 123.456.789-09")).toBeTruthy();
   expect(screen.getByText("*Com boletos vencidos:* Não")).toBeTruthy();

@@ -78,11 +78,12 @@ const useStyles = makeStyles(theme => ({
   },
   content: {
     display: "flex",
-
+    minWidth: 0,
     flexDirection: "column",
     padding: "16px",
     height: "100%",
     overflowY: "scroll",
+    overflowX: "hidden",
     ...theme.scrollbarStyles
   },
 
@@ -241,7 +242,9 @@ const ContactDrawer = ({
               className="contexto-tabs"
             >
               <Tabs.List
-                className="ew-tabs"
+                className={
+                  dedicatedNotes ? "ew-tabs contexto-tabs-grid" : "ew-tabs"
+                }
                 aria-label={i18n.t("contexto.titulo")}
               >
                 <Tabs.Trigger className="ew-tab" value="contato">

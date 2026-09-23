@@ -8,12 +8,19 @@
   gap: 2px;
   flex-wrap: nowrap;
 }
+.contexto-tabs .ew-tabs.contexto-tabs-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
 .contexto-tabs .ew-tab {
   flex: 1;
+  min-width: 0;
   padding: 8px 5px;
   font-size: 10px;
   gap: 4px;
   justify-content: center;
+  white-space: normal;
+  text-align: center;
 }
 .contexto-tabs [role="tabpanel"] {
   padding-top: 4px;

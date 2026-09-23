@@ -95,15 +95,6 @@ export default function CompositorAtendimento({ ticket, aoSalvarNota }) {
 
   return (
     <div className="conversa-compositor" data-modo="responder">
-      <div
-        className="conversa-modos"
-        aria-label={i18n.t("conversa.modoMensagem")}
-      >
-        <span className="conversa-modo-ativo">
-          <MessageSquare size={14} />
-          {i18n.t("conversa.responder")}
-        </span>
-      </div>
       <div role="tabpanel">
         <MessageInput ticket={ticket} showTabGroups />
       </div>
