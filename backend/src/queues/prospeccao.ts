@@ -286,38 +286,53 @@ const enqueueNext = async (): Promise<void> => {
       }
     });
     if (sent >= automation.dailyLimit) continue;
+    const sending = await ProspeccaoLead.count({
+      where: {
+        companyId: automation.companyId,
+        deliveryStatus: "SENDING"
+      }
+    });
+    if (sending > 0) continue;
+    const scheduled = await ProspeccaoLead.findOne({
+      where: {
+        companyId: automation.companyId,
+        deliveryStatus: "QUEUED",
+        status: "ok",
+        rascunho: { [Op.ne]: null },
+        scheduledSendAt: { [Op.ne]: null }
+      },
+      order: [["scheduledSendAt", "ASC"]]
+    });
+    if (scheduled) {
+      if (scheduled.scheduledSendAt > new Date()) continue;
+      await queue.add(
+        "SendLead",
+        { leadId: scheduled.id },
+        {
+          jobId: `prospeccao-send-${scheduled.id}-${scheduled.sendAttempts}`,
+          removeOnComplete: true,
+          removeOnFail: true
+        }
+      );
+      await scheduled.update({ deliveryStatus: "SENDING" });
+      continue;
+    }
     const lead = await ProspeccaoLead.findOne({
       where: {
         companyId: automation.companyId,
         deliveryStatus: "QUEUED",
         status: "ok",
         rascunho: { [Op.ne]: null },
-        [Op.or]: [
-          { scheduledSendAt: null },
-          { scheduledSendAt: { [Op.lte]: new Date() } }
-        ]
+        scheduledSendAt: null
       },
       order: [["createdAt", "ASC"]]
     });
     if (!lead) continue;
-    if (!lead.scheduledSendAt) {
-      await lead.update({
-        scheduledSendAt: DateTime.now()
-          .plus({ seconds: randomDelay(automation) })
-          .toJSDate()
-      });
-      continue;
-    }
-    await queue.add(
-      "SendLead",
-      { leadId: lead.id },
-      {
-        jobId: `prospeccao-send-${lead.id}-${lead.sendAttempts}`,
-        removeOnComplete: true,
-        removeOnFail: true
-      }
-    );
-    await lead.update({ deliveryStatus: "SENDING" });
+    await lead.update({
+      scheduledSendAt: DateTime.now()
+        .plus({ seconds: randomDelay(automation) })
+        .toJSDate()
+    });
   }
 };
 
