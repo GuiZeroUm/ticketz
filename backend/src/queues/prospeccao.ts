@@ -94,6 +94,9 @@ const startDueSchedules = async (): Promise<void> => {
     );
     const localDate = now.toISODate();
     const currentTime = now.toFormat("HH:mm");
+    const enabledAt = automation.enabledAt
+      ? DateTime.fromJSDate(automation.enabledAt).setZone(now.zoneName)
+      : null;
     const dayStart = now.startOf("day").toUTC().toJSDate();
     const sentToday = await ProspeccaoLead.count({
       where: {
@@ -111,6 +114,14 @@ const startDueSchedules = async (): Promise<void> => {
     if (sentToday + backlog >= automation.dailyLimit) continue;
     for (const schedule of automation.schedules || []) {
       if (schedule.time > currentTime) continue;
+      const scheduleAt = DateTime.fromISO(`${localDate}T${schedule.time}`, {
+        zone: now.zoneName
+      });
+      if (
+        enabledAt?.toISODate() === localDate &&
+        scheduleAt.toMillis() < enabledAt.toMillis()
+      )
+        continue;
       const [execution, created] = await ProspeccaoExecution.findOrCreate({
         where: { scheduleId: schedule.id, localDate },
         defaults: { companyId: automation.companyId, status: "DUE" } as never
