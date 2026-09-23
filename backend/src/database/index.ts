@@ -66,6 +66,9 @@ import VoiceCall from "../models/VoiceCall";
 import GroupQueue from "../models/GroupQueue";
 import GroupReadState from "../models/GroupReadState";
 import WebPushSubscription from "../models/WebPushSubscription";
+import ProspeccaoAutomation from "../models/ProspeccaoAutomation";
+import ProspeccaoSchedule from "../models/ProspeccaoSchedule";
+import ProspeccaoExecution from "../models/ProspeccaoExecution";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const dbConfig = require("../config/database");
@@ -139,6 +142,9 @@ const models = [
   GroupQueue,
   GroupReadState,
   WebPushSubscription,
+  ProspeccaoAutomation,
+  ProspeccaoSchedule,
+  ProspeccaoExecution,
   ProspeccaoLead
 ];
 

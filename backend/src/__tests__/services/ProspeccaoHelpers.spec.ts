@@ -43,16 +43,16 @@ describe("helpers/prospeccao", () => {
       expect(isProspeccaoCompany(null)).toBe(false);
     });
 
-    it("respeita a lista configurada por ambiente", () => {
+    it("não permite ampliar o acesso por variável de ambiente", () => {
       process.env.PROSPECCAO_SLUGS = "teste,parceiro";
-      expect(isProspeccaoCompany(company("parceiro"))).toBe(true);
+      expect(isProspeccaoCompany(company("parceiro"))).toBe(false);
       expect(isProspeccaoCompany(company("outro"))).toBe(false);
     });
 
-    it("não libera ninguém quando a lista configurada é vazia", () => {
+    it("mantém teste habilitado mesmo com variável vazia", () => {
       process.env.PROSPECCAO_SLUGS = " , ";
-      expect(prospeccaoSlugs()).toEqual([]);
-      expect(isProspeccaoCompany(company("teste"))).toBe(false);
+      expect(prospeccaoSlugs()).toEqual(["teste"]);
+      expect(isProspeccaoCompany(company("teste"))).toBe(true);
     });
   });
 

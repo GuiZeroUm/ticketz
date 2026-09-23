@@ -15,6 +15,7 @@ import {
 import Company from "./Company";
 import Contact from "./Contact";
 import Ticket from "./Ticket";
+import ProspeccaoExecution from "./ProspeccaoExecution";
 
 @Table({ tableName: "ProspeccaoLeads" })
 class ProspeccaoLead extends Model<ProspeccaoLead> {
@@ -107,6 +108,26 @@ class ProspeccaoLead extends Model<ProspeccaoLead> {
   @AllowNull
   @Column
   abertoEm: Date;
+
+  @ForeignKey(() => ProspeccaoExecution)
+  @AllowNull
+  @Column
+  executionId: number;
+
+  @BelongsTo(() => ProspeccaoExecution)
+  execution: ProspeccaoExecution;
+
+  @Default("MANUAL")
+  @Column
+  origin: string;
+
+  @AllowNull @Column deliveryStatus: string;
+  @Default(0) @Column sendAttempts: number;
+  @AllowNull @Column scheduledSendAt: Date;
+  @AllowNull @Column autoSentAt: Date;
+  @AllowNull @Column repliedAt: Date;
+  @AllowNull @Column closeDueAt: Date;
+  @AllowNull @Column(DataType.TEXT) deliveryError: string;
 
   @CreatedAt
   createdAt: Date;

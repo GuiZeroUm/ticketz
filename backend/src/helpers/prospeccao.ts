@@ -7,7 +7,7 @@ import User from "../models/User";
 // todos os leads gerados nela. Por isso a tela é amarrada ao slug do tenant, e
 // não ao id — cada instalação tem o seu id 1, e a AC Norte roda o mesmo código
 // em banco próprio sem poder herdar a tela.
-const DEFAULT_SLUGS = ["teste"];
+const TENANT_SLUG = "teste";
 
 const clean = (slug?: string | null): string =>
   String(slug ?? "")
@@ -15,9 +15,10 @@ const clean = (slug?: string | null): string =>
     .toLowerCase();
 
 export const prospeccaoSlugs = (): string[] => {
-  const configured = process.env.PROSPECCAO_SLUGS?.trim();
-  const slugs = configured ? configured.split(",") : DEFAULT_SLUGS;
-  return slugs.map(clean).filter(Boolean);
+  // Esta ferramenta usa uma base externa compartilhada. A autorização não é
+  // configurável por ambiente para que um erro de variável não a exponha a
+  // outro tenant.
+  return [TENANT_SLUG];
 };
 
 export const isProspeccaoCompany = (

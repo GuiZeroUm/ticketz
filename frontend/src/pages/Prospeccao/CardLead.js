@@ -87,6 +87,18 @@ const formataSeguidores = total => {
   return `${(total / 1000).toFixed(total < 10000 ? 1 : 0)}k seguidores`;
 };
 
+const DELIVERY_LABELS = {
+  NOT_CONTACTED: "Não contatado",
+  OPEN_CONVERSATION: "Conversa aberta",
+  QUEUED: "Envio agendado",
+  SENDING: "Enviando",
+  PAUSED: "Pausado",
+  SENT: "Mensagem enviada",
+  REPLIED: "Cliente respondeu",
+  FAILED: "Falha no envio",
+  CLOSED_NO_REPLY: "Fechado sem resposta"
+};
+
 const CardLead = ({
   lead,
   rascunho,
@@ -131,12 +143,22 @@ const CardLead = ({
           </div>
         </div>
         <div className={classes.etiquetas}>
-          {lead.contatado && (
+          {lead.deliveryStatus && !pendente && (
             <Chip
               size="small"
-              color="primary"
-              icon={<CheckCircleOutlineIcon />}
-              label="Mensagem enviada"
+              color={
+                ["SENT", "REPLIED"].includes(lead.deliveryStatus)
+                  ? "primary"
+                  : "default"
+              }
+              icon={
+                ["SENT", "REPLIED"].includes(lead.deliveryStatus) ? (
+                  <CheckCircleOutlineIcon />
+                ) : undefined
+              }
+              label={
+                DELIVERY_LABELS[lead.deliveryStatus] || lead.deliveryStatus
+              }
             />
           )}
           {pendente && <Chip size="small" label="Gerando rascunho..." />}
@@ -160,6 +182,12 @@ const CardLead = ({
             {lead.erro ? `: ${lead.erro}` : "."} Dá pra abrir a conversa e
             escrever na mão.
           </Typography>
+        </div>
+      )}
+      {lead.deliveryError && (
+        <div className={classes.falha}>
+          <ErrorOutlineIcon className={classes.icone} />
+          <Typography variant="body2">{lead.deliveryError}</Typography>
         </div>
       )}
 

@@ -58,6 +58,7 @@ import {
   runtimeOwnsCompany,
   runtimeQueueOptions
 } from "./helpers/tenantRuntime";
+import { startProspeccaoQueue } from "./queues/prospeccao";
 
 const connection = process.env.REDIS_URI || "";
 export const userMonitor = new Queue(
@@ -888,6 +889,7 @@ export async function startQueueProcess() {
   startCampaignQueues().then(() => {
     logger.info("Campaign processing functions started");
   });
+  await startProspeccaoQueue();
 
   scheduleMonitor.process("Verify", handleVerifySchedules);
 

@@ -1,5 +1,6 @@
 import { Op } from "sequelize";
 import ProspeccaoLead from "../../models/ProspeccaoLead";
+import Contact from "../../models/Contact";
 import { Lead } from "./ProspeccaoApi";
 
 // O lead pode vir com o telefone formatado do Google Maps ou com o WhatsApp do
@@ -45,12 +46,15 @@ interface Request {
   companyId: number;
   jobId: string;
   leads: Lead[];
+  executionId?: number;
+  origin?: "MANUAL" | "AUTO";
 }
 
 interface Resultado {
   novos: number;
   atualizados: number;
   ignorados: number;
+  newLeadIds: number[];
 }
 
 // Roda a cada poll da busca: os leads chegam primeiro como "pendente" e vão
@@ -59,9 +63,16 @@ interface Resultado {
 const SyncProspeccaoLeadsService = async ({
   companyId,
   jobId,
-  leads
+  leads,
+  executionId,
+  origin = "MANUAL"
 }: Request): Promise<Resultado> => {
-  const resultado: Resultado = { novos: 0, atualizados: 0, ignorados: 0 };
+  const resultado: Resultado = {
+    novos: 0,
+    atualizados: 0,
+    ignorados: 0,
+    newLeadIds: []
+  };
   if (!leads.length) return resultado;
 
   const externalIds = leads.map(lead => lead.id);
@@ -89,6 +100,18 @@ const SyncProspeccaoLeadsService = async ({
     variacoesDoTelefone(l.telefone).forEach(variacao => {
       telefonePorExternalId.set(variacao, l.externalId);
     });
+  });
+  const contatosConhecidos = telefones.length
+    ? await Contact.findAll({
+        attributes: ["number"],
+        where: { companyId, number: { [Op.in]: telefones } }
+      })
+    : [];
+  const telefonesDeContatos = new Set<string>();
+  contatosConhecidos.forEach(contato => {
+    variacoesDoTelefone(normalizaTelefone(contato.number)).forEach(variacao =>
+      telefonesDeContatos.add(variacao)
+    );
   });
 
   // Laço sequencial de propósito: cada lead novo alimenta o mapa de telefones
@@ -131,17 +154,27 @@ const SyncProspeccaoLeadsService = async ({
       resultado.ignorados += 1;
       continue;
     }
+    if (
+      variacoesDoTelefone(telefone).some(item => telefonesDeContatos.has(item))
+    ) {
+      resultado.ignorados += 1;
+      continue;
+    }
 
-    await ProspeccaoLead.create({
+    const criado = await ProspeccaoLead.create({
       ...campos,
       companyId,
       externalId: lead.id,
+      executionId,
+      origin,
+      deliveryStatus: origin === "AUTO" ? "QUEUED" : null,
       rascunho: lead.rascunho
     } as Partial<ProspeccaoLead> as ProspeccaoLead);
     variacoesDoTelefone(telefone).forEach(variacao => {
       telefonePorExternalId.set(variacao, lead.id);
     });
     resultado.novos += 1;
+    resultado.newLeadIds.push(criado.id);
   }
 
   return resultado;
