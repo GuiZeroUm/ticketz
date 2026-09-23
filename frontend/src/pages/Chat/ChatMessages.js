@@ -578,12 +578,8 @@ export default function ChatMessages({
         <div ref={baseRef}></div>
       </div>
       <div
-        className={`${classes.inputArea} conversa-compositor chat-compositor`}
+        className={`${classes.inputArea} conversa-compositor chat-compositor chat-compositor--compact`}
       >
-        <div className="conversa-modos">
-          <strong>{i18n.t("conversa.responder")}</strong>
-          <span>{i18n.t("conversa.somenteEquipe")}</span>
-        </div>
         <FormControl variant="outlined" fullWidth>
           {recording ? (
             <div className={classes.recorderWrapper}>
@@ -682,7 +678,6 @@ export default function ChatMessages({
             </>
           )}
         </FormControl>
-        <div className="conversa-teclado">{i18n.t("conversa.atalho")}</div>
       </div>
       <MediaGalleryLightbox
         open={lightboxOpen}

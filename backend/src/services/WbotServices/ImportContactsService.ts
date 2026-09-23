@@ -5,6 +5,7 @@ import ShowBaileysService from "../BaileysServices/ShowBaileysService";
 import CreateContactService from "../ContactServices/CreateContactService";
 import AppError from "../../errors/AppError";
 import Whatsapp from "../../models/Whatsapp";
+import { updateContact } from "../ContactServices/CreateOrUpdateContactService";
 
 const ImportContactsService = async (
   companyId: number,
@@ -46,8 +47,11 @@ const ImportContactsService = async (
         });
 
         if (existingContact) {
-          existingContact.name = name || notify || number;
-          await existingContact.save();
+          await updateContact(
+            existingContact,
+            { name: name || notify || number },
+            "external"
+          );
           continue;
         }
 
@@ -55,7 +59,8 @@ const ImportContactsService = async (
           await CreateContactService({
             number,
             name: name || notify || number,
-            companyId
+            companyId,
+            nameSource: "external"
           });
         } catch (error) {
           logger.error(

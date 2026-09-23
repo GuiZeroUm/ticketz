@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import TextField from "@material-ui/core/TextField";
 import IconButton from "@material-ui/core/IconButton";
 import SaveIcon from "@material-ui/icons/Save";
@@ -13,6 +13,7 @@ import { toast } from "react-toastify";
 import { i18n } from "../../translate/i18n";
 import useTicketNotes from "../../hooks/useTicketNotes";
 import { Grid } from "@material-ui/core";
+import { AuthContext } from "../../context/Auth/AuthContext";
 
 const useStyles = makeStyles(theme => ({
   root: {
@@ -23,8 +24,7 @@ const useStyles = makeStyles(theme => ({
   },
   list: {
     width: "100%",
-    maxWidth: "350px",
-    maxHeight: "200px",
+    maxHeight: "50vh",
     backgroundColor: theme.palette.background.paper,
     overflow: "auto"
   },
@@ -54,8 +54,9 @@ const NoteSchema = Yup.object().shape({
   note: Yup.string().min(2, "Too Short!").required("Required")
 });
 
-export function TicketNotes({ ticket }) {
-  const { id: ticketId, contactId } = ticket;
+export function TicketNotes({ ticket, contactWide = false }) {
+  const { id: ticketId } = ticket;
+  const { user } = useContext(AuthContext);
   const classes = useStyles();
   const [loading, setLoading] = useState(false);
   const [showOnDeleteDialog, setShowOnDeleteDialog] = useState(false);
@@ -76,8 +77,7 @@ export function TicketNotes({ ticket }) {
     try {
       await saveNote({
         note,
-        ticketId,
-        contactId
+        ticketId
       });
       await loadNotes();
       resetForm();
@@ -109,7 +109,10 @@ export function TicketNotes({ ticket }) {
   const loadNotes = async () => {
     setLoading(true);
     try {
-      const notes = await listNotes({ ticketId, contactId });
+      const notes = await listNotes({
+        ticketId,
+        ...(contactWide ? { scope: "contact" } : {})
+      });
       setNotes(notes);
     } catch (e) {
       toast.error(e);
@@ -124,6 +127,7 @@ export function TicketNotes({ ticket }) {
           note={note}
           key={note.id}
           deleteItem={handleOpenDialogDelete}
+          canDelete={user?.profile === "admin"}
         />
       );
     });

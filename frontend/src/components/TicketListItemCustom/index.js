@@ -40,6 +40,11 @@ export default function TicketListItemCustom({
   const [busy, setBusy] = useState(false);
   const identidade = useIdentidade();
   const group = ticket.isGroup && ticket.contact?.groupMode !== "ticket";
+  const ownTicket =
+    Number(ticket.user?.id || ticket.userId) === Number(user?.id);
+  const canPreview = user?.profile === "admin" || ownTicket;
+  const canClose =
+    user?.profile === "admin" || (ticket.status === "open" && ownTicket);
   const actions = !group && (groupActionButtons || !ticket.isGroup);
   const selected =
     ticketId === ticket.uuid || String(ticketId) === String(ticket.id);
@@ -190,7 +195,7 @@ export default function TicketListItemCustom({
                     <Check size={16} />
                   </BotaoIcone>
                 )}
-                {user.profile === "admin" && (
+                {canPreview && (
                   <BotaoIcone
                     titulo={i18n.t("chatExperience.preview")}
                     onClick={() => setPreview(true)}
@@ -198,7 +203,7 @@ export default function TicketListItemCustom({
                     <Eye size={16} />
                   </BotaoIcone>
                 )}
-                {["open", "pending"].includes(ticket.status) && (
+                {["open", "pending"].includes(ticket.status) && canClose && (
                   <BotaoIcone
                     titulo={i18n.t("chatExperience.close")}
                     disabled={busy}

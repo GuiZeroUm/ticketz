@@ -29,6 +29,7 @@ import { markGroupRead } from "../services/WhatsappGroupServices/GroupUnreadServ
 import ShowContactService from "../services/ContactServices/ShowContactService";
 import { verifyContact } from "../services/WbotServices/verifyContact";
 import normalizeMediaCaption from "../helpers/normalizeMediaCaption";
+import ResolveQuotedMessageService from "../services/MessageServices/ResolveQuotedMessageService";
 
 type IndexQuery = {
   nextId?: string;
@@ -146,7 +147,9 @@ export const historyByMessageId = async (
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const { ticketId } = req.params;
-  const { body, quotedMsg }: MessageData = req.body;
+  const { body, quotedMsg, quotedMsgId } = req.body as MessageData & {
+    quotedMsgId?: string;
+  };
   const medias = req.files as Express.Multer.File[];
   const { companyId } = req.user;
   const userId = Number(req.user.id) || null;
@@ -158,6 +161,11 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
       await markGroupRead(Number(ticketId), Number(req.user.id), companyId);
     }
   }
+  const safeQuotedMsg = await ResolveQuotedMessageService({
+    quotedMsgId: quotedMsgId || quotedMsg?.id,
+    ticket,
+    companyId
+  });
   const { channel } = ticket;
   if (channel === "whatsapp") {
     await SetTicketMessagesAsRead(ticket);
@@ -185,7 +193,12 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
       );
     }
   } else if (channel === "whatsapp") {
-    await SendWhatsAppMessage({ body, ticket, userId, quotedMsg });
+    await SendWhatsAppMessage({
+      body,
+      ticket,
+      userId,
+      quotedMsg: safeQuotedMsg
+    });
   }
 
   return res.send();

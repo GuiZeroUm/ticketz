@@ -44,11 +44,11 @@ const base = {
 };
 const select = jest.fn();
 const tab = jest.fn();
-function setup(ticket = base) {
+function setup(ticket = base, user = { id: 1, profile: "admin" }) {
   return render(
     <MemoryRouter initialEntries={["/tickets/ticket-uuid"]}>
       <Route path="/tickets/:ticketId">
-        <AuthContext.Provider value={{ user: { id: 1, profile: "admin" } }}>
+        <AuthContext.Provider value={{ user }}>
           <TicketsContext.Provider value={{ setCurrentTicket: select }}>
             <ul>
               <TicketCard ticket={ticket} setTabOpen={tab} groupActionButtons />
@@ -94,6 +94,45 @@ test("does not advance a pending ticket when accepting fails", async () => {
 test("group conversations preserve sender previews and do not expose ticket actions", () => {
   setup({ ...base, isGroup: true, lastSenderName: "Ana" });
   expect(screen.getByText("Ana: Olá")).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: "chatExperience.close" })
+  ).toBeNull();
+});
+
+test("attendants can preview and close only their own open tickets", () => {
+  const { rerender } = setup(
+    { ...base, user: { id: 7, name: "Atendente" } },
+    { id: 7, profile: "user" }
+  );
+
+  expect(
+    screen.getByRole("button", { name: "chatExperience.preview" })
+  ).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "chatExperience.close" })
+  ).toBeTruthy();
+
+  rerender(
+    <MemoryRouter initialEntries={["/tickets/ticket-uuid"]}>
+      <Route path="/tickets/:ticketId">
+        <AuthContext.Provider value={{ user: { id: 8, profile: "user" } }}>
+          <TicketsContext.Provider value={{ setCurrentTicket: select }}>
+            <ul>
+              <TicketCard
+                ticket={{ ...base, user: { id: 7, name: "Atendente" } }}
+                setTabOpen={tab}
+                groupActionButtons
+              />
+            </ul>
+          </TicketsContext.Provider>
+        </AuthContext.Provider>
+      </Route>
+    </MemoryRouter>
+  );
+
+  expect(
+    screen.queryByRole("button", { name: "chatExperience.preview" })
+  ).toBeNull();
   expect(
     screen.queryByRole("button", { name: "chatExperience.close" })
   ).toBeNull();

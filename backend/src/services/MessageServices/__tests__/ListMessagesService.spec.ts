@@ -42,7 +42,7 @@ describe("ListMessagesService ticket history", () => {
     jest.restoreAllMocks();
   });
 
-  it("includes prior tickets from the same active conversation", async () => {
+  it("includes prior tickets for the same contact across connections", async () => {
     const ticket = makeTicket();
     showTicket.mockResolvedValue(ticket);
     jest
@@ -57,13 +57,13 @@ describe("ListMessagesService ticket history", () => {
         attributes: ["id"],
         where: expect.objectContaining({
           contactId: 10,
-          whatsappId: 7,
           companyId: 1,
           channel: "whatsapp",
           isGroup: false
         })
       })
     );
+    expect(ticketOptions.where).not.toHaveProperty("whatsappId");
     expect(ticketOptions.where.id[Op.lte]).toBe(22);
 
     const options = getMessageFindOptions();

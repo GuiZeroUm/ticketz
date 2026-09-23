@@ -17,7 +17,7 @@ const useStyles = makeStyles(theme => ({
 }));
 
 export default function TicketNotesItem(props) {
-  const { note, deleteItem } = props;
+  const { note, deleteItem, canDelete } = props;
   const classes = useStyles();
 
   const handleDelete = item => {
@@ -46,23 +46,31 @@ export default function TicketNotesItem(props) {
           <>
             {note.user?.name || "---"},{" "}
             {moment(note.createdAt).format("DD/MM/YY HH:mm")}
+            {note.ticketId ? ` · #${note.ticketId}` : ""}
           </>
         }
       />
-      <ListItemSecondaryAction>
-        <IconButton
-          onClick={() => handleDelete(note)}
-          edge="end"
-          aria-label="delete"
-        >
-          <DeleteIcon />
-        </IconButton>
-      </ListItemSecondaryAction>
+      {canDelete && (
+        <ListItemSecondaryAction>
+          <IconButton
+            onClick={() => handleDelete(note)}
+            edge="end"
+            aria-label="delete"
+          >
+            <DeleteIcon />
+          </IconButton>
+        </ListItemSecondaryAction>
+      )}
     </ListItem>
   );
 }
 
 TicketNotesItem.propTypes = {
   note: PropTypes.object.isRequired,
-  deleteItem: PropTypes.func.isRequired
+  deleteItem: PropTypes.func.isRequired,
+  canDelete: PropTypes.bool
+};
+
+TicketNotesItem.defaultProps = {
+  canDelete: false
 };

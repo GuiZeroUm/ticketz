@@ -1,5 +1,5 @@
 import * as Tabs from "@radix-ui/react-tabs";
-import { UserRound, ClipboardList, History } from "lucide-react";
+import { UserRound, ClipboardList, History, StickyNote } from "lucide-react";
 import { useIdentidade } from "../interface";
 import HistoricoContato from "./HistoricoContato";
 import "./contexto.css";
@@ -75,11 +75,12 @@ const useStyles = makeStyles(theme => ({
   },
   content: {
     display: "flex",
-
+    minWidth: 0,
     flexDirection: "column",
     padding: "16px",
     height: "100%",
     overflowY: "scroll",
+    overflowX: "hidden",
     ...theme.scrollbarStyles
   },
 
@@ -251,6 +252,12 @@ const ContactDrawer = ({
                   <History size={14} />
                   {i18n.t("contexto.historico")}
                 </Tabs.Trigger>
+                {!isGroupConversation && (
+                  <Tabs.Trigger className="ew-tab" value="notas">
+                    <StickyNote size={14} />
+                    {i18n.t("conversa.notas")}
+                  </Tabs.Trigger>
+                )}
               </Tabs.List>
               <Tabs.Content value="contato">
                 <div className={`${classes.contactHeader} contexto-perfil`}>
@@ -463,7 +470,12 @@ const ContactDrawer = ({
                     />
                   </section>
                 )}
-                {!isGroupConversation && (
+              </Tabs.Content>
+              <Tabs.Content value="historico">
+                <HistoricoContato contactId={contact.id} ticketId={ticket.id} />
+              </Tabs.Content>
+              {!isGroupConversation && (
+                <Tabs.Content value="notas">
                   <Paper
                     square
                     variant="outlined"
@@ -473,18 +485,16 @@ const ContactDrawer = ({
                       variant="subtitle1"
                       style={{ marginBottom: 10 }}
                     >
-                      {i18n.t("ticketOptionsMenu.appointmentsModal.title")}
+                      {i18n.t("conversa.notas")}
                     </Typography>
                     <TicketNotes
                       key={`${ticket.id}-${versaoNotas}`}
                       ticket={ticket}
+                      contactWide
                     />
                   </Paper>
-                )}
-              </Tabs.Content>
-              <Tabs.Content value="historico">
-                <HistoricoContato contactId={contact.id} ticketId={ticket.id} />
-              </Tabs.Content>
+                </Tabs.Content>
+              )}
             </Tabs.Root>
             <ContactModal
               open={modalOpen}

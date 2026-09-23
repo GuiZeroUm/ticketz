@@ -2,6 +2,11 @@ import { getIO } from "../../libs/socket";
 import Contact from "../../models/Contact";
 import ContactCustomField from "../../models/ContactCustomField";
 import GroupQueue from "../../models/GroupQueue";
+import {
+  contactNameLockOnCreate,
+  ContactNameSource,
+  protectContactNameUpdate
+} from "./ContactNamePolicy";
 
 interface ExtraInfo extends ContactCustomField {
   name: string;
@@ -21,6 +26,8 @@ interface ContactData {
   disableBot?: boolean;
   language?: string;
   groupMode?: "conversation" | "ticket" | null;
+  nameLocked?: boolean;
+  nameSource?: ContactNameSource;
 }
 
 export const emitContact = async (
@@ -45,9 +52,12 @@ export const emitContact = async (
 
 export const updateContact = async (
   contact: Contact,
-  contactData: ContactData
+  contactData: ContactData,
+  nameSource: ContactNameSource = "external"
 ) => {
-  await contact.update(contactData);
+  await contact.update(
+    protectContactNameUpdate(contact, contactData, nameSource)
+  );
 
   await emitContact(contact, "update");
   return contact;
@@ -65,7 +75,8 @@ const CreateOrUpdateContactService = async ({
   channel = "whatsapp",
   disableBot = false,
   language,
-  groupMode = isGroup ? "conversation" : null
+  groupMode = isGroup ? "conversation" : null,
+  nameSource = "external"
 }: ContactData): Promise<Contact> => {
   let contact: Contact | null;
 
@@ -82,7 +93,8 @@ const CreateOrUpdateContactService = async ({
       channel,
       disableBot,
       language,
-      groupMode
+      groupMode,
+      nameLocked: contactNameLockOnCreate(nameSource, isGroup)
     });
 
     await contact.reload({
@@ -101,15 +113,19 @@ const CreateOrUpdateContactService = async ({
       });
 
       if (contact) {
-        await updateContact(contact, {
-          name,
-          profilePicUrl,
-          profileHiresPictureUrl,
-          isGroup,
-          groupMode: isGroup
-            ? contact.groupMode || groupMode || "conversation"
-            : contact.groupMode
-        });
+        await updateContact(
+          contact,
+          {
+            name,
+            profilePicUrl,
+            profileHiresPictureUrl,
+            isGroup,
+            groupMode: isGroup
+              ? contact.groupMode || groupMode || "conversation"
+              : contact.groupMode
+          },
+          nameSource
+        );
       }
     } else {
       console.error("Error creating contact:", createError);

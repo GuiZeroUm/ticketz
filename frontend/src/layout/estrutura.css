@@ -3,6 +3,10 @@
   gap: 0;
   background: var(--fundo-app, #f7f7f8);
 }
+.estrutura-app--sem-header > main {
+  min-height: 0;
+  height: 100%;
+}
 .estrutura-app > .MuiDrawer-docked {
   width: var(--largura-nav);
   margin-right: 10px;

@@ -47,7 +47,6 @@ const ListMessagesService = async ({
       where: {
         id: { [Op.lte]: ticket.id },
         contactId: ticket.contactId,
-        whatsappId: ticket.whatsappId,
         companyId: ticket.companyId,
         channel: ticket.channel,
         isGroup: false

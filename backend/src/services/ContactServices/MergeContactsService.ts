@@ -12,6 +12,7 @@ import Ticket from "../../models/Ticket";
 import TicketNote from "../../models/TicketNote";
 import WhatsappLidMap from "../../models/WhatsappLidMap";
 import UpdateTicketService from "../TicketServices/UpdateTicketService";
+import { preserveLockedNameOnMerge } from "./ContactNamePolicy";
 
 type MergeContactsCallback = (
   winner: Contact,
@@ -233,6 +234,11 @@ const mergeContactsInTransaction = async (
 
   for (let index = 0; index < losers.length; index += 1) {
     const loser = losers[index];
+
+    const preservedName = preserveLockedNameOnMerge(winner, loser);
+    if (preservedName) {
+      await winner.update(preservedName, { transaction });
+    }
 
     if (prepareLoser) {
       await prepareLoser(winner, loser, transaction);

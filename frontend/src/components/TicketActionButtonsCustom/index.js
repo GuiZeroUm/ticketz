@@ -256,7 +256,7 @@ const TicketActionButtonsCustom = ({
                   {!isGroupConversation && (
                     <BotaoIcone
                       titulo={i18n.t("conversa.notas")}
-                      onClick={() => aoAbrirContexto("atendimento")}
+                      onClick={() => aoAbrirContexto("notas")}
                     >
                       <StickyNote size={18} />
                     </BotaoIcone>

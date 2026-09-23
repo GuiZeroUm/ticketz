@@ -59,6 +59,11 @@ beforeEach(() => {
   URL.revokeObjectURL = jest.fn();
   api.post.mockResolvedValue({ data: {} });
 });
+test("usa o compositor compacto no chat interno sem cabeçalho redundante", () => {
+  const { container } = setup();
+  expect(container.querySelector(".chat-compositor--compact")).toBeTruthy();
+  expect(screen.queryByText("conversa.responder")).toBeNull();
+});
 test("keeps draft editable with image preview, sends caption and clears only after success", async () => {
   const { container } = setup();
   const input = screen.getByRole("textbox");

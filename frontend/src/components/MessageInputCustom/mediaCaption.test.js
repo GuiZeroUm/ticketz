@@ -34,7 +34,7 @@ const fakeSocket = {
 };
 const socketManager = { GetSocket: () => fakeSocket };
 
-const mount = () =>
+const mount = (props = {}) =>
   render(
     <SocketContext.Provider value={socketManager}>
       <AuthContext.Provider value={{ user: { name: "Agente" } }}>
@@ -47,6 +47,7 @@ const mount = () =>
             <MessageInputCustom
               ticket={{ id: 1, status: "open", isGroup: false, contact: {} }}
               showTabGroups
+              {...props}
             />
           </EditMessageContext.Provider>
         </ReplyMessageContext.Provider>
@@ -113,5 +114,34 @@ describe("MessageInputCustom media caption", () => {
     await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
     expect(input).toHaveValue("Não perder este texto");
     expect(screen.getByText("documento.pdf")).toBeInTheDocument();
+  });
+
+  it("usa uma linha no modo compacto e acrescenta arquivos colados ao rascunho", () => {
+    const { container } = mount({ compact: true });
+    const input = screen.getByRole("textbox");
+    const document = new File(["pdf"], "documento.pdf", {
+      type: "application/pdf"
+    });
+    const screenshot = new File(["imagem"], "captura.jpg", {
+      type: "image/jpeg"
+    });
+
+    fireEvent.change(input, { target: { value: "Texto preservado" } });
+    fireEvent.change(container.querySelector("#upload-button"), {
+      target: { files: [document] }
+    });
+    fireEvent.paste(input, {
+      clipboardData: {
+        items: [{ kind: "file", getAsFile: () => screenshot }],
+        files: [screenshot]
+      }
+    });
+
+    expect(input).toHaveValue("Texto preservado");
+    expect(input).toHaveAttribute("rows", "1");
+    expect(
+      container.querySelector(".conversa-caixa-mensagem--compact")
+    ).toBeTruthy();
+    expect(screen.getByText("documento.pdf, captura.jpg")).toBeInTheDocument();
   });
 });

@@ -3,6 +3,10 @@ import AppError from "../../errors/AppError";
 import Contact from "../../models/Contact";
 import { isValidBirthday } from "../ScheduleServices/recurrence";
 import ContactCustomField from "../../models/ContactCustomField";
+import {
+  contactNameLockOnCreate,
+  ContactNameSource
+} from "./ContactNamePolicy";
 
 interface ExtraInfo extends ContactCustomField {
   name: string;
@@ -21,6 +25,7 @@ interface Request {
   nickname?: string;
   birthdayDay?: number | null;
   birthdayMonth?: number | null;
+  nameSource?: ContactNameSource;
 }
 
 const CreateContactService = async ({
@@ -33,7 +38,8 @@ const CreateContactService = async ({
   language,
   nickname = "",
   birthdayDay,
-  birthdayMonth
+  birthdayMonth,
+  nameSource = "manual"
 }: Request): Promise<Contact> => {
   const normalizedBirthdayDay = birthdayDay ? Number(birthdayDay) : null;
   const normalizedBirthdayMonth = birthdayMonth ? Number(birthdayMonth) : null;
@@ -73,7 +79,8 @@ const CreateContactService = async ({
       language,
       nickname,
       birthdayDay: normalizedBirthdayDay,
-      birthdayMonth: normalizedBirthdayMonth
+      birthdayMonth: normalizedBirthdayMonth,
+      nameLocked: contactNameLockOnCreate(nameSource)
     },
     {
       include: ["extraInfo"]

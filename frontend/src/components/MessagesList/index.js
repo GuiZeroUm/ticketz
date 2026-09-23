@@ -61,6 +61,7 @@ import { generateColor } from "../../helpers/colorGenerator";
 import { getInitials } from "../../helpers/getInitials";
 import { downloadFile } from "../../helpers/downloadFile";
 import { Mutex } from "async-mutex";
+import { ReplyMessageContext } from "../../context/ReplyingMessage/ReplyingMessageContext";
 
 const loadPageMutex = new Mutex();
 
@@ -168,6 +169,10 @@ const useStyles = makeStyles(theme => ({
       top: 0,
       right: 0
     },
+    "&:hover [id^='messageReplyButton'], &:focus-within [id^='messageReplyButton']":
+      {
+        opacity: 1
+      },
 
     whiteSpace: "pre-wrap",
     backgroundColor: theme.palette.background.paper,
@@ -231,6 +236,10 @@ const useStyles = makeStyles(theme => ({
       top: 0,
       right: 0
     },
+    "&:hover [id^='messageReplyButton'], &:focus-within [id^='messageReplyButton']":
+      {
+        opacity: 1
+      },
     whiteSpace: "pre-wrap",
     backgroundColor: alpha(theme.palette.primary.main, 0.09),
     color: theme.mode === "light" ? "#303030" : "#ffffff",
@@ -282,6 +291,25 @@ const useStyles = makeStyles(theme => ({
     "&:hover, &.Mui-focusVisible": { backgroundColor: "inherit" }
   },
 
+  messageReplyButton: {
+    display: "flex",
+    position: "absolute",
+    top: 3,
+    right: 37,
+    color: "#777",
+    zIndex: 1,
+    backgroundColor: "inherit",
+    opacity: 0.35,
+    transition: "opacity 120ms ease",
+    "&:hover, &.Mui-focusVisible": {
+      opacity: 1,
+      backgroundColor: "inherit"
+    },
+    [theme.breakpoints.down("sm")]: {
+      opacity: 1
+    }
+  },
+
   messageContactName: {
     display: "flex",
     color: theme.palette.primary.main,
@@ -307,7 +335,7 @@ const useStyles = makeStyles(theme => ({
     overflowWrap: "anywhere",
     fontSize: 13,
     lineHeight: 1.65,
-    padding: "3px 34px 20px 6px"
+    padding: "3px 70px 20px 6px"
   },
 
   messageLocation: {
@@ -780,6 +808,11 @@ const MessagesList = ({
   const [contactPresence, setContactPresence] = useState("available");
 
   const socketManager = useContext(SocketContext);
+  const { setReplyingMessage } = useContext(ReplyMessageContext);
+
+  const startReply = message => {
+    setReplyingMessage(message);
+  };
 
   function loadData(incrementPage = false) {
     if (incrementPage && !nextId) {
@@ -1857,17 +1890,33 @@ const MessagesList = ({
               title={message.queueId && message.queue?.name}
             >
               {readOnly || (
-                <IconButton
-                  variant="contained"
-                  size="small"
-                  id={`messageActionsButton-${message.id}`}
-                  aria-label={i18n.t("conversa.maisAcoes")}
-                  disabled={message.isDeleted}
-                  className={classes.messageActionsButton}
-                  onClick={e => handleOpenMessageOptionsMenu(e, message, data)}
-                >
-                  <ExpandMore />
-                </IconButton>
+                <>
+                  <Tooltip title={i18n.t("messageOptionsMenu.reply")}>
+                    <IconButton
+                      size="small"
+                      id={`messageReplyButton-${message.id}`}
+                      aria-label={i18n.t("messageOptionsMenu.reply")}
+                      disabled={message.isDeleted}
+                      className={classes.messageReplyButton}
+                      onClick={() => startReply(message)}
+                    >
+                      <Reply fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <IconButton
+                    variant="contained"
+                    size="small"
+                    id={`messageActionsButton-${message.id}`}
+                    aria-label={i18n.t("conversa.maisAcoes")}
+                    disabled={message.isDeleted}
+                    className={classes.messageActionsButton}
+                    onClick={e =>
+                      handleOpenMessageOptionsMenu(e, message, data)
+                    }
+                  >
+                    <ExpandMore />
+                  </IconButton>
+                </>
               )}
               {dataContext?.isForwarded && (
                 <span className={classes.forwardedMessage}>
@@ -1979,17 +2028,33 @@ const MessagesList = ({
               title={message.queueId && message.queue?.name}
             >
               {readOnly || (
-                <IconButton
-                  variant="contained"
-                  size="small"
-                  id={`messageActionsButton-${message.id}`}
-                  aria-label={i18n.t("conversa.maisAcoes")}
-                  disabled={message.isDeleted}
-                  className={classes.messageActionsButton}
-                  onClick={e => handleOpenMessageOptionsMenu(e, message, data)}
-                >
-                  <ExpandMore />
-                </IconButton>
+                <>
+                  <Tooltip title={i18n.t("messageOptionsMenu.reply")}>
+                    <IconButton
+                      size="small"
+                      id={`messageReplyButton-${message.id}`}
+                      aria-label={i18n.t("messageOptionsMenu.reply")}
+                      disabled={message.isDeleted}
+                      className={classes.messageReplyButton}
+                      onClick={() => startReply(message)}
+                    >
+                      <Reply fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <IconButton
+                    variant="contained"
+                    size="small"
+                    id={`messageActionsButton-${message.id}`}
+                    aria-label={i18n.t("conversa.maisAcoes")}
+                    disabled={message.isDeleted}
+                    className={classes.messageActionsButton}
+                    onClick={e =>
+                      handleOpenMessageOptionsMenu(e, message, data)
+                    }
+                  >
+                    <ExpandMore />
+                  </IconButton>
+                </>
               )}
 
               {dataContext?.isForwarded && (

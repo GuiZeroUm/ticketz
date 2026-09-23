@@ -6,8 +6,6 @@ import {
   makeStyles,
   Drawer,
   Button,
-  AppBar,
-  Toolbar,
   List,
   Typography,
   Divider,
@@ -24,8 +22,6 @@ import BusinessOutlined from "@material-ui/icons/BusinessOutlined";
 import SettingsEthernetIcon from "@material-ui/icons/SettingsEthernet";
 
 import MainListItems from "./MainListItems";
-import AtalhosAtendimento from "./AtalhosAtendimento";
-import CaminhoPagina from "./CaminhoPagina";
 import FerramentasBarra from "./FerramentasBarra";
 import { PanelLeft, Headphones, Moon, Sun } from "lucide-react";
 import "./estrutura.css";
@@ -92,6 +88,32 @@ const useStyles = makeStyles(theme => ({
     justifyContent: "flex-start",
     textAlign: "left",
     textTransform: "none"
+  },
+  ferramentasLaterais: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
+    padding: "8px 6px",
+    borderTop: `1px solid ${theme.palette.divider}`,
+    "& .MuiIconButton-root": {
+      width: 36,
+      height: 36,
+      padding: 8
+    }
+  },
+  alternarNavegacaoFlutuante: {
+    position: "fixed",
+    top: 12,
+    left: 12,
+    zIndex: theme.zIndex.drawer - 1,
+    width: 40,
+    height: 40,
+    border: `1px solid ${theme.palette.divider}`,
+    backgroundColor: theme.palette.background.paper,
+    boxShadow: theme.shadows[2],
+    "&:hover": { backgroundColor: theme.palette.background.paper }
   },
   dadosOrganizacao: {
     minWidth: 0,
@@ -571,8 +593,11 @@ const LoggedInLayout = ({ children, themeToggle }) => {
 
   return (
     <div
-      className={`${classes.root} estrutura-app`}
-      style={{ "--largura-nav": drawerOpen ? "260px" : "72px" }}
+      className={`${classes.root} estrutura-app estrutura-app--sem-header`}
+      style={{
+        "--largura-nav": drawerOpen ? "260px" : "72px",
+        "--altura-cabecalho": "0px"
+      }}
       data-navegacao={drawerOpen ? "aberta" : "fechada"}
     >
       <Drawer
@@ -638,62 +663,14 @@ const LoggedInLayout = ({ children, themeToggle }) => {
           />
         </List>
         <Divider />
-        <Button
-          className={`${classes.rodapeUsuario} nav-perfil`}
-          onClick={() => setUserModalOpen(true)}
-          aria-label={i18n.t("mainDrawer.appBar.user.profile")}
-        >
-          <AvatarUsuario usuario={user} tamanho={36} />
-          {drawerOpen && (
-            <div className={classes.dadosOrganizacao}>
-              <Typography variant="body2">{user?.name}</Typography>
-              <Typography variant="caption" color="textSecondary">
-                {user?.company?.name || theme.appName}
-              </Typography>
-            </div>
-          )}
-        </Button>
-      </Drawer>
-      <UserModal
-        open={userModalOpen}
-        onClose={() => setUserModalOpen(false)}
-        userId={user?.id}
-      />
-      <AboutModal
-        open={aboutModalOpen}
-        onClose={() => setAboutModalOpen(false)}
-      />
-      <AppBar
-        position="absolute"
-        className={clsx(classes.appBar, drawerOpen && classes.appBarShift)}
-        color="primary"
-      >
-        <Toolbar variant="dense" className={classes.toolbar}>
-          <IconButton
-            edge="start"
-            variant="contained"
-            aria-label={i18n.t("visual.alternarNavegacao")}
-            onClick={handleDrawerToggle}
-            className={classes.menuButton}
-          >
-            <PanelLeft size={18} />
-          </IconButton>
-
-          <CaminhoPagina organizacao={user?.company?.name || theme.appName} />
-
-          <AtalhosAtendimento />
-          <div id="acoes-pagina" className="acoes-pagina" />
+        <div className={classes.ferramentasLaterais}>
           {wsConnectionIssue && (
             <Tooltip title={i18n.t("common.connection")} arrow>
-              <span
-                aria-label={i18n.t("common.connection")}
-                className={classes.wsConnectionAlertButton}
-              >
+              <span aria-label={i18n.t("common.connection")}>
                 <Badge
                   variant="dot"
                   overlap="circular"
                   color="secondary"
-                  anchorOrigin={{ vertical: "top", horizontal: "right" }}
                   className={classes.wsConnectionBadge}
                 >
                   <SettingsEthernetIcon
@@ -703,11 +680,8 @@ const LoggedInLayout = ({ children, themeToggle }) => {
               </span>
             </Tooltip>
           )}
-
           <PhoneCall />
-
           {user.id && <NotificationsPopOver volume={volume} />}
-
           <FerramentasBarra>
             {canAccessBackendlogs && <Backendlogs />}
             <NotificationsVolume setVolume={setVolume} volume={volume} />
@@ -721,107 +695,100 @@ const LoggedInLayout = ({ children, themeToggle }) => {
                 : "mainDrawer.appBar.user.darkmode"
             )}
           >
-            <IconButton
-              color="inherit"
-              onClick={toggleColorMode}
-              aria-label={i18n.t(
-                theme.mode === "dark"
-                  ? "mainDrawer.appBar.user.lightmode"
-                  : "mainDrawer.appBar.user.darkmode"
-              )}
-            >
+            <IconButton color="inherit" onClick={toggleColorMode}>
               {theme.mode === "dark" ? <Sun size={18} /> : <Moon size={18} />}
             </IconButton>
           </Tooltip>
-
-          <div className={classes.userInfoWrapper}>
-            <div
-              aria-label="account of current user"
-              aria-controls="menu-appbar"
-              aria-haspopup="true"
-              onClick={handleProfileMenu}
-              onKeyDown={event => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  handleProfileMenu(event);
-                }
-              }}
-              role="button"
-              tabIndex={0}
-              className={classes.profileTrigger}
-            >
-              <AvatarUsuario
-                usuario={user}
-                tamanho={32}
-                className="barra-avatar"
-              />
+        </div>
+        <Button
+          className={`${classes.rodapeUsuario} nav-perfil`}
+          onClick={handleProfileMenu}
+          aria-label={i18n.t("mainDrawer.appBar.user.profile")}
+        >
+          <AvatarUsuario usuario={user} tamanho={36} />
+          {drawerOpen && (
+            <div className={classes.dadosOrganizacao}>
+              <Typography variant="body2">{user?.name}</Typography>
+              <Typography variant="caption" color="textSecondary">
+                {user?.company?.name || theme.appName}
+              </Typography>
             </div>
-            <Menu
-              id="menu-appbar"
-              anchorEl={anchorEl}
-              getContentAnchorEl={null}
-              anchorOrigin={{
-                vertical: "bottom",
-                horizontal: "right"
-              }}
-              transformOrigin={{
-                vertical: "top",
-                horizontal: "right"
-              }}
-              open={menuOpen}
-              onClose={handleCloseProfileMenu}
-            >
-              <div className={classes.userMenuInfoContainer}>
-                <Typography className={classes.userMenuInfoLine}>
-                  {i18n.t("common.name")}: {user?.name || "-"}
-                </Typography>
-                <Typography className={classes.userMenuInfoLine}>
-                  {i18n.t("common.company")}: {user?.company?.name || "-"}
-                </Typography>
-                {shouldShowCompanyDueDate && (
-                  <Typography className={classes.userMenuInfoLine}>
-                    {i18n.t(
-                      "mainDrawer.appBar.user.subscriptionValidUntilLabel"
-                    )}
-                    : {companyDueDateText}
-                  </Typography>
-                )}
-              </div>
-              <Divider />
-              <MenuItem onClick={handleOpenUserModal}>
-                {i18n.t("mainDrawer.appBar.user.profile")}
-              </MenuItem>
-              <MenuItem onClick={toggleColorMode}>
-                {theme.mode === "dark"
-                  ? i18n.t("mainDrawer.appBar.user.lightmode")
-                  : i18n.t("mainDrawer.appBar.user.darkmode")}
-              </MenuItem>
-              <NestedMenuItem
-                label={i18n.t("mainDrawer.appBar.user.language")}
-                parentMenuOpen={menuOpen}
+          )}
+        </Button>
+      </Drawer>
+      {isMobile && !drawerOpen && (
+        <IconButton
+          className={classes.alternarNavegacaoFlutuante}
+          aria-label={i18n.t("visual.alternarNavegacao")}
+          onClick={handleDrawerToggle}
+        >
+          <PanelLeft size={18} />
+        </IconButton>
+      )}
+      <UserModal
+        open={userModalOpen}
+        onClose={() => setUserModalOpen(false)}
+        userId={user?.id}
+      />
+      <AboutModal
+        open={aboutModalOpen}
+        onClose={() => setAboutModalOpen(false)}
+      />
+      <Menu
+        id="menu-appbar"
+        anchorEl={anchorEl}
+        getContentAnchorEl={null}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+        open={menuOpen}
+        onClose={handleCloseProfileMenu}
+      >
+        <div className={classes.userMenuInfoContainer}>
+          <Typography className={classes.userMenuInfoLine}>
+            {i18n.t("common.name")}: {user?.name || "-"}
+          </Typography>
+          <Typography className={classes.userMenuInfoLine}>
+            {i18n.t("common.company")}: {user?.company?.name || "-"}
+          </Typography>
+          {shouldShowCompanyDueDate && (
+            <Typography className={classes.userMenuInfoLine}>
+              {i18n.t("mainDrawer.appBar.user.subscriptionValidUntilLabel")}:{" "}
+              {companyDueDateText}
+            </Typography>
+          )}
+        </div>
+        <Divider />
+        <MenuItem onClick={handleOpenUserModal}>
+          {i18n.t("mainDrawer.appBar.user.profile")}
+        </MenuItem>
+        <MenuItem onClick={toggleColorMode}>
+          {theme.mode === "dark"
+            ? i18n.t("mainDrawer.appBar.user.lightmode")
+            : i18n.t("mainDrawer.appBar.user.darkmode")}
+        </MenuItem>
+        <NestedMenuItem
+          label={i18n.t("mainDrawer.appBar.user.language")}
+          parentMenuOpen={menuOpen}
+        >
+          {Object.keys(messages).map(m => (
+            <MenuItem key={m} onClick={() => handleChooseLanguage(m)}>
+              <div
+                style={{
+                  fontWeight: currentLanguage === m ? "bold" : "normal"
+                }}
               >
-                {Object.keys(messages).map(m => (
-                  <MenuItem onClick={() => handleChooseLanguage(m)}>
-                    <div
-                      style={{
-                        fontWeight: currentLanguage === m ? "bold" : "normal"
-                      }}
-                    >
-                      {messages[m].translations.mainDrawer.appBar.i18n.language}
-                    </div>
-                  </MenuItem>
-                ))}
-              </NestedMenuItem>
-              <MenuItem onClick={handleOpenAboutModal}>
-                {i18n.t("about.aboutthe")} {theme.appName || "Espaço Whats"}
-              </MenuItem>
-              <MenuItem onClick={handleClickLogout}>
-                {i18n.t("mainDrawer.appBar.user.logout")}
-              </MenuItem>
-            </Menu>
-          </div>
-        </Toolbar>
-      </AppBar>
+                {messages[m].translations.mainDrawer.appBar.i18n.language}
+              </div>
+            </MenuItem>
+          ))}
+        </NestedMenuItem>
+        <MenuItem onClick={handleOpenAboutModal}>
+          {i18n.t("about.aboutthe")} {theme.appName || "Espaço Whats"}
+        </MenuItem>
+        <MenuItem onClick={handleClickLogout}>
+          {i18n.t("mainDrawer.appBar.user.logout")}
+        </MenuItem>
+      </Menu>
       <NewTicketModal
         modalOpen={novoAtendimentoAberto || !!newTicketContact}
         contact={newTicketContact}
@@ -834,7 +801,6 @@ const LoggedInLayout = ({ children, themeToggle }) => {
         }}
       />
       <main className={classes.content}>
-        <div className={classes.appBarSpacer} />
         <OnlyForSuperUser user={currentUser} yes={() => <GoogleAnalytics />} />
         {children ? children : null}
       </main>
