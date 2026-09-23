@@ -6,12 +6,14 @@ import ProspeccaoLead from "../../models/ProspeccaoLead";
 import Ticket from "../../models/Ticket";
 import { CheckNumberAndCreateContact } from "../WbotServices/CheckNumber";
 import CreateTicketService from "../TicketServices/CreateTicketService";
+import Whatsapp from "../../models/Whatsapp";
 
 interface Request {
   leadId: number;
   companyId: number;
   userId: number;
   rascunho?: string;
+  whatsappId?: number;
 }
 
 interface Response {
@@ -59,7 +61,8 @@ const AbrirConversaDoLeadService = async ({
   leadId,
   companyId,
   userId,
-  rascunho
+  rascunho,
+  whatsappId
 }: Request): Promise<Response> => {
   const lead = await ProspeccaoLead.findOne({
     where: { id: leadId, companyId }
@@ -77,11 +80,22 @@ const AbrirConversaDoLeadService = async ({
   // tela de Contatos usa, e por ser find-or-create ele também conserta contatos
   // criados antes desta correção. De quebra, o número gravado passa a ser o que
   // o WhatsApp confirma, resolvendo divergência de nono dígito.
-  const contact = await CheckNumberAndCreateContact(
-    lead.telefone,
-    lead.nome || lead.telefone,
-    companyId
-  );
+  const whatsapp = whatsappId
+    ? await Whatsapp.findOne({ where: { id: whatsappId, companyId } })
+    : null;
+  if (whatsappId && !whatsapp) throw new AppError("ERR_WAPP_NOT_FOUND", 404);
+  const contact = whatsapp
+    ? await CheckNumberAndCreateContact(
+        lead.telefone,
+        lead.nome || lead.telefone,
+        companyId,
+        whatsapp
+      )
+    : await CheckNumberAndCreateContact(
+        lead.telefone,
+        lead.nome || lead.telefone,
+        companyId
+      );
   if (!contact) {
     throw new AppError("ERR_PROSPECCAO_SEM_CONEXAO", 503);
   }
@@ -93,7 +107,8 @@ const AbrirConversaDoLeadService = async ({
     ticket = await CreateTicketService({
       contactId: contact.id,
       userId,
-      companyId
+      companyId,
+      whatsappId
     });
   } catch (erro) {
     // CreateTicketService recusa quando o contato já tem conversa aberta com
