@@ -22,6 +22,7 @@ class ProspeccaoAutomation extends Model<ProspeccaoAutomation> {
   @PrimaryKey @AutoIncrement @Column id: number;
   @ForeignKey(() => Company) @Column companyId: number;
   @Default(false) @Column enabled: boolean;
+  @AllowNull @Column enabledAt: Date;
   @ForeignKey(() => Whatsapp) @AllowNull @Column whatsappId: number;
   @ForeignKey(() => User) @AllowNull @Column userId: number;
   @Default(180) @Column minDelaySeconds: number;
