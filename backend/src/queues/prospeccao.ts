@@ -305,16 +305,24 @@ const enqueueNext = async (): Promise<void> => {
     });
     if (scheduled) {
       if (scheduled.scheduledSendAt > new Date()) continue;
-      await queue.add(
-        "SendLead",
-        { leadId: scheduled.id },
-        {
-          jobId: `prospeccao-send-${scheduled.id}-${scheduled.sendAttempts}`,
-          removeOnComplete: true,
-          removeOnFail: true
-        }
-      );
       await scheduled.update({ deliveryStatus: "SENDING" });
+      try {
+        await queue.add(
+          "SendLead",
+          { leadId: scheduled.id },
+          {
+            jobId: `prospeccao-send-${scheduled.id}-${scheduled.sendAttempts}`,
+            removeOnComplete: true,
+            removeOnFail: true
+          }
+        );
+      } catch (error) {
+        await scheduled.update({
+          deliveryStatus: "QUEUED",
+          deliveryError: error?.message || "Falha ao enfileirar envio"
+        });
+        throw error;
+      }
       continue;
     }
     const lead = await ProspeccaoLead.findOne({
