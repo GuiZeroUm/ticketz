@@ -65,7 +65,8 @@ export const resolveVoiceContact = async (
     name: peer.number,
     number: peer.number,
     channel: "whatsapp",
-    isGroup: false
+    isGroup: false,
+    nameSource: "external"
   });
   if (peer.lid && contact) {
     await WhatsappLidMap.findOrCreate({

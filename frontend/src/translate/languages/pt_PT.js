@@ -919,6 +919,10 @@ const messages = {
         }
       },
       ticketsList: {
+        claimOnly: {
+          title: "Novo atendimento #{{id}}",
+          description: "Aceite para visualizar a conversa"
+        },
         pendingHeader: "Aguardando",
         assignedHeader: "Em atendimento",
         noTicketsTitle: "Nada aqui!",
@@ -1607,7 +1611,8 @@ const messages = {
           "Reabra ou aceite este ticket para enviar uma mensagem.",
         signMessage: "Assinar",
         replying: "A responder",
-        editing: "A editar"
+        editing: "A editar",
+        billingPdfUnavailable: "Não foi possível carregar o PDF da cobrança."
       },
       message: {
         edited: "Editada"

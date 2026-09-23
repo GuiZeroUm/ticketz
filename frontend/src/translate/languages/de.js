@@ -880,6 +880,10 @@ const messages = {
         }
       },
       ticketsList: {
+        claimOnly: {
+          title: "Neues Ticket #{{id}}",
+          description: "Annehmen, um die Unterhaltung anzuzeigen"
+        },
         pendingHeader: "Wartend",
         assignedHeader: "In Bearbeitung",
         noTicketsTitle: "Nichts hier!",
@@ -1551,7 +1555,9 @@ const messages = {
           "Öffnen oder akzeptieren Sie dieses Ticket, um eine Nachricht zu senden.",
         signMessage: "Signieren",
         replying: "Antworten",
-        editing: "Bearbeiten"
+        editing: "Bearbeiten",
+        billingPdfUnavailable:
+          "Die Abrechnungs-PDF konnte nicht geladen werden."
       },
       message: {
         edited: "Bearbeitet"

@@ -19,6 +19,9 @@ import GetTicketServiceWindowService from "../services/TicketServices/TicketServ
 import ListTicketTemplatesService from "../services/MetaWhatsAppServices/ListTicketTemplatesService";
 import Whatsapp from "../models/Whatsapp";
 import ShowUserService from "../services/UserServices/ShowUserService";
+import { usesOwnerTicketAccess } from "../services/TicketServices/TicketAccessPolicy";
+import { serializeClaimOnlyTicket } from "../services/TicketServices/ClaimOnlyTicket";
+import CountVisibleTicketsService from "../services/TicketServices/CountVisibleTicketsService";
 
 type IndexQuery = {
   isSearch?: string;
@@ -49,6 +52,29 @@ interface TicketData {
 }
 
 const updateMutex = new Mutex();
+
+export const counts = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  let requestedQueueIds: number[] | undefined;
+  if (req.query.queueIds) {
+    try {
+      const parsed = JSON.parse(String(req.query.queueIds));
+      if (!Array.isArray(parsed)) throw new Error();
+      requestedQueueIds = parsed;
+    } catch {
+      throw new AppError("ERR_INVALID_QUEUE_FILTER", 400);
+    }
+  }
+  const result = await CountVisibleTicketsService({
+    companyId: req.user.companyId,
+    userId: req.user.id,
+    profile: req.user.profile,
+    requestedQueueIds
+  });
+  return res.json(result);
+};
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const {
@@ -194,6 +220,33 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   });
 
   const io = getIO();
+  const ownerOnly = await usesOwnerTicketAccess(companyId);
+  if (ownerOnly && ticket.status === "pending" && !ticket.userId) {
+    let claimRecipients = io.to(`queue-${ticket.queueId}-pending`);
+    if (ticket.queueId === null) {
+      claimRecipients = claimRecipients.to(
+        unassignedTicketRoom(companyId, ticket.status)
+      );
+    }
+    claimRecipients.emit(`company-${companyId}-ticket`, {
+      action: "update",
+      ticket: serializeClaimOnlyTicket(ticket)
+    });
+    io.to(`company-${companyId}-admin`).emit(`company-${companyId}-ticket`, {
+      action: "update",
+      ticket
+    });
+    return res.status(200).json(serializeClaimOnlyTicket(ticket));
+  }
+  if (ownerOnly) {
+    io.to(`company-${companyId}-admin`)
+      .to(`user-${ticket.userId}`)
+      .emit(`company-${companyId}-ticket`, {
+        action: "update",
+        ticket
+      });
+    return res.status(200).json(ticket);
+  }
   let recipients = io
     .to(`company-${companyId}-${ticket.status}`)
     .to(`queue-${ticket.queueId}-${ticket.status}`);
@@ -251,20 +304,56 @@ export const update = async (
   const { ticketId } = req.params;
 
   const current = await ShowTicketService(ticketId, req.user.companyId);
+  const ownerOnly = await usesOwnerTicketAccess(req.user.companyId);
+  const isAtomicClaim =
+    ownerOnly &&
+    req.user.profile !== "admin" &&
+    !current.isGroup &&
+    current.status === "pending" &&
+    !current.userId &&
+    req.body.status === "open";
   if (current.isGroup) {
     await assertGroupAccess(ticketId, req.user);
     if (current.contact?.groupMode !== "ticket") {
       throw new AppError("ERR_GROUP_CONVERSATION_NOT_TICKET", 400);
     }
   } else {
-    await AssertTicketAccessService(current, req.user);
+    await AssertTicketAccessService(current, req.user, {
+      allowClaimOnly: isAtomicClaim
+    });
   }
 
   const { ticket } = await updateMutex.runExclusive(async () => {
+    let claimedFromPending = false;
+    let ticketData = req.body;
+
+    if (isAtomicClaim) {
+      const [claimed] = await Ticket.update(
+        { userId: Number(req.user.id) },
+        {
+          where: {
+            id: current.id,
+            companyId: req.user.companyId,
+            status: "pending",
+            userId: null
+          }
+        }
+      );
+      if (claimed !== 1) {
+        throw new AppError("ERR_TICKET_ALREADY_CLAIMED", 409);
+      }
+      claimedFromPending = true;
+      ticketData = {
+        userId: Number(req.user.id),
+        status: "open"
+      };
+    }
+
     const result = await UpdateTicketService({
-      ticketData: req.body,
+      ticketData,
       ticketId: Number.parseInt(ticketId, 10),
-      reqUserId: Number(req.user.id)
+      reqUserId: Number(req.user.id),
+      claimedFromPending
     });
     return result;
   });
@@ -345,11 +434,28 @@ export const remove = async (
     if (current.contact?.groupMode !== "ticket") {
       throw new AppError("ERR_GROUP_CONVERSATION_NOT_TICKET", 400);
     }
+  } else {
+    await AssertTicketAccessService(current, req.user);
   }
 
   const ticket = await DeleteTicketService(ticketId);
 
   const io = getIO();
+  if (await usesOwnerTicketAccess(companyId)) {
+    let recipients = io
+      .to(ticketId)
+      .to(`company-${companyId}-admin`);
+    if (ticket.userId) {
+      recipients = recipients.to(`user-${ticket.userId}`);
+    }
+    recipients.emit(`company-${companyId}-ticket`, {
+      action: "delete",
+      ticketId: +ticketId
+    });
+
+    return res.status(200).json({ message: "ticket deleted" });
+  }
+
   let recipients = io
     .to(ticketId)
     .to(`company-${companyId}-${ticket.status}`)

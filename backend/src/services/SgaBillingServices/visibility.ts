@@ -192,7 +192,7 @@ export const syncBillingDeliveryVisibility = async (
   await ticket.reload({
     include: ["contact", "queue", "whatsapp", "user", "tags"]
   });
-  websocketUpdateTicket(ticket);
+  await websocketUpdateTicket(ticket);
 };
 
 export const syncSentBillingVisibility = async (

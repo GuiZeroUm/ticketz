@@ -1,9 +1,9 @@
 import * as Tabs from "@radix-ui/react-tabs";
-import { UserRound, ClipboardList, History } from "lucide-react";
+import { UserRound, ClipboardList, History, StickyNote } from "lucide-react";
 import { useIdentidade } from "../interface";
 import HistoricoContato from "./HistoricoContato";
 import "./contexto.css";
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 
 import { makeStyles } from "@material-ui/core/styles";
 import Typography from "@material-ui/core/Typography";
@@ -38,6 +38,8 @@ import { getInitials } from "../../helpers/getInitials";
 import { TagsContainer } from "../TagsContainer";
 import useSettings from "../../hooks/useSettings";
 import api from "../../services/api";
+import { AuthContext } from "../../context/Auth/AuthContext";
+import { usesOwnerOnlyTicketAccess } from "../../helpers/ticketAccess";
 
 const drawerWidth = 300;
 
@@ -145,10 +147,12 @@ const ContactDrawer = ({
 }) => {
   const classes = useStyles();
   const identidade = useIdentidade();
+  const { user } = useContext(AuthContext);
   const { getSetting } = useSettings();
   const formattedContactName = formatWhatsappContactName(contact, ticket);
   const isWhatsappGroup = !!ticket.isGroup;
   const isGroupConversation = ticket.isGroup && contact?.groupMode !== "ticket";
+  const dedicatedNotes = usesOwnerOnlyTicketAccess(user, ticket);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [openForm, setOpenForm] = useState(false);
@@ -252,6 +256,12 @@ const ContactDrawer = ({
                   <History size={14} />
                   {i18n.t("contexto.historico")}
                 </Tabs.Trigger>
+                {dedicatedNotes && !isGroupConversation && (
+                  <Tabs.Trigger className="ew-tab" value="notas">
+                    <StickyNote size={14} />
+                    {i18n.t("conversa.notas")}
+                  </Tabs.Trigger>
+                )}
               </Tabs.List>
               <Tabs.Content value="contato">
                 <div className={`${classes.contactHeader} contexto-perfil`}>
@@ -334,7 +344,7 @@ const ContactDrawer = ({
                     <TagsContainer contact={contact} />
                   </section>
                 )}
-                {!isWhatsappGroup && (
+                {!isWhatsappGroup && user?.profile === "admin" && (
                   <SgaContactCard contactId={contact?.id} open={open} />
                 )}
                 {contact?.extraInfo?.length > 0 && (
@@ -467,7 +477,7 @@ const ContactDrawer = ({
                     />
                   </section>
                 )}
-                {!isGroupConversation && (
+                {!dedicatedNotes && !isGroupConversation && (
                   <Paper
                     square
                     variant="outlined"
@@ -489,6 +499,23 @@ const ContactDrawer = ({
               <Tabs.Content value="historico">
                 <HistoricoContato contactId={contact.id} ticketId={ticket.id} />
               </Tabs.Content>
+              {dedicatedNotes && !isGroupConversation && (
+                <Tabs.Content value="notas">
+                  <Paper
+                    square
+                    variant="outlined"
+                    className={classes.contactDetails}
+                  >
+                    <Typography
+                      variant="subtitle1"
+                      style={{ marginBottom: 10 }}
+                    >
+                      {i18n.t("conversa.notas")}
+                    </Typography>
+                    <TicketNotes key={ticket.id} ticket={ticket} contactWide />
+                  </Paper>
+                </Tabs.Content>
+              )}
             </Tabs.Root>
             <ContactModal
               open={modalOpen}

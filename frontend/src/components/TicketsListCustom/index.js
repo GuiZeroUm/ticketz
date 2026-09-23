@@ -23,6 +23,10 @@ import {
   isTicketQueueVisible,
   isUnansweredPoolTicket
 } from "./ticketVisibility";
+import {
+  canListTicket,
+  usesOwnerOnlyTicketAccess
+} from "../../helpers/ticketAccess";
 
 const useStyles = makeStyles(theme => ({
   ticketsListHeader: {
@@ -236,8 +240,9 @@ const TicketsListCustom = props => {
 
   useEffect(() => {
     const queueIds = queues.map(q => q.id);
-    const filteredTickets = tickets.filter(ticket =>
-      isTicketQueueVisible(ticket, queueIds)
+    const filteredTickets = tickets.filter(
+      ticket =>
+        isTicketQueueVisible(ticket, queueIds) && canListTicket(user, ticket)
     );
 
     if (profile === "user" && !groups) {
@@ -245,13 +250,17 @@ const TicketsListCustom = props => {
     } else {
       dispatch({ type: "LOAD_TICKETS", payload: tickets });
     }
-  }, [tickets, queues, profile, groups, status]);
+  }, [tickets, queues, profile, groups, status, user]);
 
   useEffect(() => {
     const companyId = localStorage.getItem("companyId");
     const socket = socketManager.GetSocket(companyId);
 
     const shouldUpdateTicket = ticket => {
+      const ownerAccessAllowed =
+        profile === "admin" ||
+        !usesOwnerOnlyTicketAccess(user, ticket) ||
+        canListTicket(user, ticket);
       return (
         (!isSearch || !searchParam) &&
         (!contactId || ticket.contactId === contactId) &&
@@ -266,6 +275,7 @@ const TicketsListCustom = props => {
           !ticket.userId ||
           ticket.userId === user?.id ||
           showAll) &&
+        ownerAccessAllowed &&
         isTicketQueueVisible(ticket, selectedQueueIds)
       );
     };
@@ -332,6 +342,15 @@ const TicketsListCustom = props => {
         dispatch({ type: "DELETE_TICKET", payload: data.ticket?.id });
       }
 
+      if (
+        data.action === "update" &&
+        profile !== "admin" &&
+        usesOwnerOnlyTicketAccess(user, data.ticket) &&
+        !canListTicket(user, data.ticket)
+      ) {
+        dispatch({ type: "DELETE_TICKET", payload: data.ticket?.id });
+      }
+
       if (data.action === "delete") {
         dispatch({ type: "DELETE_TICKET", payload: data?.ticketId });
       }
@@ -353,6 +372,15 @@ const TicketsListCustom = props => {
 
       const queueIds = queues.map(q => q.id);
       const eventQueueId = getTicketQueueId(data.ticket);
+      if (
+        profile !== "admin" &&
+        !groups &&
+        usesOwnerOnlyTicketAccess(user, data.ticket) &&
+        !canListTicket(user, data.ticket)
+      ) {
+        dispatch({ type: "DELETE_TICKET", payload: data.ticket?.id });
+        return;
+      }
       if (
         profile === "user" &&
         !groups &&

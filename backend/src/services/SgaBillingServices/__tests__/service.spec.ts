@@ -42,6 +42,12 @@ jest.mock("../templates", () => ({
   billingTemplateStates: jest.fn(async () => null),
   submitBillingTemplates: jest.fn(async () => null)
 }));
+jest.mock("../documents", () => ({
+  storeBillingPdf: jest.fn(
+    async (companyId: number, deliveryId: string) =>
+      `billing/${companyId}/${deliveryId}.pdf`
+  )
+}));
 const now = new Date("2026-09-14T21:59:00Z");
 const bill = {
   id: "b1",

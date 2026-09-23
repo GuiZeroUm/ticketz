@@ -5,10 +5,18 @@ import uploadConfig from "../config/upload";
 
 import * as MessageController from "../controllers/MessageController";
 import isCompliant from "../middleware/isCompliant";
+import * as BillingPdfController from "../controllers/BillingPdfController";
 
 const messageRoutes = Router();
 
 const upload = multer(uploadConfig);
+
+messageRoutes.get(
+  "/tickets/:ticketId/messages/:messageId/billing-pdf",
+  isAuth,
+  isCompliant,
+  BillingPdfController.show
+);
 
 messageRoutes.post(
   "/messages/forward",

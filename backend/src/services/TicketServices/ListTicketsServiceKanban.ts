@@ -1,4 +1,12 @@
-import { Op, fn, where, col, Filterable, Includeable } from "sequelize";
+import {
+  Op,
+  fn,
+  where,
+  col,
+  Filterable,
+  Includeable,
+  WhereOptions
+} from "sequelize";
 import { startOfDay, endOfDay, parseISO } from "date-fns";
 
 import Ticket from "../../models/Ticket";
@@ -11,6 +19,9 @@ import Tag from "../../models/Tag";
 import TicketTag from "../../models/TicketTag";
 import { intersection } from "lodash";
 import Whatsapp from "../../models/Whatsapp";
+import { getTicketAccessMode } from "./TicketAccessPolicy";
+import { ticketQueueScope } from "./TicketQueueAccess";
+import { serializeClaimOnlyTicket } from "./ClaimOnlyTicket";
 
 interface Request {
   searchParam?: string;
@@ -28,7 +39,7 @@ interface Request {
 }
 
 interface Response {
-  tickets: Ticket[];
+  tickets: Array<Ticket | ReturnType<typeof serializeClaimOnlyTicket>>;
   count: number;
   hasMore: boolean;
 }
@@ -47,10 +58,31 @@ const ListTicketsServiceKanban = async ({
   withUnreadMessages,
   companyId
 }: Request): Promise<Response> => {
-  let whereCondition: Filterable["where"] = {
-    [Op.or]: [{ userId }, { status: "pending" }],
-    queueId: { [Op.or]: [queueIds, null] }
-  };
+  const user = await ShowUserService(userId);
+  const accessMode = await getTicketAccessMode(companyId);
+  const ownerOnly = user.profile !== "admin" && accessMode === "owner";
+  const accessConditions: WhereOptions<Ticket>[] = ownerOnly
+    ? [
+        {
+          [Op.or]: [
+            { userId },
+            {
+              [Op.and]: [
+                { status: "pending" },
+                { userId: null },
+                ticketQueueScope(user.profile, queueIds)
+              ]
+            }
+          ]
+        }
+      ]
+    : [
+        {
+          [Op.or]: [{ userId }, { status: "pending" }],
+          queueId: { [Op.or]: [queueIds, null] }
+        }
+      ];
+  let whereCondition: Filterable["where"] = { [Op.and]: accessConditions };
   let includeCondition: Includeable[];
 
   includeCondition = [
@@ -81,16 +113,19 @@ const ListTicketsServiceKanban = async ({
     }
   ];
 
-  if (showAll === "true") {
+  if (showAll === "true" && user.profile === "admin") {
     whereCondition = { queueId: { [Op.or]: [queueIds, null] } };
   }
 
   whereCondition = {
     ...whereCondition,
-    status: { [Op.or]: ["pending", "open"] }
+    status: status || { [Op.or]: ["pending", "open"] }
   };
 
   if (searchParam) {
+    if (ownerOnly) {
+      accessConditions.push({ userId });
+    }
     const sanitizedSearchParam = searchParam.toLocaleLowerCase().trim();
 
     includeCondition = [
@@ -135,6 +170,7 @@ const ListTicketsServiceKanban = async ({
 
   if (date) {
     whereCondition = {
+      ...whereCondition,
       createdAt: {
         [Op.between]: [+startOfDay(parseISO(date)), +endOfDay(parseISO(date))]
       }
@@ -143,6 +179,7 @@ const ListTicketsServiceKanban = async ({
 
   if (updatedAt) {
     whereCondition = {
+      ...whereCondition,
       updatedAt: {
         [Op.between]: [
           +startOfDay(parseISO(updatedAt)),
@@ -153,26 +190,19 @@ const ListTicketsServiceKanban = async ({
   }
 
   if (withUnreadMessages === "true") {
-    const user = await ShowUserService(userId);
-    const userQueueIds = user.queues.map(queue => queue.id);
-
     whereCondition = {
-      [Op.or]: [{ userId }, { status: "pending" }],
-      queueId: { [Op.or]: [userQueueIds, null] },
+      ...whereCondition,
       unreadMessages: { [Op.gt]: 0 }
     };
   }
 
   if (Array.isArray(tags) && tags.length > 0) {
-    const ticketsTagFilter: any[] | null = [];
-    for (let tag of tags) {
-      const ticketTags = await TicketTag.findAll({
-        where: { tagId: tag }
-      });
-      if (ticketTags) {
-        ticketsTagFilter.push(ticketTags.map(t => t.ticketId));
-      }
-    }
+    const ticketsTagFilter: number[][] = await Promise.all(
+      tags.map(async tag => {
+        const ticketTags = await TicketTag.findAll({ where: { tagId: tag } });
+        return ticketTags.map(t => t.ticketId);
+      })
+    );
 
     const ticketsIntersection: number[] = intersection(...ticketsTagFilter);
 
@@ -185,15 +215,14 @@ const ListTicketsServiceKanban = async ({
   }
 
   if (Array.isArray(users) && users.length > 0) {
-    const ticketsUserFilter: any[] | null = [];
-    for (let user of users) {
-      const ticketUsers = await Ticket.findAll({
-        where: { userId: user }
-      });
-      if (ticketUsers) {
-        ticketsUserFilter.push(ticketUsers.map(t => t.id));
-      }
-    }
+    const ticketsUserFilter: number[][] = await Promise.all(
+      users.map(async filteredUserId => {
+        const ticketUsers = await Ticket.findAll({
+          where: { userId: filteredUserId }
+        });
+        return ticketUsers.map(t => t.id);
+      })
+    );
 
     const ticketsIntersection: number[] = intersection(...ticketsUserFilter);
 
@@ -225,7 +254,13 @@ const ListTicketsServiceKanban = async ({
   const hasMore = count > offset + tickets.length;
 
   return {
-    tickets,
+    tickets: ownerOnly
+      ? tickets.map(ticket =>
+          ticket.status === "pending" && !ticket.userId
+            ? serializeClaimOnlyTicket(ticket)
+            : ticket
+        )
+      : tickets,
     count,
     hasMore
   };

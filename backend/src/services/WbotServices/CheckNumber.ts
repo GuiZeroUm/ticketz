@@ -71,7 +71,8 @@ export const CheckNumberAndCreateContact = async (
       name,
       number: number.replace(/\D/g, ""),
       companyId,
-      channel: "whatsapp"
+      channel: "whatsapp",
+      nameSource: "manual"
     });
   }
 
@@ -88,7 +89,8 @@ export const CheckNumberAndCreateContact = async (
   return verifyContact(
     { id: checked.jid, lid: checked.lid, name },
     wbot,
-    companyId
+    companyId,
+    "manual"
   );
 };
 

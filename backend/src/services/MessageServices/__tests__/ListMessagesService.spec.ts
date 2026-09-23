@@ -57,13 +57,13 @@ describe("ListMessagesService ticket history", () => {
         attributes: ["id"],
         where: expect.objectContaining({
           contactId: 10,
-          whatsappId: 7,
           companyId: 1,
           channel: "whatsapp",
           isGroup: false
         })
       })
     );
+    expect(ticketOptions.where).not.toHaveProperty("whatsappId");
     expect(ticketOptions.where.id[Op.lte]).toBe(22);
 
     const options = getMessageFindOptions();

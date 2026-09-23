@@ -943,6 +943,10 @@ const messages = {
         }
       },
       ticketsList: {
+        claimOnly: {
+          title: "Nueva atención #{{id}}",
+          description: "Acepta para ver la conversación"
+        },
         pendingHeader: "Esperando",
         assignedHeader: "Atendiendo",
         noTicketsTitle: "¡Nada aquí!",
@@ -1664,7 +1668,8 @@ const messages = {
           "Reabra o acepte este ticket para enviar un mensaje.",
         signMessage: "Firmar",
         replying: "Respondiendo",
-        editing: "Editando"
+        editing: "Editando",
+        billingPdfUnavailable: "No se pudo cargar el PDF del cobro."
       },
       message: {
         edited: "Editada",

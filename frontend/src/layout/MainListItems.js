@@ -99,6 +99,10 @@ const MainListItems = props => {
   useEffect(() => {
     let active = true;
     setSgaEnabled(false);
+    if (user.profile !== "admin")
+      return () => {
+        active = false;
+      };
     api
       .get("/sga/status")
       .then(({ data }) => {
@@ -108,7 +112,7 @@ const MainListItems = props => {
     return () => {
       active = false;
     };
-  }, [user.companyId]);
+  }, [user.companyId, user.profile]);
   const [connectionWarning, setConnectionWarning] = useState(false);
 
   const [showCampaigns, setShowCampaigns] = useState(false);
@@ -248,15 +252,6 @@ const MainListItems = props => {
       chave: "redesign.relacionamento",
       itens: [
         item("/contacts", "contacts", <ContactPhoneOutlinedIcon />),
-        ...(sgaEnabled
-          ? [
-              {
-                to: "/sga",
-                chave: "sga.title",
-                icone: <DirectionsCarOutlinedIcon />
-              }
-            ]
-          : []),
         item("/tags", "tags", <LocalOfferIcon />),
         ...(administrador && showCampaigns
           ? [
@@ -325,6 +320,15 @@ const MainListItems = props => {
               item("/users", "users", <PeopleAltOutlinedIcon />),
               item("/announcements", "annoucements", <AnnouncementIcon />),
               item("/financeiro", "financeiro", <LocalAtmIcon />),
+              ...(sgaEnabled
+                ? [
+                    {
+                      to: "/sga",
+                      chave: "sga.title",
+                      icone: <DirectionsCarOutlinedIcon />
+                    }
+                  ]
+                : []),
               ...(centralCobranca
                 ? [item("/cobranca", "cobranca", <ReceiptIcon />)]
                 : []),

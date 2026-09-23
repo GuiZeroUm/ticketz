@@ -44,11 +44,11 @@ const base = {
 };
 const select = jest.fn();
 const tab = jest.fn();
-function setup(ticket = base) {
+function setup(ticket = base, user = { id: 1, profile: "admin" }) {
   return render(
     <MemoryRouter initialEntries={["/tickets/ticket-uuid"]}>
       <Route path="/tickets/:ticketId">
-        <AuthContext.Provider value={{ user: { id: 1, profile: "admin" } }}>
+        <AuthContext.Provider value={{ user }}>
           <TicketsContext.Provider value={{ setCurrentTicket: select }}>
             <ul>
               <TicketCard ticket={ticket} setTabOpen={tab} groupActionButtons />
@@ -97,4 +97,68 @@ test("group conversations preserve sender previews and do not expose ticket acti
   expect(
     screen.queryByRole("button", { name: "chatExperience.close" })
   ).toBeNull();
+});
+
+test("AC Norte pending pool exposes only triage and accept", () => {
+  setup(
+    {
+      ...base,
+      status: "pending",
+      user: null,
+      userId: null,
+      queueId: 11,
+      queue: { id: 11, name: "Atendimento" }
+    },
+    {
+      id: 7,
+      profile: "user",
+      queues: [{ id: 11 }],
+      company: { slug: "acnorte" }
+    }
+  );
+
+  expect(screen.getByText("ticketsList.claimOnly.title")).toBeTruthy();
+  expect(screen.getByText("ticketsList.claimOnly.description")).toBeTruthy();
+  expect(screen.queryByText("Natan")).toBeNull();
+  expect(
+    screen.getByRole("button", { name: "ticketsList.buttons.accept" })
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: "chatExperience.preview" })
+  ).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: "chatExperience.close" })
+  ).toBeNull();
+});
+
+test("abre o ticket usando o UUID recebido somente depois do aceite", async () => {
+  api.put.mockResolvedValueOnce({ data: { uuid: "claimed-uuid" } });
+  const pending = {
+    id: 16,
+    status: "pending",
+    userId: null,
+    claimOnly: true,
+    queueId: 11,
+    queue: { id: 11, name: "Atendimento" },
+    updatedAt: "2026-09-23T12:00:00Z"
+  };
+  setup(pending, {
+    id: 7,
+    profile: "user",
+    queues: [{ id: 11 }],
+    company: { slug: "acnorte" }
+  });
+
+  await act(async () => {
+    fireEvent.click(
+      screen.getByRole("button", { name: "ticketsList.buttons.accept" })
+    );
+  });
+
+  expect(api.put).toHaveBeenCalledWith("/tickets/16", {
+    status: "open",
+    userId: 7
+  });
+  expect(window.location.pathname).not.toContain("undefined");
+  expect(tab).toHaveBeenCalledWith("open");
 });

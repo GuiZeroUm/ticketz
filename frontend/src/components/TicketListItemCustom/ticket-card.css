@@ -153,6 +153,12 @@
   outline-offset: -3px;
   border-radius: 8px;
 }
+.ticket-card-claim-only .ticket-card-open {
+  cursor: default;
+}
+.ticket-card-claim-only .ticket-card-details {
+  padding-left: 14px;
+}
 @media (max-width: 599px) {
   .ticket-card-details {
     padding-left: 14px;

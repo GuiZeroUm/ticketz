@@ -152,7 +152,8 @@ const HandleMetaInboundMessageService = async (
     name: metaContact?.profile?.name || message.from,
     number: message.from,
     companyId: whatsapp.companyId,
-    channel: "whatsapp"
+    channel: "whatsapp",
+    nameSource: "external"
   });
 
   // Antes de criar/reabrir o ticket: a resposta da avaliacao so e reconhecida

@@ -34,6 +34,10 @@ class Contact extends Model {
   @Column
   name: string;
 
+  @Default(false)
+  @Column
+  nameLocked: boolean;
+
   @Default("")
   @Column
   nickname: string;

@@ -34,12 +34,14 @@ const fakeSocket = {
 };
 const socketManager = { GetSocket: () => fakeSocket };
 
-const mount = () =>
+const mount = (replyingMessage = null) =>
   render(
     <SocketContext.Provider value={socketManager}>
-      <AuthContext.Provider value={{ user: { name: "Agente" } }}>
+      <AuthContext.Provider
+        value={{ user: { name: "Agente", company: { slug: "acnorte" } } }}
+      >
         <ReplyMessageContext.Provider
-          value={{ replyingMessage: null, setReplyingMessage: jest.fn() }}
+          value={{ replyingMessage, setReplyingMessage: jest.fn() }}
         >
           <EditMessageContext.Provider
             value={{ editingMessage: null, setEditingMessage: jest.fn() }}
@@ -113,5 +115,65 @@ describe("MessageInputCustom media caption", () => {
     await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
     expect(input).toHaveValue("Não perder este texto");
     expect(screen.getByText("documento.pdf")).toBeInTheDocument();
+  });
+
+  it("anexa arquivos colados sem apagar texto ou anexos existentes", () => {
+    const { container } = mount();
+    const input = screen.getByRole("textbox");
+    const existing = new File(["pdf"], "existente.pdf", {
+      type: "application/pdf"
+    });
+    const screenshot = new File(["image"], "image.png", {
+      type: "image/png"
+    });
+    const second = new File(["image"], "outra.jpg", {
+      type: "image/jpeg"
+    });
+
+    fireEvent.change(input, { target: { value: "Legenda preservada" } });
+    fireEvent.change(container.querySelector("#upload-button"), {
+      target: { files: [existing] }
+    });
+    fireEvent.paste(input, {
+      clipboardData: {
+        items: [screenshot, second].map(file => ({
+          kind: "file",
+          getAsFile: () => file
+        })),
+        files: []
+      }
+    });
+
+    expect(input).toHaveValue("Legenda preservada");
+    expect(screen.getByText(/existente\.pdf/)).toHaveTextContent("outra.jpg");
+    expect(screen.getByText(/existente\.pdf/).textContent).toContain(
+      "clipboard-"
+    );
+  });
+
+  it("envia apenas o identificador da mensagem respondida", async () => {
+    const { container } = mount({
+      id: "wamid.reply",
+      fromMe: false,
+      body: "Mensagem original",
+      contact: { name: "Cliente" }
+    });
+    const input = screen.getByRole("textbox");
+    fireEvent.change(input, { target: { value: "Segue o comprovante" } });
+    fireEvent.change(container.querySelector("#upload-button"), {
+      target: {
+        files: [
+          new File(["pdf"], "comprovante.pdf", {
+            type: "application/pdf"
+          })
+        ]
+      }
+    });
+    fireEvent.click(screen.getByLabelText("sendMessage"));
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
+    const form = api.post.mock.calls[0][1];
+    expect(form.get("quotedMsgId")).toBe("wamid.reply");
+    expect(form.get("quotedMsg")).toBeNull();
   });
 });

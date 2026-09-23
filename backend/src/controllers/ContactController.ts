@@ -251,7 +251,8 @@ export const update = async (
     await verifyContact(
       { id: checked.jid, lid: checked.lid, name: contact.name },
       wbot,
-      companyId
+      companyId,
+      "manual"
     );
   }
 

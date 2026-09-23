@@ -3,6 +3,7 @@ import { getIO } from "../../libs/socket";
 import Contact from "../../models/Contact";
 import { isValidBirthday } from "../ScheduleServices/recurrence";
 import ContactCustomField from "../../models/ContactCustomField";
+import { protectContactNameUpdate } from "./ContactNamePolicy";
 
 interface ExtraInfo {
   id?: number;
@@ -74,6 +75,8 @@ const UpdateContactService = async ({
     attributes: [
       "id",
       "name",
+      "nameLocked",
+      "isGroup",
       "number",
       "email",
       "companyId",
@@ -134,16 +137,21 @@ const UpdateContactService = async ({
   }
 
   try {
-    await contact.update({
-      name,
-      number,
-      email,
-      disableBot,
-      language,
-      nickname,
-      birthdayDay: normalizedBirthdayDay,
-      birthdayMonth: normalizedBirthdayMonth
-    });
+    const updateData = await protectContactNameUpdate(
+      contact,
+      {
+        name,
+        number,
+        email,
+        disableBot,
+        language,
+        nickname,
+        birthdayDay: normalizedBirthdayDay,
+        birthdayMonth: normalizedBirthdayMonth
+      },
+      "manual"
+    );
+    await contact.update(updateData);
   } catch (e) {
     if (e.original?.constraint === "number_companyid_unique") {
       throw new AppError("ERR_DUPLICATED_CONTACT");
@@ -155,6 +163,7 @@ const UpdateContactService = async ({
     attributes: [
       "id",
       "name",
+      "nameLocked",
       "number",
       "email",
       "profilePicUrl",

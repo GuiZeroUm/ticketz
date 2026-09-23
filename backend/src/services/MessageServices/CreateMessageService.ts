@@ -11,6 +11,8 @@ import { incrementGroupUnread } from "../WhatsappGroupServices/GroupUnreadServic
 import { emitContact } from "../ContactServices/CreateOrUpdateContactService";
 import { unassignedTicketRoom } from "../../helpers/TicketSocketRooms";
 import NotifyNewMessageService from "../PushNotificationServices/NotifyNewMessageService";
+import { usesOwnerTicketAccess } from "../TicketServices/TicketAccessPolicy";
+import { serializeClaimOnlyTicket } from "../TicketServices/ClaimOnlyTicket";
 
 interface MessageData {
   id: string;
@@ -61,20 +63,43 @@ export const websocketCreateMessage = async (message: Message) => {
     });
     recipients.emit(`company-${message.companyId}-appMessage`, payload);
   } else {
-    let recipients = io
-      .to(message.ticketId.toString())
-      .to(`company-${message.companyId}-${message.ticket.status}`)
-      .to(`company-${message.companyId}-notification`)
-      .to(`queue-${message.ticket.queueId}-${message.ticket.status}`)
-      .to(`queue-${message.ticket.queueId}-notification`);
+    if (await usesOwnerTicketAccess(message.companyId)) {
+      let fullRecipients = io
+        .to(message.ticketId.toString())
+        .to(`company-${message.companyId}-admin`);
+      if (message.ticket.userId) {
+        fullRecipients = fullRecipients.to(`user-${message.ticket.userId}`);
+      }
+      fullRecipients.emit(`company-${message.companyId}-appMessage`, payload);
 
-  if (message.ticket.queueId === null) {
-    recipients = recipients
-      .to(unassignedTicketRoom(message.companyId, message.ticket.status))
-      .to(unassignedTicketRoom(message.companyId, "notification"));
-  }
+      if (message.ticket.status === "pending" && !message.ticket.userId) {
+        let claimRecipients = io.to(`queue-${message.ticket.queueId}-pending`);
+        if (message.ticket.queueId === null) {
+          claimRecipients = claimRecipients.to(
+            unassignedTicketRoom(message.companyId, "pending")
+          );
+        }
+        claimRecipients.emit(`company-${message.companyId}-ticket`, {
+          action: "update",
+          ticket: serializeClaimOnlyTicket(message.ticket)
+        });
+      }
+    } else {
+      let recipients = io
+        .to(message.ticketId.toString())
+        .to(`company-${message.companyId}-${message.ticket.status}`)
+        .to(`company-${message.companyId}-notification`)
+        .to(`queue-${message.ticket.queueId}-${message.ticket.status}`)
+        .to(`queue-${message.ticket.queueId}-notification`);
 
-  recipients.emit(`company-${message.companyId}-appMessage`, payload);
+      if (message.ticket.queueId === null) {
+        recipients = recipients
+          .to(unassignedTicketRoom(message.companyId, message.ticket.status))
+          .to(unassignedTicketRoom(message.companyId, "notification"));
+      }
+
+      recipients.emit(`company-${message.companyId}-appMessage`, payload);
+    }
   }
 
   // O push vai depois do emit: quem está com o app aberto já foi notificado

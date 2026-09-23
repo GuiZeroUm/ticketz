@@ -14,13 +14,14 @@ import User from "../../models/User";
 import formatBody from "../../helpers/Mustache";
 import { logger } from "../../utils/logger";
 import { incrementCounter } from "../CounterServices/IncrementCounter";
-import { getJidOf } from "../WbotServices/getJidOf";
 import { _t } from "../TranslationServices/i18nService";
 import ResolveTicketTransferService from "./ResolveTicketTransferService";
 import GroupQueue from "../../models/GroupQueue";
 import { unassignedTicketRoom } from "../../helpers/TicketSocketRooms";
 import { buildMetaWbot } from "../MetaWhatsAppServices/MetaWbotAdapter";
 import Whatsapp from "../../models/Whatsapp";
+import { usesOwnerTicketAccess } from "./TicketAccessPolicy";
+import { serializeClaimOnlyTicket } from "./ClaimOnlyTicket";
 
 export interface UpdateTicketData {
   status?: string;
@@ -38,6 +39,7 @@ interface Request {
   reqUserId?: number;
   companyId?: number | undefined;
   dontRunChatbot?: boolean;
+  claimedFromPending?: boolean;
 }
 
 interface Response {
@@ -60,7 +62,10 @@ const sendFormattedMessage = async (
   await SendWhatsAppMessage({ body: message, ticket, userId: user?.id });
 };
 
-export function websocketUpdateTicket(ticket: Ticket, moreChannels?: string[]) {
+export async function websocketUpdateTicket(
+  ticket: Ticket,
+  moreChannels?: string[]
+) {
   const io = getIO();
   if (ticket.isGroup || ticket.contact?.isGroup) {
     let groupRecipients = io
@@ -75,6 +80,34 @@ export function websocketUpdateTicket(ticket: Ticket, moreChannels?: string[]) {
       action: "update",
       ticket
     });
+    return;
+  }
+
+  if (await usesOwnerTicketAccess(ticket.companyId)) {
+    let fullRecipients = io
+      .to(ticket.id.toString())
+      .to(`company-${ticket.companyId}-admin`);
+
+    if (ticket.userId) {
+      fullRecipients = fullRecipients.to(`user-${ticket.userId}`);
+    }
+    fullRecipients.emit(`company-${ticket.companyId}-ticket`, {
+      action: "update",
+      ticket
+    });
+
+    if (ticket.status === "pending" && !ticket.userId) {
+      let claimRecipients = io.to(`queue-${ticket.queueId}-pending`);
+      if (ticket.queueId === null) {
+        claimRecipients = claimRecipients.to(
+          unassignedTicketRoom(ticket.companyId, "pending")
+        );
+      }
+      claimRecipients.emit(`company-${ticket.companyId}-ticket`, {
+        action: "update",
+        ticket: serializeClaimOnlyTicket(ticket)
+      });
+    }
     return;
   }
 
@@ -109,7 +142,8 @@ const UpdateTicketService = async ({
   ticketId,
   reqUserId,
   companyId,
-  dontRunChatbot
+  dontRunChatbot,
+  claimedFromPending = false
 }: Request): Promise<Response> => {
   try {
     if (!companyId && !reqUserId) {
@@ -132,6 +166,7 @@ const UpdateTicketService = async ({
     let queueOptionId: number | null = ticketData.queueOptionId || null;
 
     const io = getIO();
+    const ownerOnly = await usesOwnerTicketAccess(companyId);
 
     const userRatingSetting = await GetCompanySetting(
       companyId,
@@ -192,8 +227,8 @@ const UpdateTicketService = async ({
       }
     }
 
-    const oldStatus = ticket.status;
-    const oldUserId = ticket.user?.id;
+    const oldStatus = claimedFromPending ? "pending" : ticket.status;
+    const oldUserId = claimedFromPending ? undefined : ticket.user?.id;
     const oldQueueId = ticket.queueId;
 
     if (oldStatus === "closed") {
@@ -244,6 +279,18 @@ const UpdateTicketService = async ({
           });
 
           await ticket.reload();
+
+          if (ownerOnly) {
+            io.to(`company-${companyId}-mainchannel`).emit(
+              `company-${companyId}-ticket`,
+              {
+                action: "removeFromList",
+                ticketId: ticket.id
+              }
+            );
+            await websocketUpdateTicket(ticket);
+            return { ticket, oldStatus, oldUserId };
+          }
 
           io.to(`company-${ticket.companyId}-open`)
             .to(`queue-${ticket.queueId}-open`)
@@ -515,7 +562,12 @@ const UpdateTicketService = async ({
         });
     }
 
-    websocketUpdateTicket(ticket, [
+    if (oldUserId && oldUserId !== ticket.userId) {
+      const oldOwnerRoom = io.in?.(`user-${oldUserId}`);
+      oldOwnerRoom?.socketsLeave(ticket.id.toString());
+    }
+
+    await websocketUpdateTicket(ticket, [
       `user-${oldUserId}`,
       `queue-${oldQueueId}-${oldStatus}`
     ]);

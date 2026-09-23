@@ -35,6 +35,7 @@ import useSettings from "../../hooks/useSettings";
 import { ContactSelect } from "../ContactSelect";
 import api from "../../services/api";
 import { SocketContext } from "../../context/Socket/SocketContext";
+import { usesOwnerOnlyTicketAccess } from "../../helpers/ticketAccess";
 import { shouldShowGroupsTab } from "../../helpers/groupTabs";
 
 const useStyles = makeStyles(theme => ({
@@ -153,6 +154,39 @@ const TicketsManagerTabs = () => {
   const [groupMode, setGroupMode] = useState("conversation");
   const [groupTicketStatus, setGroupTicketStatus] = useState("pending");
   const socketManager = useContext(SocketContext);
+  const ownerOnlyAccess = usesOwnerOnlyTicketAccess(user);
+
+  const refreshTicketCounts = useCallback(async () => {
+    if (!ownerOnlyAccess) return;
+    try {
+      const { data } = await api.get("/tickets/counts", {
+        params: { queueIds: JSON.stringify(selectedQueueIds) }
+      });
+      setOpenCount(Number(data.open) || 0);
+      setPendingCount(Number(data.pending) || 0);
+    } catch {
+      // Preserve the last known values during a transient failure.
+    }
+  }, [ownerOnlyAccess, selectedQueueIds]);
+
+  useEffect(() => {
+    if (!ownerOnlyAccess) return undefined;
+    let timer;
+    const scheduleRefresh = () => {
+      clearTimeout(timer);
+      timer = setTimeout(refreshTicketCounts, 150);
+    };
+    refreshTicketCounts();
+    const companyId = localStorage.getItem("companyId");
+    const socket = socketManager.GetSocket(companyId);
+    socket.on(`company-${companyId}-ticket`, scheduleRefresh);
+    socket.on(`company-${companyId}-appMessage`, scheduleRefresh);
+    return () => {
+      clearTimeout(timer);
+      socket.off(`company-${companyId}-ticket`, scheduleRefresh);
+      socket.off(`company-${companyId}-appMessage`, scheduleRefresh);
+    };
+  }, [ownerOnlyAccess, refreshTicketCounts, socketManager]);
 
   useEffect(() => {
     if (profile !== "admin") {
@@ -423,7 +457,7 @@ const TicketsManagerTabs = () => {
             status="open"
             showAll={showAllTickets}
             selectedQueueIds={selectedQueueIds}
-            updateCount={val => setOpenCount(val)}
+            updateCount={ownerOnlyAccess ? undefined : val => setOpenCount(val)}
             style={applyPanelStyle("open")}
             setTabOpen={setTabOpen}
             showTabGroups={showTabGroups}
@@ -431,7 +465,9 @@ const TicketsManagerTabs = () => {
           <TicketsList
             status="pending"
             selectedQueueIds={selectedQueueIds}
-            updateCount={val => setPendingCount(val)}
+            updateCount={
+              ownerOnlyAccess ? undefined : val => setPendingCount(val)
+            }
             style={applyPanelStyle("pending")}
             setTabOpen={setTabOpen}
             showTabGroups={showTabGroups}

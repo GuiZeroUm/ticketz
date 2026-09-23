@@ -9,6 +9,7 @@ import User from "../../models/User";
 import UserQueue from "../../models/UserQueue";
 import { logger } from "../../utils/logger";
 import SendPushNotificationService from "./SendPushNotificationService";
+import { usesOwnerTicketAccess } from "../TicketServices/TicketAccessPolicy";
 
 const MAX_BODY_LENGTH = 180;
 
@@ -18,6 +19,16 @@ const listCompanyAdminIds = async (companyId: number): Promise<number[]> => {
     attributes: ["id"]
   });
   return admins.map(admin => admin.id);
+};
+
+const listCompanyAttendantIds = async (
+  companyId: number
+): Promise<number[]> => {
+  const attendants = await User.findAll({
+    where: { companyId, profile: { [Op.ne]: "admin" } },
+    attributes: ["id"]
+  });
+  return attendants.map(attendant => attendant.id);
 };
 
 const listQueueUserIds = async (
@@ -49,7 +60,10 @@ const listQueueUserIds = async (
 // só o responsável; sem responsável -> a fila; sem responsável e sem fila ->
 // os admins. Manter os dois lados iguais evita push de ticket que o usuário
 // nem veria na tela.
-const resolveRecipients = async (message: Message): Promise<number[]> => {
+const resolveRecipients = async (
+  message: Message,
+  ownerOnly: boolean
+): Promise<number[]> => {
   const { ticket } = message;
 
   if (ticket.isGroup && ticket.contact?.groupMode !== "ticket") {
@@ -67,6 +81,17 @@ const resolveRecipients = async (message: Message): Promise<number[]> => {
 
   if (ticket.userId) {
     return [ticket.userId];
+  }
+
+  if (ownerOnly) {
+    const adminIds = await listCompanyAdminIds(message.companyId);
+    if (ticket.status !== "pending") {
+      return adminIds;
+    }
+    const attendantIds = ticket.queueId
+      ? await listQueueUserIds(message.companyId, [ticket.queueId])
+      : await listCompanyAttendantIds(message.companyId);
+    return [...new Set([...adminIds, ...attendantIds])];
   }
 
   if (ticket.queueId) {
@@ -160,8 +185,30 @@ const NotifyNewMessageService = async (message: Message): Promise<void> => {
     // duplicado, mas o iOS suspende o PWA sem disparar disconnect: a sessão
     // ficava presa em active=true e bloqueava todo push seguinte. Quem está
     // com o app aberto suprime a notificação local no próprio dispositivo.
-    const userIds = await resolveRecipients(message);
+    const ownerOnly = await usesOwnerTicketAccess(message.companyId);
+    const userIds = await resolveRecipients(message, ownerOnly);
     if (!userIds.length) {
+      return;
+    }
+
+    const claimOnly =
+      ownerOnly &&
+      !ticket.isGroup &&
+      ticket.status === "pending" &&
+      !ticket.userId;
+    if (claimOnly) {
+      await SendPushNotificationService({
+        userIds,
+        companyId: message.companyId,
+        payload: {
+          title: "Novo atendimento aguardando",
+          body: ticket.queue?.name
+            ? `Fila: ${ticket.queue.name}`
+            : "Disponível para aceite",
+          tag: `pending-${ticket.id}`,
+          url: "/tickets"
+        }
+      });
       return;
     }
 

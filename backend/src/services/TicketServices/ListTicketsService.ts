@@ -23,6 +23,8 @@ import Whatsapp from "../../models/Whatsapp";
 import { GetCompanySetting } from "../../helpers/CheckSettings";
 import ContactTag from "../../models/ContactTag";
 import { shouldApplyQueueFilter, ticketQueueScope } from "./TicketQueueAccess";
+import { getTicketAccessMode } from "./TicketAccessPolicy";
+import { serializeClaimOnlyTicket } from "./ClaimOnlyTicket";
 
 interface Request {
   isSearch?: boolean;
@@ -46,7 +48,7 @@ interface Request {
 }
 
 interface Response {
-  tickets: Ticket[];
+  tickets: Array<Ticket | ReturnType<typeof serializeClaimOnlyTicket>>;
   count: number | null;
 }
 
@@ -97,20 +99,37 @@ const ListTicketsService = async ({
     (await GetCompanySetting(companyId, "groupsTab", "disabled")) === "enabled";
 
   const user = await ShowUserService(userId);
+  const accessMode = await getTicketAccessMode(companyId);
+  const ownerOnly = user.profile !== "admin" && accessMode === "owner";
 
   // O atendente ve os atendimentos que sao dele e a fila de espera; o admin ve
   // tudo. A restricao de fila e aplicada logo abaixo, em cima disso.
-  const andedOrs: WhereOptions<Ticket>[] = [
-    {
-      [Op.or]: [{ userId }, { status: "pending" }]
-    }
-  ];
+  const andedOrs: WhereOptions<Ticket>[] = ownerOnly
+    ? [
+        {
+          [Op.or]: [
+            { userId },
+            {
+              [Op.and]: [
+                { status: "pending" },
+                { userId: null },
+                ticketQueueScope(user.profile, queueIds)
+              ]
+            }
+          ]
+        }
+      ]
+    : [
+        {
+          [Op.or]: [{ userId }, { status: "pending" }]
+        }
+      ];
 
   let whereCondition: Filterable["where"] = {
     [Op.and]: andedOrs
   };
 
-  if (shouldApplyQueueFilter(user.profile, queueIds)) {
+  if (!ownerOnly && shouldApplyQueueFilter(user.profile, queueIds)) {
     whereCondition = {
       ...whereCondition,
       ...ticketQueueScope(user.profile, queueIds)
@@ -175,6 +194,12 @@ const ListTicketsService = async ({
   }
 
   if (searchParam) {
+    // Buscar por nome, numero ou texto de mensagem e uma operacao de conteudo.
+    // O pool compartilhado da AC Norte e apenas para aceite e nao participa da
+    // busca ate que o ticket tenha um responsavel.
+    if (ownerOnly) {
+      andedOrs.push({ userId });
+    }
     const sanitizedSearchParam = searchParam.toLocaleLowerCase().trim();
 
     includeCondition = [
@@ -368,8 +393,16 @@ const ListTicketsService = async ({
     subQuery: false
   });
 
+  const visibleTickets = ownerOnly
+    ? tickets.map(ticket =>
+        ticket.status === "pending" && !ticket.userId
+          ? serializeClaimOnlyTicket(ticket)
+          : ticket
+      )
+    : tickets;
+
   return {
-    tickets,
+    tickets: visibleTickets,
     count: null
   };
 };

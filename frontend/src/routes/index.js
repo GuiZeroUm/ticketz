@@ -82,12 +82,19 @@ const Routes = () => {
                 <WhatsAppsProvider>
                   <LoggedInLayout>
                     <Route exact path="/" component={Dashboard} isPrivate />
-                    <Route exact path="/sga" component={Sga} isPrivate />
+                    <Route
+                      exact
+                      path="/sga"
+                      component={Sga}
+                      isPrivate
+                      adminOnly
+                    />
                     <Route
                       exact
                       path="/sga/cobrancas"
                       component={SgaBilling}
                       isPrivate
+                      adminOnly
                     />
                     <Route
                       exact

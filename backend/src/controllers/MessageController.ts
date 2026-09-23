@@ -33,6 +33,7 @@ import AssertTicketAccessService from "../services/TicketServices/AssertTicketAc
 import GetTicketServiceWindowService from "../services/TicketServices/TicketServiceWindowService";
 import SendTicketTemplateService from "../services/MetaWhatsAppServices/SendTicketTemplateService";
 import normalizeMediaCaption from "../helpers/normalizeMediaCaption";
+import ResolveQuotedMessageService from "../services/MessageServices/ResolveQuotedMessageService";
 
 type IndexQuery = {
   nextId?: string;
@@ -53,12 +54,11 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
   const { companyId, profile } = req.user;
   const queues: number[] = [];
 
-  const requestedTicket = await Ticket.findOne({
-    where: { id: ticketId, companyId },
-    attributes: ["id", "isGroup", "status", "queueId"]
-  });
+  const requestedTicket = await ShowTicketService(ticketId, companyId);
   if (requestedTicket?.isGroup) {
     await assertGroupAccess(ticketId, req.user);
+  } else {
+    await AssertTicketAccessService(requestedTicket, req.user);
   }
 
   // Ticket sem fila e o pool de triagem e fica liberado; `status === "open"`
@@ -137,6 +137,8 @@ export const historyByMessageId = async (
 
   if (ticket.isGroup) {
     await assertGroupAccess(ticket.id, req.user);
+  } else {
+    await AssertTicketAccessService(ticket, req.user);
   }
 
   if (ticket.companyId !== companyId) {
@@ -155,7 +157,9 @@ export const historyByMessageId = async (
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const { ticketId } = req.params;
-  const { body, quotedMsg }: MessageData = req.body;
+  const { body, quotedMsg, quotedMsgId } = req.body as MessageData & {
+    quotedMsgId?: string;
+  };
   const medias = req.files as Express.Multer.File[];
   const { companyId } = req.user;
   const userId = Number(req.user.id) || null;
@@ -170,6 +174,12 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     await AssertTicketAccessService(ticket, req.user);
   }
   const { channel } = ticket;
+  const requestedQuotedMsgId = quotedMsgId || quotedMsg?.id;
+  const safeQuotedMsg = await ResolveQuotedMessageService({
+    quotedMsgId: requestedQuotedMsgId,
+    ticket,
+    companyId
+  });
 
   // Falha cedo e com o motivo certo: fora da janela de 24h a Cloud API recusa
   // texto livre (131047) e a mensagem sumia sem explicacao para o atendente.
@@ -210,7 +220,12 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
       );
     }
   } else if (channel === "whatsapp") {
-    await SendWhatsAppMessage({ body, ticket, userId, quotedMsg });
+    await SendWhatsAppMessage({
+      body,
+      ticket,
+      userId,
+      quotedMsg: safeQuotedMsg
+    });
   }
 
   return res.send();
@@ -254,7 +269,8 @@ export const react = async (req: Request, res: Response): Promise<Response> => {
   const message = await Message.findOne({
     where: {
       id: messageId,
-      ticketId
+      ticketId,
+      companyId
     }
   });
 
@@ -265,6 +281,8 @@ export const react = async (req: Request, res: Response): Promise<Response> => {
   const ticket = await ShowTicketService(ticketId, companyId);
   if (ticket.isGroup) {
     await assertGroupAccess(ticketId, req.user);
+  } else {
+    await AssertTicketAccessService(ticket, req.user);
   }
   if (ticket.whatsapp?.apiMode === "official") {
     await SendMetaReactionService({
@@ -311,6 +329,9 @@ export const edit = async (req: Request, res: Response): Promise<Response> => {
   });
   if (original?.ticket?.isGroup) {
     await assertGroupAccess(original.ticket.id, req.user);
+  } else if (original) {
+    const ticket = await ShowTicketService(original.ticket.id, companyId);
+    await AssertTicketAccessService(ticket, req.user);
   }
 
   const { ticketId, message } = await EditWhatsAppMessage({
@@ -342,6 +363,9 @@ export const remove = async (
   });
   if (original?.ticket?.isGroup) {
     await assertGroupAccess(original.ticket.id, req.user);
+  } else if (original) {
+    const ticket = await ShowTicketService(original.ticket.id, companyId);
+    await AssertTicketAccessService(ticket, req.user);
   }
 
   const message = await DeleteWhatsAppMessage(messageId);
@@ -366,12 +390,11 @@ export const forward = async (
     include: [{ model: Queue, as: "queues" }]
   });
 
-  const sourceTicket = await Ticket.findOne({
-    where: { id: ticketId, companyId },
-    attributes: ["id", "isGroup"]
-  });
+  const sourceTicket = await ShowTicketService(ticketId, companyId);
   if (sourceTicket?.isGroup) {
     await assertGroupAccess(sourceTicket.id, req.user);
+  } else {
+    await AssertTicketAccessService(sourceTicket, req.user);
   }
 
   if (

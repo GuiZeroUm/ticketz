@@ -85,6 +85,9 @@ class Message extends Model {
   @Column
   mediaType: string;
 
+  @Column(DataType.VIRTUAL)
+  billingPdfAvailable: boolean;
+
   @Default(false)
   @Column
   isDeleted: boolean;

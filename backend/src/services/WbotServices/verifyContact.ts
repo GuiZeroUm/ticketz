@@ -9,6 +9,7 @@ import CreateOrUpdateContactService, {
 import MergeContactsService from "../ContactServices/MergeContactsService";
 import WhatsappLidMap from "../../models/WhatsappLidMap";
 import GetProfilePicUrl from "./GetProfilePicUrl";
+import { ContactNameSource } from "../ContactServices/ContactNamePolicy";
 
 const lidUpdateMutex = new Mutex();
 const contactIncludes = ["tags", "extraInfo", "whatsappLidMap"];
@@ -120,7 +121,8 @@ async function getLid(msgContact: IMe, wbot: Session): Promise<string> {
 export async function verifyContact(
   msgContact: IMe,
   wbot: Session,
-  companyId: number
+  companyId: number,
+  nameSource: ContactNameSource = "external"
 ): Promise<Contact> {
   let profilePicUrl: string | undefined;
   let profileHiresPictureUrl: string | undefined;
@@ -161,7 +163,8 @@ export async function verifyContact(
     profilePicUrl,
     profileHiresPictureUrl,
     isGroup: msgContact.id.includes("g.us"),
-    companyId
+    companyId,
+    nameSource
   };
 
   if (isGroup) {
@@ -218,10 +221,15 @@ export async function verifyContact(
       );
 
       if (mergedLidContact) {
-        return updateContact(mergedLidContact, {
-          profilePicUrl: contactData.profilePicUrl,
-          profileHiresPictureUrl: contactData.profileHiresPictureUrl
-        });
+        return updateContact(
+          mergedLidContact,
+          {
+            name: contactData.name,
+            profilePicUrl: contactData.profilePicUrl,
+            profileHiresPictureUrl: contactData.profileHiresPictureUrl
+          },
+          nameSource
+        );
       }
     } else if (wbot && foundContact) {
       const lid = await getLid(msgContact, wbot);
@@ -275,11 +283,16 @@ export async function verifyContact(
         await currentContact.reload({ include: contactIncludes });
       }
 
-      return updateContact(currentContact, {
-        number: contactData.number,
-        profilePicUrl: contactData.profilePicUrl,
-        profileHiresPictureUrl: contactData.profileHiresPictureUrl
-      });
+      return updateContact(
+        currentContact,
+        {
+          name: contactData.name,
+          number: contactData.number,
+          profilePicUrl: contactData.profilePicUrl,
+          profileHiresPictureUrl: contactData.profileHiresPictureUrl
+        },
+        nameSource
+      );
     } else {
       const lid = wbot && (await getLid(msgContact, wbot));
 
@@ -320,11 +333,16 @@ export async function verifyContact(
             });
           }
 
-          return updateContact(lidContact, {
-            number: contactData.number,
-            profilePicUrl: contactData.profilePicUrl,
-            profileHiresPictureUrl: contactData.profileHiresPictureUrl
-          });
+          return updateContact(
+            lidContact,
+            {
+              name: contactData.name,
+              number: contactData.number,
+              profilePicUrl: contactData.profilePicUrl,
+              profileHiresPictureUrl: contactData.profileHiresPictureUrl
+            },
+            nameSource
+          );
         }
       }
     }

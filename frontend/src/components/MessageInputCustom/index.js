@@ -67,6 +67,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSignature } from "@fortawesome/free-solid-svg-icons";
 import { isMobile } from "../../helpers/isMobile";
 import { SocketContext } from "../../context/Socket/SocketContext";
+import { usesOwnerOnlyTicketAccess } from "../../helpers/ticketAccess";
 
 const Mp3Recorder = new MicRecorder({ bitRate: 128 });
 
@@ -733,7 +734,6 @@ const CustomInput = props => {
             setInputMessage(event.target.value);
           }
         }}
-        onPaste={onPaste}
         onKeyPress={onKeyPress}
         style={{ width: "100%" }}
         renderInput={params => {
@@ -750,6 +750,7 @@ const CustomInput = props => {
                 className={classes.messageInput}
                 minRows={2}
                 maxRows={5}
+                onPaste={onPaste}
                 endAdornment={
                   isMobile() && (
                     <InputAdornment position="end">
@@ -1040,9 +1041,39 @@ const MessageInputCustom = props => {
   };
 
   const handleInputPaste = e => {
-    if (e.clipboardData.files[0]) {
-      setMedias([e.clipboardData.files[0]]);
+    if (!usesOwnerOnlyTicketAccess(user, ticket)) {
+      if (e.clipboardData?.files?.[0]) {
+        setMedias([e.clipboardData.files[0]]);
+      }
+      return;
     }
+    const clipboard = e.clipboardData;
+    if (!clipboard) return;
+
+    const itemFiles = Array.from(clipboard.items || [])
+      .filter(item => item.kind === "file")
+      .map(item => item.getAsFile?.())
+      .filter(Boolean);
+    const pastedFiles = itemFiles.length
+      ? itemFiles
+      : Array.from(clipboard.files || []);
+    if (!pastedFiles.length) return;
+
+    e.preventDefault();
+    const normalizedFiles = pastedFiles.map((file, index) => {
+      if (file.name && !/^image\.png$/i.test(file.name)) return file;
+      const extension =
+        file.type?.split("/")[1]?.replace("jpeg", "jpg") || "bin";
+      return new File(
+        [file],
+        `clipboard-${Date.now()}-${index + 1}.${extension}`,
+        {
+          type: file.type,
+          lastModified: file.lastModified || Date.now()
+        }
+      );
+    });
+    setMedias(current => [...current, ...normalizedFiles]);
   };
 
   const handleUploadMedia = async e => {
@@ -1065,6 +1096,9 @@ const MessageInputCustom = props => {
           : text
         : "";
       formData.append("body", caption);
+      if (replyingMessage?.id) {
+        formData.append("quotedMsgId", replyingMessage.id);
+      }
 
       preparedMedias.forEach(({ file, filename }) => {
         formData.append("medias", file, filename);
@@ -1140,7 +1174,7 @@ const MessageInputCustom = props => {
       body: signMessage
         ? `*${user?.name}:*\n${inputMessage.trim()}`
         : inputMessage.trim(),
-      quotedMsg: replyingMessage
+      quotedMsgId: replyingMessage?.id || null
     };
 
     handlePresenceUpdate(null);
@@ -1228,6 +1262,16 @@ const MessageInputCustom = props => {
     (!isGroup && loading) || ticketStatus === "closed" || windowClosed;
 
   const renderReplyingMessage = message => {
+    const attachmentName = message.mediaUrl?.split("/").pop();
+    const preview = message.body?.startsWith('{"ticketzvCard"')
+      ? "🪪"
+      : message.body ||
+        (attachmentName
+          ? `📎 ${attachmentName}`
+          : `📎 ${message.mediaType || i18n.t("conversa.arquivos")}`);
+    const author = message.fromMe
+      ? user?.name
+      : message.contact?.name || ticket.contact?.name;
     return (
       <div className={classes.replyginMsgWrapper}>
         <div className={classes.replyginMsgContainer}>
@@ -1239,13 +1283,9 @@ const MessageInputCustom = props => {
           {replyingMessage && (
             <div className={classes.replyginMsgBody}>
               <span className={classes.messageContactName}>
-                {i18n.t("messagesInput.replying")} {message.contact?.name}
+                {i18n.t("messagesInput.replying")} {author}
               </span>
-              <WhatsMarked>
-                {message.body.startsWith('{"ticketzvCard":')
-                  ? "🪪"
-                  : message.body}
-              </WhatsMarked>
+              <WhatsMarked>{preview}</WhatsMarked>
             </div>
           )}
           {editingMessage && (
@@ -1264,7 +1304,6 @@ const MessageInputCustom = props => {
           onClick={() => {
             setReplyingMessage(null);
             setEditingMessage(null);
-            setInputMessage("");
           }}
         >
           <ClearIcon className={classes.sendMessageIcons} />

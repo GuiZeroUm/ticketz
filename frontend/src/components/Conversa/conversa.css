@@ -123,6 +123,17 @@
   gap: 5px;
   margin-bottom: 10px;
 }
+.conversa-modos .conversa-modo-ativo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 9px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ew-primary) 10%, var(--ew-surface));
+  color: var(--ew-text);
+  font-size: 11px;
+  font-weight: 600;
+}
 .conversa-modos button {
   display: inline-flex;
   align-items: center;

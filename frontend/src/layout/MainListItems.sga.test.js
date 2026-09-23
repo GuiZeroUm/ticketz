@@ -25,11 +25,9 @@ jest.mock("../errors/toastError", () => jest.fn());
 const socketManager = {
   GetSocket: () => ({ on: jest.fn(), disconnect: jest.fn() })
 };
-const view = companyId => (
+const view = (companyId, profile = "admin") => (
   <MemoryRouter initialEntries={["/sga"]}>
-    <AuthContext.Provider
-      value={{ user: { id: 1, companyId, profile: "admin" } }}
-    >
+    <AuthContext.Provider value={{ user: { id: 1, companyId, profile } }}>
       <WhatsAppsContext.Provider value={{ whatsApps: [] }}>
         <SocketContext.Provider value={socketManager}>
           <MainListItems drawerOpen drawerClose={() => {}} />
@@ -53,6 +51,13 @@ it("mantém Placas na navegação redesenhada e o título da página quando habi
   await waitFor(() =>
     expect(screen.queryByRole("link", { name: "sga.title" })).toBeNull()
   );
+});
+
+it("não consulta nem exibe Placas para atendentes", async () => {
+  api.get.mockClear();
+  render(view(9, "user"));
+  await waitFor(() => expect(api.get).not.toHaveBeenCalledWith("/sga/status"));
+  expect(screen.queryByRole("link", { name: "sga.title" })).toBeNull();
 });
 
 it("preserva simultaneamente as traduções do SGA e das novas conversas", () => {

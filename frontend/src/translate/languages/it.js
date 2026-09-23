@@ -875,6 +875,10 @@ const messages = {
         }
       },
       ticketsList: {
+        claimOnly: {
+          title: "Nuovo ticket #{{id}}",
+          description: "Accetta per visualizzare la conversazione"
+        },
         pendingHeader: "In attesa",
         assignedHeader: "In gestione",
         noTicketsTitle: "Niente qui!",
@@ -1545,7 +1549,8 @@ const messages = {
           "Riapri o accetta questo ticket per inviare un messaggio.",
         signMessage: "Firma",
         replying: "Rispondendo",
-        editing: "Modificando"
+        editing: "Modificando",
+        billingPdfUnavailable: "Impossibile caricare il PDF di fatturazione."
       },
       message: {
         edited: "Modificata"

@@ -38,7 +38,8 @@ import { unassignedTicketRoom } from "../../helpers/TicketSocketRooms";
 import FindOrCreateTicketService from "../TicketServices/FindOrCreateTicketService";
 import ShowWhatsAppService from "../WhatsappService/ShowWhatsAppService";
 import UpdateTicketService, {
-  UpdateTicketData
+  UpdateTicketData,
+  websocketUpdateTicket
 } from "../TicketServices/UpdateTicketService";
 import formatBody from "../../helpers/Mustache";
 import TicketTraking from "../../models/TicketTraking";
@@ -804,31 +805,17 @@ export const verifyMediaMessage = async (
     let closedRecipients = io
       .to(`company-${ticket.companyId}-closed`)
       .to(`queue-${ticket.queueId}-closed`);
-    let pendingRecipients = io
-      .to(`company-${ticket.companyId}-${ticket.status}`)
-      .to(`queue-${ticket.queueId}-${ticket.status}`)
-      .to(ticket.id.toString());
-
     if (ticket.queueId === null) {
       closedRecipients = closedRecipients.to(
         unassignedTicketRoom(ticket.companyId, "closed")
-      );
-      pendingRecipients = pendingRecipients.to(
-        unassignedTicketRoom(ticket.companyId, ticket.status)
       );
     }
 
     closedRecipients.emit(`company-${ticket.companyId}-ticket`, {
       action: "delete",
-      ticket,
       ticketId: ticket.id
     });
-
-    pendingRecipients.emit(`company-${ticket.companyId}-ticket`, {
-      action: "update",
-      ticket,
-      ticketId: ticket.id
-    });
+    await websocketUpdateTicket(ticket);
   }
 
   return newMessage;
@@ -884,31 +871,17 @@ export const verifyMessage = async (
     let closedRecipients = io
       .to(`company-${ticket.companyId}-closed`)
       .to(`queue-${ticket.queueId}-closed`);
-    let pendingRecipients = io
-      .to(`company-${ticket.companyId}-${ticket.status}`)
-      .to(`queue-${ticket.queueId}-${ticket.status}`)
-      .to(ticket.id.toString());
-
     if (ticket.queueId === null) {
       closedRecipients = closedRecipients.to(
         unassignedTicketRoom(ticket.companyId, "closed")
-      );
-      pendingRecipients = pendingRecipients.to(
-        unassignedTicketRoom(ticket.companyId, ticket.status)
       );
     }
 
     closedRecipients.emit(`company-${ticket.companyId}-ticket`, {
       action: "delete",
-      ticket,
       ticketId: ticket.id
     });
-
-    pendingRecipients.emit(`company-${ticket.companyId}-ticket`, {
-      action: "update",
-      ticket,
-      ticketId: ticket.id
-    });
+    await websocketUpdateTicket(ticket);
   }
 
   return newMessage;
@@ -960,15 +933,7 @@ export const verifyEditedMessage = async (
 
   await CreateMessageService({ messageData, companyId: ticket.companyId });
 
-  const io = getIO();
-
-  io.to(ticket.status)
-    .to(ticket.id.toString())
-    .emit(`company-${ticket.companyId}-ticket`, {
-      action: "update",
-      ticket,
-      ticketId: ticket.id
-    });
+  await websocketUpdateTicket(ticket);
 };
 
 const markEditedMessageWithError = async (ticket: Ticket, msgId: string) => {
@@ -1012,15 +977,7 @@ const markEditedMessageWithError = async (ticket: Ticket, msgId: string) => {
 
   await CreateMessageService({ messageData, companyId: ticket.companyId });
 
-  const io = getIO();
-
-  io.to(ticket.status)
-    .to(ticket.id.toString())
-    .emit(`company-${ticket.companyId}-ticket`, {
-      action: "update",
-      ticket,
-      ticketId: ticket.id
-    });
+  await websocketUpdateTicket(ticket);
 };
 
 export const verifyDeleteMessage = async (

@@ -51,6 +51,7 @@ import {
   billingTemplateStates,
   submitBillingTemplates
 } from "./templates";
+import { storeBillingPdf } from "./documents";
 
 type Delivery = {
   id: string;
@@ -322,6 +323,19 @@ const update = async (
     { replacements: { companyId, id, status, reason, messageId, body } }
   );
 };
+
+const persistDocument = async (
+  companyId: number,
+  deliveryId: string,
+  pdf?: Buffer
+): Promise<void> => {
+  if (!pdf) return;
+  const documentPath = await storeBillingPdf(companyId, deliveryId, pdf);
+  await sequelize.query(
+    'UPDATE "SgaBillingDeliveries" SET "documentPath"=:documentPath,"updatedAt"=NOW() WHERE id=:id AND "companyId"=:companyId',
+    { replacements: { companyId, id: deliveryId, documentPath } }
+  );
+};
 const safeReason = (error: unknown) =>
   error instanceof AppError && /^ERR_(SGA|BILLING)_/.test(error.message)
     ? error.message
@@ -452,6 +466,7 @@ export const processBilling = async (
       }
       const url = boletoUrl(row.link_boleto);
       const pdf = step.attachPdf ? await fetchBoletoPdf(url) : undefined;
+      await persistDocument(companyId, delivery.id, pdf);
       const current = await Contact.findOne({
         where: { id: contact.id, companyId, isGroup: false },
         attributes: ["id", "number", "channel"]

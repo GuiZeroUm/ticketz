@@ -889,6 +889,10 @@ const messages = {
         }
       },
       ticketsList: {
+        claimOnly: {
+          title: "Tiket baru #{{id}}",
+          description: "Terima untuk melihat percakapan"
+        },
         pendingHeader: "Tertunda",
         assignedHeader: "Ditugaskan",
         noTicketsTitle: "Tidak ada apa-apa di sini!",
@@ -1565,7 +1569,8 @@ const messages = {
           "Buka kembali atau terima tiket ini untuk mengirim pesan.",
         signMessage: "Tandatangani",
         replying: "Membalas",
-        editing: "Mengedit"
+        editing: "Mengedit",
+        billingPdfUnavailable: "PDF tagihan tidak dapat dimuat."
       },
       message: {
         edited: "Diedit",

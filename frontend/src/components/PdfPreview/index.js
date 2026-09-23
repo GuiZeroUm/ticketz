@@ -130,6 +130,9 @@ const useStyles = makeStyles(() => ({
 // when the file size is known and ≤ MAX_UNRANGED_BYTES, to avoid locking up
 // the frontend with a huge unbounded download.
 async function checkPdfUrl(url) {
+  if (url.startsWith("blob:")) {
+    return { canLoad: true, supportsRange: false, fileSize: null };
+  }
   try {
     const res = await fetch(url, { method: "HEAD" });
     const acceptRanges = res.headers.get("Accept-Ranges");
@@ -364,7 +367,7 @@ function PdfViewerDialog({ url, fileName, open, onClose }) {
   const handleDownload = useCallback(() => {
     const a = document.createElement("a");
     const sep = url.includes("?") ? "&" : "?";
-    a.href = `${url}${sep}t=${Date.now()}`;
+    a.href = url.startsWith("blob:") ? url : `${url}${sep}t=${Date.now()}`;
     a.download = fileName || "document.pdf";
     a.rel = "noopener noreferrer";
     document.body.appendChild(a);
@@ -407,7 +410,11 @@ function PdfViewerDialog({ url, fileName, open, onClose }) {
         {BROWSER_HAS_PDF_VIEWER ? (
           <iframe
             className={classes.pdfIframe}
-            src={`${url}${url.includes("?") ? "&" : "?"}inline=1`}
+            src={
+              url.startsWith("blob:")
+                ? url
+                : `${url}${url.includes("?") ? "&" : "?"}inline=1`
+            }
             title={fileName || "PDF Document"}
           />
         ) : (

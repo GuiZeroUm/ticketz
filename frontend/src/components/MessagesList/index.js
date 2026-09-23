@@ -61,8 +61,78 @@ import { generateColor } from "../../helpers/colorGenerator";
 import { getInitials } from "../../helpers/getInitials";
 import { downloadFile } from "../../helpers/downloadFile";
 import { Mutex } from "async-mutex";
+import { ReplyMessageContext } from "../../context/ReplyingMessage/ReplyingMessageContext";
+import { AuthContext } from "../../context/Auth/AuthContext";
+import { usesOwnerOnlyTicketAccess } from "../../helpers/ticketAccess";
 
 const loadPageMutex = new Mutex();
+
+const BillingPdfDocument = ({ ticketId, message }) => {
+  const [source, setSource] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    let objectUrl = "";
+    setLoading(true);
+    setFailed(false);
+
+    api
+      .get(`/tickets/${ticketId}/messages/${message.id}/billing-pdf`, {
+        responseType: "blob"
+      })
+      .then(({ data }) => {
+        if (!active) return;
+        objectUrl = URL.createObjectURL(data);
+        setSource(objectUrl);
+      })
+      .catch(() => {
+        if (active) setFailed(true);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [message.id, ticketId]);
+
+  const fileName = `boleto-${message.id}.pdf`;
+  const download = () => {
+    if (!source) return;
+    const anchor = window.document.createElement("a");
+    anchor.href = source;
+    anchor.download = fileName;
+    anchor.click();
+  };
+
+  if (loading) return <CircularProgress size={24} />;
+  if (failed || !source) {
+    return (
+      <Typography variant="caption" color="error">
+        {i18n.t("messagesInput.billingPdfUnavailable")}
+      </Typography>
+    );
+  }
+
+  return (
+    <>
+      <PdfPreview url={source} fileName={fileName} />
+      <Button
+        startIcon={<Description />}
+        endIcon={<GetApp />}
+        color="primary"
+        variant="outlined"
+        onClick={download}
+      >
+        {fileName}
+      </Button>
+    </>
+  );
+};
 
 const VoiceRecordingPlayer = ({ message }) => {
   const [source, setSource] = useState("");
@@ -168,6 +238,10 @@ const useStyles = makeStyles(theme => ({
       top: 0,
       right: 0
     },
+    "&:hover [id^='messageReplyButton'], &:focus-within [id^='messageReplyButton']":
+      {
+        opacity: 1
+      },
 
     whiteSpace: "pre-wrap",
     backgroundColor: theme.palette.background.paper,
@@ -231,6 +305,10 @@ const useStyles = makeStyles(theme => ({
       top: 0,
       right: 0
     },
+    "&:hover [id^='messageReplyButton'], &:focus-within [id^='messageReplyButton']":
+      {
+        opacity: 1
+      },
     whiteSpace: "pre-wrap",
     backgroundColor: alpha(theme.palette.primary.main, 0.09),
     color: theme.mode === "light" ? "#303030" : "#ffffff",
@@ -282,6 +360,25 @@ const useStyles = makeStyles(theme => ({
     "&:hover, &.Mui-focusVisible": { backgroundColor: "inherit" }
   },
 
+  messageReplyButton: {
+    display: "flex",
+    position: "absolute",
+    top: 3,
+    right: 37,
+    color: "#777",
+    zIndex: 1,
+    backgroundColor: "inherit",
+    opacity: 0.35,
+    transition: "opacity 120ms ease",
+    "&:hover, &.Mui-focusVisible": {
+      opacity: 1,
+      backgroundColor: "inherit"
+    },
+    [theme.breakpoints.down("sm")]: {
+      opacity: 1
+    }
+  },
+
   messageContactName: {
     display: "flex",
     color: theme.palette.primary.main,
@@ -307,7 +404,7 @@ const useStyles = makeStyles(theme => ({
     overflowWrap: "anywhere",
     fontSize: 13,
     lineHeight: 1.65,
-    padding: "3px 34px 20px 6px"
+    padding: "3px 70px 20px 6px"
   },
 
   messageLocation: {
@@ -780,6 +877,13 @@ const MessagesList = ({
   const [contactPresence, setContactPresence] = useState("available");
 
   const socketManager = useContext(SocketContext);
+  const { user } = useContext(AuthContext);
+  const { setReplyingMessage } = useContext(ReplyMessageContext);
+  const enhancedReply = usesOwnerOnlyTicketAccess(user, ticket);
+
+  const startReply = message => {
+    setReplyingMessage(message);
+  };
 
   function loadData(incrementPage = false) {
     if (incrementPage && !nextId) {
@@ -1068,6 +1172,9 @@ const MessagesList = ({
   };
 
   const checkMessageMedia = (message, data, isSticker = false) => {
+    if (message.billingPdfAvailable) {
+      return <BillingPdfDocument ticketId={ticketId} message={message} />;
+    }
     if (message.mediaType === "voice_recording") {
       return <VoiceRecordingPlayer message={message} />;
     }
@@ -1857,17 +1964,35 @@ const MessagesList = ({
               title={message.queueId && message.queue?.name}
             >
               {readOnly || (
-                <IconButton
-                  variant="contained"
-                  size="small"
-                  id={`messageActionsButton-${message.id}`}
-                  aria-label={i18n.t("conversa.maisAcoes")}
-                  disabled={message.isDeleted}
-                  className={classes.messageActionsButton}
-                  onClick={e => handleOpenMessageOptionsMenu(e, message, data)}
-                >
-                  <ExpandMore />
-                </IconButton>
+                <>
+                  {enhancedReply && (
+                    <Tooltip title={i18n.t("messageOptionsMenu.reply")}>
+                      <IconButton
+                        size="small"
+                        id={`messageReplyButton-${message.id}`}
+                        aria-label={i18n.t("messageOptionsMenu.reply")}
+                        disabled={message.isDeleted}
+                        className={classes.messageReplyButton}
+                        onClick={() => startReply(message)}
+                      >
+                        <Reply fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                  <IconButton
+                    variant="contained"
+                    size="small"
+                    id={`messageActionsButton-${message.id}`}
+                    aria-label={i18n.t("conversa.maisAcoes")}
+                    disabled={message.isDeleted}
+                    className={classes.messageActionsButton}
+                    onClick={e =>
+                      handleOpenMessageOptionsMenu(e, message, data)
+                    }
+                  >
+                    <ExpandMore />
+                  </IconButton>
+                </>
               )}
               {dataContext?.isForwarded && (
                 <span className={classes.forwardedMessage}>
@@ -1950,7 +2075,9 @@ const MessagesList = ({
                   </span>
                 </div>
               )}
-              {(message.mediaUrl || message.mediaType === "voice_recording") &&
+              {(message.mediaUrl ||
+                message.billingPdfAvailable ||
+                message.mediaType === "voice_recording") &&
                 !data?.message?.extendedTextMessage &&
                 checkMessageMedia(message, data, isSticker)}
               {renderButtons(data?.message)}
@@ -1979,17 +2106,35 @@ const MessagesList = ({
               title={message.queueId && message.queue?.name}
             >
               {readOnly || (
-                <IconButton
-                  variant="contained"
-                  size="small"
-                  id={`messageActionsButton-${message.id}`}
-                  aria-label={i18n.t("conversa.maisAcoes")}
-                  disabled={message.isDeleted}
-                  className={classes.messageActionsButton}
-                  onClick={e => handleOpenMessageOptionsMenu(e, message, data)}
-                >
-                  <ExpandMore />
-                </IconButton>
+                <>
+                  {enhancedReply && (
+                    <Tooltip title={i18n.t("messageOptionsMenu.reply")}>
+                      <IconButton
+                        size="small"
+                        id={`messageReplyButton-${message.id}`}
+                        aria-label={i18n.t("messageOptionsMenu.reply")}
+                        disabled={message.isDeleted}
+                        className={classes.messageReplyButton}
+                        onClick={() => startReply(message)}
+                      >
+                        <Reply fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                  <IconButton
+                    variant="contained"
+                    size="small"
+                    id={`messageActionsButton-${message.id}`}
+                    aria-label={i18n.t("conversa.maisAcoes")}
+                    disabled={message.isDeleted}
+                    className={classes.messageActionsButton}
+                    onClick={e =>
+                      handleOpenMessageOptionsMenu(e, message, data)
+                    }
+                  >
+                    <ExpandMore />
+                  </IconButton>
+                </>
               )}
 
               {dataContext?.isForwarded && (
@@ -2051,7 +2196,9 @@ const MessagesList = ({
                   {renderMessageAck(message)}
                 </span>
               </div>
-              {(message.mediaUrl || message.mediaType === "voice_recording") &&
+              {(message.mediaUrl ||
+                message.billingPdfAvailable ||
+                message.mediaType === "voice_recording") &&
                 checkMessageMedia(message, data, isSticker)}
               {renderReplies(message.replies)}
               {messageError && (

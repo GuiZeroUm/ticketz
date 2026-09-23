@@ -57,6 +57,8 @@ import { DecoupledDriverServices } from "../services/DecoupledDriverServices/Dec
 import { corsOrigin } from "../helpers/corsOrigin";
 import Company from "../models/Company";
 import { Op } from "sequelize";
+import { getTicketAccessMode } from "../services/TicketServices/TicketAccessPolicy";
+import { canUserSeeTicket } from "../services/TicketServices/TicketVisibility";
 import {
   runtimeOwnsCompany,
   runtimeCompanyWhere
@@ -254,13 +256,16 @@ export const initIO = (httpServer: Server): SocketIO => {
           }
 
           const userQueueIds = user.queues.map(queue => queue.id);
-          let allowed = ticket.userId === user.id || user.profile === "admin";
+          const accessMode = await getTicketAccessMode(ticket.companyId);
+          let allowed = canUserSeeTicket(
+            user.profile,
+            user.id,
+            userQueueIds,
+            ticket,
+            accessMode
+          );
           if (!allowed && !ticket.isGroup) {
-            // `status === "open"` liberava qualquer atendimento aberto da
-            // empresa, inclusive de setores dos quais o usuario nao participa.
-            // Sem fila continua liberado: e o pool de triagem.
-            allowed =
-              ticket.queueId === null || userQueueIds.includes(ticket.queueId);
+            allowed = false;
           }
           if (!allowed && ticket.isGroup) {
             allowed = Boolean(

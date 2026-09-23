@@ -1,10 +1,12 @@
-import { FindOptions, Op } from "sequelize";
+import { FindOptions, Op, QueryTypes } from "sequelize";
+import sequelize from "../../database";
 import AppError from "../../errors/AppError";
 import Message from "../../models/Message";
 import Ticket from "../../models/Ticket";
 import ShowTicketService from "../TicketServices/ShowTicketService";
 import Queue from "../../models/Queue";
 import { GetCompanySetting } from "../../helpers/CheckSettings";
+import { usesOwnerTicketAccess } from "../TicketServices/TicketAccessPolicy";
 
 interface Request {
   ticketId: string;
@@ -47,7 +49,6 @@ const ListMessagesService = async ({
       where: {
         id: { [Op.lte]: ticket.id },
         contactId: ticket.contactId,
-        whatsappId: ticket.whatsappId,
         companyId: ticket.companyId,
         channel: ticket.channel,
         isGroup: false
@@ -80,6 +81,7 @@ const ListMessagesService = async ({
 
   if (
     queues.length > 0 &&
+    !(await usesOwnerTicketAccess(companyId)) &&
     (await GetCompanySetting(companyId, "messageVisibility", "message")) ===
       "message"
   ) {
@@ -153,6 +155,24 @@ const ListMessagesService = async ({
 
   const hasMore = messages.length > limit;
   const visibleMessages = hasMore ? messages.slice(0, limit) : messages;
+  const documentMessageIds = visibleMessages
+    .filter(message => message.mediaType === "document" && !message.mediaUrl)
+    .map(message => message.id);
+  if (documentMessageIds.length) {
+    const billingDocuments = await sequelize.query<{ messageId: string }>(
+      'SELECT DISTINCT "messageId" FROM "SgaBillingDeliveries" WHERE "companyId"=:companyId AND "messageId" IN (:messageIds)',
+      {
+        replacements: { companyId, messageIds: documentMessageIds },
+        type: QueryTypes.SELECT
+      }
+    );
+    const available = new Set(billingDocuments.map(row => row.messageId));
+    visibleMessages.forEach(message => {
+      if (available.has(message.id)) {
+        message.setDataValue("billingPdfAvailable", true);
+      }
+    });
+  }
   const oldestMessage = visibleMessages[visibleMessages.length - 1];
 
   return {

@@ -25,6 +25,12 @@ import { corAvatar } from "../../helpers/coresAvatar";
 import { getInitials } from "../../helpers/getInitials";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
+import {
+  canActOnTicket,
+  canClaimTicket,
+  canPreviewTicket,
+  isClaimOnlyTicket
+} from "../../helpers/ticketAccess";
 import "./ticket-card.css";
 
 export default function TicketListItemCustom({
@@ -39,6 +45,7 @@ export default function TicketListItemCustom({
   const [preview, setPreview] = useState(false);
   const [busy, setBusy] = useState(false);
   const identidade = useIdentidade();
+  const claimOnly = isClaimOnlyTicket(user, ticket);
   const group = ticket.isGroup && ticket.contact?.groupMode !== "ticket";
   const actions = !group && (groupActionButtons || !ticket.isGroup);
   const selected =
@@ -63,13 +70,14 @@ export default function TicketListItemCustom({
     if (busy) return;
     setBusy(true);
     try {
-      await api.put(`/tickets/${ticket.id}`, {
+      const response = await api.put(`/tickets/${ticket.id}`, {
         status,
         userId: user?.id,
         ...(status === "closed" ? { justClose: true } : {})
       });
       if (status === "open") {
-        history.push(`/tickets/${ticket.uuid}`);
+        const targetUuid = response?.data?.uuid || ticket.uuid;
+        history.push(targetUuid ? `/tickets/${targetUuid}` : "/tickets/");
         setTabOpen?.("open");
       } else if (selected) history.push("/tickets/");
     } catch (error) {
@@ -78,6 +86,58 @@ export default function TicketListItemCustom({
       setBusy(false);
     }
   };
+
+  if (claimOnly) {
+    return (
+      <li
+        className="ticket-card ticket-card-claim-only"
+        style={identidade}
+        data-testid={`ticket-card-${ticket.id}`}
+      >
+        <div className="ticket-card-open" aria-label={`#${ticket.id}`}>
+          <span className="ticket-card-content">
+            <span className="ticket-card-heading">
+              <strong>
+                <MessageCircle size={14} />
+                <span>
+                  {i18n.t("ticketsList.claimOnly.title", { id: ticket.id })}
+                </span>
+              </strong>
+              {ticket.updatedAt && (
+                <time dateTime={ticket.updatedAt}>
+                  {pastRelativeDate(parseISO(ticket.updatedAt))}
+                </time>
+              )}
+            </span>
+            <span className="ticket-card-preview">
+              <span>{i18n.t("ticketsList.claimOnly.description")}</span>
+            </span>
+          </span>
+        </div>
+        <div className="ticket-card-details">
+          <div className="ticket-card-footer">
+            <div className="ticket-card-assignment">
+              <span title={ticket.queue?.name || i18n.t("conversa.semFila")}>
+                <Layers size={12} />
+                {ticket.queue?.name || i18n.t("conversa.semFila")}
+              </span>
+            </div>
+            {canClaimTicket(user, ticket) && (
+              <div className="ticket-card-actions">
+                <BotaoIcone
+                  titulo={i18n.t("ticketsList.buttons.accept")}
+                  disabled={busy}
+                  onClick={() => updateStatus("open")}
+                >
+                  <Check size={16} />
+                </BotaoIcone>
+              </div>
+            )}
+          </div>
+        </div>
+      </li>
+    );
+  }
 
   return (
     <li
@@ -181,16 +241,17 @@ export default function TicketListItemCustom({
             </div>
             {actions && (
               <div className="ticket-card-actions">
-                {ticket.status === "pending" && (
-                  <BotaoIcone
-                    titulo={i18n.t("ticketsList.buttons.accept")}
-                    disabled={busy}
-                    onClick={() => updateStatus("open")}
-                  >
-                    <Check size={16} />
-                  </BotaoIcone>
-                )}
-                {user.profile === "admin" && (
+                {ticket.status === "pending" &&
+                  canClaimTicket(user, ticket) && (
+                    <BotaoIcone
+                      titulo={i18n.t("ticketsList.buttons.accept")}
+                      disabled={busy}
+                      onClick={() => updateStatus("open")}
+                    >
+                      <Check size={16} />
+                    </BotaoIcone>
+                  )}
+                {canPreviewTicket(user, ticket) && (
                   <BotaoIcone
                     titulo={i18n.t("chatExperience.preview")}
                     onClick={() => setPreview(true)}
@@ -198,15 +259,16 @@ export default function TicketListItemCustom({
                     <Eye size={16} />
                   </BotaoIcone>
                 )}
-                {["open", "pending"].includes(ticket.status) && (
-                  <BotaoIcone
-                    titulo={i18n.t("chatExperience.close")}
-                    disabled={busy}
-                    onClick={() => updateStatus("closed")}
-                  >
-                    <X size={16} />
-                  </BotaoIcone>
-                )}
+                {["open", "pending"].includes(ticket.status) &&
+                  canActOnTicket(user, ticket) && (
+                    <BotaoIcone
+                      titulo={i18n.t("chatExperience.close")}
+                      disabled={busy}
+                      onClick={() => updateStatus("closed")}
+                    >
+                      <X size={16} />
+                    </BotaoIcone>
+                  )}
               </div>
             )}
           </div>

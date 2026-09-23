@@ -1656,6 +1656,10 @@ const messages = {
         }
       },
       ticketsList: {
+        claimOnly: {
+          title: "Novo atendimento #{{id}}",
+          description: "Aceite para visualizar a conversa"
+        },
         pendingHeader: "Aguardando",
         assignedHeader: "Atendendo",
         noTicketsTitle: "Nada aqui!",
@@ -2562,6 +2566,7 @@ const messages = {
         signMessage: "Assinar",
         replying: "Respondendo",
         editing: "Editando",
+        billingPdfUnavailable: "Não foi possível carregar o PDF da cobrança.",
         serviceWindowClosed:
           "Faz mais de 24 horas desde a última mensagem do cliente. Para falar com ele de novo, envie um template aprovado.",
         sendTemplate: "Enviar template"

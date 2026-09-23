@@ -997,6 +997,10 @@ const messages = {
         }
       },
       ticketsList: {
+        claimOnly: {
+          title: "New ticket #{{id}}",
+          description: "Accept to view the conversation"
+        },
         pendingHeader: "Pending",
         assignedHeader: "Assigned",
         noTicketsTitle: "Nothing here!",
@@ -1898,6 +1902,7 @@ const messages = {
         signMessage: "Sign",
         replying: "Replying",
         editing: "Editing",
+        billingPdfUnavailable: "The billing PDF could not be loaded.",
         serviceWindowClosed:
           "More than 24 hours have passed since the last customer message. Send an approved template to reach them again.",
         sendTemplate: "Send template"

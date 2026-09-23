@@ -22,7 +22,7 @@ import {
 import { testPdf } from "../services/SgaBillingServices/transport";
 
 const routes = Router();
-routes.get("/sga/status", isAuth, async (req, res) => {
+routes.get("/sga/status", isAuth, isAdmin, async (req, res) => {
   const enabled = await sgaEnabled(req.user.companyId);
   const stored = enabled ? await snapshot(req.user.companyId) : null;
   return res.json({
@@ -34,7 +34,7 @@ routes.get("/sga/status", isAuth, async (req, res) => {
     attemptedAt: stored?.attemptedAt || null
   });
 });
-routes.use("/sga", isAuth, async (req, _res, next) => {
+routes.use("/sga", isAuth, isAdmin, async (req, _res, next) => {
   await assertSgaTenant(req.user.companyId);
   next();
 });

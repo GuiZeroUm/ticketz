@@ -150,6 +150,11 @@ const Ticket = () => {
 
     const onCompanyTicket = data => {
       if (data.action === "update" && data.ticket.id === ticket.id) {
+        if (!data.ticket.isGroup && !canSeeTicket(user, data.ticket)) {
+          toast.error(i18n.t("backendErrors.ERR_NO_PERMISSION"));
+          history.push("/tickets");
+          return;
+        }
         setTicket(data.ticket);
       }
 
@@ -175,7 +180,7 @@ const Ticket = () => {
     return () => {
       socket.disconnect();
     };
-  }, [ticketId, ticket, history, socketManager]);
+  }, [ticketId, ticket, history, socketManager, user]);
 
   const handleDrawerOpen = () => {
     setDrawerOpen(true);

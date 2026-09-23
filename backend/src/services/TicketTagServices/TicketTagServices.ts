@@ -38,7 +38,7 @@ export async function ticketTagAdd(
   }
 
   await ticket.reload();
-  websocketUpdateTicket(ticket);
+  await websocketUpdateTicket(ticket);
 
   return ticketTag;
 }
@@ -65,7 +65,7 @@ export async function ticketTagRemove(
   });
 
   await ticket.reload();
-  websocketUpdateTicket(ticket);
+  await websocketUpdateTicket(ticket);
 }
 
 export async function ticketTagRemoveAll(ticketId: number, companyId?: number) {
@@ -85,5 +85,5 @@ export async function ticketTagRemoveAll(ticketId: number, companyId?: number) {
   });
 
   await ticket.reload();
-  websocketUpdateTicket(ticket);
+  await websocketUpdateTicket(ticket);
 }
