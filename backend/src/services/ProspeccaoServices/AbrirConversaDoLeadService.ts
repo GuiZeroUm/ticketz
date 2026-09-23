@@ -84,12 +84,18 @@ const AbrirConversaDoLeadService = async ({
     ? await Whatsapp.findOne({ where: { id: whatsappId, companyId } })
     : null;
   if (whatsappId && !whatsapp) throw new AppError("ERR_WAPP_NOT_FOUND", 404);
-  const contact = await CheckNumberAndCreateContact(
-    lead.telefone,
-    lead.nome || lead.telefone,
-    companyId,
-    whatsapp
-  );
+  const contact = whatsapp
+    ? await CheckNumberAndCreateContact(
+        lead.telefone,
+        lead.nome || lead.telefone,
+        companyId,
+        whatsapp
+      )
+    : await CheckNumberAndCreateContact(
+        lead.telefone,
+        lead.nome || lead.telefone,
+        companyId
+      );
   if (!contact) {
     throw new AppError("ERR_PROSPECCAO_SEM_CONEXAO", 503);
   }
