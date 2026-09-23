@@ -40,6 +40,48 @@ const randomDelay = (config: ProspeccaoAutomation): number =>
 
 const isTestTenant = (company?: Company): boolean => company?.slug === "teste";
 
+const ensureSalesAttemptTag = async (
+  companyId: number,
+  ticketId: number
+): Promise<void> => {
+  const [tag] = await Tag.findOrCreate({
+    where: {
+      companyId,
+      name: { [Op.iLike]: "Tentativa de venda" }
+    },
+    defaults: {
+      companyId,
+      name: "Tentativa de venda",
+      color: "#E91E63",
+      kanban: 0
+    }
+  });
+  await TicketTag.findOrCreate({ where: { ticketId, tagId: tag.id } });
+};
+
+const finalizeAutomaticSend = async (
+  lead: ProspeccaoLead,
+  ticketId: number,
+  sentAt: Date
+): Promise<void> => {
+  await lead.update({
+    ticketId,
+    deliveryStatus: "SENT",
+    autoSentAt: sentAt,
+    closeDueAt: DateTime.fromJSDate(sentAt).plus({ hours: 120 }).toJSDate(),
+    deliveryError: null
+  });
+  try {
+    await ensureSalesAttemptTag(lead.companyId, ticketId);
+  } catch (error) {
+    // O envio ja foi confirmado. A tag e reparada pelo monitor sem reenviar.
+    logger.error(
+      { error, leadId: lead.id, ticketId },
+      "Falha ao associar tag da prospeccao automatica"
+    );
+  }
+};
+
 const startDueSchedules = async (): Promise<void> => {
   const automations = await ProspeccaoAutomation.findAll({
     where: { enabled: true },
@@ -180,6 +222,14 @@ const monitorRepliesAndClosures = async (): Promise<void> => {
       });
       continue;
     }
+    try {
+      await ensureSalesAttemptTag(lead.companyId, lead.ticketId);
+    } catch (error) {
+      logger.error(
+        { error, leadId: lead.id, ticketId: lead.ticketId },
+        "Falha ao reparar tag da prospeccao automatica"
+      );
+    }
     if (!lead.closeDueAt || lead.closeDueAt > new Date()) continue;
     const ticket = await Ticket.findOne({
       where: { id: lead.ticketId, companyId: lead.companyId }
@@ -278,7 +328,18 @@ const sendLead = async (job: Job<{ leadId: number }>): Promise<void> => {
         })
       : null;
     if (previous) {
-      await lead.update({ deliveryStatus: "SENT", deliveryError: null });
+      const isRecoveredAutomaticSend =
+        previous.ticketId === lead.ticketId &&
+        previous.body?.trim() === lead.rascunho?.trim();
+      if (isRecoveredAutomaticSend) {
+        await finalizeAutomaticSend(
+          lead,
+          previous.ticketId,
+          previous.createdAt || new Date()
+        );
+      } else {
+        await lead.update({ deliveryStatus: "SENT", deliveryError: null });
+      }
       return;
     }
     const opened = await AbrirConversaDoLeadService({
@@ -297,28 +358,7 @@ const sendLead = async (job: Job<{ leadId: number }>): Promise<void> => {
       ticket,
       userId: automation.userId
     });
-    const [tag] = await Tag.findOrCreate({
-      where: {
-        companyId: lead.companyId,
-        name: { [Op.iLike]: "Tentativa de venda" }
-      },
-      defaults: {
-        companyId: lead.companyId,
-        name: "Tentativa de venda",
-        color: "#E91E63",
-        kanban: 0
-      }
-    });
-    await TicketTag.findOrCreate({
-      where: { ticketId: ticket.id, tagId: tag.id }
-    });
-    const sentAt = new Date();
-    await lead.update({
-      deliveryStatus: "SENT",
-      autoSentAt: sentAt,
-      closeDueAt: DateTime.fromJSDate(sentAt).plus({ hours: 120 }).toJSDate(),
-      deliveryError: null
-    });
+    await finalizeAutomaticSend(lead, ticket.id, new Date());
   } catch (error) {
     const attempts = lead.sendAttempts + 1;
     await lead.update({
