@@ -2,6 +2,7 @@ import React from "react";
 import { Dialog, IconButton } from "@material-ui/core";
 import CloseIcon from "@material-ui/icons/Close";
 import { i18n } from "../../translate/i18n";
+import OneWorksMotion from "../OneWorksMotion";
 import "./styles.css";
 
 export default function AvatarPreview({
@@ -25,15 +26,13 @@ export default function AvatarPreview({
       >
         <CloseIcon />
       </IconButton>
-      <img
-        className={
-          illustrated
-            ? "avatar-preview-image one-works-card"
-            : "avatar-preview-image"
-        }
-        src={src}
-        alt={alt || ""}
-      />
+      {illustrated ? (
+        <div className="avatar-preview-image">
+          <OneWorksMotion src={src} alt={alt} active interactive />
+        </div>
+      ) : (
+        <img className="avatar-preview-image" src={src} alt={alt || ""} />
+      )}
     </Dialog>
   );
 }

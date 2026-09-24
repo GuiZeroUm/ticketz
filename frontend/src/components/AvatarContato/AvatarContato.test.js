@@ -10,6 +10,9 @@ import AvatarContato from "./index";
 import api from "../../services/api";
 import { avatarIlustrado } from "../../helpers/avatarIlustrado";
 jest.mock("../../services/api", () => ({ post: jest.fn() }));
+jest.mock("../OneWorksMotion", () => ({ src, alt, onError }) => (
+  <img src={src} alt={alt} onError={onError} />
+));
 beforeEach(() => {
   api.post.mockReset();
   api.post.mockResolvedValue({ data: {} });
