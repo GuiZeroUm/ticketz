@@ -10,5 +10,6 @@ export function avatarIlustrado(tipo, id) {
     hash = Math.imul(hash, 16777619);
   }
   const numero = String((hash >>> 0) % TOTAL_AVATARES).padStart(3, "0");
-  return `/avatars/oneworks/v1/${numero}.webp`;
+  // The URL revision refreshes cached cards after the visual correction.
+  return `/avatars/oneworks/v1/${numero}.webp?design=2`;
 }

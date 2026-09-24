@@ -276,7 +276,8 @@ const ContactDrawer = ({
                     avatar={
                       <AvatarContato
                         contact={contact}
-                        alt="contact_image"
+                        preview
+                        alt={formattedContactName}
                         style={{
                           width: 44,
                           height: 44,
