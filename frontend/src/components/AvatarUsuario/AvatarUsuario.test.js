@@ -2,6 +2,9 @@ import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import AvatarUsuario from "./index";
 import { avatarIlustrado } from "../../helpers/avatarIlustrado";
+jest.mock("../OneWorksMotion", () => ({ src, alt, onError }) => (
+  <img src={src} alt={alt} onError={onError} />
+));
 
 it("uses the same illustration when the user name changes", () => {
   const { rerender } = render(
