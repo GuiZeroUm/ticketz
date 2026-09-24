@@ -62,6 +62,28 @@ const useStyles = makeStyles(theme => ({
     padding: theme.spacing(2),
     marginBottom: theme.spacing(1.5)
   },
+  automationHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: theme.spacing(1),
+    flexWrap: "wrap"
+  },
+  automationMetric: {
+    paddingTop: theme.spacing(1)
+  },
+  automationExecutions: {
+    marginTop: theme.spacing(1.5),
+    paddingTop: theme.spacing(1),
+    borderTop: `1px solid ${theme.palette.divider}`
+  },
+  automationExecution: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: theme.spacing(1),
+    padding: theme.spacing(0.5, 0),
+    flexWrap: "wrap"
+  },
   barra: {
     marginTop: theme.spacing(1)
   },
@@ -137,6 +159,22 @@ const countryLabel = country => {
   }
 };
 
+const AUTOMATION_STATUS = {
+  DUE: "Preparando busca",
+  RUNNING: "Buscando no Google Maps",
+  ENRICHING: "Gerando rascunhos",
+  COMPLETED: "Busca concluída",
+  FAILED: "Busca com falha"
+};
+
+const horaLocal = value =>
+  value
+    ? new Intl.DateTimeFormat("pt-BR", {
+        hour: "2-digit",
+        minute: "2-digit"
+      }).format(new Date(value))
+    : null;
+
 const ProspeccaoContent = () => {
   const classes = useStyles();
   const history = useHistory();
@@ -182,6 +220,20 @@ const ProspeccaoContent = () => {
       if (temporizador.current) clearTimeout(temporizador.current);
     };
   }, []);
+
+  useEffect(() => {
+    const activeSearches = automation.progress?.searchesActive || 0;
+    if (!automation.enabled && activeSearches === 0) return undefined;
+    const interval = setInterval(async () => {
+      try {
+        const { data } = await api.get("/prospeccao/automacao");
+        if (montado.current) setAutomation(data || { enabled: false });
+      } catch (error) {
+        // O restante da tela continua funcional durante uma falha transitória.
+      }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [automation.enabled, automation.progress?.searchesActive]);
 
   useEffect(() => {
     Promise.all([
@@ -463,6 +515,10 @@ const ProspeccaoContent = () => {
   // Atualizar é o jeito de buscar o que ficou pronto no meio tempo.
   const atualiza = () => {
     carregaLeads();
+    api
+      .get("/prospeccao/automacao")
+      .then(({ data }) => setAutomation(data || { enabled: false }))
+      .catch(toastError);
     if (!jobId) return;
     inicioDoJob.current = Date.now();
     raspagemTerminouEm.current = null;
@@ -477,6 +533,15 @@ const ProspeccaoContent = () => {
 
   const podeBuscar =
     !iniciando && !!form.nicho.trim() && !!form.countryCode && !!form.produto;
+  const automationProgress = automation.progress || {};
+  const automationExecutions = automationProgress.executions || [];
+  const sendPercent = automationProgress.dailyLimit
+    ? Math.min(
+        100,
+        (100 * (automationProgress.sentToday || 0)) /
+          automationProgress.dailyLimit
+      )
+    : 0;
 
   const mensagemDeEtapa = () => {
     if (!progresso) return "Enviando a busca...";
@@ -522,6 +587,11 @@ const ProspeccaoContent = () => {
             onClick={() => setAutomationOpen(true)}
           >
             Envio automático
+            {automation.enabled && automationProgress.dailyLimit
+              ? ` • ${automationProgress.sentToday || 0}/${
+                  automationProgress.dailyLimit
+                }`
+              : ""}
             <Switch
               size="small"
               color="primary"
@@ -686,6 +756,102 @@ const ProspeccaoContent = () => {
               {acompanhando ? mensagemDeEtapa() : aviso}
             </Typography>
             {acompanhando && <LinearProgress className={classes.barra} />}
+          </Paper>
+        )}
+
+        {(automation.enabled || automationExecutions.length > 0) && (
+          <Paper className={classes.progresso} variant="outlined">
+            <div className={classes.automationHeader}>
+              <Typography variant="subtitle2">
+                {automation.enabled
+                  ? "Envio automático ativo"
+                  : "Envio automático pausado"}
+              </Typography>
+              <Typography variant="caption" color="textSecondary">
+                Atualização automática a cada 10 segundos
+              </Typography>
+            </div>
+            <Grid container spacing={2}>
+              <Grid item xs={6} sm={3} className={classes.automationMetric}>
+                <Typography variant="caption" color="textSecondary">
+                  Buscas hoje
+                </Typography>
+                <Typography variant="h6">
+                  {automationProgress.searchesCompleted || 0}/
+                  {automationProgress.searchesTotal || 0}
+                </Typography>
+              </Grid>
+              <Grid item xs={6} sm={3} className={classes.automationMetric}>
+                <Typography variant="caption" color="textSecondary">
+                  Resultados encontrados
+                </Typography>
+                <Typography variant="h6">
+                  {automationProgress.foundLeads || 0}/
+                  {automationProgress.targetLeads || 0}
+                </Typography>
+              </Grid>
+              <Grid item xs={6} sm={3} className={classes.automationMetric}>
+                <Typography variant="caption" color="textSecondary">
+                  Leads elegíveis na fila
+                </Typography>
+                <Typography variant="h6">
+                  {(automationProgress.queued || 0) +
+                    (automationProgress.sending || 0)}
+                </Typography>
+              </Grid>
+              <Grid item xs={6} sm={3} className={classes.automationMetric}>
+                <Typography variant="caption" color="textSecondary">
+                  Envios hoje
+                </Typography>
+                <Typography variant="h6">
+                  {automationProgress.sentToday || 0}/
+                  {automationProgress.dailyLimit || automation.dailyLimit || 0}
+                </Typography>
+              </Grid>
+            </Grid>
+            <LinearProgress
+              className={classes.barra}
+              variant="determinate"
+              value={sendPercent}
+            />
+            <Typography variant="body2" color="textSecondary">
+              {automationProgress.sending > 0
+                ? "Enviando uma mensagem agora."
+                : automationProgress.nextSendAt
+                  ? `Próximo envio previsto para ${horaLocal(
+                      automationProgress.nextSendAt
+                    )}.`
+                  : automationProgress.searchesActive > 0
+                    ? "As buscas ainda estão preparando os próximos envios."
+                    : automation.enabled
+                      ? "Aguardando o próximo horário configurado."
+                      : "Os envios pendentes estão pausados."}
+              {automationProgress.repliedToday > 0
+                ? ` ${automationProgress.repliedToday} cliente(s) responderam hoje.`
+                : ""}
+              {automationProgress.retrying > 0
+                ? ` ${automationProgress.retrying} envio(s) aguardam nova tentativa após uma falha temporária.`
+                : ""}
+              {automationProgress.failed > 0
+                ? ` ${automationProgress.failed} envio(s) falharam após três tentativas.`
+                : ""}
+            </Typography>
+            {automationExecutions.length > 0 && (
+              <div className={classes.automationExecutions}>
+                {automationExecutions.map(item => (
+                  <div className={classes.automationExecution} key={item.id}>
+                    <Typography variant="body2">
+                      {item.time || "--:--"} · {item.nicho || "Agenda alterada"}
+                    </Typography>
+                    <Typography variant="body2" color="textSecondary">
+                      {AUTOMATION_STATUS[item.status] || item.status} ·{" "}
+                      {item.totalLeads || 0}/{item.maxResults || 0} encontrados
+                      · {item.eligibleLeads || 0} elegíveis
+                    </Typography>
+                  </div>
+                ))}
+              </div>
+            )}
           </Paper>
         )}
 

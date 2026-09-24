@@ -1,15 +1,13 @@
 import Whatsapp from "../../../models/Whatsapp";
 import HandleMetaInboundMessageService from "../HandleMetaInboundMessageService";
-import CreateOrUpdateContactService from "../../ContactServices/CreateOrUpdateContactService";
 import FindOrCreateTicketServiceMeta from "../../TicketServices/FindOrCreateTicketServiceMeta";
 import CreateMessageService from "../../MessageServices/CreateMessageService";
 import DownloadMetaMediaService from "../DownloadMetaMediaService";
 import saveMediaToFile from "../../../helpers/saveMediaFile";
 import HandleMetaInboundFlowService from "../HandleMetaInboundFlowService";
+import FindOrCreateMetaContactService from "../FindOrCreateMetaContactService";
 
-jest.mock("../../ContactServices/CreateOrUpdateContactService", () =>
-  jest.fn()
-);
+jest.mock("../FindOrCreateMetaContactService", () => jest.fn());
 jest.mock("../../TicketServices/FindOrCreateTicketServiceMeta", () =>
   jest.fn()
 );
@@ -22,7 +20,7 @@ jest.mock("../HandleMetaInboundFlowService", () => ({
   captureMetaRating: jest.fn().mockResolvedValue(false)
 }));
 
-const createContact = CreateOrUpdateContactService as jest.Mock;
+const createContact = FindOrCreateMetaContactService as jest.Mock;
 const findTicket = FindOrCreateTicketServiceMeta as jest.Mock;
 const createMessage = CreateMessageService as jest.Mock;
 const downloadMedia = DownloadMetaMediaService as jest.Mock;

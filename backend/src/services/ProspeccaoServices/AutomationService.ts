@@ -1,4 +1,6 @@
 import * as Yup from "yup";
+import { DateTime } from "luxon";
+import { Op } from "sequelize";
 import sequelize from "../../database";
 import AppError from "../../errors/AppError";
 import Company from "../../models/Company";
@@ -61,6 +63,10 @@ const schema = Yup.object({
 
 export const getAutomation = async (companyId: number) => {
   const company = await Company.findByPk(companyId);
+  const timezone = company?.timezone || "America/Rio_Branco";
+  const now = DateTime.now().setZone(timezone);
+  const localDate = now.toISODate();
+  const dayStart = now.startOf("day").toUTC().toJSDate();
   let automation = await ProspeccaoAutomation.findOne({ where: { companyId } });
   if (!automation) {
     automation = await ProspeccaoAutomation.create({
@@ -77,14 +83,124 @@ export const getAutomation = async (companyId: number) => {
     limit: 20
   });
   const pending = await ProspeccaoLead.count({
-    where: { companyId, deliveryStatus: ["QUEUED", "PAUSED", "SENDING"] }
+    where: {
+      companyId,
+      deliveryStatus: { [Op.in]: ["QUEUED", "PAUSED", "SENDING"] }
+    }
   });
+  const executionsToday = executions.filter(
+    item => item.localDate === localDate
+  );
+  const executionIds = executionsToday.map(item => item.id);
+  const [executionLeads, queuedLeads, sentToday, repliedToday, failed] =
+    await Promise.all([
+      executionIds.length
+        ? ProspeccaoLead.findAll({
+            where: { companyId, executionId: { [Op.in]: executionIds } },
+            attributes: ["executionId", "status", "deliveryStatus"]
+          })
+        : Promise.resolve([] as ProspeccaoLead[]),
+      ProspeccaoLead.findAll({
+        where: {
+          companyId,
+          origin: "AUTO",
+          deliveryStatus: { [Op.in]: ["QUEUED", "PAUSED", "SENDING"] }
+        },
+        attributes: [
+          "deliveryStatus",
+          "scheduledSendAt",
+          "sendAttempts",
+          "deliveryError"
+        ],
+        order: [["scheduledSendAt", "ASC"]]
+      }),
+      ProspeccaoLead.count({
+        where: {
+          companyId,
+          origin: "AUTO",
+          autoSentAt: { [Op.gte]: dayStart }
+        }
+      }),
+      ProspeccaoLead.count({
+        where: {
+          companyId,
+          origin: "AUTO",
+          repliedAt: { [Op.gte]: dayStart }
+        }
+      }),
+      ProspeccaoLead.count({
+        where: { companyId, origin: "AUTO", deliveryStatus: "FAILED" }
+      })
+    ]);
+  const scheduleById = new Map(schedules.map(item => [item.id, item]));
+  const leadsByExecution = executionLeads.reduce<Record<number, number>>(
+    (result, lead) => {
+      result[lead.executionId] = (result[lead.executionId] || 0) + 1;
+      return result;
+    },
+    {}
+  );
+  const executionProgress = executionsToday.map(execution => {
+    const schedule = scheduleById.get(execution.scheduleId);
+    return {
+      id: execution.id,
+      scheduleId: execution.scheduleId,
+      status: execution.status,
+      jobId: execution.jobId,
+      totalLeads: execution.totalLeads,
+      newLeads: execution.newLeads,
+      eligibleLeads: leadsByExecution[execution.id] || 0,
+      errorMessage: execution.errorMessage,
+      startedAt: execution.startedAt,
+      finishedAt: execution.finishedAt,
+      time: schedule?.time,
+      nicho: schedule?.nicho,
+      maxResults: schedule?.maxResults || execution.totalLeads
+    };
+  });
+  const nextScheduled = queuedLeads.find(item => item.scheduledSendAt);
   return {
     ...automation.toJSON(),
     schedules,
     executions,
     pending,
-    timezone: company?.timezone || "America/Rio_Branco"
+    timezone,
+    progress: {
+      localDate,
+      searchesTotal: executionProgress.length,
+      searchesCompleted: executionProgress.filter(
+        item => item.status === "COMPLETED"
+      ).length,
+      searchesActive: executionProgress.filter(item =>
+        ["DUE", "RUNNING", "ENRICHING"].includes(item.status)
+      ).length,
+      searchesFailed: executionProgress.filter(item => item.status === "FAILED")
+        .length,
+      targetLeads: executionProgress.reduce(
+        (sum, item) => sum + (item.maxResults || 0),
+        0
+      ),
+      foundLeads: executionProgress.reduce(
+        (sum, item) => sum + (item.totalLeads || 0),
+        0
+      ),
+      eligibleLeads: executionLeads.length,
+      queued: queuedLeads.filter(item => item.deliveryStatus === "QUEUED")
+        .length,
+      paused: queuedLeads.filter(item => item.deliveryStatus === "PAUSED")
+        .length,
+      sending: queuedLeads.filter(item => item.deliveryStatus === "SENDING")
+        .length,
+      retrying: queuedLeads.filter(item => item.sendAttempts > 0).length,
+      failed,
+      lastDeliveryError:
+        queuedLeads.find(item => item.deliveryError)?.deliveryError || null,
+      sentToday,
+      repliedToday,
+      nextSendAt: nextScheduled?.scheduledSendAt || null,
+      dailyLimit: automation.dailyLimit,
+      executions: executionProgress
+    }
   };
 };
 
@@ -178,7 +294,14 @@ export const setAutomationEnabled = async (
       throw new AppError("ERR_PROSPECCAO_ATIVACAO_INVALIDA", 400);
     }
   }
-  await automation.update({ enabled });
+  await automation.update({
+    enabled,
+    enabledAt: enabled
+      ? automation.enabled
+        ? automation.enabledAt
+        : new Date()
+      : null
+  });
   await ProspeccaoLead.update(
     { deliveryStatus: enabled ? "QUEUED" : "PAUSED", scheduledSendAt: null },
     {

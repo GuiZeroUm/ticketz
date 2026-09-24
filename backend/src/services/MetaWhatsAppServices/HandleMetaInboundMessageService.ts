@@ -1,6 +1,5 @@
 import mime from "mime-types";
 import Whatsapp from "../../models/Whatsapp";
-import CreateOrUpdateContactService from "../ContactServices/CreateOrUpdateContactService";
 import FindOrCreateTicketServiceMeta from "../TicketServices/FindOrCreateTicketServiceMeta";
 import CreateMessageService from "../MessageServices/CreateMessageService";
 import saveMediaToFile from "../../helpers/saveMediaFile";
@@ -10,6 +9,7 @@ import { mediaLabel } from "./mediaLabel";
 import HandleMetaInboundFlowService, {
   captureMetaRating
 } from "./HandleMetaInboundFlowService";
+import FindOrCreateMetaContactService from "./FindOrCreateMetaContactService";
 
 interface MetaContact {
   profile?: { name?: string };
@@ -148,12 +148,10 @@ const HandleMetaInboundMessageService = async (
     return;
   }
 
-  const contact = await CreateOrUpdateContactService({
+  const contact = await FindOrCreateMetaContactService({
     name: metaContact?.profile?.name || message.from,
     number: message.from,
-    companyId: whatsapp.companyId,
-    channel: "whatsapp",
-    nameSource: "external"
+    companyId: whatsapp.companyId
   });
 
   // Antes de criar/reabrir o ticket: a resposta da avaliacao so e reconhecida
