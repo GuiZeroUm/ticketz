@@ -8,6 +8,7 @@ import {
 } from "@testing-library/react";
 import AvatarContato from "./index";
 import api from "../../services/api";
+import { avatarIlustrado } from "../../helpers/avatarIlustrado";
 jest.mock("../../services/api", () => ({ post: jest.fn() }));
 beforeEach(() => {
   api.post.mockReset();
@@ -53,6 +54,10 @@ it("stops after one refresh when both URLs fail", async () => {
   );
   fireEvent.error(screen.getByRole("img"));
   await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
+  expect(screen.getByRole("img").getAttribute("src")).toBe(
+    avatarIlustrado("contato", 1)
+  );
+  fireEvent.error(screen.getByRole("img"));
   expect(screen.queryByRole("img")).toBeNull();
   expect(screen.getByText("AB")).toBeTruthy();
 });
@@ -77,4 +82,11 @@ it("resets failures on updated URLs and avoids other channels", async () => {
   expect(api.post).not.toHaveBeenCalled();
   rerender(<AvatarContato contact={{ id: 1, profilePicUrl: "updated" }} />);
   expect(screen.getByRole("img").getAttribute("src")).toBe("updated");
+});
+
+it("keeps group initials when there is no picture", async () => {
+  render(<AvatarContato contact={{ id: 3, isGroup: true }}>GP</AvatarContato>);
+  await act(async () => {});
+  expect(screen.queryByRole("img")).toBeNull();
+  expect(screen.getByText("GP")).toBeTruthy();
 });
