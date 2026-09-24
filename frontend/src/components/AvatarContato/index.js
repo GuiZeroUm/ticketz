@@ -3,6 +3,7 @@ import Avatar from "@material-ui/core/Avatar";
 import api from "../../services/api";
 import { avatarIlustrado } from "../../helpers/avatarIlustrado";
 import AvatarPreview from "../AvatarPreview";
+import OneWorksMotion from "../OneWorksMotion";
 
 function Foto({
   contact,
@@ -90,11 +91,9 @@ function Foto({
             onError={() => setFailed(previous => [...previous, src])}
           />
         ) : showingIllustration ? (
-          <img
+          <OneWorksMotion
             src={fallback}
             alt={alt || contact.name || ""}
-            loading="lazy"
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
             onError={() => setFallbackFailed(true)}
           />
         ) : (

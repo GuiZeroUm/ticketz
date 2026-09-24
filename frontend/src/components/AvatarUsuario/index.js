@@ -5,6 +5,7 @@ import { getInitials } from "../../helpers/getInitials";
 import { urlFotoUsuario } from "../../helpers/urlFotoUsuario";
 import { avatarIlustrado } from "../../helpers/avatarIlustrado";
 import AvatarPreview from "../AvatarPreview";
+import OneWorksMotion from "../OneWorksMotion";
 
 function FotoUsuario({
   usuario,
@@ -60,7 +61,13 @@ function FotoUsuario({
           ...style
         }}
       >
-        {src ? (
+        {showingIllustration ? (
+          <OneWorksMotion
+            src={src}
+            alt={usuario?.name || ""}
+            onError={() => setIlustracaoFalhou(true)}
+          />
+        ) : src ? (
           <img
             src={src}
             alt={usuario?.name || ""}
