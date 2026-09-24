@@ -1,14 +1,17 @@
 import React, { useEffect, useRef, useState } from "react";
 import Avatar from "@material-ui/core/Avatar";
 import api from "../../services/api";
+import { avatarIlustrado } from "../../helpers/avatarIlustrado";
 
 function Foto({ contact, children, alt, ...props }) {
   const [pictures, setPictures] = useState(contact);
   const [failed, setFailed] = useState([]);
+  const [fallbackFailed, setFallbackFailed] = useState(false);
   const attempted = useRef(false);
   const src = [pictures.profilePicUrl, pictures.profileHiresPictureUrl].find(
     url => url && !failed.includes(url)
   );
+  const fallback = !contact.isGroup && avatarIlustrado("contato", contact.id);
 
   useEffect(() => {
     if (
@@ -41,6 +44,14 @@ function Foto({ contact, children, alt, ...props }) {
           loading="lazy"
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
           onError={() => setFailed(previous => [...previous, src])}
+        />
+      ) : fallback && !fallbackFailed ? (
+        <img
+          src={fallback}
+          alt={alt || contact.name || ""}
+          loading="lazy"
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          onError={() => setFallbackFailed(true)}
         />
       ) : (
         children
