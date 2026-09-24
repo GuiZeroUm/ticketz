@@ -42,9 +42,10 @@ export default function TicketListItemCustom({
   const group = ticket.isGroup && ticket.contact?.groupMode !== "ticket";
   const ownTicket =
     Number(ticket.user?.id || ticket.userId) === Number(user?.id);
-  const canPreview = user?.profile === "admin" || ownTicket;
+  const canPreview =
+    user?.profile === "admin" || ticket.status === "pending" || ownTicket;
   const canClose =
-    user?.profile === "admin" || (ticket.status === "open" && ownTicket);
+    user?.profile === "admin" || ticket.status === "pending" || ownTicket;
   const actions = !group && (groupActionButtons || !ticket.isGroup);
   const selected =
     ticketId === ticket.uuid || String(ticketId) === String(ticket.id);

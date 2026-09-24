@@ -137,3 +137,17 @@ test("attendants can preview and close only their own open tickets", () => {
     screen.queryByRole("button", { name: "chatExperience.close" })
   ).toBeNull();
 });
+
+test("attendants can preview and close tickets that are waiting for service", () => {
+  setup(
+    { ...base, status: "pending", user: null, userId: null },
+    { id: 8, profile: "user" }
+  );
+
+  expect(
+    screen.getByRole("button", { name: "chatExperience.close" })
+  ).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "chatExperience.preview" })
+  ).toBeTruthy();
+});
