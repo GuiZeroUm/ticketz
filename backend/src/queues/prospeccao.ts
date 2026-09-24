@@ -94,6 +94,9 @@ const startDueSchedules = async (): Promise<void> => {
     );
     const localDate = now.toISODate();
     const currentTime = now.toFormat("HH:mm");
+    const enabledAt = automation.enabledAt
+      ? DateTime.fromJSDate(automation.enabledAt).setZone(now.zoneName)
+      : null;
     const dayStart = now.startOf("day").toUTC().toJSDate();
     const sentToday = await ProspeccaoLead.count({
       where: {
@@ -111,6 +114,14 @@ const startDueSchedules = async (): Promise<void> => {
     if (sentToday + backlog >= automation.dailyLimit) continue;
     for (const schedule of automation.schedules || []) {
       if (schedule.time > currentTime) continue;
+      const scheduleAt = DateTime.fromISO(`${localDate}T${schedule.time}`, {
+        zone: now.zoneName
+      });
+      if (
+        enabledAt?.toISODate() === localDate &&
+        scheduleAt.toMillis() < enabledAt.toMillis()
+      )
+        continue;
       const [execution, created] = await ProspeccaoExecution.findOrCreate({
         where: { scheduleId: schedule.id, localDate },
         defaults: { companyId: automation.companyId, status: "DUE" } as never
@@ -275,38 +286,61 @@ const enqueueNext = async (): Promise<void> => {
       }
     });
     if (sent >= automation.dailyLimit) continue;
+    const sending = await ProspeccaoLead.count({
+      where: {
+        companyId: automation.companyId,
+        deliveryStatus: "SENDING"
+      }
+    });
+    if (sending > 0) continue;
+    const scheduled = await ProspeccaoLead.findOne({
+      where: {
+        companyId: automation.companyId,
+        deliveryStatus: "QUEUED",
+        status: "ok",
+        rascunho: { [Op.ne]: null },
+        scheduledSendAt: { [Op.ne]: null }
+      },
+      order: [["scheduledSendAt", "ASC"]]
+    });
+    if (scheduled) {
+      if (scheduled.scheduledSendAt > new Date()) continue;
+      await scheduled.update({ deliveryStatus: "SENDING" });
+      try {
+        await queue.add(
+          "SendLead",
+          { leadId: scheduled.id },
+          {
+            jobId: `prospeccao-send-${scheduled.id}-${scheduled.sendAttempts}`,
+            removeOnComplete: true,
+            removeOnFail: true
+          }
+        );
+      } catch (error) {
+        await scheduled.update({
+          deliveryStatus: "QUEUED",
+          deliveryError: error?.message || "Falha ao enfileirar envio"
+        });
+        throw error;
+      }
+      continue;
+    }
     const lead = await ProspeccaoLead.findOne({
       where: {
         companyId: automation.companyId,
         deliveryStatus: "QUEUED",
         status: "ok",
         rascunho: { [Op.ne]: null },
-        [Op.or]: [
-          { scheduledSendAt: null },
-          { scheduledSendAt: { [Op.lte]: new Date() } }
-        ]
+        scheduledSendAt: null
       },
       order: [["createdAt", "ASC"]]
     });
     if (!lead) continue;
-    if (!lead.scheduledSendAt) {
-      await lead.update({
-        scheduledSendAt: DateTime.now()
-          .plus({ seconds: randomDelay(automation) })
-          .toJSDate()
-      });
-      continue;
-    }
-    await queue.add(
-      "SendLead",
-      { leadId: lead.id },
-      {
-        jobId: `prospeccao-send-${lead.id}-${lead.sendAttempts}`,
-        removeOnComplete: true,
-        removeOnFail: true
-      }
-    );
-    await lead.update({ deliveryStatus: "SENDING" });
+    await lead.update({
+      scheduledSendAt: DateTime.now()
+        .plus({ seconds: randomDelay(automation) })
+        .toJSDate()
+    });
   }
 };
 

@@ -10,13 +10,13 @@ import {
   CircularProgress
 } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
-import InputMask from "react-input-mask";
 import PixIcon from "@material-ui/icons/AccountBalanceWallet";
 import CreditCardIcon from "@material-ui/icons/CreditCard";
 import ReceiptIcon from "@material-ui/icons/Receipt";
 
 import api from "../../../services/api";
 import toastError from "../../../errors/toastError";
+import { formatTaxId } from "../../../utils/formatTaxId";
 
 const useStyles = makeStyles(theme => ({
   card: {
@@ -113,8 +113,6 @@ export default function PaymentMethod({ invoiceId }) {
   const selected = options.find(o => o.key === method) || options[0];
 
   const taxId = values.taxId || "";
-  const digits = taxId.replace(/\D/g, "");
-  const taxMask = digits.length > 11 ? "99.999.999/9999-99" : "999.999.999-99";
 
   return (
     <Grid item xs={12}>
@@ -164,23 +162,16 @@ export default function PaymentMethod({ invoiceId }) {
       )}
 
       {method === "boleto" && (
-        <InputMask
-          mask={taxMask}
-          maskChar={null}
+        <TextField
+          label="CPF/CNPJ do pagador"
+          required
+          fullWidth
+          margin="normal"
+          helperText="Obrigatório para emissão do boleto"
           value={taxId}
-          onChange={e => setFieldValue("taxId", e.target.value)}
-        >
-          {inputProps => (
-            <TextField
-              {...inputProps}
-              label="CPF/CNPJ do pagador"
-              required
-              fullWidth
-              margin="normal"
-              helperText="Obrigatório para emissão do boleto"
-            />
-          )}
-        </InputMask>
+          onChange={e => setFieldValue("taxId", formatTaxId(e.target.value))}
+          inputProps={{ inputMode: "numeric", maxLength: 18 }}
+        />
       )}
 
       <Typography variant="h6" style={{ marginTop: 16 }}>

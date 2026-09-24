@@ -42,7 +42,7 @@ describe("ListMessagesService ticket history", () => {
     jest.restoreAllMocks();
   });
 
-  it("includes prior tickets from the same active conversation", async () => {
+  it("includes prior tickets for the same contact across connections", async () => {
     const ticket = makeTicket();
     showTicket.mockResolvedValue(ticket);
     jest

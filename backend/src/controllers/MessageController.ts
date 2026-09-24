@@ -173,6 +173,11 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   } else {
     await AssertTicketAccessService(ticket, req.user);
   }
+  const safeQuotedMsg = await ResolveQuotedMessageService({
+    quotedMsgId: quotedMsgId || quotedMsg?.id,
+    ticket,
+    companyId
+  });
   const { channel } = ticket;
   const requestedQuotedMsgId = quotedMsgId || quotedMsg?.id;
   const safeQuotedMsg = await ResolveQuotedMessageService({

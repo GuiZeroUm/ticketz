@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 
 import { CardHeader } from "@material-ui/core";
 import AvatarContato from "../AvatarContato";
-import { Lightbox } from "react-modal-image";
 
 import { i18n } from "../../translate/i18n";
 import {
@@ -15,7 +14,6 @@ import { corAvatar as generateColor } from "../../helpers/coresAvatar";
 const TicketInfo = ({ contact, ticket, onClick }) => {
   const { user } = ticket;
   const [userName, setUserName] = useState("");
-  const [avatarOpen, setAvatarOpen] = useState(false);
 
   const contactName = contact ? formatWhatsappContactName(contact, ticket) : "";
   useEffect(() => {
@@ -30,13 +28,6 @@ const TicketInfo = ({ contact, ticket, onClick }) => {
 
   return (
     <>
-      {avatarOpen && (
-        <Lightbox
-          medium={contact.profileHiresPictureUrl || contact.profilePicUrl}
-          large={contact.profileHiresPictureUrl || contact.profilePicUrl}
-          onClose={() => setAvatarOpen(false)}
-        />
-      )}
       <CardHeader
         onClick={onClick}
         style={{ cursor: "pointer" }}
@@ -50,11 +41,8 @@ const TicketInfo = ({ contact, ticket, onClick }) => {
               fontWeight: "bold"
             }}
             contact={contact}
-            alt="contact_image"
-            onClick={e => {
-              e.stopPropagation();
-              setAvatarOpen(true);
-            }}
+            alt={contactName}
+            preview
           >
             {getInitials(contactName)}
           </AvatarContato>

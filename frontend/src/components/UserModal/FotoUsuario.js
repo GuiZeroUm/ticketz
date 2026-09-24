@@ -33,6 +33,7 @@ export default function FotoUsuario({
       }}
     >
       <AvatarUsuario
+        preview
         usuario={{
           ...usuario,
           profilePicUrl: previa || (remover ? null : usuario.profilePicUrl)
