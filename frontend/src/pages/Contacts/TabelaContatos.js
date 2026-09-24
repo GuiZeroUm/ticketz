@@ -63,6 +63,7 @@ export default function TabelaContatos({
           <div className="tabela-pessoa">
             <AvatarContato
               contact={contato}
+              preview
               style={{ background: corAvatar(contato.number) }}
             >
               {getInitials(contato.name)}

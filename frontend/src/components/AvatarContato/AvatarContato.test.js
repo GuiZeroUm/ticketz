@@ -90,3 +90,24 @@ it("keeps group initials when there is no picture", async () => {
   expect(screen.queryByRole("img")).toBeNull();
   expect(screen.getByText("GP")).toBeTruthy();
 });
+
+it("opens the image actually displayed after a broken contact photo", () => {
+  render(
+    <AvatarContato
+      contact={{
+        id: 9,
+        name: "Ana",
+        profilePicUrl: "bad",
+        channel: "telegram"
+      }}
+      preview
+    />
+  );
+  fireEvent.error(screen.getByRole("img"));
+  const button = screen.getByRole("button", { name: "Ana" });
+  expect(button.className).toContain("one-works-avatar");
+  fireEvent.click(button);
+  expect(
+    screen.getByRole("dialog").querySelector("img").getAttribute("src")
+  ).toBe(avatarIlustrado("contato", 9));
+});
