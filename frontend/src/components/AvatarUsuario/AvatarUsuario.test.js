@@ -33,3 +33,11 @@ it("falls back to initials if the catalog image fails", () => {
   expect(screen.queryByRole("img")).toBeNull();
   expect(screen.getByText("AL")).toBeTruthy();
 });
+
+it("opens a preview of the fallback user avatar", () => {
+  render(<AvatarUsuario usuario={{ id: 8, name: "Ana" }} preview />);
+  fireEvent.click(screen.getByRole("button", { name: "Ana" }));
+  expect(
+    screen.getByRole("dialog").querySelector("img").getAttribute("src")
+  ).toBe(avatarIlustrado("usuario", 8));
+});

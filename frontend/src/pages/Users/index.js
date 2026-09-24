@@ -367,7 +367,7 @@ const Users = () => {
                           gap: 12
                         }}
                       >
-                        <AvatarUsuario usuario={user} />
+                        <AvatarUsuario usuario={user} preview />
                         <strong>{user.name}</strong>
                       </div>
                     </TableCell>
