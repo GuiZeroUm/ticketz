@@ -1,23 +1,20 @@
-# OneWorks avatar catalog
+# OneWorks gallery templates
 
-The 512 static WebP illustrations in `v1/` were derived from the [OneWorks
-Avatar](https://github.com/oneworks-ai/avatar) breed and species presets at
-revision `a06ba84c123cf82e2b1a59c36b403392e22f9d08`. The upstream artwork
-is MIT licensed; its copyright notice and license are in `LICENSE.oneworks.txt`.
-The assets preserve the original SVG shadows and outlines. Background colors
-vary while character colors remain unchanged.
+`v2/` contains 161 original SVG gallery snapshots and the matching versioned
+Avatar definitions from [OneWorks Avatar](https://github.com/oneworks-ai/avatar)
+revision `a06ba84c123cf82e2b1a59c36b403392e22f9d08`. The snapshots are
+copied unchanged. The definitions use the upstream preset and breed model with
+the same seed as its gallery snapshots. They are rendered in the application by
+the official OneWorks renderer shipped with `@oneworks/avatar-web@1.0.0-rc.9`
+when an avatar is hovered or opened.
 
-To regenerate with Python 3.12:
+The license and copyright notice are in `LICENSE.oneworks.txt`. To regenerate:
 
 ```sh
-python -m pip install Pillow==12.3.0
 python frontend/scripts/generate-oneworks-avatars.py
 ```
 
-The generator uses Node.js and temporarily installs `@resvg/resvg-js@2.6.2` to
-render the source SVGs. Each file is 256 × 256 pixels. `v1/manifest.json`
-records its source preview, background variant and SHA-256 digest. The browser
-loads just the selected image; neither the OneWorks editor nor its renderer is
-shipped to the frontend. The UI animates the avatar card on hover and opens a
-larger preview on click. The `design=2` URL revision refreshes assets already
-cached by browsers after the first release.
+The script temporarily installs `@oneworks/avatar@1.0.0-rc.9` and
+`esbuild@0.25.12` to export the definitions from the pinned source. Its
+`v2/manifest.json` records SHA-256 hashes. The frontend loads only the selected
+snapshot initially and lazy-loads its definition and the runtime on interaction.
