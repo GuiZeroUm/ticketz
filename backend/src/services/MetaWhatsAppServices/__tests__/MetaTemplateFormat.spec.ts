@@ -7,10 +7,10 @@ import { DEFAULT_STEPS, reminderValues } from "../../SgaBillingServices/policy";
 
 describe("templateNameForOffset", () => {
   it.each([
-    [-5, "cobranca_antes_5"],
-    [-1, "cobranca_antes_1"],
-    [0, "cobranca_vencimento"],
-    [30, "cobranca_depois_30"]
+    [-5, "cobranca_antes_5_identificada_v2"],
+    [-1, "cobranca_antes_1_identificada_v2"],
+    [0, "cobranca_vencimento_identificada_v2"],
+    [30, "cobranca_depois_30_identificada_v2"]
   ])("nomeia a etapa %i como %s", (offset, expected) => {
     expect(templateNameForOffset(offset)).toBe(expected);
   });

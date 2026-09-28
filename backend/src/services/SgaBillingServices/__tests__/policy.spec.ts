@@ -8,6 +8,7 @@ import {
   freshSnapshot,
   renderReminder,
   revalidateBill,
+  billReference,
   parseConfig,
   parseStoredConfig,
   planBillingDispatches
@@ -34,6 +35,10 @@ const row = {
   codigo_situacao_boleto: "2",
   data_vencimento: "2026-09-14",
   valor_boleto: "99,50",
+  veiculos: [
+    { codigo_veiculo: "v1", placa: "ABC1D23", descricao_modelo: "COROLLA" },
+    { codigo_veiculo: "v2", placa: "XYZ1234" }
+  ],
   data_pagamento: null
 };
 describe("AC Norte billing policy", () => {
@@ -91,7 +96,7 @@ describe("AC Norte billing policy", () => {
     const parsed = parseStoredConfig(stored);
     expect(parsed.steps.map(step => step.offset)).toEqual([...OFFSETS]);
     expect(parsed.steps.find(step => step.offset === -3)?.body).toBe(
-      "Texto personalizado para [nome]."
+      "Texto personalizado para [nome].\nReferência: [referencia]."
     );
     expect(parsed.steps.find(step => step.offset === -5)?.attachPdf).toBe(true);
     expect(parsed.steps.find(step => step.offset === -1)?.attachPdf).toBe(true);
@@ -200,6 +205,45 @@ describe("AC Norte billing policy", () => {
       id: bill.id,
       paid: false
     }));
+  it("identifies the exact vehicles, bill, date and amount", () => {
+    const reference = billReference(bill, row);
+    expect(reference).toContain("COROLLA, placa ABC1D23");
+    expect(reference).toContain("placa XYZ1234");
+    expect(reference).toContain("boleto 456");
+    expect(reference).toContain("vencimento 14/09/2026");
+    expect(reference).toContain("99,50");
+    const body = renderReminder(
+      defaults().steps[4],
+      "Adson",
+      bill,
+      "",
+      reference!
+    );
+    expect(body).toContain(reference);
+    expect(body).not.toContain("sem proteção");
+  });
+  it.each([
+    { veiculos: [] },
+    { veiculos: [{ codigo_veiculo: "v1", placa: "" }] },
+    { veiculos: [{ codigo_veiculo: "other", placa: "ABC1D23" }] }
+  ])("blocks unidentified or different vehicles %p", changes => {
+    expect(billReference(bill, { ...row, ...changes })).toBeNull();
+  });
+  it("does not mistake the numeric installment position for settlement", () => {
+    expect(
+      revalidateBill(bill, { ...row, parcela_paga: 3 }, statuses, bill.due)
+    ).not.toBeNull();
+  });
+  it("automatically upgrades legacy messages and prevents unsupported protection claims", () => {
+    const config = defaults();
+    config.steps[4].body =
+      "Olá, [nome]. Tudo bem?\nPassando para lembrar que a mensalidade venceu ontem e você está sem proteção, fale conosco para regularizar.";
+    const updated = parseStoredConfig(config);
+    expect(updated.steps[4].body).toContain("[referencia]");
+    expect(updated.steps[4].body).not.toContain("sem proteção");
+    config.steps[4].body = "Olá [nome], seu veículo está sem proteção.";
+    expect(() => parseConfig(config)).toThrow("ERR_BILLING_CONFIG");
+  });
   it.each([
     { codigo_associado: "other" },
     { codigo_boleto: "other" },
@@ -211,6 +255,10 @@ describe("AC Norte billing policy", () => {
     { valor_pagamento: 10 },
     { valor_pagamento: "10,50" },
     { parcela_paga: "SIM" },
+    { pago: true },
+    { pago: 1 },
+    { descricao_situacao_boleto: "BAIXADO" },
+    { veiculos: [] },
     { data_vencimento: "2026-09-15" }
   ])("does not send after payment/cancellation/ownership change %p", changes =>
     expect(

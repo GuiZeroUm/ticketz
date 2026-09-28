@@ -125,10 +125,12 @@ export const syncSga = async (companyId: number): Promise<boolean> => {
       }
       // Fetch every unpaid status considered debt by this association, without a
       // date window: older overdue installments must not disappear from totals.
-      const debtStatuses = billStatuses.filter(s =>
-        ["Y", "S", "SIM"].includes(
-          text(s.considerado_inadimplencia).toUpperCase()
-        )
+      const debtStatuses = billStatuses.filter(
+        s =>
+          normalizedText(s.pago) === "nao" &&
+          ["Y", "S", "SIM"].includes(
+            text(s.considerado_inadimplencia).toUpperCase()
+          )
       );
       if (!debtStatuses.length)
         throw new AppError("ERR_SGA_RESPONSE_INVALID", 502);
@@ -144,7 +146,7 @@ export const syncSga = async (companyId: number): Promise<boolean> => {
           const bill = normalizeBill(row, true);
           if (!bill.id || !bill.memberId)
             throw new AppError("ERR_SGA_RESPONSE_INVALID", 502);
-          bills.set(bill.id, bill);
+          if (!bill.paid) bills.set(bill.id, bill);
         }
       }
       const data: SnapshotData = {

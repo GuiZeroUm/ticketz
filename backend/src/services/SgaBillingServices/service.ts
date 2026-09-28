@@ -11,7 +11,7 @@ import {
 import { logger } from "../../utils/logger";
 import { assertSgaTenant, loadSga, sgaEnabled } from "../SgaServices/service";
 import { sgaRequest } from "../SgaServices/client";
-import { Bill, digits, normalizedText } from "../SgaServices/normalize";
+import { Bill, digits } from "../SgaServices/normalize";
 import {
   BillingConfig,
   BillingStep,
@@ -25,6 +25,7 @@ import {
   reminderValues,
   renderReminder,
   revalidateBill,
+  billReference,
   planBillingDispatches
 } from "./policy";
 import {
@@ -152,12 +153,13 @@ const officialDispatch = async (
   memberName: string,
   bill: Pick<Bill, "due" | "amount">,
   url: string,
-  pdf?: Buffer
+  pdf?: Buffer,
+  reference?: string
 ): Promise<BillingOfficialDispatch | undefined> => {
   if (whatsapp.apiMode !== "official") return undefined;
   if (!step) throw new AppError("ERR_BILLING_CONFIG", 400);
   const { variables } = toTemplateBody(step.body);
-  const values = reminderValues(memberName, bill, url);
+  const values = reminderValues(memberName, bill, url, reference);
   return {
     template: {
       name: templateNameForOffset(step.offset),
@@ -449,21 +451,6 @@ export const processBilling = async (
         await update(companyId, delivery.id, "SKIPPED", "NO_LONGER_ELIGIBLE");
         return;
       }
-      // Never claim inactivation when the current SGA record says otherwise.
-      if (
-        step.offset === 30 &&
-        !/inativ|cancelad/.test(
-          normalizedText(row.descricao_situacao_associado)
-        )
-      ) {
-        await update(
-          companyId,
-          delivery.id,
-          "SKIPPED",
-          "CONTRACT_NOT_INACTIVE"
-        );
-        return;
-      }
       const url = boletoUrl(row.link_boleto);
       const pdf = step.attachPdf ? await fetchBoletoPdf(url) : undefined;
       await persistDocument(companyId, delivery.id, pdf);
@@ -515,7 +502,12 @@ export const processBilling = async (
         await update(companyId, delivery.id, "SKIPPED", "NO_LONGER_ELIGIBLE");
         return;
       }
-      const body = renderReminder(step, member.name, lastBill, url);
+      const reference = billReference(lastBill, lastRow);
+      if (!reference) {
+        await update(companyId, delivery.id, "SKIPPED", "VEHICLE_NOT_VERIFIED");
+        return;
+      }
+      const body = renderReminder(step, member.name, lastBill, url, reference);
       await sender(companyId, whatsapp.id);
       // Upload do boleto antes de marcar SENDING: falha aqui e FAILED, nao
       // UNCERTAIN, porque nada foi enviado ainda.
@@ -525,8 +517,39 @@ export const processBilling = async (
         member.name,
         lastBill,
         url,
-        pdf
+        pdf,
+        reference
       );
+      // Uploading a document can take time. Recheck settlement after that I/O,
+      // immediately before allowing the transport to send anything.
+      const dispatchResult = await sgaRequest(
+        `buscar/boleto/${encodeURIComponent(bill.number)}`
+      );
+      const dispatchRow = Array.isArray(dispatchResult)
+        ? dispatchResult.length === 1
+          ? dispatchResult[0]
+          : null
+        : dispatchResult;
+      const dispatchBill =
+        dispatchRow &&
+        revalidateBill(
+          bill,
+          dispatchRow,
+          currentLinks.stored.data.billStatuses,
+          localDay()
+        );
+      if (
+        !dispatchBill ||
+        dispatchBill.amount !== lastBill.amount ||
+        billReference(dispatchBill, dispatchRow) !== reference ||
+        boletoUrl(dispatchRow.link_boleto) !== url ||
+        !liveAllowed() ||
+        !inWindow(config) ||
+        localDay() !== day
+      ) {
+        await update(companyId, delivery.id, "SKIPPED", "NO_LONGER_ELIGIBLE");
+        return;
+      }
       await update(companyId, delivery.id, "SENDING", null, null, body);
       sending = true;
       const messageId = await sendBillingMessage(
@@ -584,6 +607,7 @@ const prepareTestReminder = async (companyId: number, offset: number) => {
     status: "TEST"
   };
   let url = "";
+  let reference = "Documento de demonstração, sem cobrança real";
   if (target) {
     const data = await loadSga(companyId);
     const matches = data.stored.data.bills.filter(
@@ -607,11 +631,13 @@ const prepareTestReminder = async (companyId: number, offset: number) => {
         matches[0].due
       );
     if (!current) throw new AppError("ERR_BILLING_TEST_BILL", 409);
+    reference = billReference(current, row);
+    if (!reference) throw new AppError("ERR_BILLING_TEST_BILL", 409);
     bill = current;
     name = member.name;
     url = boletoUrl(row.link_boleto);
   }
-  const body = renderReminder(step, name, bill, "");
+  const body = renderReminder(step, name, bill, "", reference);
   return {
     bill,
     url,
@@ -628,6 +654,7 @@ const prepareTestReminder = async (companyId: number, offset: number) => {
       realBill: !!target,
       billNumber: bill.number,
       memberName: name,
+      reference,
       dueDate: bill.due,
       amount: bill.amount
     }
@@ -699,7 +726,8 @@ export const runBillingTest = async (
           preview.memberName,
           bill,
           url || PLACEHOLDER_EXAMPLES.boleto,
-          pdf
+          pdf,
+          preview.reference
         )
       : undefined;
     const [delivery] = await query<{ id: string }>(

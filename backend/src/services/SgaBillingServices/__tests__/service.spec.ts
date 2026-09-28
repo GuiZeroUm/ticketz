@@ -6,7 +6,11 @@ import { loadSga, sgaEnabled } from "../../SgaServices/service";
 import { sgaRequest } from "../../SgaServices/client";
 import { defaults } from "../policy";
 import { processBilling, runBillingTest, saveBillingConfig } from "../service";
-import { sendBillingMessage, fetchBoletoPdf } from "../transport";
+import {
+  sendBillingMessage,
+  fetchBoletoPdf,
+  uploadBillingDocument
+} from "../transport";
 import { approvedBillingOffsets } from "../templates";
 jest.mock("../../../database", () => ({
   __esModule: true,
@@ -74,6 +78,10 @@ const apiBill = {
   codigo_situacao_boleto: "2",
   data_vencimento: "2026-09-17",
   valor_boleto: 100,
+  veiculos: [
+    { codigo_veiculo: "v1", placa: "ABC1D23", descricao_modelo: "COROLLA" },
+    { codigo_veiculo: "v2", placa: "XYZ1234" }
+  ],
   link_boleto: "https://short.hinova.com.br/v2/example.pdf"
 };
 let config = defaults();
@@ -157,10 +165,11 @@ beforeEach(() => {
       return [record];
     }
     if (sql.startsWith('UPDATE "SgaBillingDeliveries" SET status=:status')) {
-      Object.assign(
-        ledger.find(d => d.id === p.id),
-        p
-      );
+      const record = ledger.find(d => d.id === p.id);
+      Object.assign(record, p, {
+        body: p.body ?? record.body,
+        messageId: p.messageId ?? record.messageId
+      });
       return [];
     }
     return [];
@@ -342,6 +351,54 @@ it("cancels a payment received while preparing the PDF", async () => {
   expect(sendBillingMessage).not.toHaveBeenCalled();
   expect(ledger[0].reason).toBe("NO_LONGER_ELIGIBLE");
 });
+it("cancels a payment confirmed after the Meta document upload", async () => {
+  (Whatsapp.findOne as jest.Mock).mockResolvedValue({
+    id: 10,
+    companyId: 9,
+    status: "CONNECTED",
+    apiMode: "official"
+  });
+  (approvedBillingOffsets as jest.Mock).mockResolvedValue(new Set([-3]));
+  (sgaRequest as jest.Mock)
+    .mockResolvedValueOnce({ ...apiBill })
+    .mockResolvedValueOnce({ ...apiBill })
+    .mockResolvedValueOnce({ ...apiBill, data_pagamento: "2026-09-14" });
+  await processBilling(9);
+  expect(uploadBillingDocument).toHaveBeenCalledTimes(1);
+  expect(sendBillingMessage).not.toHaveBeenCalled();
+  expect(ledger[0].reason).toBe("NO_LONGER_ELIGIBLE");
+});
+it("never bills an unverified plate", async () => {
+  (sgaRequest as jest.Mock).mockResolvedValue({
+    ...apiBill,
+    veiculos: [
+      { codigo_veiculo: "v1", placa: "" },
+      { codigo_veiculo: "v2", placa: "XYZ1234" }
+    ]
+  });
+  await processBilling(9);
+  expect(sendBillingMessage).not.toHaveBeenCalled();
+  expect(ledger[0].reason).toBe("VEHICLE_NOT_VERIFIED");
+});
+it("a paid Corolla does not produce a generic collection for a separate open Onix", async () => {
+  source.stored.data.bills = [
+    { ...bill, paid: true },
+    { ...bill, id: "onix", number: "789", vehicleIds: ["onix"] }
+  ];
+  (sgaRequest as jest.Mock).mockResolvedValue({
+    ...apiBill,
+    codigo_boleto: "onix",
+    nosso_numero: "789",
+    veiculos: [
+      { codigo_veiculo: "onix", placa: "NCV8G01", descricao_modelo: "ONIX" }
+    ]
+  });
+  await processBilling(9);
+  expect(sendBillingMessage).toHaveBeenCalledTimes(1);
+  expect(ledger[0].body).toContain("ONIX, placa NCV8G01");
+  expect(ledger[0].body).toContain("boleto 789");
+  expect(ledger[0].body).not.toContain("COROLLA");
+});
 it("does not send a partial message when PDF fetch fails", async () => {
   (fetchBoletoPdf as jest.Mock).mockRejectedValue(new Error("unavailable"));
   await processBilling(9);
@@ -360,7 +417,7 @@ it("records an ambiguous WhatsApp error without retrying it", async () => {
     reason: "ERR_BILLING_FAILED"
   });
 });
-it("does not claim inactivation when the live SGA contract is active", async () => {
+it("sends a factual identified reminder without claiming inactivation when the contract is active", async () => {
   source.stored.data.bills = [{ ...bill, due: "2026-08-15" }];
   (sgaRequest as jest.Mock).mockResolvedValue({
     ...apiBill,
@@ -368,8 +425,9 @@ it("does not claim inactivation when the live SGA contract is active", async () 
     descricao_situacao_associado: "ATIVO"
   });
   await processBilling(9);
-  expect(sendBillingMessage).not.toHaveBeenCalled();
-  expect(ledger[0].reason).toBe("CONTRACT_NOT_INACTIVE");
+  expect(sendBillingMessage).toHaveBeenCalledTimes(1);
+  expect(ledger[0].body).toContain("placa ABC1D23");
+  expect(ledger[0].body).not.toContain("inativado");
 });
 it("simulates without a connection or any WhatsApp call", async () => {
   config.enabled = false;

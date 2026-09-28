@@ -127,8 +127,13 @@ export const normalizeBill = (row: SgaRow, countsAsDebt: boolean): Bill => ({
   amount: money(row.valor_boleto),
   status: text(row.descricao_situacao_boleto || row.situacao_boleto),
   paid:
-    ["S", "SIM", "Y"].includes(text(row.pago).toUpperCase()) ||
-    (!!row.data_pagamento && !text(row.data_pagamento).startsWith("0000")),
+    ["S", "SIM", "Y", "TRUE", "1"].includes(text(row.pago).toUpperCase()) ||
+    (!!row.data_pagamento && !text(row.data_pagamento).startsWith("0000")) ||
+    money(row.valor_pagamento) > 0 ||
+    ["S", "SIM", "Y", "TRUE"].includes(text(row.parcela_paga).toUpperCase()) ||
+    /baixad|quitad|^pago$/.test(
+      normalizedText(row.descricao_situacao_boleto || row.situacao_boleto)
+    ),
   countsAsDebt
 });
 export const isOverdue = (bill: Bill, today: string): boolean =>
