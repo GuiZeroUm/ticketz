@@ -21,6 +21,9 @@ const useStyles = makeStyles(theme => ({
     lineHeight: 1.5,
     "& > svg": { flexShrink: 0 },
     "& a": { color: "inherit", fontWeight: 600, whiteSpace: "nowrap" },
+    [theme.breakpoints.down("sm")]: {
+      '.estrutura-app[data-navegacao="fechada"] &': { marginLeft: 52 }
+    },
     [theme.breakpoints.down("xs")]: { padding: "10px 12px", gap: 8 }
   },
   warning: {
