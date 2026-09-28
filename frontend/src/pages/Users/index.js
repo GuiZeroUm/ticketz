@@ -1,3 +1,4 @@
+import StardewEmblem from "../../components/StardewEmblem";
 import React, { useState, useEffect, useReducer, useContext } from "react";
 import { toast } from "react-toastify";
 
@@ -251,7 +252,7 @@ const Users = () => {
     });
 
   return (
-    <MainContainer>
+    <MainContainer className="sv-operations sv-screen-users">
       <ConfirmationModal
         title={
           deletingUser &&
@@ -272,6 +273,7 @@ const Users = () => {
         userId={selectedUser && selectedUser.id}
       />
       <MainHeader>
+        <StardewEmblem item="villager" />
         <Title>{i18n.t("users.title")}</Title>
         <MainHeaderButtonsWrapper>
           <TextField
@@ -348,7 +350,9 @@ const Users = () => {
           <TableBody>
             {profileGroups.map(group => (
               <React.Fragment key={group.profile}>
-                <TableRow className={classes.profileHeader}>
+                <TableRow
+                  className={`${classes.profileHeader} sv-villager-group`}
+                >
                   <TableCell colSpan={6}>
                     <div className={classes.profileHeaderContent}>
                       <span>{groupLabel(group.profile)}</span>

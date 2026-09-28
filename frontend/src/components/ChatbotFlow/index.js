@@ -6,7 +6,7 @@ import { i18n } from "../../translate/i18n";
 
 export default function ChatbotFlow({ queueId, onOpen }) {
   return (
-    <div style={{ padding: 40, textAlign: "center" }}>
+    <div className="fluxo-convite" style={{ padding: 40, textAlign: "center" }}>
       <Workflow size={40} />
       <h2>{i18n.t("fluxos.editor")}</h2>
       <p>{i18n.t("fluxos.descricaoEditor")}</p>

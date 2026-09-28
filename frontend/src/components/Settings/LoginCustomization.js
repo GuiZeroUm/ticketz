@@ -27,7 +27,11 @@ const useStyles = makeStyles(theme => ({
   },
   heading: { fontWeight: 700, marginBottom: theme.spacing(1) },
   fields: { display: "flex", flexDirection: "column", gap: theme.spacing(2) },
-  preview: { overflow: "hidden", borderRadius: 20, minWidth: 0 },
+  preview: {
+    overflow: "hidden",
+    borderRadius: theme.isStardew ? 0 : 20,
+    minWidth: 0
+  },
   caption: { marginTop: theme.spacing(1), textAlign: "center" },
   button: { alignSelf: "flex-start" }
 }));
@@ -150,7 +154,7 @@ export default function LoginCustomization({ settings = {}, onSave }) {
           </Typography>
         </Grid>
         <Grid item xs={12} md={6}>
-          <div className={classes.preview}>
+          <div className={`${classes.preview} sd-login-preview-frame`}>
             <BrandPanel settings={{ ...settings, ...draft }} preview />
           </div>
           <Typography

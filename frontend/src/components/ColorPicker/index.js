@@ -59,7 +59,11 @@ const ColorPicker = ({ onChange, currentColor, handleClose, open }) => {
   ];
 
   return (
-    <Dialog onClose={handleClose} open={open}>
+    <Dialog
+      PaperProps={{ className: "sd-color-picker-dialog" }}
+      onClose={handleClose}
+      open={open}
+    >
       <ColorBox
         disableAlpha={true}
         hslGradient={false}

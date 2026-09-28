@@ -21,7 +21,11 @@ const useStyles = makeStyles(theme => ({
   root: { width: "100%" },
   warning: {
     border: `1px solid ${theme.palette.warning.main}`,
-    background: theme.palette.type === "dark" ? "#4a3617" : "#fff8e1",
+    background: theme.isStardew
+      ? "#f5d995"
+      : theme.palette.type === "dark"
+        ? "#4a3617"
+        : "#fff8e1",
     padding: theme.spacing(2),
     marginBottom: theme.spacing(2)
   },
@@ -109,8 +113,8 @@ export default function VoiceSettings() {
   };
 
   return (
-    <div className={classes.root}>
-      <Paper className={classes.warning} elevation={0}>
+    <div className={`${classes.root} sd-voice-workshop`}>
+      <Paper className={`${classes.warning} sd-workshop-warning`} elevation={0}>
         <Typography variant="h6">
           {i18n.t("voiceCalls.experimentalTitle")}
         </Typography>
@@ -139,7 +143,10 @@ export default function VoiceSettings() {
           const paired = Boolean(connection?.paired);
           return (
             <Grid item xs={12} md={6} key={whatsapp.id}>
-              <Paper className={classes.card} variant="outlined">
+              <Paper
+                className={`${classes.card} sd-voice-connection`}
+                variant="outlined"
+              >
                 <Typography variant="h6">{whatsapp.name}</Typography>
                 <Typography className={classes.status} color="textSecondary">
                   {i18n.t("voiceCalls.status")}: {stateLabel(connection?.state)}
@@ -179,7 +186,12 @@ export default function VoiceSettings() {
           {i18n.t("voiceCalls.noConnections")}
         </Typography>
       )}
-      <Dialog open={Boolean(qr)} onClose={() => setQr("")} maxWidth="sm">
+      <Dialog
+        PaperProps={{ className: "sd-voice-dialog" }}
+        open={Boolean(qr)}
+        onClose={() => setQr("")}
+        maxWidth="sm"
+      >
         <DialogContent className={classes.qrContent}>
           <Typography paragraph>
             {i18n.t("voiceCalls.qrInstruction")}

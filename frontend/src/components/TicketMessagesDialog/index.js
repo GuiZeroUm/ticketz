@@ -181,7 +181,12 @@ export default function TicketMessagesDialog({ open, handleClose, ticketId }) {
   };
 
   return (
-    <Dialog maxWidth="md" onClose={handleClose} open={open}>
+    <Dialog
+      className="conversa-dialogo"
+      maxWidth="md"
+      onClose={handleClose}
+      open={open}
+    >
       <TicketHeader loading={loading}>{renderTicketInfo()}</TicketHeader>
       <ReplyMessageProvider>{renderMessagesList()}</ReplyMessageProvider>
       <DialogActions>

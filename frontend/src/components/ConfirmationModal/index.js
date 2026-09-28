@@ -43,6 +43,7 @@ const ConfirmationModal = ({
 
   return (
     <Dialog
+      PaperProps={{ className: "sd-confirmation-dialog" }}
       open={open}
       onClose={() => onClose(false)}
       aria-labelledby="confirm-dialog"

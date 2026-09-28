@@ -129,9 +129,10 @@ export default function PaymentMethod({ invoiceId }) {
           <Grid item xs={12} key={opt.key}>
             <Card
               variant="outlined"
-              className={`${classes.card} ${
+              className={`${classes.card} sd-payment-option ${
                 method === opt.key ? classes.cardSelected : ""
               }`}
+              data-selected={method === opt.key}
               onClick={() => selectMethod(opt.key)}
             >
               <Radio checked={method === opt.key} color="primary" />

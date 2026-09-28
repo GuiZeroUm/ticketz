@@ -122,7 +122,11 @@ const MessageOptionsMenu = ({
         ticketId={message.ticketId}
         messageId={message.id}
       />
-      <Dialog open={showEmoji} onClose={() => setShowEmoji(false)}>
+      <Dialog
+        className="conversa-dialogo"
+        open={showEmoji}
+        onClose={() => setShowEmoji(false)}
+      >
         <Picker
           perLine={16}
           showPreview={false}
@@ -131,6 +135,7 @@ const MessageOptionsMenu = ({
         />
       </Dialog>
       <Menu
+        className="conversa-menu"
         anchorEl={anchorEl}
         getContentAnchorEl={null}
         anchorOrigin={{

@@ -86,7 +86,7 @@ const TicketAdvanced = props => {
   };
 
   return (
-    <TicketAdvancedLayout>
+    <TicketAdvancedLayout className="atendimento-mobile">
       <Box className={classes.header}>
         <BottomNavigation
           value={option}
@@ -103,7 +103,7 @@ const TicketAdvanced = props => {
           />
         </BottomNavigation>
       </Box>
-      <Box className={classes.content}>
+      <Box className={`${classes.content} atendimento-mobile-conteudo`}>
         {option === 0 ? renderMessageContext() : renderTicketsManagerTabs()}
       </Box>
     </TicketAdvancedLayout>

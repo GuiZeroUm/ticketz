@@ -1,3 +1,4 @@
+import StardewEmblem from "../../components/StardewEmblem";
 import { Link } from "react-router-dom";
 import { Workflow } from "lucide-react";
 import React, { useContext, useEffect, useReducer, useState } from "react";
@@ -37,7 +38,7 @@ const useStyles = makeStyles(theme => ({
   hint: {
     marginBottom: theme.spacing(2),
     color: theme.palette.text.secondary,
-    fontSize: 12.5
+    fontSize: theme.isStardew ? 18 : 12.5
   },
   list: {
     display: "flex",
@@ -46,7 +47,9 @@ const useStyles = makeStyles(theme => ({
     "& .draggable-source--is-dragging": { opacity: 0.22 },
     "& .draggable-mirror": {
       opacity: 0.96,
-      boxShadow: "0 18px 38px rgba(17,27,33,.2)"
+      boxShadow: theme.isStardew
+        ? "4px 6px 0 #5b341f80"
+        : "0 18px 38px rgba(17,27,33,.2)"
     }
   },
   card: {
@@ -80,8 +83,11 @@ const useStyles = makeStyles(theme => ({
     "&:active": { cursor: "grabbing" }
   },
   info: { flex: 1, minWidth: 0 },
-  name: { fontSize: 14, fontWeight: 600 },
-  greeting: { fontSize: 12, color: theme.palette.text.secondary },
+  name: { fontSize: theme.isStardew ? 21 : 14, fontWeight: 600 },
+  greeting: {
+    fontSize: theme.isStardew ? 18 : 12,
+    color: theme.palette.text.secondary
+  },
   badge: {
     display: "inline-flex",
     alignItems: "center",
@@ -248,11 +254,15 @@ const Queues = () => {
   const listRef = useSortableList(handleMove, !loading && queues.length > 1);
 
   const renderCard = (queue, index) => (
-    <div key={queue.id} data-sortable-item className={classes.card}>
+    <div
+      key={queue.id}
+      data-sortable-item
+      className={`${classes.card} sv-queue-card`}
+    >
       <button
         type="button"
         data-drag-handle
-        className={classes.handle}
+        className={`${classes.handle} sv-queue-handle`}
         aria-label={i18n.t("queues.moveHandle", { name: queue.name })}
         onKeyDown={event => {
           if (event.key === "ArrowUp" && index > 0) {
@@ -269,7 +279,7 @@ const Queues = () => {
       </button>
 
       <span
-        className={classes.stripe}
+        className={`${classes.stripe} sv-queue-stripe`}
         style={{ backgroundColor: queue.color }}
       />
 
@@ -283,7 +293,7 @@ const Queues = () => {
       </div>
 
       <Tooltip title={i18n.t("queues.optionsCountHint")}>
-        <span className={classes.badge}>
+        <span className={`${classes.badge} sv-queue-count`}>
           <ChatBubbleOutlineIcon className={classes.badgeIcon} />
           {queue.optionsCount || 0}
         </span>
@@ -313,7 +323,7 @@ const Queues = () => {
   );
 
   return (
-    <MainContainer>
+    <MainContainer className="sv-operations sv-screen-queues">
       <ConfirmationModal
         title={
           selectedQueue &&
@@ -333,6 +343,7 @@ const Queues = () => {
         queueId={selectedQueue?.id}
       />
       <MainHeader>
+        <StardewEmblem item="chest" />
         <Title>{i18n.t("queues.title")}</Title>
         <MainHeaderButtonsWrapper>
           <Button

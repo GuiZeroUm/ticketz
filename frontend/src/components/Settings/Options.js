@@ -39,10 +39,10 @@ const useStyles = makeStyles(theme => ({
     height: 240
   },
   tab: {
-    borderRadius: 4,
+    borderRadius: theme.isStardew ? 0 : 4,
     width: "100%",
     "& .MuiTab-wrapper": {
-      color: "#128c7e"
+      color: theme.isStardew ? "#477b38" : "#128c7e"
     },
     "& .MuiTabs-flexContainer": {
       justifyContent: "center"
@@ -57,17 +57,17 @@ const useStyles = makeStyles(theme => ({
   },
   cardAvatar: {
     fontSize: "55px",
-    color: grey[500],
-    backgroundColor: "#ffffff",
+    color: theme.isStardew ? "#805335" : grey[500],
+    backgroundColor: theme.isStardew ? "#fff1c7" : "#ffffff",
     width: theme.spacing(7),
     height: theme.spacing(7)
   },
   cardTitle: {
     fontSize: "18px",
-    color: blue[700]
+    color: theme.isStardew ? "#477b38" : blue[700]
   },
   cardSubtitle: {
-    color: grey[600],
+    color: theme.isStardew ? "#805335" : grey[600],
     fontSize: "14px"
   },
   alignRight: {
@@ -479,7 +479,7 @@ export default function Options(props) {
     <>
       <Grid spacing={3} container>
         <Grid item xs={12}>
-          <h2 className={classes.groupTitle}>
+          <h2 className={`${classes.groupTitle} sd-options-heading`}>
             {i18n.t("settings.group.general")}
           </h2>
         </Grid>
@@ -670,7 +670,7 @@ export default function Options(props) {
         </Grid>
 
         <Grid item xs={12}>
-          <h2 className={classes.groupTitle}>
+          <h2 className={`${classes.groupTitle} sd-options-heading`}>
             {i18n.t("settings.group.timeouts")}
           </h2>
         </Grid>
@@ -847,7 +847,7 @@ export default function Options(props) {
         </Grid>
 
         <Grid item xs={12}>
-          <h2 className={classes.groupTitle}>
+          <h2 className={`${classes.groupTitle} sd-options-heading`}>
             {i18n.t("settings.group.officeHours")}
           </h2>
         </Grid>
@@ -907,7 +907,7 @@ export default function Options(props) {
         </Grid>
 
         <Grid item xs={12}>
-          <h2 className={classes.groupTitle}>
+          <h2 className={`${classes.groupTitle} sd-options-heading`}>
             {i18n.t("settings.group.groups")}
           </h2>
         </Grid>
@@ -983,7 +983,7 @@ export default function Options(props) {
         </Grid>
 
         <Grid item xs={12}>
-          <h2 className={classes.groupTitle}>
+          <h2 className={`${classes.groupTitle} sd-options-heading`}>
             {i18n.t("settings.group.confidenciality")}
           </h2>
         </Grid>
@@ -1048,122 +1048,132 @@ export default function Options(props) {
           user={currentUser}
           yes={() => (
             <>
-        <Grid item xs={12}>
-          <h2 className={classes.groupTitle}>{i18n.t("settings.group.api")}</h2>
-        </Grid>
+              <Grid item xs={12}>
+                <h2 className={`${classes.groupTitle} sd-options-heading`}>
+                  {i18n.t("settings.group.api")}
+                </h2>
+              </Grid>
 
-        <Grid xs={12} sm={6} md={4} item>
-          <FormControl className={classes.selectContainer}>
-            <TextField
-              id="primary-color-light-field"
-              label="API Token"
-              variant="standard"
-              value={apiToken}
-              InputProps={{
-                endAdornment: (
-                  <>
-                    {apiToken && (
-                      <>
-                        <IconButton
-                          size="small"
-                          color="default"
-                          onClick={() => {
-                            copyApiToken();
-                          }}
-                        >
-                          <FontAwesomeIcon icon={faCopy} />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          color="default"
-                          onClick={() => {
-                            deleteApiToken();
-                          }}
-                        >
-                          <Delete />
-                        </IconButton>
-                      </>
-                    )}
-                    {!apiToken && (
-                      <IconButton
-                        size="small"
-                        color="default"
-                        onClick={() => {
-                          generateApiToken();
-                        }}
-                      >
-                        <FontAwesomeIcon icon={faGears} />
-                      </IconButton>
-                    )}
-                  </>
-                )
-              }}
-            />
-          </FormControl>
-        </Grid>
+              <Grid xs={12} sm={6} md={4} item>
+                <FormControl className={classes.selectContainer}>
+                  <TextField
+                    id="primary-color-light-field"
+                    label="API Token"
+                    variant="standard"
+                    value={apiToken}
+                    InputProps={{
+                      endAdornment: (
+                        <>
+                          {apiToken && (
+                            <>
+                              <IconButton
+                                size="small"
+                                color="default"
+                                onClick={() => {
+                                  copyApiToken();
+                                }}
+                              >
+                                <FontAwesomeIcon icon={faCopy} />
+                              </IconButton>
+                              <IconButton
+                                size="small"
+                                color="default"
+                                onClick={() => {
+                                  deleteApiToken();
+                                }}
+                              >
+                                <Delete />
+                              </IconButton>
+                            </>
+                          )}
+                          {!apiToken && (
+                            <IconButton
+                              size="small"
+                              color="default"
+                              onClick={() => {
+                                generateApiToken();
+                              }}
+                            >
+                              <FontAwesomeIcon icon={faGears} />
+                            </IconButton>
+                          )}
+                        </>
+                      )
+                    }}
+                  />
+                </FormControl>
+              </Grid>
 
-        <Grid item xs={12}>
-          <h2 className={classes.groupTitle}>
-            {i18n.t("settings.group.externalServices")}
-          </h2>
-        </Grid>
+              <Grid item xs={12}>
+                <h2 className={`${classes.groupTitle} sd-options-heading`}>
+                  {i18n.t("settings.group.externalServices")}
+                </h2>
+              </Grid>
 
-        <Grid xs={12} sm={6} md={4} item>
-          <FormControl className={classes.selectContainer}>
-            <InputLabel id="ai-provider-label">
-              {i18n.t("settings.AIProvider.title")}
-            </InputLabel>
-            <Select
-              labelId="ai-provider-label"
-              value={aiProvider}
-              onChange={async e => {
-                handleSetting("aiProvider", e.target.value, setAiProvider);
-              }}
-            >
-              <MenuItem value="openai">OpenAI</MenuItem>
-              <MenuItem value="groq">Groq</MenuItem>
-            </Select>
-          </FormControl>
-        </Grid>
+              <Grid xs={12} sm={6} md={4} item>
+                <FormControl className={classes.selectContainer}>
+                  <InputLabel id="ai-provider-label">
+                    {i18n.t("settings.AIProvider.title")}
+                  </InputLabel>
+                  <Select
+                    labelId="ai-provider-label"
+                    value={aiProvider}
+                    onChange={async e => {
+                      handleSetting(
+                        "aiProvider",
+                        e.target.value,
+                        setAiProvider
+                      );
+                    }}
+                  >
+                    <MenuItem value="openai">OpenAI</MenuItem>
+                    <MenuItem value="groq">Groq</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
 
-        <Grid xs={12} sm={12} md={8} item>
-          <FormControl className={classes.selectContainer}>
-            <TextField
-              id="openai-key-field"
-              label="AI Key"
-              variant="standard"
-              value={openAiKey}
-              onChange={e => {
-                setOpenAiKey(e.target.value);
-              }}
-              onBlur={async _ => {
-                await handleSetting("openAiKey", openAiKey);
-              }}
-            />
-          </FormControl>
-        </Grid>
+              <Grid xs={12} sm={12} md={8} item>
+                <FormControl className={classes.selectContainer}>
+                  <TextField
+                    id="openai-key-field"
+                    label="AI Key"
+                    variant="standard"
+                    value={openAiKey}
+                    onChange={e => {
+                      setOpenAiKey(e.target.value);
+                    }}
+                    onBlur={async _ => {
+                      await handleSetting("openAiKey", openAiKey);
+                    }}
+                  />
+                </FormControl>
+              </Grid>
 
-        <Grid xs={12} sm={6} md={4} item>
-          <FormControl className={classes.selectContainer}>
-            <InputLabel id="audio-transcriptions-label">
-              {i18n.t("settings.AudioTranscriptions.title")}
-            </InputLabel>
-            <Select
-              labelId="audio-transcriptions-label"
-              value={audioTranscriptions}
-              onChange={async e => {
-                handleSetting(
-                  "audioTranscriptions",
-                  e.target.value,
-                  setAudioTranscriptions
-                );
-              }}
-            >
-              <MenuItem value="disabled">{i18n.t("common.disabled")}</MenuItem>
-              <MenuItem value="enabled">{i18n.t("common.enabled")}</MenuItem>
-            </Select>
-          </FormControl>
-        </Grid>
+              <Grid xs={12} sm={6} md={4} item>
+                <FormControl className={classes.selectContainer}>
+                  <InputLabel id="audio-transcriptions-label">
+                    {i18n.t("settings.AudioTranscriptions.title")}
+                  </InputLabel>
+                  <Select
+                    labelId="audio-transcriptions-label"
+                    value={audioTranscriptions}
+                    onChange={async e => {
+                      handleSetting(
+                        "audioTranscriptions",
+                        e.target.value,
+                        setAudioTranscriptions
+                      );
+                    }}
+                  >
+                    <MenuItem value="disabled">
+                      {i18n.t("common.disabled")}
+                    </MenuItem>
+                    <MenuItem value="enabled">
+                      {i18n.t("common.enabled")}
+                    </MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
             </>
           )}
         />
@@ -1173,7 +1183,7 @@ export default function Options(props) {
           yes={() => (
             <>
               <Grid item xs={12}>
-                <h2 className={classes.groupTitle}>
+                <h2 className={`${classes.groupTitle} sd-options-heading`}>
                   {i18n.t("settings.group.serveradmin")}
                 </h2>
               </Grid>

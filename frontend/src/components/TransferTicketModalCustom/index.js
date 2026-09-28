@@ -203,7 +203,13 @@ const TransferTicketModalCustom = ({
   );
 
   return (
-    <Dialog open={modalOpen} onClose={handleClose} maxWidth="sm" fullWidth>
+    <Dialog
+      className="conversa-dialogo"
+      open={modalOpen}
+      onClose={handleClose}
+      maxWidth="sm"
+      fullWidth
+    >
       <form onSubmit={handleSaveTicket}>
         <DialogTitle>{i18n.t("transferTicketModal.title")}</DialogTitle>
         <DialogContent dividers>

@@ -114,7 +114,7 @@ const CampaignsConfig = () => {
   };
 
   return (
-    <MainContainer>
+    <MainContainer className="sd-business sd-campaign-config">
       <ConfirmationModal
         title={i18n.t("campaigns.confirmationModal.deleteTitle")}
         open={confirmationOpen}

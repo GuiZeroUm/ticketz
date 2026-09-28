@@ -116,7 +116,7 @@ const MessageForwardModal = ({
   };
 
   return (
-    <Dialog open={modalOpen} onClose={handleClose}>
+    <Dialog className="conversa-dialogo" open={modalOpen} onClose={handleClose}>
       <DialogTitle id="form-dialog-title">
         {i18n.t("messageOptionsMenu.forward")}
       </DialogTitle>

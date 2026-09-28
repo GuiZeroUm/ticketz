@@ -1,3 +1,4 @@
+import StardewEmblem from "../../components/StardewEmblem";
 import React, { useCallback, useContext, useEffect, useState } from "react";
 import {
   Box,
@@ -229,7 +230,7 @@ const Announcements = () => {
   };
 
   return (
-    <MainContainer>
+    <MainContainer className="sv-operations sv-screen-announcements">
       <ConfirmationModal
         title={i18n.t("announcements.confirmationModal.deleteTitle")}
         open={Boolean(deleting)}
@@ -248,6 +249,7 @@ const Announcements = () => {
         announcementId={selected?.id}
       />
       <MainHeader>
+        <StardewEmblem item="scroll" />
         <Title>{i18n.t("announcements.title")}</Title>
         <MainHeaderButtonsWrapper>
           <Button variant="contained" color="primary" onClick={openNew}>

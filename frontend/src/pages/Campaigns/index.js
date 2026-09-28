@@ -182,7 +182,7 @@ const Campaigns = () => {
   };
 
   return (
-    <MainContainer>
+    <MainContainer className="sd-business sd-campaigns">
       <ConfirmationModal
         title={
           deletingCampaign &&

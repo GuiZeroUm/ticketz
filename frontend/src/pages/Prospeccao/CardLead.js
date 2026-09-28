@@ -1,4 +1,5 @@
 import React from "react";
+import StardewBusinessGlyph from "../../components/StardewBusinessGlyph";
 
 import {
   Box,
@@ -117,10 +118,15 @@ const CardLead = ({
     : "";
 
   return (
-    <Paper className={classes.card} variant="outlined">
+    <Paper
+      className={`${classes.card} sd-lead-letter`}
+      data-delivery-status={lead.deliveryStatus}
+      variant="outlined"
+    >
       <div className={classes.cabecalho}>
         <div>
-          <Typography className={classes.nome}>
+          <Typography className={`${classes.nome} sd-lead-title`}>
+            <StardewBusinessGlyph variant="seed" />
             {lead.nome || "Sem nome"}
           </Typography>
           <div className={classes.metadados}>
@@ -194,7 +200,7 @@ const CardLead = ({
       {!pendente && (
         <>
           <TextField
-            className={classes.rascunho}
+            className={`${classes.rascunho} sd-letter-draft`}
             label="Rascunho da mensagem"
             multiline
             minRows={3}

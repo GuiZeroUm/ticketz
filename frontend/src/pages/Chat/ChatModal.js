@@ -80,6 +80,7 @@ export default function ChatModal({
 
   return (
     <Dialog
+      className="chat-dialogo"
       open={open}
       onClose={handleClose}
       aria-labelledby="alert-dialog-title"

@@ -16,7 +16,11 @@ const useStyles = makeStyles(theme => ({
 const MainHeader = ({ children }) => {
   const classes = useStyles();
 
-  return <div className={classes.contactsHeader}>{children}</div>;
+  return (
+    <div className={`${classes.contactsHeader} stardew-main-header`}>
+      {children}
+    </div>
+  );
 };
 
 export default MainHeader;

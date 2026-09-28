@@ -65,7 +65,9 @@ const Contacts = () => {
   };
 
   return (
-    <MainContainer className={classes.mainContainer}>
+    <MainContainer
+      className={`${classes.mainContainer || ""} sd-business sd-subscription`}
+    >
       <SubscriptionModal
         open={contactModalOpen}
         onClose={handleCloseContactModal}

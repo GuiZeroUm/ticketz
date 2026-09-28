@@ -1,3 +1,4 @@
+import StardewEmblem from "../../components/StardewEmblem";
 import React, {
   useState,
   useEffect,
@@ -217,7 +218,7 @@ const Tags = () => {
   };
 
   return (
-    <MainContainer>
+    <MainContainer className="sv-operations sv-screen-tags">
       <ConfirmationModal
         title={deletingTag && `${i18n.t("tags.confirmationModal.deleteTitle")}`}
         open={confirmModalOpen}
@@ -235,6 +236,7 @@ const Tags = () => {
         kanban={0}
       />
       <MainHeader>
+        <StardewEmblem item="star" />
         <Title>{i18n.t("tags.title")}</Title>
         <MainHeaderButtonsWrapper>
           <TextField

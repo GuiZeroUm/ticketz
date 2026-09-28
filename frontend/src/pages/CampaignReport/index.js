@@ -129,7 +129,7 @@ const CampaignReport = () => {
   };
 
   return (
-    <MainContainer>
+    <MainContainer className="sd-business sd-campaign-report">
       <MainHeader>
         <Grid style={{ width: "99.6%" }} container>
           <Grid xs={12} item>

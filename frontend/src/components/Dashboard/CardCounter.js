@@ -9,8 +9,8 @@ import { grey } from "@material-ui/core/colors";
 const useStyles = makeStyles(theme => ({
   cardAvatar: {
     fontSize: "55px",
-    color: grey[500],
-    backgroundColor: "#ffffff",
+    color: theme.isStardew ? theme.stardew.ink : grey[500],
+    backgroundColor: theme.isStardew ? theme.stardew.inset : "#ffffff",
     width: theme.spacing(7),
     height: theme.spacing(7)
   },
@@ -19,7 +19,7 @@ const useStyles = makeStyles(theme => ({
     color: theme.palette.text.primary
   },
   cardSubtitle: {
-    color: grey[600],
+    color: theme.isStardew ? theme.stardew.muted : grey[600],
     fontSize: "14px"
   }
 }));

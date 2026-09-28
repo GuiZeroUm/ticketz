@@ -148,7 +148,7 @@ const ChatGPT = () => {
 
   const renderConnections = () => (
     <Grid item xs={12}>
-      <Paper variant="outlined" className={classes.card}>
+      <Paper variant="outlined" className={`${classes.card} sd-workshop-card`}>
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="h6">
             {i18n.t("chatgpt.connections.title")}
@@ -209,7 +209,7 @@ const ChatGPT = () => {
   );
 
   return (
-    <MainContainer className={classes.root}>
+    <MainContainer className={`${classes.root} sd-business sd-integration`}>
       <ConfirmationModal
         open={Boolean(confirm)}
         title={i18n.t("chatgpt.revoke.title")}
@@ -261,10 +261,13 @@ const ChatGPT = () => {
           <Box className={classes.tabPanel}>
             <Grid container spacing={3}>
               <Grid item xs={12} md={7}>
-                <Paper variant="outlined" className={classes.card}>
+                <Paper
+                  variant="outlined"
+                  className={`${classes.card} sd-workshop-card`}
+                >
                   <div className={classes.pluginHeader}>
                     <img
-                      className={classes.pluginIcon}
+                      className={`${classes.pluginIcon} sd-item-icon`}
                       src="/branding/plugin-espaco-whats.png"
                       alt={i18n.t("chatgpt.plugin.name")}
                     />
@@ -304,7 +307,10 @@ const ChatGPT = () => {
                 </Paper>
               </Grid>
               <Grid item xs={12} md={5}>
-                <Paper variant="outlined" className={classes.card}>
+                <Paper
+                  variant="outlined"
+                  className={`${classes.card} sd-workshop-card`}
+                >
                   <Typography variant="h6">
                     {i18n.t("chatgpt.plugin.steps.title")}
                   </Typography>
@@ -325,7 +331,7 @@ const ChatGPT = () => {
                 </Paper>
               </Grid>
               {/* <Grid item xs={12}>
-                <Paper variant="outlined" className={classes.card}>
+                <Paper variant="outlined" className={`${classes.card} sd-workshop-card`}>
                   <Typography variant="h6">
                     {i18n.t("chatgpt.plugin.marketplace.title")}
                   </Typography>
@@ -365,7 +371,10 @@ const ChatGPT = () => {
           <Box className={classes.tabPanel}>
             <Grid container spacing={3}>
               <Grid item xs={12} md={7}>
-                <Paper variant="outlined" className={classes.card}>
+                <Paper
+                  variant="outlined"
+                  className={`${classes.card} sd-workshop-card`}
+                >
                   <Typography variant="h6">
                     {i18n.t("chatgpt.connection.title")}
                   </Typography>
@@ -402,7 +411,10 @@ const ChatGPT = () => {
                 </Paper>
               </Grid>
               <Grid item xs={12} md={5}>
-                <Paper variant="outlined" className={classes.card}>
+                <Paper
+                  variant="outlined"
+                  className={`${classes.card} sd-workshop-card`}
+                >
                   <Typography variant="h6">
                     {i18n.t("chatgpt.steps.title")}
                   </Typography>

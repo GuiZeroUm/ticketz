@@ -88,7 +88,13 @@ const ModalCliente = ({ cliente, aberto, aoFechar, planos, aoSalvar }) => {
   );
 
   return (
-    <Dialog open={aberto} onClose={aoFechar} maxWidth="sm" fullWidth>
+    <Dialog
+      PaperProps={{ className: "sd-billing-dialog" }}
+      open={aberto}
+      onClose={aoFechar}
+      maxWidth="sm"
+      fullWidth
+    >
       <DialogTitle>{cliente?.name}</DialogTitle>
       <DialogContent dividers>
         <Grid container spacing={2}>

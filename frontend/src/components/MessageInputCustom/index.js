@@ -125,11 +125,11 @@ const useStyles = makeStyles(theme => ({
   },
 
   cameraIcon: {
-    color: "grey"
+    color: theme.isStardew ? theme.stardew.muted : "grey"
   },
 
   sendMessageIcons: {
-    color: "grey"
+    color: theme.isStardew ? theme.stardew.muted : "grey"
   },
 
   uploadInput: {
@@ -230,18 +230,18 @@ const useStyles = makeStyles(theme => ({
   replyginContactMsgSideColor: {
     flex: "none",
     width: "4px",
-    backgroundColor: "#35cd96"
+    backgroundColor: theme.isStardew ? theme.stardew.green : "#35cd96"
   },
 
   replyginSelfMsgSideColor: {
     flex: "none",
     width: "4px",
-    backgroundColor: "#6bcbef"
+    backgroundColor: theme.isStardew ? theme.stardew.green : "#6bcbef"
   },
 
   messageContactName: {
     display: "flex",
-    color: "#6bcbef",
+    color: theme.isStardew ? theme.stardew.green : "#6bcbef",
     fontWeight: 500
   },
 
@@ -1274,8 +1274,10 @@ const MessageInputCustom = props => {
       ? user?.name
       : message.contact?.name || ticket.contact?.name;
     return (
-      <div className={classes.replyginMsgWrapper}>
-        <div className={classes.replyginMsgContainer}>
+      <div className={`${classes.replyginMsgWrapper} conversa-resposta-previa`}>
+        <div
+          className={`${classes.replyginMsgContainer} conversa-resposta-conteudo`}
+        >
           <span
             className={clsx(classes.replyginContactMsgSideColor, {
               [classes.replyginSelfMsgSideColor]: !message.fromMe
@@ -1314,7 +1316,11 @@ const MessageInputCustom = props => {
   };
 
   return (
-    <Paper square elevation={0} className={classes.mainWrapper}>
+    <Paper
+      square
+      elevation={0}
+      className={`${classes.mainWrapper} conversa-entrada`}
+    >
       {(replyingMessage && renderReplyingMessage(replyingMessage)) ||
         (editingMessage && renderReplyingMessage(editingMessage))}
       {windowClosed && ticketStatus !== "closed" && (
@@ -1341,7 +1347,9 @@ const MessageInputCustom = props => {
         onSent={loadServiceWindow}
       />
       {medias.length > 0 && (
-        <div className={classes.viewMediaInputWrapper}>
+        <div
+          className={`${classes.viewMediaInputWrapper} conversa-anexos-previa`}
+        >
           <IconButton
             aria-label="cancel-upload"
             component="span"
