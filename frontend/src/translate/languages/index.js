@@ -13,6 +13,7 @@ import { loginExperienceMessages } from "./loginExperience";
 import { socialLoginMessages } from "./socialLogin";
 
 import { themeMessages } from "./themes";
+import { subscriptionNoticeMessages } from "./subscriptionNotice";
 
 const mergeTranslations = (base, extra) => {
   const result = { ...base };
@@ -42,7 +43,8 @@ const messages = {
   conversasMessages,
   loginExperienceMessages,
   socialLoginMessages,
-  themeMessages
+  themeMessages,
+  subscriptionNoticeMessages
 ].forEach(overlay => {
   Object.entries(overlay).forEach(([language, extra]) => {
     messages[language].translations = mergeTranslations(
