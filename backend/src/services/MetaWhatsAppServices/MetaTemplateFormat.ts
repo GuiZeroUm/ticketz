@@ -4,7 +4,13 @@ export const TEMPLATE_CATEGORY = "UTILITY";
 // limite de 3000 que a tela de cobranca aceita para texto livre.
 export const TEMPLATE_BODY_LIMIT = 1024;
 
-export const PLACEHOLDERS = ["nome", "valor", "vencimento", "boleto"] as const;
+export const PLACEHOLDERS = [
+  "nome",
+  "valor",
+  "vencimento",
+  "boleto",
+  "referencia"
+] as const;
 export type TemplatePlaceholder = (typeof PLACEHOLDERS)[number];
 
 // Exemplos exigidos pela Meta na aprovacao: sem eles o template e recusado
@@ -13,17 +19,19 @@ export const PLACEHOLDER_EXAMPLES: Record<TemplatePlaceholder, string> = {
   nome: "Maria Silva",
   valor: "R$ 189,90",
   vencimento: "05/10/2026",
-  boleto: "https://short.hinova.com.br/v2/exemplo.pdf"
+  boleto: "https://short.hinova.com.br/v2/exemplo.pdf",
+  referencia:
+    "COROLLA CROSS, placa ABC1D23; boleto 12345; vencimento 05/10/2026; valor R$ 189,90"
 };
 
 // Nome do template por etapa da regua. Meta aceita so minusculas, digitos e
 // underscore - por isso o offset negativo vira "antes" em vez de "-".
 export const templateNameForOffset = (offset: number): string => {
-  if (offset === 0) return "cobranca_vencimento";
+  if (offset === 0) return "cobranca_vencimento_identificada_v2";
 
   return offset < 0
-    ? `cobranca_antes_${Math.abs(offset)}`
-    : `cobranca_depois_${offset}`;
+    ? `cobranca_antes_${Math.abs(offset)}_identificada_v2`
+    : `cobranca_depois_${offset}_identificada_v2`;
 };
 
 // Converte o texto do painel ([nome], [valor]...) no formato da Meta ({{1}},
@@ -36,7 +44,7 @@ export const toTemplateBody = (
 
   const text = body
     .trim()
-    .replace(/\[(nome|valor|vencimento|boleto)\]/g, (_, key) => {
+    .replace(/\[(nome|valor|vencimento|boleto|referencia)\]/g, (_, key) => {
       const placeholder = key as TemplatePlaceholder;
       let index = variables.indexOf(placeholder);
 

@@ -16,7 +16,7 @@ export const OFFSETS = [-5, -3, -1, 0, 1, 3, 5, 25, 30, 90] as const;
 const footer =
   "Esta é uma mensagem preventiva para ajudar você a manter seu cadastro regular e os benefícios\nativos. Caso precise da segunda via do boleto, estamos à disposição.";
 const signature = "Setor de Adimplência | AC Norte Proteção Veicular";
-const introductions: Record<(typeof OFFSETS)[number], string> = {
+const legacyIntroductions: Record<(typeof OFFSETS)[number], string> = {
   [-5]: "Passando para lembrar que a mensalidade vencerá em 5 dias.",
   [-3]: "Passando para lembrar que a mensalidade vencerá em 3 dias.",
   [-1]: "Passando para lembrar que a mensalidade vencerá amanhã.",
@@ -28,12 +28,40 @@ const introductions: Record<(typeof OFFSETS)[number], string> = {
   30: "Passando para lembrar que, a partir desse momento, seu contrato foi inativado e a mensalidade continua em aberto. Para regularizar, entre em contato. Não havendo regularização da mensalidade em aberto em até 60 dias, o boleto será protestado no SPC/SERASA.",
   90: "Passando para lembrar que o último boleto ainda continua em aberto. Em 24h, não havendo a regularização, o mesmo será protestado no SPC/SERASA."
 };
+const introductions = {
+  ...legacyIntroductions,
+  1: "Passando para lembrar que a mensalidade deste boleto venceu ontem e consta em aberto no SGA. Fale conosco para regularizar.",
+  3: "Passando para lembrar que a mensalidade deste boleto consta em aberto no SGA. Fale conosco para regularizar.",
+  5: "Passando para lembrar que a mensalidade deste boleto consta em aberto no SGA. Fale conosco para regularizar.",
+  25: "Passando para lembrar que este boleto consta em aberto no SGA há 25 dias. Fale conosco para regularizar.",
+  30: "Passando para lembrar que este boleto consta em aberto no SGA há 30 dias. Fale conosco para regularizar.",
+  90: "Passando para lembrar que este boleto consta em aberto no SGA há 90 dias. Fale conosco para regularizar."
+};
+
+// Every stage identifies the exact debt. Legacy standard wording is upgraded
+// without changing the enabled stages, connection, schedule or exclusions.
+export const identifyBillingBody = (body: string): string => {
+  let identified = body;
+  OFFSETS.forEach(offset => {
+    identified = identified.replace(
+      legacyIntroductions[offset],
+      introductions[offset]
+    );
+  });
+  if (!identified.includes("[referencia]")) {
+    const lines = identified.split("\n");
+    lines.splice(1, 0, "Referência: [referencia].");
+    identified = lines.join("\n");
+  }
+  return identified;
+};
 export const DEFAULT_STEPS = OFFSETS.map(offset => ({
   offset,
   enabled: true,
   attachPdf: offset <= 0,
   body: [
     `Olá, [nome]. Tudo bem?`,
+    "Referência: [referencia].",
     introductions[offset],
     ...(offset <= 25 ? [footer] : []),
     signature
@@ -73,12 +101,25 @@ export const configSchema = z
         (step, i) =>
           step.offset !== OFFSETS[i] ||
           step.attachPdf !== step.offset <= 0 ||
-          /\[(?!nome\]|valor\]|vencimento\]|boleto\])[^\]]+\]/i.test(step.body)
+          /\[(?!nome\]|valor\]|vencimento\]|boleto\]|referencia\])[^\]]+\]/i.test(
+            step.body
+          )
       )
     )
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Invalid billing configuration"
+      });
+    if (
+      value.steps.some(step =>
+        /sem protecao|contrato.{0,30}inativ|spc|serasa|protest/.test(
+          normalizedText(step.body)
+        )
+      )
+    )
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Billing cannot infer coverage or enforcement from a boleto"
       });
     if (
       value.enabled &&
@@ -106,7 +147,21 @@ export const defaults = (): BillingConfig => ({
   steps: DEFAULT_STEPS.map(s => ({ ...s }))
 });
 export const parseConfig = (input: unknown): BillingConfig => {
-  const parsed = configSchema.safeParse(input);
+  const raw = input as Partial<BillingConfig> | null;
+  const prepared =
+    raw && typeof raw === "object" && Array.isArray(raw.steps)
+      ? {
+          ...raw,
+          steps: raw.steps.map(step => ({
+            ...step,
+            body:
+              typeof step.body === "string"
+                ? identifyBillingBody(step.body)
+                : step.body
+          }))
+        }
+      : input;
+  const parsed = configSchema.safeParse(prepared);
   if (!parsed.success) throw new AppError("ERR_BILLING_CONFIG", 400);
   return parsed.data;
 };
@@ -220,7 +275,8 @@ export const freshSnapshot = (
 export const reminderValues = (
   name: string,
   bill: Pick<Bill, "due" | "amount">,
-  url: string
+  url: string,
+  reference = "Documento de demonstração, sem cobrança real"
 ): Record<TemplatePlaceholder, string> => ({
   nome: name.trim() || "associado",
   valor: new Intl.NumberFormat("pt-BR", {
@@ -228,21 +284,60 @@ export const reminderValues = (
     currency: "BRL"
   }).format(bill.amount),
   vencimento: DateTime.fromISO(bill.due).toFormat("dd/MM/yyyy"),
-  boleto: url
+  boleto: url,
+  referencia: reference
 });
 export const renderReminder = (
   step: BillingStep,
   name: string,
   bill: Pick<Bill, "due" | "amount">,
-  url: string
+  url: string,
+  reference?: string
 ): string => {
-  const values = reminderValues(name, bill, url);
+  const values = reminderValues(name, bill, url, reference);
   const body = step.body.replace(
-    /\[(nome|valor|vencimento|boleto)\]/g,
+    /\[(nome|valor|vencimento|boleto|referencia)\]/g,
     (_, key) => values[key as TemplatePlaceholder]
   );
   return body;
 };
+// Numeric parcela_paga is the installment position in Hinova carnês, not
+// proof of settlement. Payment is established by status/date/amount instead.
+export const billReference = (bill: Bill, row: SgaRow): string | null => {
+  const vehicles = Array.isArray(row.veiculos)
+    ? row.veiculos
+    : Array.isArray(row.veiculo)
+      ? row.veiculo
+      : [];
+  if (
+    !vehicles.length ||
+    vehicles.some(vehicle => !vehicle || typeof vehicle !== "object")
+  )
+    return null;
+  const ids = vehicles.map(vehicle => text(vehicle.codigo_veiculo));
+  if (
+    !ids.length ||
+    ids.some(id => !id) ||
+    [...new Set(ids)].sort().join(",") !==
+      [...new Set(bill.vehicleIds)].sort().join(",")
+  )
+    return null;
+  const labels = vehicles.map(vehicle => {
+    const plate = text(vehicle.placa)
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "");
+    if (!/^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/.test(plate)) return null;
+    const model = text(vehicle.descricao_modelo || vehicle.modelo).replace(
+      /\s+/g,
+      " "
+    );
+    return `${model ? `${model}, ` : ""}placa ${plate}`;
+  });
+  if (labels.some(label => !label)) return null;
+  const values = reminderValues("", bill, "");
+  return `${labels.join(" / ")}; boleto ${bill.number}; vencimento ${values.vencimento}; valor ${values.valor}`;
+};
+
 // Only known, unpaid SGA debt statuses may reach the transport. An unavailable
 // API, missing status, cancellation or different owner is never proof of debt.
 export const revalidateBill = (
@@ -271,6 +366,9 @@ export const revalidateBill = (
   const bill = normalizeBill(row, true);
   if (
     bill.paid ||
+    !bill.vehicleIds.length ||
+    [...new Set(bill.vehicleIds)].sort().join(",") !==
+      [...new Set(original.vehicleIds)].sort().join(",") ||
     money(row.valor_pagamento) > 0 ||
     ["S", "SIM", "Y"].includes(text(row.parcela_paga).toUpperCase())
   )

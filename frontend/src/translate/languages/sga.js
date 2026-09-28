@@ -39,7 +39,7 @@ const pt = {
     termsReviewed:
       "Confirmei que os textos e prazos correspondem ao contrato e à política da AC Norte.",
     termsHelp:
-      "As etapas após o vencimento afirmam suspensão da proteção e possíveis medidas de cobrança. Revise essas afirmações antes de ativar. A etapa de 30 dias também exige situação inativa/cancelada do associado na consulta atual ao SGA. O sistema não inativa contratos, protesta boletos nem registra dívidas no SPC/SERASA.",
+      "As mensagens identificam o veículo, a placa, o boleto, o vencimento e o valor. O envio depende da confirmação de que esse boleto está em aberto no SGA. A situação do boleto não determina a cobertura do veículo.",
     messages: "Mensagens e documentos",
     stages: {
       "-5": "5 dias antes",
@@ -81,7 +81,7 @@ const pt = {
         "Templates das etapas: {{approved}} de {{total}} aprovadas e já enviando · {{pending}} aguardando aprovação · {{blocked}} precisam de ação sua. Etapa sem template aprovado não envia cobrança."
     },
     variables:
-      "Variáveis: [nome], [valor] e [vencimento]. Nenhum link é acrescentado automaticamente. [boleto] é opcional nos textos personalizados de cobrança.",
+      "[referencia] identifica veículo, placa, boleto, vencimento e valor e é incluída em todas as mensagens. Outras variáveis: [nome], [valor], [vencimento] e [boleto].",
     save: "Salvar configuração",
     preview: "Ver prévia do teste",
     unsaved: "Salve as alterações antes de testar ou mudar a data.",
@@ -137,6 +137,7 @@ const pt = {
       PREPARING: "Preparando",
       SIMULATED: "Simulado, sem envio",
       NO_LONGER_ELIGIBLE: "Pago, cancelado, alterado ou fora da etapa",
+      VEHICLE_NOT_VERIFIED: "Veículo ou placa não confirmado no boleto",
       CONTRACT_NOT_INACTIVE: "SGA não confirma contrato inativo",
       CONTACT_CHANGED: "Contato ou vínculo alterado",
       OUTSIDE_WINDOW: "Fora da janela de envio",
