@@ -37,6 +37,7 @@ import { i18n } from "../translate/i18n";
 import { messages } from "../translate/languages";
 import toastError from "../errors/toastError";
 import AnnouncementsPopover from "../components/AnnouncementsPopover";
+import SubscriptionNotice from "../components/SubscriptionNotice";
 
 import { SocketContext } from "../context/Socket/SocketContext";
 import ChatPopover from "../pages/Chat/ChatPopover";
@@ -309,6 +310,13 @@ const useStyles = makeStyles(theme => ({
   },
   content: {
     minWidth: 0,
+    flex: 1,
+    overflow: "hidden",
+    display: "flex",
+    flexDirection: "column"
+  },
+  pageContent: {
+    minHeight: 0,
     flex: 1,
     overflow: "auto"
   },
@@ -788,7 +796,8 @@ const LoggedInLayout = ({ children, themeToggle }) => {
       />
       <main className={classes.content}>
         <OnlyForSuperUser user={currentUser} yes={() => <GoogleAnalytics />} />
-        {children ? children : null}
+        <SubscriptionNotice />
+        <div className={classes.pageContent}>{children ? children : null}</div>
       </main>
     </div>
   );

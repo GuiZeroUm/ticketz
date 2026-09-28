@@ -8,6 +8,7 @@ import FindAllInvoiceService from "../services/InvoicesService/FindAllInvoiceSer
 import ListInvoicesServices from "../services/InvoicesService/ListInvoicesServices";
 import ShowInvoceService from "../services/InvoicesService/ShowInvoiceService";
 import UpdateInvoiceService from "../services/InvoicesService/UpdateInvoiceService";
+import SubscriptionNoticeService from "../services/InvoicesService/SubscriptionNoticeService";
 
 type IndexQuery = {
   searchParam: string;
@@ -155,3 +156,9 @@ export const remove = async (
 
   return res.status(200).json(plan);
 }; */
+export const subscriptionNotice = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  return res.json(await SubscriptionNoticeService(req.user.companyId));
+};

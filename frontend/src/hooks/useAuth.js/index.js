@@ -167,12 +167,7 @@ const useAuth = () => {
 
     moment.locale("pt-br");
     const dueDate = data.user.company.dueDate;
-    const hoje = moment(moment()).format("DD/MM/yyyy");
     const vencimento = moment(dueDate).format("DD/MM/yyyy");
-
-    var diff = moment(dueDate).diff(moment(moment()).format());
-
-    var dias = moment.duration(diff).asDays();
 
     clearAllCachedSettings();
 
@@ -185,17 +180,7 @@ const useAuth = () => {
     setUser(data.user);
     setIsAuth(true);
     applyCompanyBranding();
-    if (dias < 0) {
-      toast.warn(
-        `Sua assinatura venceu há ${Math.round(dias) * -1} ${Math.round(dias) * -1 === 1 ? "dia" : "dias"} `
-      );
-    } else if (Math.round(dias) < 5) {
-      toast.warn(
-        `Sua assinatura vence em ${Math.round(dias)} ${Math.round(dias) === 1 ? "dia" : "dias"} `
-      );
-    } else {
-      toast.success(i18n.t("auth.toasts.success"));
-    }
+    toast.success(i18n.t("auth.toasts.success"));
     if (data.user.profile === "admin" && !data.user.hideAdminUI) {
       history.push("/");
     } else {
