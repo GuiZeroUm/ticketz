@@ -1,3 +1,5 @@
+import { fonteInterface } from "./identidadeVisual";
+
 // Design primitives adapted from stardewCN (MIT), Kevin Gabeci.
 // Keep the application's React 17 controls and their existing behavior.
 export const stardew = {
@@ -9,9 +11,8 @@ export const stardew = {
   green: "#477b38",
   gold: "#f2ba48"
 };
-export const pixelFont = '"Stardew Valley", "VT323", sans-serif';
-export const pixelHeading =
-  '"Stardew Valley ALL CAPS", "Stardew Valley", sans-serif';
+const interfaceFont = fonteInterface;
+const headingFont = fonteInterface;
 export const canUseStardew = (companyId, slug = "") =>
   Number(companyId) === 1 && (!slug || slug === "teste");
 export const normalizeTheme = (value, allowed = false) =>
@@ -100,18 +101,18 @@ export const applyStardewTheme = (base, enabled) => {
       }
     },
     typography: {
-      fontFamily: pixelFont,
+      fontFamily: interfaceFont,
       fontSize: 17,
       fontWeightRegular: 600,
       fontWeightMedium: 600,
       fontWeightBold: 700,
-      h4: { fontFamily: pixelHeading, fontSize: 20, lineHeight: 1.6 },
-      h5: { fontFamily: pixelHeading, fontSize: 16, lineHeight: 1.6 },
-      h6: { fontFamily: pixelFont, fontSize: 24 },
+      h4: { fontFamily: headingFont, fontSize: 20, lineHeight: 1.6 },
+      h5: { fontFamily: headingFont, fontSize: 16, lineHeight: 1.6 },
+      h6: { fontFamily: interfaceFont, fontSize: 24 },
       body1: { fontSize: 20, fontWeight: 600 },
       body2: { fontSize: 18, fontWeight: 600 },
       caption: { fontSize: 16, fontWeight: 600 },
-      button: { fontFamily: pixelFont, fontSize: 19, textTransform: "none" }
+      button: { fontFamily: interfaceFont, fontSize: 19, textTransform: "none" }
     },
     shape: { borderRadius: 0 },
     overrides: {
@@ -127,7 +128,7 @@ export const applyStardewTheme = (base, enabled) => {
           borderRadius: 0,
           minHeight: 36,
           padding: "6px 14px",
-          fontFamily: pixelFont,
+          fontFamily: interfaceFont,
           fontSize: 19
         },
         contained: {
@@ -151,14 +152,14 @@ export const applyStardewTheme = (base, enabled) => {
         root: {
           borderRadius: 0,
           background: "#fff8dd",
-          fontFamily: pixelFont,
+          fontFamily: interfaceFont,
           fontSize: 19
         },
         notchedOutline: { borderWidth: 2, borderColor: "#b88b4a" },
         input: { padding: "10px 12px" }
       },
       MuiInputLabel: {
-        root: { fontFamily: pixelFont, fontSize: 15, fontWeight: 600 },
+        root: { fontFamily: interfaceFont, fontSize: 15, fontWeight: 600 },
         outlined: {
           whiteSpace: "nowrap",
           maxWidth: "calc(100% - 28px)",
@@ -166,12 +167,12 @@ export const applyStardewTheme = (base, enabled) => {
           textOverflow: "ellipsis"
         }
       },
-      MuiFormHelperText: { root: { fontFamily: pixelFont, fontSize: 15 } },
-      MuiInputBase: { root: { fontFamily: pixelFont, fontSize: 19 } },
+      MuiFormHelperText: { root: { fontFamily: interfaceFont, fontSize: 15 } },
+      MuiInputBase: { root: { fontFamily: interfaceFont, fontSize: 19 } },
       MuiTableCell: {
         root: {
           borderBottom: "2px solid #ddb878",
-          fontFamily: pixelFont,
+          fontFamily: interfaceFont,
           fontSize: 18,
           padding: "12px 16px"
         },
@@ -184,7 +185,7 @@ export const applyStardewTheme = (base, enabled) => {
       },
       MuiTab: {
         root: {
-          fontFamily: pixelFont,
+          fontFamily: interfaceFont,
           fontSize: 20,
           textTransform: "none",
           minHeight: 40
@@ -194,7 +195,7 @@ export const applyStardewTheme = (base, enabled) => {
       MuiChip: {
         root: {
           borderRadius: 0,
-          fontFamily: pixelFont,
+          fontFamily: interfaceFont,
           fontSize: 17,
           fontWeightRegular: 600,
           fontWeightMedium: 600,
@@ -208,7 +209,7 @@ export const applyStardewTheme = (base, enabled) => {
         tooltip: {
           ...frame,
           padding: "6px 10px",
-          fontFamily: pixelFont,
+          fontFamily: interfaceFont,
           fontSize: 18,
           color: stardew.ink
         }
@@ -216,7 +217,7 @@ export const applyStardewTheme = (base, enabled) => {
       MuiDivider: { root: { backgroundColor: "#b88b4a" } },
       MuiMenuItem: {
         root: {
-          fontFamily: pixelFont,
+          fontFamily: interfaceFont,
           fontSize: 20,
           "&$selected": { backgroundColor: "#e8c872" }
         }

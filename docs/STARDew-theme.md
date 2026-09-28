@@ -21,7 +21,7 @@ A paleta, tipografia, formas e controles compartilhados cobrem Material UI, Radi
 
 ## Fontes e mensagens
 
-As fontes Stardew Valley Regular e ALL CAPS são locais e foram fornecidas pelo usuário. Conversas de atendimento e chat interno preservam Inter. Somente o conteúdo de mensagens recebe os símbolos da fonte Junimo, alinhados abaixo das letras; compor/enviar/copiar mensagens conserva o texto original.
+Toda a interface, incluindo títulos e controles do tema Stardew, usa a fonte normal Inter. As fontes Stardew Valley Regular e ALL CAPS fornecidas pelo usuário foram retiradas da interface devido à legibilidade. Somente o conteúdo de mensagens recebe os símbolos da fonte Junimo, alinhados abaixo das letras; compor/enviar/copiar mensagens conserva o texto original.
 
 `JunimoWhatsMarked` adapta a saída do formatador existente em uma árvore React com tags/atributos permitidos. Mantém negrito, itálico, riscado, links, listas e emojis. `JunimoText` usa símbolos decorativos em pseudo-elementos, sem duplicar o texto no DOM/clipboard; os leitores de tela recebem o texto original. Palavras longas podem quebrar em telas pequenas.
 

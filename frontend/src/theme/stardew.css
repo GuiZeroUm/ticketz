@@ -1,24 +1,3 @@
-@font-face {
-  font-family: "Stardew Valley";
-  src: url("../../public/stardew/Stardew-Valley-Regular.ttf") format("truetype");
-  font-display: swap;
-}
-@font-face {
-  font-family: "Stardew Valley ALL CAPS";
-  src: url("../../public/stardew/Stardew-Valley-All-Caps.ttf")
-    format("truetype");
-  font-display: swap;
-}
-@font-face {
-  font-family: VT323;
-  src: url("../../public/stardew/VT323-Regular.ttf") format("truetype");
-  font-display: swap;
-}
-@font-face {
-  font-family: "Press Start 2P";
-  src: url("../../public/stardew/PressStart2P-Regular.ttf") format("truetype");
-  font-display: swap;
-}
 html[data-theme="stardew"] {
   --sd-ink: #5b341f;
   --sd-muted: #805335;
@@ -29,8 +8,8 @@ html[data-theme="stardew"] {
   --sd-gold: #f2ba48;
   --sd-frame:
     inset 0 0 0 2px #dda059, inset 0 0 0 4px #fff1c7, 4px 4px 0 #3e1f0840;
-  --sd-font: "Stardew Valley", "VT323", sans-serif;
-  --sd-heading: "Stardew Valley ALL CAPS", "Stardew Valley", sans-serif;
+  --sd-font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --sd-heading: var(--sd-font);
   background: #79b46a;
 }
 html[data-theme="stardew"] body {
