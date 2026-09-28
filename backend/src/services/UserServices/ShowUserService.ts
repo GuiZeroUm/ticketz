@@ -35,6 +35,7 @@ const ShowUserService = async (
           "id",
           "name",
           "slug",
+          "whatsappMode",
           "dueDate",
           "status",
           "platformStatus"

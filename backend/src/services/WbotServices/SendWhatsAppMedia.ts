@@ -13,12 +13,15 @@ import { Readable } from "stream";
 import AppError from "../../errors/AppError";
 import GetTicketWbot from "../../helpers/GetTicketWbot";
 import Ticket from "../../models/Ticket";
+import Whatsapp from "../../models/Whatsapp";
 import { verifyMediaMessage, verifyMessage } from "./wbotMessageListener";
 import CheckSettings from "../../helpers/CheckSettings";
 import saveMediaToFile from "../../helpers/saveMediaFile";
 import { getJidOf } from "./getJidOf";
 import { logger } from "../../utils/logger";
 import { URLCharEncoder } from "../../helpers/URLCharEncoder";
+import SendMetaMediaMessageService from "../MetaWhatsAppServices/SendMetaMediaMessageService";
+import { MetaSentMessage } from "../MetaWhatsAppServices/SendMetaTextMessageService";
 
 interface Request {
   media: Express.Multer.File;
@@ -166,7 +169,21 @@ export const SendWhatsAppMedia = async ({
   ticket,
   caption,
   ptt
-}: Request): Promise<WAMessage> => {
+}: Request): Promise<WAMessage | MetaSentMessage> => {
+  const connection = await Whatsapp.findByPk(ticket.whatsappId);
+
+  if (connection?.apiMode === "official") {
+    if (connection.status !== "CONNECTED")
+      throw new AppError("ERR_WAPP_NOT_INITIALIZED", 400);
+    return SendMetaMediaMessageService({
+      media,
+      ticket,
+      connection,
+      caption,
+      ptt
+    });
+  }
+
   try {
     const pathMedia = media.path;
 

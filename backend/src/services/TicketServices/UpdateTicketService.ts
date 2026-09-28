@@ -1,3 +1,5 @@
+import { buildMetaWbot } from "../MetaWhatsAppServices/MetaWbotAdapter";
+import Whatsapp from "../../models/Whatsapp";
 import moment from "moment";
 import CheckContactOpenTickets from "../../helpers/CheckContactOpenTickets";
 import SetTicketMessagesAsRead from "../../helpers/SetTicketMessagesAsRead";
@@ -48,8 +50,11 @@ const sendFormattedMessage = async (
   ticket: Ticket,
   user?: User
 ) => {
+  if (ticket.whatsapp?.apiMode === "official") {
+    await SendWhatsAppMessage({ body: message, ticket, userId: user?.id });
+    return;
+  }
   const messageText = formatBody(message, ticket, user);
-
   const wbot = await GetTicketWbot(ticket);
   const queueChangedMessage = await wbot.sendMessage(getJidOf(ticket), {
     text: messageText
@@ -274,7 +279,9 @@ const UpdateTicketService = async ({
         if (ticket.channel === "whatsapp" && !isGroup) {
           const sentMessage = await SendWhatsAppMessage({ body, ticket });
 
-          await verifyMessage(sentMessage, ticket, ticket.contact);
+          if (ticket.whatsapp?.apiMode !== "official") {
+            await verifyMessage(sentMessage, ticket, ticket.contact);
+          }
         }
       }
 
@@ -392,65 +399,76 @@ const UpdateTicketService = async ({
 
     ticketTraking.save();
 
-    if (
-      !isGroup &&
-      !dontRunChatbot &&
-      !ticket.userId &&
-      ticket.queueId &&
-      (ticket.queueId !== oldQueueId || transferTarget.connectionChanged)
-    ) {
-      const wbot = await GetTicketWbot(ticket);
-      if (wbot) {
-        await startQueue(wbot, ticket);
-        await ticket.reload();
-      }
-    }
-
-    if (
-      !isGroup &&
-      !ticket.chatbot &&
-      !ticket.contact.disableBot &&
-      !fromChatbot &&
-      !dontRunChatbot
-    ) {
-      let accepted = false;
+    try {
       if (
-        ticket.userId &&
-        ticket.status === "open" &&
-        ticket.userId !== oldUserId
-      ) {
-        const acceptedMessage = await GetCompanySetting(
-          companyId,
-          "ticketAcceptedMessage",
-          ""
-        );
-
-        if (acceptedMessage && ticket.whatsapp?.status === "CONNECTED") {
-          const acceptUser = await User.findByPk(userId);
-          await sendFormattedMessage(acceptedMessage, ticket, acceptUser);
-          accepted = true;
-        }
-      }
-
-      if (
-        !accepted &&
-        oldQueueId &&
+        !isGroup &&
+        !dontRunChatbot &&
+        !ticket.userId &&
         ticket.queueId &&
-        (oldQueueId !== ticket.queueId || transferTarget.connectionChanged) &&
-        ticket.whatsapp?.status === "CONNECTED"
+        (ticket.queueId !== oldQueueId || transferTarget.connectionChanged)
       ) {
-        const systemTransferMessage = await GetCompanySetting(
-          companyId,
-          "transferMessage",
-          ""
-        );
-        const transferMessage =
-          ticket.whatsapp.transferMessage || systemTransferMessage;
-
-        if (transferMessage) {
-          await sendFormattedMessage(transferMessage, ticket);
+        const wbot =
+          ticket.whatsapp?.apiMode === "official"
+            ? buildMetaWbot(await Whatsapp.findByPk(ticket.whatsappId))
+            : await GetTicketWbot(ticket);
+        if (wbot) {
+          await startQueue(wbot, ticket);
+          await ticket.reload();
         }
       }
+
+      if (
+        !isGroup &&
+        !ticket.chatbot &&
+        !ticket.contact.disableBot &&
+        !fromChatbot &&
+        !dontRunChatbot
+      ) {
+        let accepted = false;
+        if (
+          ticket.userId &&
+          ticket.status === "open" &&
+          ticket.userId !== oldUserId
+        ) {
+          const acceptedMessage = await GetCompanySetting(
+            companyId,
+            "ticketAcceptedMessage",
+            ""
+          );
+
+          if (acceptedMessage && ticket.whatsapp?.status === "CONNECTED") {
+            const acceptUser = await User.findByPk(userId);
+            await sendFormattedMessage(acceptedMessage, ticket, acceptUser);
+            accepted = true;
+          }
+        }
+
+        if (
+          !accepted &&
+          oldQueueId &&
+          ticket.queueId &&
+          (oldQueueId !== ticket.queueId || transferTarget.connectionChanged) &&
+          ticket.whatsapp?.status === "CONNECTED"
+        ) {
+          const systemTransferMessage = await GetCompanySetting(
+            companyId,
+            "transferMessage",
+            ""
+          );
+          const transferMessage =
+            ticket.whatsapp.transferMessage || systemTransferMessage;
+
+          if (transferMessage) {
+            await sendFormattedMessage(transferMessage, ticket);
+          }
+        }
+      }
+    } catch (error) {
+      if (ticket.whatsapp?.apiMode !== "official") throw error;
+      logger.error(
+        { ticketId: ticket.id, message: error?.message },
+        "Could not send automatic messages after updating the ticket"
+      );
     }
 
     if (justClose && status === "closed") {

@@ -1,3 +1,7 @@
+import Whatsapp from "../models/Whatsapp";
+import SendMetaReactionService from "../services/MetaWhatsAppServices/SendMetaReactionService";
+import GetTicketServiceWindowService from "../services/TicketServices/TicketServiceWindowService";
+import SendTicketTemplateService from "../services/MetaWhatsAppServices/SendTicketTemplateService";
 import { Request, Response } from "express";
 import fs from "fs";
 import AppError from "../errors/AppError";
@@ -6,7 +10,6 @@ import SetTicketMessagesAsRead from "../helpers/SetTicketMessagesAsRead";
 import { getIO } from "../libs/socket";
 import Queue from "../models/Queue";
 import User from "../models/User";
-import Whatsapp from "../models/Whatsapp";
 
 import ListMessagesService from "../services/MessageServices/ListMessagesService";
 import ShowTicketService from "../services/TicketServices/ShowTicketService";
@@ -167,9 +170,17 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     companyId
   });
   const { channel } = ticket;
+  if (
+    channel === "whatsapp" &&
+    !ticket.isGroup &&
+    ticket.whatsapp?.apiMode === "official"
+  ) {
+    const window = await GetTicketServiceWindowService(ticket);
+    if (!window.open) throw new AppError("ERR_META_WINDOW_CLOSED", 403);
+  }
   if (channel === "whatsapp") {
     await SetTicketMessagesAsRead(ticket);
-    if (!ticket.isGroup) {
+    if (!ticket.isGroup && ticket.whatsapp?.apiMode !== "official") {
       const contact = await ShowContactService(ticket.contactId, companyId);
       if (!contact.number.includes("@") && !contact.whatsappLidMap) {
         await verifyContact(
@@ -204,6 +215,34 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   return res.send();
 };
 
+// Unico caminho aceito pela Meta para iniciar conversa ou reengajar fora da
+// janela de 24h.
+export const storeTemplate = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { ticketId } = req.params;
+  const { name, language, parameters } = req.body;
+  const { companyId } = req.user;
+  const userId = Number(req.user.id) || null;
+
+  const ticket = await ShowTicketService(ticketId, companyId);
+
+  if (ticket.isGroup) {
+    throw new AppError("ERR_META_TEMPLATE_ON_GROUP", 400);
+  }
+
+  await SendTicketTemplateService({
+    ticket,
+    name,
+    language,
+    parameters: Array.isArray(parameters) ? parameters : [],
+    userId
+  });
+
+  return res.send();
+};
+
 export const react = async (req: Request, res: Response): Promise<Response> => {
   const { messageId } = req.params;
   const { companyId } = req.user;
@@ -223,6 +262,16 @@ export const react = async (req: Request, res: Response): Promise<Response> => {
   const ticket = await ShowTicketService(ticketId, companyId);
   if (ticket.isGroup) {
     await assertGroupAccess(ticketId, req.user);
+  }
+  if (ticket.whatsapp?.apiMode === "official") {
+    await SendMetaReactionService({
+      connection: await Whatsapp.findByPk(ticket.whatsappId),
+      ticket,
+      messageId,
+      emoji,
+      userId: Number(req.user.id) || null
+    });
+    return res.send();
   }
   const wbot = getWbot(ticket.whatsappId);
 

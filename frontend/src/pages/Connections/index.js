@@ -1,5 +1,6 @@
+import { AuthContext } from "../../context/Auth/AuthContext";
 import StardewEmblem from "../../components/StardewEmblem";
-import React, { useState, useCallback, useContext } from "react";
+import React, { useState, useCallback, useContext, useEffect } from "react";
 import { toast } from "react-toastify";
 import { format, parseISO } from "date-fns";
 
@@ -59,6 +60,7 @@ import toastError from "../../errors/toastError";
 import wavoipIcon from "../../assets/wavoip.webp";
 import WavoipModal from "../../components/WavoipModal";
 import { wavoipAvailable } from "../../helpers/wavoipCallManager";
+import MetaEmbeddedSignupButton from "../../components/MetaEmbeddedSignupButton";
 import { formatWhatsappDigits } from "../../helpers/formatWhatsappDisplay";
 
 const useStyles = makeStyles(theme => ({
@@ -115,6 +117,7 @@ const CustomToolTip = ({ title, content, children }) => {
 };
 
 const Connections = () => {
+  const { user } = useContext(AuthContext);
   const classes = useStyles();
   const theme = useTheme();
 
@@ -138,6 +141,15 @@ const Connections = () => {
   const [passkeyModalOpen, setPasskeyModalOpen] = useState(false);
   const [passkeyInitialToken, setPasskeyInitialToken] = useState("");
   const [connectorReady, setConnectorReady] = useState(false);
+  const [metaConfig, setMetaConfig] = useState({ appId: null, configId: null });
+
+  useEffect(() => {
+    if (user?.company?.whatsappMode !== "meta") return;
+    api
+      .get("/whatsapp/meta/config")
+      .then(({ data }) => setMetaConfig(data))
+      .catch(toastError);
+  }, [user?.company?.whatsappMode]);
 
   const handleStartWhatsAppSession = async whatsAppId => {
     try {
@@ -288,6 +300,37 @@ const Connections = () => {
   };
 
   const renderActionButtons = whatsApp => {
+    const isOfficial = whatsApp.apiMode === "official";
+
+    if (isOfficial) {
+      return (
+        <>
+          {whatsApp.status !== "CONNECTED" && (
+            <MetaEmbeddedSignupButton
+              whatsAppId={whatsApp.id}
+              appId={metaConfig.appId}
+              configId={metaConfig.configId}
+              onConnected={() => window.location.reload()}
+            />
+          )}
+          {(whatsApp.status === "CONNECTED" ||
+            whatsApp.status === "PAIRING" ||
+            whatsApp.status === "TIMEOUT") && (
+            <Tooltip title={i18n.t("connections.toolTips.disconnect")}>
+              <IconButton
+                size="small"
+                onClick={() => {
+                  handleOpenConfirmationModal("disconnect", whatsApp.id);
+                }}
+              >
+                <FontAwesomeIcon icon={faPhoneSlash} />
+              </IconButton>
+            </Tooltip>
+          )}
+        </>
+      );
+    }
+
     return (
       <>
         {whatsApp.status === "qrcode" && (
@@ -548,12 +591,27 @@ const Connections = () => {
                         </IconButton>
 
                         {whatsApp.status === "CONNECTED" && (
-                          <IconButton
-                            size="small"
-                            onClick={() => handleOpenPrivacyWhatsApp(whatsApp)}
+                          <Tooltip
+                            title={
+                              whatsApp.apiMode === "official"
+                                ? i18n.t(
+                                    "connections.toolTips.notAvailableOfficial"
+                                  )
+                                : ""
+                            }
                           >
-                            <Lock />
-                          </IconButton>
+                            <span>
+                              <IconButton
+                                size="small"
+                                disabled={whatsApp.apiMode === "official"}
+                                onClick={() =>
+                                  handleOpenPrivacyWhatsApp(whatsApp)
+                                }
+                              >
+                                <Lock />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
                         )}
 
                         {false &&

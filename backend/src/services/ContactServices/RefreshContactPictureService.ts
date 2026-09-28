@@ -30,6 +30,7 @@ const RefreshContactPictureService = async (id: string, companyId: number) => {
         // Negative caching prevents repeated requests for private/missing photos.
         await cacheLayer.set(key, "1", "EX", 300);
         const whatsapp = await GetDefaultWhatsApp(companyId);
+        if (whatsapp.apiMode === "official") return pictures();
         const wbot = getWbot(whatsapp.id);
         const jid = contact.number.includes("@")
           ? contact.number

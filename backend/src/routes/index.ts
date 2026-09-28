@@ -49,6 +49,9 @@ import billingAdminRoutes from "./billingAdminRoutes";
 import prospeccaoRoutes from "./prospeccaoRoutes";
 import pushRoutes from "./pushRoutes";
 
+import metaWhatsappRoutes from "./metaWhatsappRoutes";
+import metaWhatsappWebhookRoutes from "./metaWhatsappWebhookRoutes";
+
 const routes = Router();
 
 routes.use(platformRoutes);
@@ -99,5 +102,8 @@ routes.use(ticketzOSSRoutes);
 routes.use(i18nRoutes);
 routes.use(wavoipRoutes);
 routes.use(ogRoutes);
+
+routes.use(metaWhatsappRoutes);
+routes.use(metaWhatsappWebhookRoutes);
 
 export default routes;

@@ -1,3 +1,4 @@
+import { assertCompanyWhatsAppModeUnchanged } from "./CompanyWhatsAppModeService";
 import { Op, Transaction } from "sequelize";
 import AppError from "../../errors/AppError";
 import Company from "../../models/Company";
@@ -19,6 +20,7 @@ import {
 import { assertCompanyTimezone } from "./CompanyTimezoneService";
 
 interface CompanyData {
+  whatsappMode?: "normal" | "meta";
   name: string;
   id?: number | string;
   phone?: string;
@@ -62,6 +64,11 @@ const UpdateCompanyService = async (
   if (!company) {
     throw new AppError("ERR_NO_COMPANY_FOUND", 404);
   }
+
+  assertCompanyWhatsAppModeUnchanged(
+    company.whatsappMode,
+    companyData.whatsappMode
+  );
 
   const previousPlanId = company.planId;
   const wasActive = company.status;

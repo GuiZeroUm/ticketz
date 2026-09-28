@@ -15,7 +15,7 @@ const TRIAL_DAYS = 3;
 // Limite do periodo inicial: 3 anos e mais do que qualquer caso comercial.
 const MAX_INTRO_MONTHS = 36;
 
-const parseSaleValue = (value: any): number => {
+const parseSaleValue = (value: unknown): number => {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) {
     throw new AppError("ERR_INVALID_SALE_VALUE", 400);
@@ -23,7 +23,7 @@ const parseSaleValue = (value: any): number => {
   return Math.round(parsed * 100) / 100;
 };
 
-const isEmpty = (value: any): boolean =>
+const isEmpty = (value: unknown): boolean =>
   value === undefined || value === null || value === "";
 
 export interface IntroPricing {
@@ -40,8 +40,8 @@ export interface IntroPricing {
  * menos). A unica trava e o custo de revenda, aplicada no assertAboveFloor.
  */
 const parseIntroPricing = (data: {
-  introValue?: any;
-  introMonths?: any;
+  introValue?: unknown;
+  introMonths?: unknown;
 }): IntroPricing | undefined => {
   if (data.introValue === undefined && data.introMonths === undefined) {
     return undefined;
@@ -173,6 +173,7 @@ export const ShowPartnerCompany = async (
 };
 
 interface PartnerCompanyData {
+  whatsappMode?: "normal" | "meta";
   name: string;
   email: string;
   phone?: string;
@@ -205,6 +206,7 @@ export const CreatePartnerCompany = async (
 
   return CreateCompanyService({
     name: data.name,
+    whatsappMode: data.whatsappMode,
     email: data.email,
     phone: data.phone,
     password: data.password,
@@ -259,6 +261,7 @@ export const UpdatePartnerCompany = async (
   // O parceiro nao mexe em status, vencimento nem slug.
   return UpdateCompanyService({
     id: company.id,
+    whatsappMode: data.whatsappMode,
     name: data.name || company.name,
     email: data.email ?? company.email,
     phone: data.phone ?? company.phone,

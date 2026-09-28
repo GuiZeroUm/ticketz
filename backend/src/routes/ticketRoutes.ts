@@ -16,6 +16,13 @@ ticketRoutes.get(
 );
 
 ticketRoutes.get(
+  "/tickets/:ticketId/templates",
+  isAuth,
+  isCompliant,
+  TicketController.templates
+);
+
+ticketRoutes.get(
   "/tickets/:ticketId",
   isAuth,
   isCompliant,

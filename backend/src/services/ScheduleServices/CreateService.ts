@@ -1,3 +1,4 @@
+import { assertScheduleProvider } from "./assertScheduleProvider";
 import sequelize from "../../database";
 import AppError from "../../errors/AppError";
 import CommemorativeDate from "../../models/CommemorativeDate";
@@ -84,6 +85,7 @@ export const calculateNextRun = async (
 };
 
 const CreateService = async (input: SchedulePayload): Promise<Schedule> => {
+  await assertScheduleProvider(input.companyId);
   const payload = normalizePayload(input);
   if (!payload.body || payload.body.trim().length < 5) {
     throw new AppError("ERR_SCHEDULE_INVALID_MESSAGE", 400);

@@ -6,6 +6,7 @@ import CreateCompanyService from "../../services/CompanyService/CreateCompanySer
 import {
   cancelPlatformTenant,
   createPlatformTenant,
+  updatePlatformTenant,
   suspendPlatformTenant
 } from "../../services/PlatformServices/PlatformTenantService";
 import { issuePlatformAccessToken } from "../../services/PlatformServices/PlatformAccessTokenService";
@@ -102,7 +103,8 @@ describe("Platform tenant lifecycle", () => {
       nome: "Tenant A",
       slug: "tenant-a",
       email_admin: "admin@example.com",
-      plano_ref: "2"
+      plano_ref: "2",
+      whatsapp_mode: "meta"
     });
 
     expect(response).toMatchObject({
@@ -111,7 +113,10 @@ describe("Platform tenant lifecycle", () => {
       ativacao_url: "https://tenant-a.espacowhats.com.br/ativar/one-time-token"
     });
     expect(createCompany).toHaveBeenCalledWith(
-      expect.objectContaining({ passwordConfigured: false }),
+      expect.objectContaining({
+        passwordConfigured: false,
+        whatsappMode: "meta"
+      }),
       { transaction }
     );
     expect(issueAccess).toHaveBeenCalledWith(
@@ -209,4 +214,27 @@ describe("Platform tenant lifecycle", () => {
     );
     expect(webhook).not.toHaveBeenCalled();
   });
+});
+
+describe("Platform provider immutability", () => {
+  beforeEach(() => jest.clearAllMocks());
+  it.each([
+    ["normal", "meta"],
+    ["meta", "normal"]
+  ])(
+    "rejects %s to %s before beginning a transaction",
+    async (current, next) => {
+      companyFindByPk.mockResolvedValue({
+        id: 12,
+        whatsappMode: current
+      } as Company);
+      await expect(
+        updatePlatformTenant("12", { whatsapp_mode: next })
+      ).rejects.toMatchObject({
+        code: "whatsapp_mode_immutable",
+        statusCode: 409
+      });
+      expect(transactionMock).not.toHaveBeenCalled();
+    }
+  );
 });

@@ -1,4 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import {
+  assertCompanyWhatsAppMode,
+  assertCompanyWhatsAppModeUnchanged
+} from "../CompanyService/CompanyWhatsAppModeService";
 import { randomBytes } from "crypto";
 import { addDays } from "date-fns";
 import { Op } from "sequelize";
@@ -117,6 +121,13 @@ export const createPlatformTenant = async (
       campos: missing.length ? missing : ["slug", "email_admin"]
     });
   }
+  const whatsappMode =
+    body.whatsappMode !== undefined ? body.whatsappMode : body.whatsapp_mode;
+  try {
+    assertCompanyWhatsAppMode(whatsappMode);
+  } catch {
+    validationError({ whatsappMode });
+  }
   const cycle = body.ciclo || "mensal";
   const billing = body.faturamento || "plataforma";
   if (!CYCLES.includes(cycle) || !["plataforma", "sistema"].includes(billing)) {
@@ -147,6 +158,7 @@ export const createPlatformTenant = async (
     const company = await CreateCompanyService(
       {
         name: body.nome,
+        whatsappMode,
         slug,
         email: body.email_admin,
         phone: body.telefone,
@@ -214,6 +226,19 @@ export const updatePlatformTenant = async (
   body: Record<string, any>
 ): Promise<Record<string, unknown>> => {
   const company = await getCompany(id);
+  const whatsappMode =
+    body.whatsappMode !== undefined ? body.whatsappMode : body.whatsapp_mode;
+  try {
+    assertCompanyWhatsAppModeUnchanged(company.whatsappMode, whatsappMode);
+  } catch (error) {
+    throw new PlatformApiError(
+      error.message === "ERR_COMPANY_WHATSAPP_MODE_IMMUTABLE"
+        ? "whatsapp_mode_immutable"
+        : "validation_error",
+      error.message,
+      error.statusCode || 422
+    );
+  }
   const plan = body.plano_ref
     ? await findPlan(String(body.plano_ref))
     : await Plan.findByPk(company.planId);
@@ -242,6 +267,7 @@ export const updatePlatformTenant = async (
     await UpdateCompanyService(
       {
         id: company.id,
+        whatsappMode,
         name: body.nome === undefined ? company.name : body.nome,
         email:
           body.email_admin === undefined ? company.email : body.email_admin,

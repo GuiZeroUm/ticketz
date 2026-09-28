@@ -9,6 +9,7 @@ import {
   ForeignKey,
   BelongsTo,
   DataType,
+  Default,
   HasMany
 } from "sequelize-typescript";
 import Contact from "./Contact";
@@ -81,6 +82,10 @@ class Company extends Model<Company> {
 
   @Column
   slug: string;
+
+  @Default("normal")
+  @Column(DataType.STRING)
+  whatsappMode: "normal" | "meta";
 
   @Column
   platformStatus: string;

@@ -51,6 +51,7 @@ export const serializeTenant = (
   tenant_id: String(company.id),
   slug: company.slug,
   nome: company.name,
+  whatsapp_mode: company.whatsappMode,
   status: company.platformStatus || (company.status ? "ativo" : "suspenso"),
   plano_ref: planRef(plan),
   ciclo: (company.recurrence || "MENSAL").toLowerCase(),

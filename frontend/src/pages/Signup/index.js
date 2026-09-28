@@ -1,3 +1,4 @@
+import CompanyWhatsAppModeField from "../../components/CompanyWhatsAppModeField";
 import React, { useState, useEffect, useRef } from "react";
 import qs from "query-string";
 
@@ -82,6 +83,7 @@ const SignUp = () => {
   }
 
   const initialState = {
+    whatsappMode: "normal",
     name: "",
     email: "",
     phone: "",
@@ -147,11 +149,17 @@ const SignUp = () => {
             }, 400);
           }}
         >
-          {({ touched, errors, isSubmitting }) => (
+          {({ touched, errors, isSubmitting, values, handleChange }) => (
             <Form className={classes.form}>
               {allowSignup && (
                 <>
                   <Grid container spacing={2}>
+                    <Grid item xs={12}>
+                      <CompanyWhatsAppModeField
+                        value={values.whatsappMode}
+                        onChange={handleChange}
+                      />
+                    </Grid>
                     <Grid item xs={12}>
                       <Field
                         as={TextField}

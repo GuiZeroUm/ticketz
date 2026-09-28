@@ -1,3 +1,4 @@
+import { assertCompanyWhatsAppMode } from "./CompanyWhatsAppModeService";
 import * as Yup from "yup";
 import AppError from "../../errors/AppError";
 import Company from "../../models/Company";
@@ -18,6 +19,7 @@ import {
 import { assertCompanyTimezone } from "./CompanyTimezoneService";
 
 interface CompanyData {
+  whatsappMode?: "normal" | "meta";
   name: string;
   phone?: string;
   email?: string;
@@ -58,6 +60,7 @@ const CreateCompanyService = async (
     language
   } = companyData;
 
+  const whatsappMode = assertCompanyWhatsAppMode(companyData.whatsappMode);
   const slug = normalizeSlug(companyData.slug);
   const timezone = assertCompanyTimezone(companyData.timezone);
   const defaultDueDate = new Date();
@@ -127,6 +130,7 @@ const CreateCompanyService = async (
   const company = await Company.create(
     {
       name,
+      whatsappMode,
       phone,
       email,
       status: status !== false,
