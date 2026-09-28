@@ -101,3 +101,20 @@ it("exposes Latin words and spaces to assistive technology while hiding only dec
     expect(symbol.getAttribute("aria-hidden")).toBe("true");
   expect(container.textContent).toContain("Olá 😊 mundo!");
 });
+
+it("keeps formatter whitespace between blocks raw so native copy adds no extra line break", () => {
+  const text = "Olá mundo!";
+  const { container: original } = renderMessage(text, false, WhatsMarked);
+  const { container } = renderMessage(text, true);
+  const originalWhitespace = original.querySelector(".whatsmarked").lastChild;
+  const annotatedWhitespace = container.querySelector(".whatsmarked").lastChild;
+  expect(originalWhitespace.nodeType).toBe(Node.TEXT_NODE);
+  expect(annotatedWhitespace.nodeType).toBe(Node.TEXT_NODE);
+  expect(annotatedWhitespace.textContent).toBe(originalWhitespace.textContent);
+  expect(
+    Array.from(container.querySelectorAll(".sd-junimo-text")).some(node =>
+      /^\s*$/.test(node.textContent)
+    )
+  ).toBe(false);
+  expect(container.textContent).toBe(original.textContent);
+});

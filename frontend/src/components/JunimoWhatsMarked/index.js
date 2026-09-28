@@ -28,8 +28,11 @@ const hiddenTags = new Set(["script", "style", "iframe", "object", "embed"]);
 const safeHref = href => /^(https?:|mailto:|tel:|ftp:|\/|#)/i.test(href || "");
 
 function annotateNode(node, key) {
-  if (node.nodeType === 3)
+  if (node.nodeType === 3) {
+    // Formatter whitespace between blocks must stay collapsed as before.
+    if (/^\s*$/.test(node.textContent)) return node.textContent;
     return <JunimoText key={key} text={node.textContent} />;
+  }
   if (node.nodeType !== 1 || hiddenTags.has(node.localName)) return null;
   const children = Array.from(node.childNodes, (child, index) =>
     annotateNode(child, `${key}-${index}`)
