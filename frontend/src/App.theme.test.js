@@ -134,7 +134,7 @@ it("offers all three themes for the authenticated Teste tenant and keeps MUI pal
       .getAttribute("aria-checked")
   ).toBe("true");
   expect(mockMaterialTheme.palette.background.paper).toBe("#fff1c7");
-  expect(mockMaterialTheme.typography.fontFamily).toContain("Stardew Valley");
+  expect(mockMaterialTheme.typography.fontFamily).toContain("Inter");
   expect(mockMaterialTheme.overrides.MuiButton.root.borderRadius).toBe(0);
   select("themes.light");
   expectTheme("light");

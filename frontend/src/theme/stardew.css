@@ -16,8 +16,8 @@ html[data-theme="stardew"] body {
   font-family: var(--sd-font);
   color: var(--sd-ink);
   font-size: 19px;
-  background: #79b46a url("../../public/stardew/valley.svg") center bottom /
-    cover fixed;
+  background: #79b46a url("../../public/stardew/farm-background.png") center
+    bottom / cover fixed;
 }
 html[data-theme="stardew"] .ew-ui,
 html[data-theme="stardew"] .estrutura-app {

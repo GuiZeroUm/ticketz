@@ -37,3 +37,5 @@ As licenças/créditos estão em `frontend/public/stardew/`. As ilustrações de
 - `npm run build` no frontend: produção e pré-compressão dos assets.
 - Verificação visual autenticada desktop/mobile das rotas de operação, negócio, configurações e conversas; menus, troca entre os três temas e recarga da preferência.
 - Publicação somente do frontend; nenhuma migração, mudança de dados de conversas ou reinício de sessões WhatsApp é necessário.
+
+O fundo da interface do tema utiliza a imagem de fazenda fornecida pelo usuário em `public/stardew/farm-background.png`.
