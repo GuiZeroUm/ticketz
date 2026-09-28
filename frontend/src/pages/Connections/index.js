@@ -1,8 +1,9 @@
+import StardewEmblem from "../../components/StardewEmblem";
 import React, { useState, useCallback, useContext } from "react";
 import { toast } from "react-toastify";
 import { format, parseISO } from "date-fns";
 
-import { makeStyles } from "@material-ui/core/styles";
+import { makeStyles, useTheme } from "@material-ui/core/styles";
 import { green } from "@material-ui/core/colors";
 import {
   Button,
@@ -73,17 +74,19 @@ const useStyles = makeStyles(theme => ({
     justifyContent: "center"
   },
   tooltip: {
-    backgroundColor: "#f5f5f9",
-    color: "rgba(0, 0, 0, 0.87)",
-    fontSize: theme.typography.pxToRem(14),
-    border: "1px solid #dadde9",
+    backgroundColor: theme.isStardew ? theme.stardew.paper : "#f5f5f9",
+    color: theme.isStardew ? theme.stardew.ink : "rgba(0, 0, 0, 0.87)",
+    fontSize: theme.isStardew ? 19 : theme.typography.pxToRem(14),
+    border: theme.isStardew
+      ? `2px solid ${theme.stardew.border}`
+      : "1px solid #dadde9",
     maxWidth: 450
   },
   tooltipPopper: {
     textAlign: "center"
   },
   buttonProgress: {
-    color: green[500]
+    color: theme.isStardew ? theme.stardew.green : green[500]
   }
 }));
 
@@ -113,6 +116,7 @@ const CustomToolTip = ({ title, content, children }) => {
 
 const Connections = () => {
   const classes = useStyles();
+  const theme = useTheme();
 
   const { whatsApps, loading } = useContext(WhatsAppsContext);
   const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);
@@ -394,7 +398,11 @@ const Connections = () => {
         )}
         {whatsApp.status === "CONNECTED" && (
           <CustomToolTip title={i18n.t("connections.toolTips.connected.title")}>
-            <SignalCellular4Bar style={{ color: green[500] }} />
+            <SignalCellular4Bar
+              style={{
+                color: theme.isStardew ? theme.stardew.green : green[500]
+              }}
+            />
           </CustomToolTip>
         )}
         {(whatsApp.status === "TIMEOUT" || whatsApp.status === "PAIRING") && (
@@ -410,7 +418,7 @@ const Connections = () => {
   };
 
   return (
-    <MainContainer>
+    <MainContainer className="sv-operations sv-screen-connections">
       <ConfirmationModal
         title={confirmModalInfo.title}
         open={confirmModalOpen}
@@ -458,6 +466,7 @@ const Connections = () => {
         whatsappId={selectedWhatsApp?.id}
       />
       <MainHeader>
+        <StardewEmblem item="lamp" />
         <Title>{i18n.t("connections.title")}</Title>
         <MainHeaderButtonsWrapper>
           <Button
@@ -520,7 +529,13 @@ const Connections = () => {
                       <TableCell align="center">
                         {whatsApp.isDefault && (
                           <div className={classes.customTableCell}>
-                            <CheckCircle style={{ color: green[500] }} />
+                            <CheckCircle
+                              style={{
+                                color: theme.isStardew
+                                  ? theme.stardew.green
+                                  : green[500]
+                              }}
+                            />
                           </div>
                         )}
                       </TableCell>

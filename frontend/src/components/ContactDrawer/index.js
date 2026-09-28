@@ -202,7 +202,10 @@ const ContactDrawer = ({
         variant="persistent"
         anchor="right"
         open={open}
-        PaperProps={{ style: { position: "absolute" } }}
+        PaperProps={{
+          className: "conversa-contato",
+          style: { position: "absolute" }
+        }}
         BackdropProps={{ style: { position: "absolute" } }}
         ModalProps={{
           container: document.getElementById("drawer-container"),
@@ -212,7 +215,7 @@ const ContactDrawer = ({
           paper: classes.drawerPaper
         }}
       >
-        <div className={classes.header}>
+        <div className={`${classes.header} conversa-contato-cabecalho`}>
           <IconButton
             aria-label={i18n.t("fluxos.fechar")}
             onClick={handleDrawerClose}

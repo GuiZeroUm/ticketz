@@ -305,6 +305,7 @@ const CampaignModal = ({
         {i18n.t("campaigns.confirmationModal.deleteMessage")}
       </ConfirmationModal>
       <Dialog
+        PaperProps={{ className: "sd-campaign-dialog" }}
         open={open}
         onClose={handleClose}
         fullWidth

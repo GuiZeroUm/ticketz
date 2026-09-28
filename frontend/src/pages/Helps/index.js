@@ -1,3 +1,4 @@
+import StardewEmblem from "../../components/StardewEmblem";
 import React, { useCallback, useContext, useEffect, useState } from "react";
 import { useHistory, useParams } from "react-router-dom";
 
@@ -85,7 +86,8 @@ const Helps = () => {
         {company.length ? (
           <CategoryGrid
             title={i18n.t("helps.sections.company", {
-              name: user?.company?.name || i18n.t("helps.sections.companyFallback")
+              name:
+                user?.company?.name || i18n.t("helps.sections.companyFallback")
             })}
             groups={company}
             onSelect={g => goToGroup(g.id)}
@@ -139,8 +141,9 @@ const Helps = () => {
   };
 
   return (
-    <MainContainer>
+    <MainContainer className="sv-operations sv-screen-helps">
       <MainHeader>
+        <StardewEmblem item="book" />
         <Title>{i18n.t("helps.title")}</Title>
         <MainHeaderButtonsWrapper></MainHeaderButtonsWrapper>
       </MainHeader>

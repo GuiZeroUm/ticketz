@@ -1,3 +1,4 @@
+import ThemeSelector from "../../../components/ThemeSelector";
 import React, { useContext, useEffect, useState } from "react";
 import { useHistory, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -5,28 +6,21 @@ import { toast } from "react-toastify";
 import Button from "@material-ui/core/Button";
 import CircularProgress from "@material-ui/core/CircularProgress";
 import CssBaseline from "@material-ui/core/CssBaseline";
-import IconButton from "@material-ui/core/IconButton";
 import Paper from "@material-ui/core/Paper";
 import TextField from "@material-ui/core/TextField";
 import Typography from "@material-ui/core/Typography";
-import Brightness4Icon from "@material-ui/icons/Brightness4";
-import Brightness7Icon from "@material-ui/icons/Brightness7";
-import { useTheme } from "@material-ui/core/styles";
 
 import partnerApi from "../../../services/partnerApi";
 import toastError from "../../../errors/toastError";
 import { PartnerAuthContext } from "../../../context/PartnerAuth/PartnerAuthContext";
-import ColorModeContext from "../../../layout/themeContext";
 import { usePartnerAuthStyles } from "../Login";
 
 const MIN_PASSWORD_LENGTH = 6;
 
 const PartnerInvite = () => {
   const classes = usePartnerAuthStyles();
-  const theme = useTheme();
   const history = useHistory();
   const { token } = useParams();
-  const { colorMode } = useContext(ColorModeContext);
   const { loginWithToken } = useContext(PartnerAuthContext);
 
   const [checking, setChecking] = useState(true);
@@ -77,16 +71,12 @@ const PartnerInvite = () => {
   };
 
   return (
-    <div className={classes.root}>
+    <div className={`${classes.root} sd-partner-auth`}>
       <CssBaseline />
       <div className={classes.backgroundLayer} />
-      <IconButton
-        className={classes.themeToggle}
-        onClick={colorMode.toggleColorMode}
-        aria-label="alternar tema"
-      >
-        {theme.mode === "dark" ? <Brightness7Icon /> : <Brightness4Icon />}
-      </IconButton>
+      <div className={classes.themeToggle}>
+        <ThemeSelector />
+      </div>
       <div className={classes.content}>
         <Paper className={classes.paper} elevation={6}>
           <img className={classes.logoImg} alt="logo" />

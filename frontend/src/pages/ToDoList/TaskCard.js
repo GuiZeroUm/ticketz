@@ -55,7 +55,7 @@ const useStyles = makeStyles(theme => ({
     gap: theme.spacing(0.5),
     marginTop: theme.spacing(0.75),
     color: theme.palette.text.secondary,
-    fontSize: 11
+    fontSize: theme.isStardew ? 16 : 11
   },
   completedIcon: { fontSize: 14 },
   actions: { display: "flex", flex: "none", marginTop: -5, marginRight: -5 },
@@ -64,11 +64,20 @@ const useStyles = makeStyles(theme => ({
     marginTop: theme.spacing(0.75),
     padding: theme.spacing(0.25, 0.75),
     borderRadius: 999,
-    fontSize: 11
+    fontSize: theme.isStardew ? 16 : 11
   },
-  ok: { backgroundColor: "#E8F5E9", color: "#2E7D32" },
-  warning: { backgroundColor: "#FFF8E1", color: "#A05A00" },
-  overdue: { backgroundColor: "#FFEBEE", color: "#C62828" }
+  ok: {
+    backgroundColor: theme.isStardew ? "#e1ecaf" : "#E8F5E9",
+    color: theme.isStardew ? "#345e28" : "#2E7D32"
+  },
+  warning: {
+    backgroundColor: theme.isStardew ? "#f5d995" : "#FFF8E1",
+    color: theme.isStardew ? "#805335" : "#A05A00"
+  },
+  overdue: {
+    backgroundColor: theme.isStardew ? "#f4c8a5" : "#FFEBEE",
+    color: theme.isStardew ? "#a43d26" : "#C62828"
+  }
 }));
 
 const TaskCard = ({ task, onEdit, onDelete, onOpen, canAdminister }) => {
@@ -91,7 +100,7 @@ const TaskCard = ({ task, onEdit, onDelete, onOpen, canAdminister }) => {
     <Paper
       ref={setNodeRef}
       variant="outlined"
-      className={`${classes.card} ${isDragging ? classes.dragging : ""}`}
+      className={`${classes.card} sv-quest-card ${isDragging ? classes.dragging : ""}`}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       onClick={() => onOpen(task)}
     >
@@ -118,7 +127,9 @@ const TaskCard = ({ task, onEdit, onDelete, onOpen, canAdminister }) => {
           </div>
         )}
         {task.dueAt && !task.completedAt && (
-          <div className={`${classes.deadline} ${classes[deadline]}`}>
+          <div
+            className={`${classes.deadline} sv-quest-deadline ${classes[deadline]}`}
+          >
             {i18n.t(`todolist.deadline.${deadline}`)} ·{" "}
             {datetimeToClient(task.dueAt)}
           </div>

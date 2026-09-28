@@ -112,7 +112,7 @@ const PartnerPayoutsPanel = ({ partners }) => {
   };
 
   return (
-    <Paper className={classes.wrapper} variant="outlined">
+    <Paper className={`${classes.wrapper} sd-payout-ledger`} variant="outlined">
       <Typography className={classes.title}>Repasses</Typography>
 
       <Grid

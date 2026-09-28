@@ -35,7 +35,7 @@ const useStyles = makeStyles(theme => ({
     maxWidth: "unset",
     flex: 1,
     minWidth: 0,
-    borderRadius: 16
+    borderRadius: theme.isStardew ? 0 : 16
   },
   welcomeMsg: {
     display: "flex",
@@ -51,7 +51,10 @@ const TicketsCustom = () => {
   const { ticketId } = useParams();
 
   return (
-    <div className={`${classes.chatContainer} atendimento-layout`}>
+    <div
+      className={`${classes.chatContainer} atendimento-layout`}
+      data-stardew-screen="tickets"
+    >
       <div className={classes.chatPapper}>
         <PanelGroup
           direction="horizontal"

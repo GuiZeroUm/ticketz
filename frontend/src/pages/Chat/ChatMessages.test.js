@@ -37,14 +37,18 @@ const theme = createTheme({
     chatBubbleFromMe: { main: "white" }
   }
 });
-const setup = (messages = []) =>
+const setup = (
+  messages = [],
+  activeTheme = theme,
+  handleSendMessage = jest.fn()
+) =>
   render(
-    <ThemeProvider theme={theme}>
+    <ThemeProvider theme={activeTheme}>
       <AuthContext.Provider value={{ user: { id: 1, name: "QA" } }}>
         <ChatMessages
           chat={{ id: 7 }}
           messages={messages}
-          handleSendMessage={jest.fn()}
+          handleSendMessage={handleSendMessage}
           handleLoadMore={jest.fn()}
           scrollToBottomRef={{ current: null }}
           pageInfo={{ hasMore: false }}
@@ -151,4 +155,40 @@ test("repairs existing image and audio URLs and hides legacy duplicate filenames
     "/backend/public/audio.png"
   );
   expect(container.querySelectorAll(".chat-texto")).toHaveLength(0);
+});
+
+test("annotates received and sent Stardew messages while leaving the composer and outgoing data plain", async () => {
+  const text = "Olá 😊 mensagem original";
+  const send = jest.fn(async () => true);
+  const { container } = setup(
+    [1, 2].map(senderId => ({
+      id: senderId,
+      senderId,
+      sender: { name: "Pessoa" },
+      message: text,
+      createdAt: new Date().toISOString()
+    })),
+    createTheme({ ...theme, isStardew: true }),
+    send
+  );
+  expect(
+    container.querySelectorAll(".chat-texto .sd-junimo-text")
+  ).toHaveLength(2);
+  expect(
+    container.querySelector(".chat-compositor .sd-junimo-text")
+  ).toBeNull();
+  expect(
+    container.querySelector(".chat-mensagem.minha .chat-texto").textContent
+  ).toBe(text);
+  expect(
+    container.querySelector(".chat-mensagem.recebida .chat-texto").textContent
+  ).toBe(text);
+  fireEvent.change(screen.getByRole("textbox"), { target: { value: text } });
+  await act(async () =>
+    fireEvent.keyDown(screen.getByRole("textbox"), {
+      key: "Enter",
+      code: "Enter"
+    })
+  );
+  expect(send).toHaveBeenCalledWith(text);
 });

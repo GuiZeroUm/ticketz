@@ -1,3 +1,6 @@
+import NestedMenuItem from "material-ui-nested-menu-item";
+import { ThemeOptions } from "../../components/ThemeSelector";
+import { i18n } from "../../translate/i18n";
 import React, { useContext, useState } from "react";
 import clsx from "clsx";
 import { useHistory, useLocation } from "react-router-dom";
@@ -29,7 +32,6 @@ import SettingsIcon from "@material-ui/icons/Settings";
 
 import BackdropLoading from "../../components/BackdropLoading";
 import { PartnerAuthContext } from "../../context/PartnerAuth/PartnerAuthContext";
-import ColorModeContext from "../themeContext";
 
 const drawerWidth = 240;
 
@@ -187,7 +189,6 @@ const PartnerLayout = ({ children }) => {
   const theme = useTheme();
   const history = useHistory();
   const location = useLocation();
-  const { colorMode } = useContext(ColorModeContext);
   const { partner, loading, handleLogout } = useContext(PartnerAuthContext);
 
   const greaterThenSm = useMediaQuery(theme.breakpoints.up("sm"));
@@ -310,9 +311,12 @@ const PartnerLayout = ({ children }) => {
             open={Boolean(anchorEl)}
             onClose={() => setAnchorEl(null)}
           >
-            <MenuItem onClick={() => colorMode.toggleColorMode()}>
-              {theme.mode === "dark" ? "Modo claro" : "Modo escuro"}
-            </MenuItem>
+            <NestedMenuItem
+              label={i18n.t("themes.label")}
+              parentMenuOpen={Boolean(anchorEl)}
+            >
+              <ThemeOptions onSelect={() => setAnchorEl(null)} />
+            </NestedMenuItem>
             <MenuItem
               onClick={() => {
                 setAnchorEl(null);

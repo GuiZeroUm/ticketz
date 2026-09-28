@@ -45,8 +45,8 @@ function Player({ src }) {
           height: 36,
           barWidth: 2,
           barGap: 3,
-          barRadius: 2,
-          waveColor: "#94a3b8",
+          barRadius: theme.isStardew ? 0 : 2,
+          waveColor: theme.isStardew ? theme.stardew.muted : "#94a3b8",
           progressColor: primary,
           cursorWidth: 0,
           normalize: true
@@ -81,7 +81,7 @@ function Player({ src }) {
       media.pause();
       if (playingAudio === media) playingAudio = null;
     };
-  }, [src, primary]);
+  }, [src, primary, theme.isStardew, theme.stardew]);
 
   const toggle = () => {
     if (!audio.current.paused) audio.current.pause();

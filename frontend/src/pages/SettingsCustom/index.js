@@ -341,7 +341,7 @@ const SettingsCustom = () => {
   );
 
   return (
-    <MainContainer>
+    <MainContainer className="sd-business sd-settings">
       <MainHeader>
         <CabecalhoPagina
           titulo={i18n.t("settings.title")}

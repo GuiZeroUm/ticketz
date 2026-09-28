@@ -10,6 +10,7 @@ import {
 } from "@material-ui/core";
 import AvatarUsuario from "../../components/AvatarUsuario";
 import AudioMessage from "../../components/AudioMessage";
+import JunimoText from "../../components/JunimoText";
 import chatMediaUrl from "../../helpers/chatMediaUrl";
 import AttachmentPreview from "./AttachmentPreview";
 import { i18n } from "../../translate/i18n";
@@ -562,7 +563,9 @@ export default function ChatMessages({
                   {item.mediaPath && checkMessageMedia(item)}
                   {item.message &&
                     !(item.mediaPath && item.message === item.mediaName) && (
-                      <div className="chat-texto">{item.message}</div>
+                      <div className="chat-texto">
+                        <JunimoText text={item.message} />
+                      </div>
                     )}
                   <time title={datetimeToClient(item.createdAt)}>
                     {new Date(item.createdAt).toLocaleTimeString(

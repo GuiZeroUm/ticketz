@@ -195,7 +195,9 @@ export function TicketNotes({ ticket, contactWide = false }) {
             </Grid>
             {notes.length > 0 && (
               <Grid xs={12} item>
-                <List className={classes.list}>{renderNoteList()}</List>
+                <List className={`${classes.list} conversa-notas-lista`}>
+                  {renderNoteList()}
+                </List>
               </Grid>
             )}
           </Grid>

@@ -179,18 +179,18 @@ export function TicketCountersChart({ ticketCounters }) {
             cursor={true}
           />
           <Bar
-            radius={[3, 3, 0, 0]}
+            radius={theme.isStardew ? [0, 0, 0, 0] : [3, 3, 0, 0]}
             dataKey="created"
             stroke={theme.palette.primary.main}
             strokeWidth={2}
             fill={theme.palette.primary.main}
           />
           <Bar
-            radius={[3, 3, 0, 0]}
+            radius={theme.isStardew ? [0, 0, 0, 0] : [3, 3, 0, 0]}
             dataKey="closed"
-            stroke="#416971"
+            stroke={theme.isStardew ? theme.stardew.border : "#416971"}
             strokeWidth={2}
-            fill="#416971"
+            fill={theme.isStardew ? theme.stardew.gold : "#416971"}
           />
         </BarChart>
       </ResponsiveContainer>

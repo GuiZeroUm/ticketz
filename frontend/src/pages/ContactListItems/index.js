@@ -1,3 +1,4 @@
+import StardewEmblem from "../../components/StardewEmblem";
 import React, {
   useState,
   useEffect,
@@ -251,7 +252,9 @@ const ContactListItems = () => {
   };
 
   return (
-    <MainContainer className={classes.mainContainer}>
+    <MainContainer
+      className={`${classes.mainContainer} sv-operations sv-screen-contact-list-items`}
+    >
       <ContactListItemModal
         open={contactListItemModalOpen}
         onClose={handleCloseContactListItemModal}
@@ -286,6 +289,7 @@ const ContactListItems = () => {
         )}
       </ConfirmationModal>
       <MainHeader>
+        <StardewEmblem item="book" />
         <Grid style={{ width: "99.6%" }} container>
           <Grid xs={12} sm={5} item>
             <Title>{contactList.name}</Title>

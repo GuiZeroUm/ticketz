@@ -169,7 +169,13 @@ const AutomationDialog = ({ open, onClose, products, onSaved }) => {
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
+    <Dialog
+      PaperProps={{ className: "sd-quest-dialog" }}
+      open={open}
+      onClose={onClose}
+      maxWidth="lg"
+      fullWidth
+    >
       <DialogTitle>Envio automático</DialogTitle>
       <DialogContent dividers>
         {!config ? (

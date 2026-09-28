@@ -169,7 +169,11 @@ const FormCompany = () => {
   };
 
   return (
-    <Container component="main" maxWidth="xs">
+    <Container
+      component="main"
+      maxWidth="xs"
+      className="sd-business sd-companies"
+    >
       <CssBaseline />
       <div className={classes.paper}>
         <Avatar className={classes.avatar}>

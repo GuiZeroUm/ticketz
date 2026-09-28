@@ -43,7 +43,7 @@ const useStyles = makeStyles(theme => ({
   },
 
   buttonProgress: {
-    color: green[500],
+    color: theme.isStardew ? theme.stardew.green : green[500],
     position: "absolute",
     top: "50%",
     left: "50%",

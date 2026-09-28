@@ -23,7 +23,7 @@ import SettingsEthernetIcon from "@material-ui/icons/SettingsEthernet";
 
 import MainListItems from "./MainListItems";
 import FerramentasBarra from "./FerramentasBarra";
-import { PanelLeft, Headphones, Moon, Sun } from "lucide-react";
+import { PanelLeft, Headphones } from "lucide-react";
 import "./estrutura.css";
 import NotificationsPopOver from "../components/NotificationsPopOver";
 import { Backendlogs } from "../components/Backendlogs";
@@ -44,7 +44,7 @@ import ChatPopover from "../pages/Chat/ChatPopover";
 import { useDate } from "../hooks/useDate";
 import useAuth from "../hooks/useAuth.js";
 
-import ColorModeContext from "../layout/themeContext";
+import ThemeSelector, { ThemeOptions } from "../components/ThemeSelector";
 import NestedMenuItem from "material-ui-nested-menu-item";
 import GoogleAnalytics from "../components/GoogleAnalytics";
 import OnlyForSuperUser from "../components/OnlyForSuperUser";
@@ -375,7 +375,6 @@ const LoggedInLayout = ({ children, themeToggle }) => {
   const theme = useTheme();
   const greaterThenSm = useMediaQuery(theme.breakpoints.up("sm"));
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const { colorMode } = useContext(ColorModeContext);
 
   const [currentLanguage, setCurrentLanguage] = useState(i18n.language);
 
@@ -571,10 +570,6 @@ const LoggedInLayout = ({ children, themeToggle }) => {
     });
   };
 
-  const toggleColorMode = () => {
-    colorMode.toggleColorMode();
-  };
-
   const handleChooseLanguage = language => {
     localStorage.setItem("language", language);
     window.location.reload(false);
@@ -688,17 +683,7 @@ const LoggedInLayout = ({ children, themeToggle }) => {
             <AnnouncementsPopover />
             <ChatPopover />
           </FerramentasBarra>
-          <Tooltip
-            title={i18n.t(
-              theme.mode === "dark"
-                ? "mainDrawer.appBar.user.lightmode"
-                : "mainDrawer.appBar.user.darkmode"
-            )}
-          >
-            <IconButton color="inherit" onClick={toggleColorMode}>
-              {theme.mode === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-            </IconButton>
-          </Tooltip>
+          <ThemeSelector />
         </div>
         <Button
           className={`${classes.rodapeUsuario} nav-perfil`}
@@ -761,11 +746,12 @@ const LoggedInLayout = ({ children, themeToggle }) => {
         <MenuItem onClick={handleOpenUserModal}>
           {i18n.t("mainDrawer.appBar.user.profile")}
         </MenuItem>
-        <MenuItem onClick={toggleColorMode}>
-          {theme.mode === "dark"
-            ? i18n.t("mainDrawer.appBar.user.lightmode")
-            : i18n.t("mainDrawer.appBar.user.darkmode")}
-        </MenuItem>
+        <NestedMenuItem
+          label={i18n.t("themes.label")}
+          parentMenuOpen={menuOpen}
+        >
+          <ThemeOptions onSelect={handleCloseProfileMenu} />
+        </NestedMenuItem>
         <NestedMenuItem
           label={i18n.t("mainDrawer.appBar.user.language")}
           parentMenuOpen={menuOpen}

@@ -45,7 +45,7 @@ import {
   CropFree
 } from "@material-ui/icons";
 
-import WhatsMarked from "react-whatsmarked";
+import WhatsMarked from "../JunimoWhatsMarked";
 import PdfPreview from "../PdfPreview";
 import MessageOptionsMenu from "../MessageOptionsMenu";
 import MediaGalleryLightbox, {
@@ -176,7 +176,11 @@ const useStyles = makeStyles(theme => ({
 
     whiteSpace: "pre-wrap",
     backgroundColor: theme.palette.background.paper,
-    color: theme.mode === "light" ? "#303030" : "#ffffff",
+    color: theme.isStardew
+      ? theme.stardew.ink
+      : theme.mode === "light"
+        ? "#303030"
+        : "#ffffff",
     alignSelf: "flex-start",
     borderTopLeftRadius: 0,
     borderTopRightRadius: 8,
@@ -214,7 +218,7 @@ const useStyles = makeStyles(theme => ({
   quotedSideColorLeft: {
     flex: "none",
     width: "4px",
-    backgroundColor: "#6bcbef"
+    backgroundColor: theme.isStardew ? theme.stardew.green : "#6bcbef"
   },
 
   quotedThumbnail: {
@@ -242,7 +246,11 @@ const useStyles = makeStyles(theme => ({
       },
     whiteSpace: "pre-wrap",
     backgroundColor: alpha(theme.palette.primary.main, 0.09),
-    color: theme.mode === "light" ? "#303030" : "#ffffff",
+    color: theme.isStardew
+      ? theme.stardew.ink
+      : theme.mode === "light"
+        ? "#303030"
+        : "#ffffff",
     alignSelf: "flex-end",
     borderTopLeftRadius: 8,
     borderTopRightRadius: 8,
@@ -276,7 +284,7 @@ const useStyles = makeStyles(theme => ({
   quotedSideColorRight: {
     flex: "none",
     width: "4px",
-    backgroundColor: "#35cd96"
+    backgroundColor: theme.isStardew ? theme.stardew.green : "#35cd96"
   },
 
   messageActionsButton: {
@@ -319,13 +327,21 @@ const useStyles = makeStyles(theme => ({
 
   forwardedMessage: {
     display: "flex",
-    color: theme.mode === "light" ? "#999" : "#d0d0d0",
+    color: theme.isStardew
+      ? theme.stardew.muted
+      : theme.mode === "light"
+        ? "#999"
+        : "#d0d0d0",
     fontSize: 11,
     fontWeight: "bold"
   },
 
   forwardedIcon: {
-    color: theme.mode === "light" ? "#999" : "#d0d0d0",
+    color: theme.isStardew
+      ? theme.stardew.muted
+      : theme.mode === "light"
+        ? "#999"
+        : "#d0d0d0",
     fontSize: 15,
     verticalAlign: "middle",
     marginLeft: 4
@@ -354,7 +370,7 @@ const useStyles = makeStyles(theme => ({
 
   textContentItemDeleted: {
     fontStyle: "italic",
-    color: "rgba(0, 0, 0, 0.36)",
+    color: theme.isStardew ? theme.stardew.muted : "rgba(0, 0, 0, 0.36)",
     overflowWrap: "break-word",
     padding: "3px 80px 6px 6px"
   },
@@ -566,7 +582,11 @@ const useStyles = makeStyles(theme => ({
     height: "7px",
     borderRadius: "50%",
     marginRight: "3px",
-    background: theme.mode === "light" ? "#303030" : "#ffffff",
+    background: theme.isStardew
+      ? theme.stardew.green
+      : theme.mode === "light"
+        ? "#303030"
+        : "#ffffff",
     animation: "wave 1.3s linear infinite",
     "&:nth-child(2)": {
       animationDelay: "-1.1s"
@@ -594,7 +614,11 @@ const useStyles = makeStyles(theme => ({
     height: "100%",
     width: "var(--boxSize)",
     animationDuration: "1.2s",
-    backgroundColor: theme.mode === "light" ? "#303030" : "#ffffff",
+    backgroundColor: theme.isStardew
+      ? theme.stardew.green
+      : theme.mode === "light"
+        ? "#303030"
+        : "#ffffff",
     animationTimingFunction: "ease-in-out",
     animationIterationCount: "infinite",
     borderRadius: "8px"
@@ -667,7 +691,11 @@ const useStyles = makeStyles(theme => ({
     padding: 5,
     marginBottom: 5,
     borderLeft: "5px solid",
-    borderColor: theme.mode === "light" ? "#000" : "#fff"
+    borderColor: theme.isStardew
+      ? theme.stardew.border
+      : theme.mode === "light"
+        ? "#000"
+        : "#fff"
   },
   messageButton: {
     display: "flex",
@@ -1311,7 +1339,7 @@ const MessagesList = ({
     if (index === 0) {
       return (
         <span
-          className={classes.dailyTimestamp}
+          className={`${classes.dailyTimestamp} conversa-dia`}
           key={`timestamp-${message.id}`}
         >
           <div className={classes.dailyTimestampText}>
@@ -1327,7 +1355,7 @@ const MessagesList = ({
       if (!isSameDay(messageDay, previousMessageDay)) {
         return (
           <span
-            className={classes.dailyTimestamp}
+            className={`${classes.dailyTimestamp} conversa-dia`}
             key={`timestamp-${message.id}`}
           >
             <div className={classes.dailyTimestampText}>
@@ -1392,7 +1420,7 @@ const MessagesList = ({
       : mediaUrl;
     return (
       <div
-        className={clsx(classes.quotedContainerLeft, {
+        className={clsx(classes.quotedContainerLeft, "conversa-citacao", {
           [classes.quotedContainerRight]: message.fromMe
         })}
         onClick={() => scrollToMessage(message.quotedMsg.id)}
@@ -1433,7 +1461,9 @@ const MessagesList = ({
     return (
       reactions?.length > 0 && (
         <div className={classes.reactionsContainer}>
-          <div className={classes.reactions}>{reactions}</div>
+          <div className={`${classes.reactions} conversa-reacoes`}>
+            {reactions}
+          </div>
         </div>
       )
     );
@@ -1494,7 +1524,7 @@ const MessagesList = ({
         rel="noreferrer"
       >
         <div
-          className={clsx(classes.quotedContainerLeft, {
+          className={clsx(classes.quotedContainerLeft, "conversa-citacao", {
             [classes.quotedContainerRight]: message.fromMe
           })}
         >
@@ -1827,7 +1857,7 @@ const MessagesList = ({
             location.degreesLongitude
           )}
         </div>
-        <span className={classes.timestamp}>
+        <span className={`${classes.timestamp} conversa-horario`}>
           {format(parseISO(createdAt), "HH:mm")}
         </span>
       </div>
@@ -1987,7 +2017,7 @@ const MessagesList = ({
                     ))}
                   <span
                     className={[
-                      clsx(classes.timestamp, {
+                      clsx(classes.timestamp, "conversa-horario", {
                         [classes.timestampStickerLeft]: isSticker
                       })
                     ]}
@@ -2103,7 +2133,7 @@ const MessagesList = ({
                   ))}
                 <span
                   className={[
-                    clsx(classes.timestamp, {
+                    clsx(classes.timestamp, "conversa-horario", {
                       [classes.timestampStickerRight]: isSticker
                     })
                   ]}
@@ -2137,7 +2167,7 @@ const MessagesList = ({
         {viewMessagesList}
         <div
           ref={stickedRef}
-          className={classes.stickedMessages}
+          className={`${classes.stickedMessages} conversa-fixadas`}
           style={{ display: stickedMessages.length > 0 ? "flex" : "none" }}
         >
           {stickedMessages}
@@ -2147,7 +2177,7 @@ const MessagesList = ({
   };
 
   return (
-    <div className={classes.messagesListWrapper}>
+    <div className={`${classes.messagesListWrapper} conversa-historico`}>
       <MessageOptionsMenu
         message={selectedMessage}
         data={selectedMessageData}
@@ -2186,6 +2216,7 @@ const MessagesList = ({
       {ticket?.channel !== "whatsapp" ||
         (ticket.channel === undefined && (
           <div
+            className="conversa-aviso-canal"
             style={{
               width: "100%",
               display: "flex",

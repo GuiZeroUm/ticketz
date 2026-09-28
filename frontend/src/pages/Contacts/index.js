@@ -1,3 +1,4 @@
+import StardewEmblem from "../../components/StardewEmblem";
 import * as Tabs from "@radix-ui/react-tabs";
 import {
   Users,
@@ -251,7 +252,9 @@ const Contacts = () => {
   };
 
   return (
-    <MainContainer className={classes.mainContainer}>
+    <MainContainer
+      className={`${classes.mainContainer} sv-operations sv-screen-contacts`}
+    >
       <ContactModal
         open={contactModalOpen}
         onClose={handleCloseContactModal}
@@ -306,6 +309,7 @@ const Contacts = () => {
         </Grid>
       </ConfirmationModal>
       <MainHeader>
+        <StardewEmblem item="villager" />
         <CabecalhoPagina
           titulo={i18n.t("contacts.title")}
           descricao={i18n.t("visual.descricaoContatos")}

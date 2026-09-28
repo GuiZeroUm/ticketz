@@ -86,7 +86,7 @@ const ArticleView = ({ group, article, onBack, onBackToGroup }) => {
       </Box>
 
       <div
-        className={classes.content}
+        className={`${classes.content} sv-library-article`}
         // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{ __html: article.content || "" }}
       />

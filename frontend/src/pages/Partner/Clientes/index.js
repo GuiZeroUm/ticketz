@@ -46,13 +46,17 @@ const useStyles = makeStyles(theme => ({
     width: "100%"
   },
   inactive: {
-    color: "gray"
+    color: theme.isStardew ? "#805335" : "gray"
   },
   gracePeriod: {
-    color: "orange"
+    color: theme.isStardew ? "#9e6926" : "orange"
   },
   almostDue: {
-    color: theme.mode === "light" ? "blue" : "#38f"
+    color: theme.isStardew
+      ? "#44748a"
+      : theme.mode === "light"
+        ? "blue"
+        : "#38f"
   },
   introHint: {
     display: "block",
@@ -285,7 +289,7 @@ const PartnerClientes = () => {
   };
 
   return (
-    <MainContainer>
+    <MainContainer className="sd-business sd-partner-clients">
       <MainHeader>
         <Title>Meus clientes</Title>
         <MainHeaderButtonsWrapper>

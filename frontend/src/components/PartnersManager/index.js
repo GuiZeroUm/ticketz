@@ -48,7 +48,7 @@ const useStyles = makeStyles(theme => ({
     wordBreak: "break-all"
   },
   inactive: {
-    color: "gray"
+    color: theme.isStardew ? "#805335" : "gray"
   }
 }));
 
@@ -387,7 +387,7 @@ export default function PartnersManager() {
   };
 
   return (
-    <Paper className={classes.mainPaper} elevation={0}>
+    <Paper className={`${classes.mainPaper} sd-partner-register`} elevation={0}>
       <Grid spacing={2} container>
         <Grid xs={12} item>
           <PartnerForm
@@ -401,7 +401,10 @@ export default function PartnersManager() {
         </Grid>
         {inviteUrl ? (
           <Grid xs={12} item>
-            <Paper className={classes.inviteBox} variant="outlined">
+            <Paper
+              className={`${classes.inviteBox} sd-invite-letter`}
+              variant="outlined"
+            >
               <Typography variant="caption" color="textSecondary">
                 Envie este link por WhatsApp ou e-mail (expira em 7 dias):
               </Typography>

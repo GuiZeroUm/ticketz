@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { Button } from "@material-ui/core";
+import { Button, useTheme } from "@material-ui/core";
 import { Camera, Trash2 } from "lucide-react";
 import { toast } from "react-toastify";
 import AvatarUsuario from "../AvatarUsuario";
@@ -12,6 +12,7 @@ export default function FotoUsuario({
   aoAlterar,
   desabilitado
 }) {
+  const theme = useTheme();
   const entrada = useRef(null);
   const [previa, definirPrevia] = useState(null);
   useEffect(() => {
@@ -81,7 +82,13 @@ export default function FotoUsuario({
             <Trash2 size={16} />
           </Button>
         )}
-        <p style={{ fontSize: 11, opacity: 0.65, margin: "8px 0 0" }}>
+        <p
+          style={{
+            fontSize: theme.isStardew ? 16 : 11,
+            opacity: 0.65,
+            margin: "8px 0 0"
+          }}
+        >
           {i18n.t("perfilFoto.ajuda")}
         </p>
       </div>

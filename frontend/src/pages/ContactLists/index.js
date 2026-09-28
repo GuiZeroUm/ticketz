@@ -1,3 +1,4 @@
+import StardewEmblem from "../../components/StardewEmblem";
 import NavegacaoEnvios from "../../components/NavegacaoEnvios";
 import React, { useState, useEffect, useReducer, useContext } from "react";
 import { toast } from "react-toastify";
@@ -200,7 +201,7 @@ const ContactLists = () => {
   };
 
   return (
-    <MainContainer>
+    <MainContainer className="sv-operations sv-screen-contact-lists">
       <ConfirmationModal
         title={
           deletingContactList &&
@@ -221,6 +222,7 @@ const ContactLists = () => {
         contactListId={selectedContactList && selectedContactList.id}
       />
       <MainHeader>
+        <StardewEmblem item="book" />
         <Grid style={{ width: "99.6%" }} container>
           <Grid xs={12} sm={8} item>
             <Title>{i18n.t("contactLists.title")}</Title>

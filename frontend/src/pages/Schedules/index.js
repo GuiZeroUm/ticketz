@@ -1,3 +1,4 @@
+import StardewEmblem from "../../components/StardewEmblem";
 import React, { useCallback, useContext, useEffect, useState } from "react";
 import {
   Box,
@@ -278,7 +279,7 @@ const Schedules = () => {
   };
 
   return (
-    <MainContainer>
+    <MainContainer className="sv-operations sv-screen-schedules">
       <ConfirmationModal
         title={i18n.t("common.confirm")}
         open={Boolean(deleting)}
@@ -317,6 +318,7 @@ const Schedules = () => {
         onSaved={fetchDates}
       />
       <MainHeader>
+        <StardewEmblem item="calendar" />
         <Title>{i18n.t("schedules.title")}</Title>
         <MainHeaderButtonsWrapper>
           {tab === "schedules" ? (

@@ -1,3 +1,4 @@
+import JunimoText from "../JunimoText";
 import React, { useEffect, useState } from "react";
 import Button from "@material-ui/core/Button";
 import Dialog from "@material-ui/core/Dialog";
@@ -72,6 +73,7 @@ const MessageHistoryModal = ({ open, onClose, messageId }) => {
 
   return (
     <Dialog
+      className="conversa-dialogo"
       open={open}
       onClose={() => onClose(false)}
       aria-labelledby="dialog-title"
@@ -91,7 +93,7 @@ const MessageHistoryModal = ({ open, onClose, messageId }) => {
                 {oldMessages.map(oldMessage => (
                   <TableRow key={oldMessage.id}>
                     <TableCell component="th" scope="row">
-                      {oldMessage.body}
+                      <JunimoText text={oldMessage.body} />
                     </TableCell>
                     <TableCell align="right" className={classes.timestamp}>
                       {format(parseISO(oldMessage.createdAt), "dd/MM HH:mm")}

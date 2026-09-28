@@ -59,7 +59,13 @@ const ContactModal = ({
 
   return (
     <div className={classes.root}>
-      <Dialog open={open} onClose={handleClose} maxWidth="md" scroll="paper">
+      <Dialog
+        PaperProps={{ className: "sd-subscription-dialog" }}
+        open={open}
+        onClose={handleClose}
+        maxWidth="md"
+        scroll="paper"
+      >
         <DialogContent dividers>
           <CheckoutPage Invoice={Invoice} onClose={handleClose} />
         </DialogContent>

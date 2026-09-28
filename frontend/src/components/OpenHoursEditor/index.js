@@ -242,7 +242,7 @@ const OpenHoursEditor = ({ value = {}, onChange }) => {
   };
 
   return (
-    <div className={classes.root}>
+    <div className={`${classes.root} sd-hours-calendar`}>
       <Grid container spacing={2} alignItems="center">
         <Grid item xs={12}>
           <Autocomplete
@@ -297,7 +297,11 @@ const OpenHoursEditor = ({ value = {}, onChange }) => {
             </Typography>
 
             {weeklyRules.map((rule, ruleIndex) => (
-              <Paper key={ruleIndex} className={classes.ruleCard} elevation={0}>
+              <Paper
+                key={ruleIndex}
+                className={`${classes.ruleCard} sd-calendar-rule`}
+                elevation={0}
+              >
                 <Grid container spacing={2}>
                   <Grid item xs={12}>
                     <Box
@@ -360,7 +364,7 @@ const OpenHoursEditor = ({ value = {}, onChange }) => {
                                 e.target.value
                               )
                             }
-                            className={classes.timeField}
+                            className={`${classes.timeField} sd-calendar-time`}
                             InputLabelProps={{ shrink: true }}
                             inputProps={{ step: 300 }}
                           />
@@ -379,7 +383,7 @@ const OpenHoursEditor = ({ value = {}, onChange }) => {
                                 e.target.value
                               )
                             }
-                            className={classes.timeField}
+                            className={`${classes.timeField} sd-calendar-time`}
                             InputLabelProps={{ shrink: true }}
                             inputProps={{ step: 300 }}
                           />
@@ -435,7 +439,7 @@ const OpenHoursEditor = ({ value = {}, onChange }) => {
             {overrides.map((override, overrideIndex) => (
               <Paper
                 key={overrideIndex}
-                className={classes.overrideCard}
+                className={`${classes.overrideCard} sd-calendar-override`}
                 elevation={0}
               >
                 <Grid container spacing={2}>
@@ -559,7 +563,7 @@ const OpenHoursEditor = ({ value = {}, onChange }) => {
                                 e.target.value
                               )
                             }
-                            className={classes.timeField}
+                            className={`${classes.timeField} sd-calendar-time`}
                             InputLabelProps={{ shrink: true }}
                             inputProps={{ step: 300 }}
                           />
@@ -578,7 +582,7 @@ const OpenHoursEditor = ({ value = {}, onChange }) => {
                                 e.target.value
                               )
                             }
-                            className={classes.timeField}
+                            className={`${classes.timeField} sd-calendar-time`}
                             InputLabelProps={{ shrink: true }}
                             inputProps={{ step: 300 }}
                           />

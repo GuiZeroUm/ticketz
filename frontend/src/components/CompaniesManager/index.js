@@ -77,13 +77,17 @@ const useStyles = makeStyles(theme => ({
     padding: theme.spacing(1)
   },
   inactive: {
-    color: "gray"
+    color: theme.isStardew ? "#805335" : "gray"
   },
   gracePeriod: {
-    color: "orange"
+    color: theme.isStardew ? "#9e6926" : "orange"
   },
   almostDue: {
-    color: theme.mode === "light" ? "blue" : "#38f"
+    color: theme.isStardew
+      ? "#44748a"
+      : theme.mode === "light"
+        ? "blue"
+        : "#38f"
   }
 }));
 
@@ -953,7 +957,7 @@ export default function CompaniesManager() {
   };
 
   return (
-    <Paper className={classes.mainPaper} elevation={0}>
+    <Paper className={`${classes.mainPaper} sd-company-register`} elevation={0}>
       <Grid spacing={2} container>
         <Grid xs={12} item>
           <CompanyForm
