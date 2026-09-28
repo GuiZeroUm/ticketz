@@ -140,7 +140,7 @@ const ListTicketsService = async ({
     {
       model: Whatsapp,
       as: "whatsapp",
-      attributes: ["id", "name"]
+      attributes: ["id", "name", "apiMode"]
     }
   ];
 

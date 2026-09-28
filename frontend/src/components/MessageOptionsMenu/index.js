@@ -6,7 +6,8 @@ import MenuItem from "@material-ui/core/MenuItem";
 import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
 import ConfirmationModal from "../ConfirmationModal";
-import { Dialog, Menu } from "@material-ui/core";
+import { Dialog, Menu, Tooltip } from "@material-ui/core";
+import { isOfficialApiConnection } from "../../helpers/officialApiRestriction";
 import { ReplyMessageContext } from "../../context/ReplyingMessage/ReplyingMessageContext";
 import { EditMessageContext } from "../../context/EditingMessage/EditingMessageContext";
 import toastError from "../../errors/toastError";
@@ -24,9 +25,13 @@ const MessageOptionsMenu = ({
   data,
   menuOpen,
   handleClose,
-  anchorEl
+  anchorEl,
+  ticket
 }) => {
   const classes = useStyles();
+  const restrictedTooltip = isOfficialApiConnection(ticket?.whatsapp)
+    ? i18n.t("connections.toolTips.notAvailableOfficial")
+    : null;
   const { setReplyingMessage } = useContext(ReplyMessageContext);
   const editingContext = useContext(EditMessageContext);
   const setEditingMessage = editingContext
@@ -160,13 +165,35 @@ const MessageOptionsMenu = ({
             </div>
           </div>
           {message.fromMe && [
-            <MenuItem key="delete" onClick={handleOpenConfirmationModal}>
-              {i18n.t("messageOptionsMenu.delete")}
-            </MenuItem>,
+            <Tooltip
+              key="delete"
+              title={restrictedTooltip || ""}
+              disableHoverListener={!restrictedTooltip}
+            >
+              <span>
+                <MenuItem
+                  onClick={handleOpenConfirmationModal}
+                  disabled={!!restrictedTooltip}
+                >
+                  {i18n.t("messageOptionsMenu.delete")}
+                </MenuItem>
+              </span>
+            </Tooltip>,
             !isSticker && (
-              <MenuItem key="edit" onClick={handleEditMessage}>
-                {i18n.t("messageOptionsMenu.edit")}
-              </MenuItem>
+              <Tooltip
+                key="edit"
+                title={restrictedTooltip || ""}
+                disableHoverListener={!restrictedTooltip}
+              >
+                <span>
+                  <MenuItem
+                    onClick={handleEditMessage}
+                    disabled={!!restrictedTooltip}
+                  >
+                    {i18n.t("messageOptionsMenu.edit")}
+                  </MenuItem>
+                </span>
+              </Tooltip>
             )
           ]}
           {!isSticker &&
@@ -178,9 +205,20 @@ const MessageOptionsMenu = ({
           <MenuItem onClick={handleReplyMessage}>
             {i18n.t("messageOptionsMenu.reply")}
           </MenuItem>
-          <MenuItem key="forward" onClick={handleOpenForwardModal}>
-            {i18n.t("messageOptionsMenu.forward")}
-          </MenuItem>
+          <Tooltip
+            key="forward"
+            title={restrictedTooltip || ""}
+            disableHoverListener={!restrictedTooltip}
+          >
+            <span>
+              <MenuItem
+                onClick={handleOpenForwardModal}
+                disabled={!!restrictedTooltip}
+              >
+                {i18n.t("messageOptionsMenu.forward")}
+              </MenuItem>
+            </span>
+          </Tooltip>
         </div>
       </Menu>
     </>
@@ -191,7 +229,8 @@ MessageOptionsMenu.propTypes = {
   message: PropTypes.object,
   menuOpen: PropTypes.bool.isRequired,
   handleClose: PropTypes.func.isRequired,
-  anchorEl: PropTypes.object
+  anchorEl: PropTypes.object,
+  ticket: PropTypes.object
 };
 
 export default MessageOptionsMenu;

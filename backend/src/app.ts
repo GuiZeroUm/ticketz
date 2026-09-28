@@ -44,7 +44,17 @@ app.use(
   })
 );
 app.use(cookieParser());
-app.use(express.json({ limit: "10mb" }));
+app.use(
+  express.json({
+    limit: "10mb",
+    // Guarda o buffer crú do body: usado pelo webhook do WhatsApp Cloud API
+    // pra validar a assinatura HMAC (X-Hub-Signature-256) da Meta, que e
+    // calculada sobre os bytes exatos recebidos, antes do parse do JSON.
+    verify: (req, _res, buf) => {
+      (req as any).rawBody = buf;
+    }
+  })
+);
 app.use(Sentry.Handlers.requestHandler());
 app.get("/public/*", (req, res) => {
   const filePath = path.join(uploadConfig.directory, req.params[0]);

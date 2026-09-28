@@ -10,6 +10,9 @@ import { verifyMediaMessage, verifyMessage } from "./wbotMessageListener";
 import User from "../../models/User";
 import { getJidOf } from "./getJidOf";
 import Whatsapp from "../../models/Whatsapp";
+import SendMetaTextMessageService, {
+  MetaSentMessage
+} from "../MetaWhatsAppServices/SendMetaTextMessageService";
 
 interface Request {
   body: string;
@@ -23,7 +26,7 @@ const SendWhatsAppMessage = async ({
   ticket,
   userId,
   quotedMsg
-}: Request): Promise<WAMessage> => {
+}: Request): Promise<WAMessage | MetaSentMessage> => {
   let options = {};
 
   const connection = await Whatsapp.findByPk(ticket.whatsappId);
@@ -34,6 +37,16 @@ const SendWhatsAppMessage = async ({
 
   if (connection.status !== "CONNECTED") {
     throw new AppError("ERR_WAPP_NOT_INITIALIZED");
+  }
+
+  if (connection.apiMode === "official") {
+    return SendMetaTextMessageService({
+      body,
+      ticket,
+      connection,
+      userId,
+      quotedMsg
+    });
   }
 
   const wbot = await GetTicketWbot(ticket);

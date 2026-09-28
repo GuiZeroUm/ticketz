@@ -3,7 +3,9 @@ import Wavoip from "../models/Wavoip";
 import Whatsapp from "../models/Whatsapp";
 import { getWbot } from "../libs/wbot";
 
-async function refreshWhatsapp(whatsappId: number) {
+async function refreshWhatsapp(whatsappId: number, apiMode?: string) {
+  if (apiMode === "official") return;
+
   const wbot = getWbot(whatsappId);
   if (!wbot) return;
 
@@ -56,6 +58,15 @@ export const saveToken = async (
     return res.status(400).json({ error: "ERR_BADREQUEST" });
   }
 
+  // Chamada de voz depende da sessao Baileys. Salvar o token numa conexao
+  // oficial faria o botao de ligar aparecer no atendimento sem nunca
+  // funcionar, entao recusa aqui em vez de prometer o que nao existe.
+  if (whatsapp.apiMode === "official") {
+    return res
+      .status(400)
+      .json({ error: "ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED" });
+  }
+
   const existingWavoip = await Wavoip.findOne({
     where: { whatsappId }
   });
@@ -71,7 +82,7 @@ export const saveToken = async (
       whatsappId: Number(whatsappId)
     }));
 
-  refreshWhatsapp(whatsapp.id);
+  refreshWhatsapp(whatsapp.id, whatsapp.apiMode);
 
   return res.status(201).json(wavoip);
 };
@@ -100,7 +111,7 @@ export const deleteToken = async (
 
   await wavoip.destroy();
 
-  refreshWhatsapp(wavoip.whatsappId);
+  refreshWhatsapp(wavoip.whatsappId, wavoip.whatsapp.apiMode);
 
   return res.status(200).json({ message: "SUCCESS" });
 };

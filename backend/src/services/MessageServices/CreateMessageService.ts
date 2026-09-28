@@ -16,6 +16,10 @@ interface MessageData {
   ticketId: number;
   body: string;
   contactId?: number;
+  remoteJid?: string;
+  participant?: string;
+  dataJson?: string;
+  quotedMsgId?: string;
   fromMe?: boolean;
   read?: boolean;
   mediaType?: string;
@@ -101,7 +105,7 @@ const CreateMessageService = async ({
           {
             model: Whatsapp,
             as: "whatsapp",
-            attributes: ["name", "id"]
+            attributes: ["id", "name", "apiMode"]
           }
         ]
       },

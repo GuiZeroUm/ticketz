@@ -1,3 +1,4 @@
+import CompanyWhatsAppModeField from "../CompanyWhatsAppModeField";
 import React, { useState, useEffect, useContext } from "react";
 import {
   makeStyles,
@@ -102,6 +103,7 @@ export function CompanyForm(props) {
   const { user } = useContext(AuthContext);
 
   const [record, setRecord] = useState({
+    whatsappMode: "normal",
     name: "",
     email: "",
     phone: "",
@@ -156,6 +158,7 @@ export function CompanyForm(props) {
       return {
         ...prev,
         ...initialValue,
+        whatsappMode: initialValue.whatsappMode || "normal",
         timezone: initialValue.timezone || "",
         dueDate,
         trialDays: initialValue.trialDays ?? 0,
@@ -204,8 +207,9 @@ export function CompanyForm(props) {
         "recurrence"
       ].forEach(field => delete normalizedData[field]);
     }
-    onSubmit(normalizedData);
-    setRecord({ ...initialValue, dueDate: "" });
+    // The parent resets only after the request succeeds. Keep the selected
+    // provider and entered data intact when validation or the network fails.
+    await onSubmit(normalizedData);
   };
 
   const handleOpenModalUsers = async () => {
@@ -277,16 +281,18 @@ export function CompanyForm(props) {
         enableReinitialize
         className={classes.fullWidth}
         initialValues={record}
-        onSubmit={(values, { resetForm }) =>
-          setTimeout(() => {
-            handleSubmit(values);
-            resetForm();
-          }, 500)
-        }
+        onSubmit={handleSubmit}
       >
         {(values, setValues) => (
           <Form className={classes.fullWidth}>
             <Grid spacing={2} justifyContent="flex-end" container>
+              <Grid xs={12} sm={6} item>
+                <CompanyWhatsAppModeField
+                  value={values.values.whatsappMode}
+                  onChange={values.handleChange}
+                  disabled={record.id !== undefined}
+                />
+              </Grid>
               <Grid xs={12} sm={6} md={4} item>
                 <Field
                   as={TextField}
@@ -809,6 +815,7 @@ export default function CompaniesManager() {
   const [loading, setLoading] = useState(false);
   const [records, setRecords] = useState([]);
   const [record, setRecord] = useState({
+    whatsappMode: "normal",
     name: "",
     email: "",
     phone: "",
@@ -894,6 +901,9 @@ export default function CompaniesManager() {
   const handleCancel = () => {
     setRecord(prev => ({
       ...prev,
+      id: undefined,
+      slug: "",
+      whatsappMode: "normal",
       name: "",
       email: "",
       phone: "",
@@ -933,6 +943,7 @@ export default function CompaniesManager() {
 
     setRecord(prev => ({
       ...prev,
+      whatsappMode: data.whatsappMode || "normal",
       id: data.id,
       name: data.name || "",
       phone: data.phone || "",

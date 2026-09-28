@@ -322,13 +322,24 @@ const Schedules = () => {
         <Title>{i18n.t("schedules.title")}</Title>
         <MainHeaderButtonsWrapper>
           {tab === "schedules" ? (
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={() => setScheduleModalOpen(true)}
+            <Tooltip
+              title={
+                user?.company?.whatsappMode === "meta"
+                  ? i18n.t("connections.toolTips.notAvailableOfficial")
+                  : ""
+              }
             >
-              {i18n.t("schedules.buttons.add")}
-            </Button>
+              <span>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  disabled={user?.company?.whatsappMode === "meta"}
+                  onClick={() => setScheduleModalOpen(true)}
+                >
+                  {i18n.t("schedules.buttons.add")}
+                </Button>
+              </span>
+            </Tooltip>
           ) : (
             user.profile === "admin" && (
               <Button

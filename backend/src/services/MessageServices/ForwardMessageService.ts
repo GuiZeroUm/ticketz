@@ -31,6 +31,10 @@ const ForwardMessageService = async (
     throw new AppError("ERR_INVALID_CHANNEL", 400);
   }
 
+  if (whatsapp.apiMode === "official") {
+    throw new AppError("ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED", 400);
+  }
+
   let ticket = await CheckContactOpenTickets(contact.id, whatsapp.id, true);
 
   if (contact.isGroup) {

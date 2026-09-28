@@ -42,7 +42,11 @@ const CreateTicketService = async ({
       include: ["tags", "extraInfo"]
     },
     "queue",
-    "whatsapp",
+    {
+      model: Whatsapp,
+      as: "whatsapp",
+      attributes: { exclude: ["metaAccessToken"] }
+    },
     "user",
     "tags"
   ];

@@ -1,3 +1,4 @@
+import CompanyWhatsAppModeField from "../../../components/CompanyWhatsAppModeField";
 import React, { useCallback, useEffect, useState } from "react";
 import moment from "moment";
 import { toast } from "react-toastify";
@@ -68,6 +69,7 @@ const useStyles = makeStyles(theme => ({
 }));
 
 const emptyForm = {
+  whatsappMode: "normal",
   name: "",
   email: "",
   phone: "",
@@ -170,6 +172,7 @@ const PartnerClientes = () => {
     setEditingId(row.company.id);
     setForm({
       ...emptyForm,
+      whatsappMode: row.company.whatsappMode || "normal",
       name: row.company.name || "",
       email: row.company.email || "",
       phone: row.company.phone || "",
@@ -373,6 +376,11 @@ const PartnerClientes = () => {
           {editingId ? "Editar cliente" : "Cadastrar cliente"}
         </DialogTitle>
         <DialogContent dividers>
+          <CompanyWhatsAppModeField
+            value={form.whatsappMode}
+            onChange={handleChange("whatsappMode")}
+            disabled={!!editingId}
+          />
           <Grid spacing={2} container>
             <Grid xs={12} sm={6} item>
               <TextField

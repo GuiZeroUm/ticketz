@@ -1,3 +1,4 @@
+import { assertScheduleProvider } from "./assertScheduleProvider";
 import { Op } from "sequelize";
 import sequelize from "../../database";
 import AppError from "../../errors/AppError";
@@ -19,6 +20,7 @@ interface Request {
 }
 
 const UpdateService = async ({ scheduleData, id, companyId }: Request) => {
+  await assertScheduleProvider(companyId);
   const schedule = await ShowService(id, companyId);
   const wasOnce = schedule.kind === "ONCE";
   const existing = schedule.toJSON() as SchedulePayload;

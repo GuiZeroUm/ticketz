@@ -4,6 +4,7 @@ import mime from "mime-types";
 import iconv from "iconv-lite";
 import path from "path";
 import Whatsapp from "../models/Whatsapp";
+import AppError from "../errors/AppError";
 import GetWhatsappWbot from "./GetWhatsappWbot";
 import { getMessageFileOptions } from "../services/WbotServices/SendWhatsAppMedia";
 import { handleMessage } from "../services/WbotServices/wbotMessageListener";
@@ -32,6 +33,9 @@ export const SendMessage = async (
   whatsapp: Whatsapp,
   messageData: MessageData
 ): Promise<any> => {
+  if (whatsapp.apiMode === "official") {
+    throw new AppError("ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED", 400);
+  }
   try {
     const wbot = await GetWhatsappWbot(whatsapp);
     const number = messageData.number.toString();

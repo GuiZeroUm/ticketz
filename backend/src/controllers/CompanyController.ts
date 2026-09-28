@@ -28,6 +28,7 @@ type IndexQuery = {
 };
 
 type CompanyData = {
+  whatsappMode?: "normal" | "meta";
   name: string;
   id?: number;
   phone?: string;
@@ -56,6 +57,10 @@ type SchedulesData = {
 const companySchema = Yup.object()
   .shape({
     name: Yup.string().min(2).required(),
+    whatsappMode: Yup.string().oneOf(
+      ["normal", "meta"],
+      "ERR_COMPANY_INVALID_WHATSAPP_MODE"
+    ),
     phone: Yup.string().nullable(),
     email: Yup.string().email().nullable(),
     password: Yup.string(),

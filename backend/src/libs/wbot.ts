@@ -70,12 +70,22 @@ export function createCaptureToken(whatsappId: number): string {
   return token;
 }
 
+export type ChatbotMenuOption = {
+  id: string;
+  title: string;
+};
+
 export type Session = WASocket & {
   id?: number;
   myJid?: string;
   myLid?: string;
   cacheMessage?: (msg: proto.IWebMessageInfo) => void;
   isRefreshing?: boolean;
+  sendMenuMessage?: (
+    jid: string,
+    body: string,
+    options: ChatbotMenuOption[]
+  ) => Promise<proto.IWebMessageInfo>;
 };
 
 const sessions: Session[] = [];

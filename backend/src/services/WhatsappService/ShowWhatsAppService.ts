@@ -51,9 +51,12 @@ const ShowWhatsAppService = async (
     ]
   };
 
-  if (options.hideSession) {
-    findOptions.attributes = { exclude: ["session"] };
-  }
+  // metaAccessToken nunca deve chegar ao frontend, independente de hideSession.
+  findOptions.attributes = {
+    exclude: options.hideSession
+      ? ["session", "metaAccessToken"]
+      : ["metaAccessToken"]
+  };
 
   return Whatsapp.findByPk(id, findOptions);
 };

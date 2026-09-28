@@ -1036,7 +1036,7 @@ export const verifyDeleteMessage = async (
     });
 };
 
-const quickMessage = async (
+export const quickMessage = async (
   wbot: Session,
   ticket: Ticket,
   text: string,
@@ -1138,6 +1138,45 @@ const sendMenu = async (
     currentOption instanceof Queue
       ? (currentOption as Queue).greetingMessage
       : (currentOption as QueueOption).message;
+
+  const formattedMessage = formatBody(
+    message?.trim() || _t("Select an option", ticket),
+    ticket
+  );
+
+  const nativeOptions = currentOption.options.map(option => ({
+    id: String(option.option),
+    title: option.title
+  }));
+
+  // A Cloud API suporta no maximo 10 itens. O retorno ao menu principal entra
+  // como opcao selecionavel quando ha espaco; com 10 itens, o menu continua
+  // nativo e o atalho # permanece aceito pelo motor do fluxo.
+  if (sendBackToMain && nativeOptions.length < 10) {
+    nativeOptions.push({
+      id: "#",
+      title: _t("Back to Main Menu", ticket)
+    });
+  }
+
+  if (wbot.sendMenuMessage && nativeOptions.length <= 10) {
+    try {
+      const sendMsg = await wbot.sendMenuMessage(
+        getJidOf(ticket),
+        formattedMessage,
+        nativeOptions
+      );
+      await verifyMessage(sendMsg, ticket, ticket.contact);
+      return;
+    } catch (error) {
+      // O chatbot nao pode desaparecer se a Graph API rejeitar um payload
+      // interativo. Mantemos o menu textual como degradacao segura.
+      logger.warn(
+        { error, ticketId: ticket.id },
+        "Could not send native chatbot menu; falling back to text"
+      );
+    }
+  }
 
   const botText = async () => {
     const showNumericIcons =
@@ -1304,7 +1343,7 @@ export const startQueue = async (
   }
 };
 
-const verifyQueue = async (
+export const verifyQueue = async (
   wbot: Session,
   msg: proto.IWebMessageInfo | null,
   ticket: Ticket,
@@ -1335,6 +1374,31 @@ const verifyQueue = async (
   const choosenQueue = selectedOption ? queues[+selectedOption - 1] : null;
 
   const botText = async () => {
+    const nativeOptions = queues.map((queue, index) => ({
+      id: String(index + 1),
+      title: queue.name
+    }));
+
+    if (wbot.sendMenuMessage && nativeOptions.length <= 10) {
+      try {
+        const sendMsg = await wbot.sendMenuMessage(
+          getJidOf(ticket),
+          formatBody(
+            greetingMessage?.trim() || _t("Select a queue", ticket),
+            ticket
+          ),
+          nativeOptions
+        );
+        await verifyMessage(sendMsg, ticket, ticket.contact);
+        return;
+      } catch (error) {
+        logger.warn(
+          { error, ticketId: ticket.id },
+          "Could not send native queue menu; falling back to text"
+        );
+      }
+    }
+
     let options = "";
 
     queues.forEach((queue, index) => {
@@ -1363,7 +1427,7 @@ const verifyQueue = async (
   }
 };
 
-const handleRating = async (
+export const handleRating = async (
   rate: number,
   ticket: Ticket,
   ticketTraking: TicketTraking,

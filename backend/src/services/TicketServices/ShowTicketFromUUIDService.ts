@@ -6,10 +6,14 @@ import Queue from "../../models/Queue";
 import Tag from "../../models/Tag";
 import Whatsapp from "../../models/Whatsapp";
 
-const ShowTicketUUIDService = async (uuid: string): Promise<Ticket> => {
+const ShowTicketUUIDService = async (
+  uuid: string,
+  companyId: number
+): Promise<Ticket> => {
   const ticket = await Ticket.findOne({
     where: {
-      uuid
+      uuid,
+      companyId
     },
     include: [
       {
@@ -42,7 +46,7 @@ const ShowTicketUUIDService = async (uuid: string): Promise<Ticket> => {
       {
         model: Whatsapp,
         as: "whatsapp",
-        attributes: ["id", "name"],
+        attributes: ["id", "name", "apiMode"],
         include: ["wavoip"]
       },
       {

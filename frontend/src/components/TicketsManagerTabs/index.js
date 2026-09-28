@@ -205,11 +205,13 @@ const TicketsManagerTabs = () => {
     Promise.all([getSetting("CheckMsgIsGroup"), getSetting("groupsTab")]).then(
       ([ignoreGroups, groupsTab]) => {
         setShowTabGroups(
-          ignoreGroups === "disabled" && groupsTab === "enabled"
+          user?.company?.whatsappMode !== "meta" &&
+            ignoreGroups === "disabled" &&
+            groupsTab === "enabled"
         );
       }
     );
-  }, []);
+  }, [user?.company?.whatsappMode]);
 
   useEffect(() => {
     if (!showTabGroups) {
