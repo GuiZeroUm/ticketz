@@ -1,10 +1,14 @@
+import { clearTicketTemplatesCache } from "./ListTicketTemplatesService";
+import AssertMetaWabaRuntimeService from "./AssertMetaWabaRuntimeService";
 import { Op } from "sequelize";
 import { assertRuntimeCompany } from "../../helpers/tenantRuntime";
 import AppError from "../../errors/AppError";
 import Whatsapp from "../../models/Whatsapp";
 import { getIO } from "../../libs/socket";
 import ExchangeEmbeddedSignupCodeService from "./ExchangeEmbeddedSignupCodeService";
-import RegisterPhoneNumberService from "./RegisterPhoneNumberService";
+import RegisterPhoneNumberService, {
+  assertMetaRegistrationPin
+} from "./RegisterPhoneNumberService";
 import { SubscribeWabaWebhookService } from "./SubscribeWabaWebhookService";
 import ShowWhatsAppService from "../WhatsappService/ShowWhatsAppService";
 
@@ -12,6 +16,7 @@ interface Request {
   whatsappId: number;
   companyId: number;
   code: string;
+  pin: string;
   wabaId: string;
   phoneNumberId: string;
   businessId?: string;
@@ -26,6 +31,7 @@ const ConnectMetaWhatsAppService = async ({
   whatsappId,
   companyId,
   code,
+  pin,
   wabaId,
   phoneNumberId,
   businessId
@@ -43,6 +49,12 @@ const ConnectMetaWhatsAppService = async ({
     throw new AppError("ERR_WAPP_NOT_OFFICIAL_MODE", 400);
   }
 
+  if (!process.env.ENCRYPTION_KEY)
+    throw new AppError("ERR_META_APP_NOT_CONFIGURED", 500);
+
+  const registrationPin = assertMetaRegistrationPin(pin);
+  await AssertMetaWabaRuntimeService(wabaId, whatsappId);
+
   const linked = await Whatsapp.count({
     where: { metaPhoneNumberId: phoneNumberId, id: { [Op.ne]: whatsappId } }
   });
@@ -51,7 +63,7 @@ const ConnectMetaWhatsAppService = async ({
   const { accessToken, expiresInSeconds } =
     await ExchangeEmbeddedSignupCodeService(code);
 
-  await RegisterPhoneNumberService(phoneNumberId, accessToken);
+  await RegisterPhoneNumberService(phoneNumberId, accessToken, registrationPin);
   await SubscribeWabaWebhookService(wabaId, accessToken);
 
   await whatsapp.update({
@@ -66,6 +78,7 @@ const ConnectMetaWhatsAppService = async ({
     status: "CONNECTED"
   });
 
+  clearTicketTemplatesCache(whatsapp.id);
   const sanitized = await ShowWhatsAppService(whatsapp.id);
 
   const io = getIO();

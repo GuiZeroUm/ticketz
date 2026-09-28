@@ -23,7 +23,7 @@ export const connect = async (
 ): Promise<Response> => {
   const { whatsappId } = req.params;
   const { companyId } = req.user;
-  const { code, wabaId, phoneNumberId, businessId } = req.body;
+  const { code, wabaId, phoneNumberId, businessId, pin } = req.body;
 
   if (!code || !wabaId || !phoneNumberId) {
     throw new AppError("ERR_META_CONNECT_MISSING_FIELDS");
@@ -43,6 +43,7 @@ export const connect = async (
     whatsappId: Number(whatsappId),
     companyId,
     code,
+    pin,
     wabaId,
     phoneNumberId,
     businessId

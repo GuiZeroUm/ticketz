@@ -81,6 +81,12 @@ export type Session = WASocket & {
   myLid?: string;
   cacheMessage?: (msg: proto.IWebMessageInfo) => void;
   isRefreshing?: boolean;
+  sendChatbotMedia?: (
+    ticket: Ticket,
+    filePath: string,
+    filename: string,
+    caption?: string
+  ) => Promise<void>;
   sendMenuMessage?: (
     jid: string,
     body: string,

@@ -12,10 +12,15 @@ const pt = {
     },
     meta: {
       missingConfig:
-        "A conexão oficial ainda não foi configurada na plataforma. Entre em contato com o suporte.",
+        "Solicite ao administrador da plataforma a configuração desta conexão oficial.",
       missingNumber:
         "Não foi possível identificar a conta e o número escolhidos na Meta.",
-      loginFailed: "Não foi possível carregar o login da Meta."
+      loginFailed: "Não foi possível carregar o login da Meta.",
+      pinTitle: "PIN de verificação em duas etapas",
+      pinLabel: "PIN de 6 dígitos",
+      pinHelp:
+        "Escolha e guarde um PIN de 6 dígitos para este número. Se ele já possui verificação em duas etapas, use o PIN existente. Não é o código recebido por SMS. O sistema não guarda este PIN.",
+      continueSignup: "Continuar com a Meta"
     }
   },
   messagesInput: {
@@ -36,6 +41,8 @@ const pt = {
     }
   },
   backendErrors: {
+    ERR_META_INVALID_REGISTRATION_PIN:
+      "Informe um PIN de verificação em duas etapas com 6 dígitos.",
     ERR_META_PHONE_ALREADY_CONNECTED:
       "Este número oficial já está vinculado a outra conexão.",
     ERR_META_PHONE_REGISTER_FAILED:
@@ -94,10 +101,15 @@ const en = {
     },
     meta: {
       missingConfig:
-        "The official connection is not configured on this platform yet. Contact support.",
+        "Ask the platform administrator to configure this official connection.",
       missingNumber:
         "Could not identify the account and phone number selected on Meta.",
-      loginFailed: "Could not load Meta login."
+      loginFailed: "Could not load Meta login.",
+      pinTitle: "Two-step verification PIN",
+      pinLabel: "6-digit PIN",
+      pinHelp:
+        "Choose and keep a 6-digit PIN for this number. If two-step verification is already enabled, use its existing PIN. This is not the SMS verification code. This system does not store the PIN.",
+      continueSignup: "Continue with Meta"
     }
   },
   messagesInput: {
@@ -118,6 +130,8 @@ const en = {
     }
   },
   backendErrors: {
+    ERR_META_INVALID_REGISTRATION_PIN:
+      "Enter a 6-digit two-step verification PIN.",
     ERR_META_PHONE_ALREADY_CONNECTED:
       "This official phone number is already linked to another connection.",
     ERR_META_PHONE_REGISTER_FAILED:

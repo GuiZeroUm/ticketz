@@ -1,5 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Button, CircularProgress } from "@material-ui/core";
+import {
+  Button,
+  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Typography
+} from "@material-ui/core";
 import { toast } from "react-toastify";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
@@ -55,6 +64,34 @@ const MetaEmbeddedSignupButton = ({
   onConnected
 }) => {
   const [loading, setLoading] = useState(false);
+  const [pinDialogOpen, setPinDialogOpen] = useState(false);
+  const [pin, setPin] = useState("");
+  const [sdkReady, setSdkReady] = useState(() => !!window.FB);
+  const [sdkLoading, setSdkLoading] = useState(false);
+  const [sdkAttempt, setSdkAttempt] = useState(0);
+
+  // Prepare the SDK before clicking so FB.login retains browser user activation.
+  useEffect(() => {
+    if (!appId || !configId) return undefined;
+    let active = true;
+    setSdkLoading(true);
+    loadFacebookSdk(appId)
+      .then(() => {
+        if (active) setSdkReady(true);
+      })
+      .catch(() => {
+        if (active) {
+          setSdkReady(false);
+          toast.error(i18n.t("connections.meta.loginFailed"));
+        }
+      })
+      .finally(() => {
+        if (active) setSdkLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [appId, configId, sdkAttempt]);
   const signupDataRef = useRef(null);
   const pendingResolveRef = useRef(null);
 
@@ -105,17 +142,21 @@ const MetaEmbeddedSignupButton = ({
     });
   };
 
-  const handleClick = async () => {
+  const handleClick = () => {
     if (!appId || !configId) {
       toast.error(i18n.t("connections.meta.missingConfig"));
       return;
     }
 
+    if (!sdkReady) {
+      setSdkAttempt(attempt => attempt + 1);
+      return;
+    }
+
+    if (!/^\d{6}$/.test(pin)) return;
     signupDataRef.current = null;
     setLoading(true);
     try {
-      await loadFacebookSdk(appId);
-
       window.FB.login(
         response => {
           (async () => {
@@ -134,11 +175,14 @@ const MetaEmbeddedSignupButton = ({
                   `/whatsapp/${whatsAppId}/meta/connect`,
                   {
                     code: response.authResponse.code,
+                    pin,
                     wabaId,
                     phoneNumberId,
                     businessId
                   }
                 );
+                setPin("");
+                setPinDialogOpen(false);
                 toast.success(i18n.t("connections.toasts.metaConnected"));
                 onConnected && onConnected(data);
               } catch (err) {
@@ -164,17 +208,84 @@ const MetaEmbeddedSignupButton = ({
     }
   };
 
+  const closePinDialog = () => {
+    if (loading) return;
+    setPinDialogOpen(false);
+    setPin("");
+  };
+
+  if (!appId || !configId) {
+    return (
+      <Typography variant="body2" color="textSecondary">
+        {i18n.t("connections.meta.missingConfig")}
+      </Typography>
+    );
+  }
+
   return (
-    <Button
-      variant="outlined"
-      color="primary"
-      size="small"
-      disabled={loading}
-      onClick={handleClick}
-      startIcon={loading ? <CircularProgress size={16} /> : null}
-    >
-      {i18n.t("connections.buttons.connectMeta")}
-    </Button>
+    <>
+      <Button
+        variant="outlined"
+        color="primary"
+        size="small"
+        disabled={loading || sdkLoading}
+        onClick={() => {
+          if (!appId || !configId) {
+            toast.error(i18n.t("connections.meta.missingConfig"));
+          } else if (!sdkReady) {
+            setSdkAttempt(attempt => attempt + 1);
+          } else {
+            setPinDialogOpen(true);
+          }
+        }}
+        startIcon={
+          loading || sdkLoading ? <CircularProgress size={16} /> : null
+        }
+      >
+        {i18n.t("connections.buttons.connectMeta")}
+      </Button>
+      <Dialog
+        open={pinDialogOpen}
+        onClose={closePinDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>{i18n.t("connections.meta.pinTitle")}</DialogTitle>
+        <DialogContent>
+          <TextField
+            id={`meta-registration-pin-${whatsAppId}`}
+            autoFocus
+            fullWidth
+            type="password"
+            autoComplete="new-password"
+            label={i18n.t("connections.meta.pinLabel")}
+            helperText={i18n.t("connections.meta.pinHelp")}
+            value={pin}
+            disabled={loading}
+            inputProps={{
+              inputMode: "numeric",
+              maxLength: 6,
+              pattern: "[0-9]{6}"
+            }}
+            onChange={event =>
+              setPin(event.target.value.replace(/\D/g, "").slice(0, 6))
+            }
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closePinDialog} disabled={loading}>
+            {i18n.t("templateMessageModal.buttons.cancel")}
+          </Button>
+          <Button
+            onClick={handleClick}
+            color="primary"
+            disabled={loading || !sdkReady || !/^\d{6}$/.test(pin)}
+          >
+            {i18n.t("connections.meta.continueSignup")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 };
 

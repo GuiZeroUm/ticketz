@@ -5,8 +5,15 @@ import { getIO } from "../../../libs/socket";
 import ConnectMetaWhatsAppManualService from "../ConnectMetaWhatsAppManualService";
 
 jest.mock("../../../models/Whatsapp");
+jest.mock("../ListTicketTemplatesService", () => ({
+  clearTicketTemplatesCache: jest.fn()
+}));
 jest.mock("../RegisterPhoneNumberService");
 jest.mock("../SubscribeWabaWebhookService");
+jest.mock("../AssertMetaWabaRuntimeService", () => ({
+  __esModule: true,
+  default: jest.fn().mockResolvedValue(undefined)
+}));
 jest.mock("../../../libs/socket", () => ({ getIO: jest.fn() }));
 
 const registerPhoneNumber = RegisterPhoneNumberService as jest.MockedFunction<
@@ -22,6 +29,7 @@ describe("ConnectMetaWhatsAppManualService", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.ENCRYPTION_KEY = "test-only-key";
     (getIO as jest.Mock).mockReturnValue({ to });
   });
 

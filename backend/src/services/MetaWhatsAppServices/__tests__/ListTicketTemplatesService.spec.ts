@@ -82,3 +82,34 @@ describe("ListTicketTemplatesService", () => {
     await expect(ListTicketTemplatesService(connection)).resolves.toEqual([]);
   });
 });
+
+it.each([
+  [{ type: "HEADER", format: "TEXT", text: "Olá {{1}}" }],
+  [{ type: "BODY", text: "Olá {{nome}}" }],
+  [
+    {
+      type: "BUTTONS",
+      buttons: [{ type: "URL", url: "https://example.com/{{1}}" }]
+    }
+  ],
+  [{ type: "BUTTONS", buttons: [{ type: "COPY_CODE" }] }]
+])("hides templates requiring unsupported parameters: %j", async component => {
+  listSafe.mockResolvedValue([template({ components: [component] })]);
+  await expect(ListTicketTemplatesService(connection)).resolves.toEqual([]);
+});
+
+it("keeps static headers and static URL buttons", async () => {
+  listSafe.mockResolvedValue([
+    template({
+      components: [
+        { type: "HEADER", format: "TEXT", text: "Aviso" },
+        { type: "BODY", text: "Olá {{1}}" },
+        {
+          type: "BUTTONS",
+          buttons: [{ type: "URL", url: "https://example.com" }]
+        }
+      ]
+    })
+  ]);
+  expect(await ListTicketTemplatesService(connection)).toHaveLength(1);
+});

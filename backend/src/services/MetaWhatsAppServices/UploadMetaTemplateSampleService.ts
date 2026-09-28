@@ -20,10 +20,8 @@ const UploadMetaTemplateSampleService = async (
   const baseUrl = `https://graph.facebook.com/${version}`;
   const accessToken = `${appId}|${appSecret}`;
 
-  const { data: session } = await axios.post(
-    `${baseUrl}/${appId}/uploads`,
-    null,
-    {
+  const { data: session } = await axios
+    .post(`${baseUrl}/${appId}/uploads`, null, {
       params: {
         file_name: filename,
         file_length: content.length,
@@ -31,17 +29,17 @@ const UploadMetaTemplateSampleService = async (
         access_token: accessToken
       },
       timeout: 30000
-    }
-  );
+    })
+    .catch(() => {
+      throw new AppError("ERR_META_TEMPLATE_SAMPLE", 502);
+    });
 
   if (!session?.id) {
     throw new AppError("ERR_META_TEMPLATE_SAMPLE", 502);
   }
 
-  const { data } = await axios.post(
-    `${baseUrl}/${session.id}`,
-    new Uint8Array(content),
-    {
+  const { data } = await axios
+    .post(`${baseUrl}/${session.id}`, new Uint8Array(content), {
       headers: {
         // Este endpoint usa "OAuth", nao "Bearer".
         Authorization: `OAuth ${accessToken}`,
@@ -50,8 +48,10 @@ const UploadMetaTemplateSampleService = async (
       },
       timeout: 120000,
       maxBodyLength: Infinity
-    }
-  );
+    })
+    .catch(() => {
+      throw new AppError("ERR_META_TEMPLATE_SAMPLE", 502);
+    });
 
   if (!data?.h) {
     throw new AppError("ERR_META_TEMPLATE_SAMPLE", 502);

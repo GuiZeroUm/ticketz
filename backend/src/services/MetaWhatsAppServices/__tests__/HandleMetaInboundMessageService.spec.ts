@@ -57,6 +57,21 @@ describe("HandleMetaInboundMessageService", () => {
     saveMedia.mockResolvedValue("55/audio.oga");
   });
 
+  it("preserves the customer send time when webhook delivery is delayed", async () => {
+    await inbound({
+      type: "text",
+      text: { body: "Mensagem antiga" },
+      timestamp: "1700000000"
+    });
+    expect(createMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageData: expect.objectContaining({
+          createdAt: new Date(1700000000000)
+        })
+      })
+    );
+  });
+
   // A regressao a evitar: tipo fora da lista sumia sem deixar rastro, e o
   // atendente nao ficava sabendo que o cliente mandou algo.
   it("guarda a localizacao com link de mapa em vez de descartar", async () => {

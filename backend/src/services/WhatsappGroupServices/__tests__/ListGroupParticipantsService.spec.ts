@@ -1,9 +1,16 @@
+import Whatsapp from "../../../models/Whatsapp";
 import Contact from "../../../models/Contact";
 import WhatsappLidMap from "../../../models/WhatsappLidMap";
 import GetTicketWbot from "../../../helpers/GetTicketWbot";
 import { getJidOf } from "../../WbotServices/getJidOf";
 import { assertGroupAccess } from "../GroupAccessService";
 import ListGroupParticipantsService from "../ListGroupParticipantsService";
+
+jest.mock("../../../models/Whatsapp", () => ({
+  __esModule: true,
+  default: { findByPk: jest.fn() }
+}));
+beforeEach(() => jest.clearAllMocks());
 
 jest.mock("../../../models/Contact", () => ({
   __esModule: true,
@@ -92,4 +99,21 @@ it("returns group participants enriched with saved contact data", async () => {
       isMe: false
     })
   ]);
+});
+
+it("rejects official group lookups before requesting a Baileys socket", async () => {
+  (assertGroupAccess as jest.Mock).mockResolvedValue({
+    id: 20,
+    companyId: 7,
+    whatsappId: 3
+  });
+  (Whatsapp.findByPk as jest.Mock).mockResolvedValue({ apiMode: "official" });
+  await expect(
+    ListGroupParticipantsService(20, {
+      id: 1,
+      companyId: 7,
+      profile: "admin"
+    } as never)
+  ).rejects.toMatchObject({ message: "ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED" });
+  expect(GetTicketWbot).not.toHaveBeenCalled();
 });

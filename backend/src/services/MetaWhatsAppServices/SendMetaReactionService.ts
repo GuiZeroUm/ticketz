@@ -22,6 +22,8 @@ const SendMetaReactionService = async ({
   emoji,
   userId
 }: Request): Promise<void> => {
+  if (connection.status !== "CONNECTED")
+    throw new AppError("ERR_WAPP_NOT_INITIALIZED", 400);
   if (!connection.metaPhoneNumberId || !connection.metaAccessToken) {
     throw new AppError("ERR_META_CONNECTION_NOT_CONFIGURED");
   }

@@ -1,3 +1,5 @@
+import { clearTicketTemplatesCache } from "./ListTicketTemplatesService";
+import AssertMetaWabaRuntimeService from "./AssertMetaWabaRuntimeService";
 import { Op } from "sequelize";
 import { assertRuntimeCompany } from "../../helpers/tenantRuntime";
 import AppError from "../../errors/AppError";
@@ -45,6 +47,11 @@ const ConnectMetaWhatsAppManualService = async ({
     throw new AppError("ERR_WAPP_NOT_OFFICIAL_MODE", 400);
   }
 
+  if (!process.env.ENCRYPTION_KEY)
+    throw new AppError("ERR_META_APP_NOT_CONFIGURED", 500);
+
+  await AssertMetaWabaRuntimeService(wabaId, whatsappId);
+
   const linked = await Whatsapp.count({
     where: { metaPhoneNumberId: phoneNumberId, id: { [Op.ne]: whatsappId } }
   });
@@ -63,6 +70,7 @@ const ConnectMetaWhatsAppManualService = async ({
     status: "CONNECTED"
   });
 
+  clearTicketTemplatesCache(whatsapp.id);
   const sanitized = await ShowWhatsAppService(whatsapp.id);
 
   const io = getIO();

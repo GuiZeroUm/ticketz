@@ -20,6 +20,7 @@ interface MessageData {
   participant?: string;
   dataJson?: string;
   quotedMsgId?: string;
+  createdAt?: Date;
   fromMe?: boolean;
   read?: boolean;
   mediaType?: string;

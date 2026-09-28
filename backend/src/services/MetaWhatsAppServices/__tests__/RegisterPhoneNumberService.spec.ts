@@ -1,3 +1,4 @@
+import { logger } from "../../../utils/logger";
 import RegisterPhoneNumberService from "../RegisterPhoneNumberService";
 import { getMetaGraphApiClient } from "../MetaGraphApiClient";
 
@@ -32,7 +33,34 @@ it.each([133010, 133000, 190])(
   async graphCode => {
     post.mockRejectedValue({ graphCode });
     await expect(
-      RegisterPhoneNumberService("phone", "token")
+      RegisterPhoneNumberService("phone", "token", "123456")
     ).rejects.toMatchObject({ message: "ERR_META_PHONE_REGISTER_FAILED" });
   }
 );
+
+it.each([undefined, null, "12345", "1234567", "abcdef", 123456])(
+  "rejects invalid PIN %s before contacting Graph",
+  async pin => {
+    await expect(
+      RegisterPhoneNumberService("phone", "token", pin as string)
+    ).rejects.toMatchObject({ message: "ERR_META_INVALID_REGISTRATION_PIN" });
+    expect(post).not.toHaveBeenCalled();
+  }
+);
+
+it("does not log Axios credentials or the registration PIN on failure", async () => {
+  post.mockRejectedValue({
+    config: {
+      data: { pin: "654321" },
+      headers: { Authorization: "secret-token" }
+    },
+    response: { status: 400, data: { error: { code: 100 } } }
+  });
+  await expect(
+    RegisterPhoneNumberService("phone", "secret-token", "654321")
+  ).rejects.toMatchObject({ message: "ERR_META_PHONE_REGISTER_FAILED" });
+  expect(logger.error).toHaveBeenCalledWith(
+    { phoneNumberId: "phone", status: 400, graphCode: 100 },
+    expect.any(String)
+  );
+});

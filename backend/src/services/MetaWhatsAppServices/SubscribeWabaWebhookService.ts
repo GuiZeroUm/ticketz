@@ -10,10 +10,32 @@ export const SubscribeWabaWebhookService = async (
   wabaId: string,
   accessToken: string
 ): Promise<void> => {
+  const callback = process.env.META_WEBHOOK_CALLBACK_URL?.trim();
+  const verifyToken = process.env.META_WEBHOOK_VERIFY_TOKEN;
+  if (callback) {
+    let valid = false;
+    try {
+      const url = new URL(callback);
+      valid =
+        url.protocol === "https:" &&
+        !url.username &&
+        !url.password &&
+        !!verifyToken;
+    } catch {
+      // Reject malformed configuration before making a Graph API request.
+    }
+    if (!valid) throw new AppError("ERR_META_WEBHOOK_CONFIG_INVALID", 503);
+  }
   const client = getMetaGraphApiClient();
 
   try {
-    await client.post(`/${wabaId}/subscribed_apps`, {}, withAuth(accessToken));
+    await client.post(
+      `/${wabaId}/subscribed_apps`,
+      callback
+        ? { override_callback_uri: callback, verify_token: verifyToken }
+        : {},
+      withAuth(accessToken)
+    );
   } catch (err) {
     logger.error({ err, wabaId }, "Failed to subscribe Meta WABA webhook");
     throw new AppError("ERR_META_WEBHOOK_SUBSCRIBE_FAILED", 502);

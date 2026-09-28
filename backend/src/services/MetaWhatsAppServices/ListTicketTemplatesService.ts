@@ -78,8 +78,27 @@ const ListTicketTemplatesService = async (
   const approved = templates
     .filter(template => template.status === "APPROVED")
     .filter(template => {
-      const header = componentOf(template, "HEADER");
-      return !header?.format || header.format === "TEXT";
+      if (template.parameter_format === "NAMED") return false;
+      return (template.components || []).every(component => {
+        if (component.type === "HEADER") {
+          return (
+            (!component.format || component.format === "TEXT") &&
+            !component.text?.includes("{{")
+          );
+        }
+        if (component.type === "BODY") {
+          return !/\{\{\s*[^\d\s}]/.test(component.text || "");
+        }
+        if (component.type === "FOOTER") return !component.text?.includes("{{");
+        if (component.type === "BUTTONS") {
+          return (component.buttons || []).every(
+            button =>
+              ["URL", "PHONE_NUMBER", "QUICK_REPLY"].includes(button.type) &&
+              !button.url?.includes("{{")
+          );
+        }
+        return false;
+      });
     })
     .map(toTicketTemplate)
     .sort((left, right) => left.name.localeCompare(right.name));

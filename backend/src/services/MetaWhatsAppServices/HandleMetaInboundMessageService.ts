@@ -229,7 +229,13 @@ const HandleMetaInboundMessageService = async (
     }
   }
 
+  const sentAt = new Date(Number(message.timestamp) * 1000);
+  const validSentAt =
+    Number.isFinite(sentAt.getTime()) &&
+    sentAt.getTime() > 0 &&
+    sentAt.getTime() <= Date.now();
   const messageData = {
+    ...(validSentAt ? { createdAt: sentAt } : {}),
     id: message.id,
     ticketId: ticket.id,
     contactId: contact.id,

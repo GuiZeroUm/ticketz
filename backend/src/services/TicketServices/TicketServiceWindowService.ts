@@ -19,10 +19,20 @@ const GetTicketServiceWindowService = async (
 ): Promise<ServiceWindow> => {
   const lastInbound = await Message.findOne({
     where: {
-      ticketId: ticket.id,
+      companyId: ticket.companyId,
+      contactId: ticket.contactId,
       fromMe: false,
       isDeleted: { [Op.not]: true }
     },
+    include: [
+      {
+        model: Ticket,
+        as: "ticket",
+        attributes: [],
+        required: true,
+        where: { companyId: ticket.companyId, whatsappId: ticket.whatsappId }
+      }
+    ],
     attributes: ["id", "createdAt"],
     order: [["createdAt", "DESC"]]
   });

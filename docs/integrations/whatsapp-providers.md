@@ -23,16 +23,17 @@ Continuam exclusivos da branch ACNorte: SGA/Hinova, régua de cobrança e boleto
 Fornecer no ambiente do backend (secret manager ou env_file privado, nunca no Git):
 
 - `META_APP_ID`, `META_APP_SECRET`: aplicativo da plataforma.
-- `META_CONFIG_ID`: configuração Embedded Signup.
+- `META_CONFIG_ID`: configuração Embedded Signup. Opcional na publicação por provisionamento manual; sem ela, a interface orienta procurar o administrador em vez de oferecer um login indisponível.
 - `META_WEBHOOK_VERIFY_TOKEN`: segredo para verificar o webhook.
+- `META_WEBHOOK_CALLBACK_URL`: URL HTTPS deste runtime para aplicar override por WABA ao conectar novas contas. A assinatura de uma WABA já pertencente a outro runtime é rejeitada antes de qualquer registro/alteração externa.
 - `ENCRYPTION_KEY`: chave estável para criptografar os tokens persistidos. Não rotacionar sem migrar os tokens; ao reutilizar banco/credenciais existentes, preservar a chave correspondente.
 - `META_GRAPH_API_VERSION`: versão usada no Graph client; padrão herdado `v21.0`.
 
 O aplicativo Meta precisa estar configurado para os domínios e o onboarding comercial usado pela plataforma. Os IDs públicos são expostos por `GET /whatsapp/meta/config`; segredos e tokens não são devolvidos à interface.
 
-Webhook: `<URL pública do backend>/webhooks/meta/whatsapp`, considerando o prefixo `/backend` quando usado no proxy. GET exige o verify token; POST exige assinatura HMAC sobre os bytes originais com o app secret. Preservar os filtros `TENANT_RUNTIME_*`: um runtime não processa empresas pertencentes a outro. Se runtimes compartilham um aplicativo Meta, o encaminhamento do webhook deve entregar os eventos ao runtime responsável; o filtro não faz proxy automaticamente.
+Webhook: `<URL pública do backend>/webhooks/meta/whatsapp`, considerando o prefixo `/backend` quando usado no proxy. GET exige o verify token; POST exige assinatura HMAC sobre os bytes originais com o app secret. Preservar os filtros `TENANT_RUNTIME_*`: um runtime não processa empresas pertencentes a outro. Quando runtimes compartilham o aplicativo Meta, `META_WEBHOOK_CALLBACK_URL` configura o destino por WABA na assinatura das novas contas. Uma WABA não pode atravessar runtimes; conexões da mesma WABA podem compartilhar este runtime. A configuração global do aplicativo e o destino da conta ACNorte não são alterados por esse fluxo.
 
-Criar empresa oficial, criar conexão e usar **Conectar via Meta**. O fluxo manual existente permanece restrito a superadmin (`POST /whatsapp/:id/meta/manual-connect`) para provisionamento administrativo autorizado. Nunca colar tokens em issues, logs ou chat.
+Criar empresa oficial, criar conexão e usar **Conectar via Meta**. O fluxo manual existente permanece restrito a superadmin (`POST /whatsapp/:id/meta/manual-connect`) para provisionamento administrativo autorizado. O corpo do provisionamento manual exige `wabaId`, `phoneNumberId`, `accessToken` e `pin` (6 dígitos, escolhido para verificação em duas etapas ou o PIN existente; não é o código de SMS). O Embedded Signup também solicita esse PIN, sem persistir ou registrar seu valor. Nunca colar tokens em issues, logs ou chat.
 
 Um `metaPhoneNumberId` não pode ser associado a duas conexões. Desconectar um número não deve remover a assinatura de outro número ativo da mesma WABA.
 
@@ -42,12 +43,14 @@ Um `metaPhoneNumberId` não pode ser associado a duas conexões. Desconectar um 
 | --- | --- | --- |
 | Conexão | QR/pareamento existente | Embedded Signup ou provisionamento superadmin |
 | Atendimento, texto, mídia manual, leitura e reações | Fluxo existente | Serviços Cloud API |
-| Chatbot | Fluxo existente | Texto e menus; o adaptador herdado não implementa mídia automática dos fluxos |
+| Chatbot | Fluxo existente | Texto, menus e mídia pelos serviços Cloud API; texto de áudio enviado separadamente |
 | Fora da janela de atendimento | Fluxo existente | Template aprovado; o backend valida a janela |
 | Templates no chat | Não se aplica | Templates de texto aprovados; cabeçalhos de mídia não entram nessa seleção |
 | Grupos, privacidade, importação de agenda do WhatsApp, edição/exclusão/encaminhamento de mensagens | Fluxo existente | Sem suporte nesta extração |
 | Campanhas e agendamentos atuais | Fluxo existente | Bloqueados antes de criar envio incompatível |
 | Chamadas por sessões QR (WaCalls/Wavoip) | Piloto existente | Bloqueadas para conexões oficiais |
+
+A seleção de templates percorre as páginas da Meta e exclui componentes cujos parâmetros o chat não implementa (por exemplo, cabeçalho dinâmico e botões dinâmicos). A janela considera mensagens do mesmo contato e conexão na mesma empresa, incluindo tickets anteriores.
 
 O processamento de webhook preserva o desenho herdado: responde ao provedor antes de concluir o processamento e registra falhas. Não há fila durável de reprocessamento adicionada nesta extração. Testes automatizados com Graph API simulada não substituem homologação com um número autorizado.
 
@@ -60,7 +63,7 @@ O processamento de webhook preserva o desenho herdado: responde ao provedor ante
 5. Publicar código e executar migrações pelo processo habitual. Não executar `npm test` do backend em banco existente: seus hooks migram, fazem seed e desfazem migrações.
 6. Antes de liberar clientes, homologar entrada/saída de texto e mídia, recibos, template e desconexão/reconexão em um número oficial autorizado e no ambiente não oficial de teste. Não usar números ativos de clientes para testar transições.
 
-Reverter apenas a aplicação exige manter os campos/provedor persistidos; não desfazer as migrações Meta em banco com credenciais/conexões oficiais. Esta entrega faz commit/push em branch de trabalho, sem atualizar `deploy`, `acnorte-deploy` ou containers de produção.
+Reverter apenas a aplicação exige manter os campos/provedor persistidos; não desfazer as migrações Meta em banco com credenciais/conexões oficiais. Retornar a um backend anterior sem guardas de provedor após cadastrar novas empresas oficiais é inseguro: o rollback deve ocorrer antes desse cadastro ou manter tais empresas fora do acesso e do runtime antigo. A publicação geral usa o workflow `release-production.yml` após validação do SHA em `main`; a edição ACNorte mantém seu runtime e sua branch de publicação independentes.
 
 ## Verificação reproduzível
 
@@ -72,4 +75,10 @@ Reverter apenas a aplicação exige manter os campos/provedor persistidos; não 
 
 As chamadas externas nos testes são simuladas. O lint geral do backend contém erros anteriores de tipos `any` e variáveis não utilizadas; esses arquivos alheios à extração não foram reformulados.
 
-Resultado da validação desta extração em 28/09/2026: build backend aprovado; build frontend aprovado com avisos existentes; seleção combinada backend com 44 suítes/185 testes aprovados; frontend com 9 suítes/30 testes aprovados; cenários de migração em PostgreSQL 16 aprovados. Sem testes de envio em contas reais e sem deploy de produção.
+Resultado da validação desta extração em 28/09/2026: build backend aprovado; build frontend aprovado com avisos existentes; seleção combinada backend com 55 suítes/239 testes aprovados; frontend com 9 suítes/32 testes aprovados; cenários de migração em PostgreSQL 16 aprovados. Backup real restaurado em PostgreSQL 18 descartável: 80 tabelas e 55.970 registros preservados, incluindo sessões e credenciais, com imutabilidade bidirecional aprovada. Consulta de leitura à Meta da conexão existente aprovada. Envio e onboarding de um novo número real continuam dependentes de uma conta autorizada.
+
+## Revisão de publicação
+
+A auditoria pré-produção está registrada na [issue #100](https://github.com/GuiZeroUm/ticketz/issues/100). Ela corrigiu lacunas herdadas de mídia do chatbot, janela entre tickets, templates paginados, PIN de registro e abertura do SDK no navegador. O Compose geral lê opcionalmente `/etc/dokploy/secrets/espaco_whats_meta.env`. O arquivo é provisionado fora do Git; a chave de criptografia deve corresponder ao banco compartilhado.
+
+Fontes primárias: [Meta — registro de número e PIN](https://www.postman.com/meta/whatsapp-business-platform/request/zb2u18b/register-phone), [Meta — callback por WABA](https://www.postman.com/meta/whatsapp-business-platform/request/un84tul/override-callback-url).
