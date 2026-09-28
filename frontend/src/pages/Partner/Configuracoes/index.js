@@ -119,13 +119,15 @@ const PartnerConfiguracoes = () => {
   };
 
   return (
-    <MainContainer>
+    <MainContainer className="sd-business sd-partner-settings">
       <MainHeader>
         <Title>Configurações</Title>
       </MainHeader>
       <Paper className={classes.mainPaper} variant="outlined">
-        <div className={classes.section}>
-          <Typography className={classes.sectionTitle}>
+        <div className={`${classes.section} sd-partner-section`}>
+          <Typography
+            className={`${classes.sectionTitle} sd-partner-section-title`}
+          >
             Seu desconto de revenda
           </Typography>
           <Typography variant="body2" color="textSecondary">
@@ -144,8 +146,12 @@ const PartnerConfiguracoes = () => {
           </Typography>
         </div>
 
-        <div className={classes.section}>
-          <Typography className={classes.sectionTitle}>Chave Pix</Typography>
+        <div className={`${classes.section} sd-partner-section`}>
+          <Typography
+            className={`${classes.sectionTitle} sd-partner-section-title`}
+          >
+            Chave Pix
+          </Typography>
           <Grid spacing={2} container>
             <Grid xs={12} sm={4} item>
               <FormControl variant="outlined" margin="dense" fullWidth>
@@ -180,8 +186,10 @@ const PartnerConfiguracoes = () => {
           </Grid>
         </div>
 
-        <div className={classes.section}>
-          <Typography className={classes.sectionTitle}>
+        <div className={`${classes.section} sd-partner-section`}>
+          <Typography
+            className={`${classes.sectionTitle} sd-partner-section-title`}
+          >
             Como você quer receber
           </Typography>
           <RadioGroup

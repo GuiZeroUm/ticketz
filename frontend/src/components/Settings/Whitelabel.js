@@ -129,7 +129,7 @@ const useStyles = makeStyles(theme => ({
     display: "none"
   },
   helperText: {
-    fontSize: "11px"
+    fontSize: theme.isStardew ? "17px" : "11px"
   },
   sectionTitle: {
     fontWeight: 600
@@ -161,8 +161,8 @@ const useStyles = makeStyles(theme => ({
   previewBox: {
     minHeight: 180,
     height: "100%",
-    borderRadius: 12,
-    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: theme.isStardew ? 0 : 12,
+    border: `${theme.isStardew ? 3 : 1}px solid ${theme.palette.divider}`,
     backgroundColor: theme.palette.background.default,
     overflow: "hidden",
     display: "flex",
@@ -727,7 +727,9 @@ export default function Whitelabel(props) {
           </Typography>
         </Grid>
         <Grid xs={12} sm={6} md={4} item>
-          <div className={classes.appLogoLightPreviewDiv}>
+          <div
+            className={`${classes.appLogoLightPreviewDiv} sd-brand-preview-frame`}
+          >
             <img
               className={classes.appLogoLightPreviewImg}
               alt="light-logo-preview"
@@ -735,7 +737,9 @@ export default function Whitelabel(props) {
           </div>
         </Grid>
         <Grid xs={12} sm={6} md={4} item>
-          <div className={classes.appLogoDarkPreviewDiv}>
+          <div
+            className={`${classes.appLogoDarkPreviewDiv} sd-brand-preview-frame`}
+          >
             <img
               className={classes.appLogoDarkPreviewImg}
               alt="dark-logo-preview"
@@ -743,7 +747,9 @@ export default function Whitelabel(props) {
           </div>
         </Grid>
         <Grid xs={12} sm={6} md={4} item>
-          <div className={classes.appLogoFaviconPreviewDiv}>
+          <div
+            className={`${classes.appLogoFaviconPreviewDiv} sd-brand-preview-frame`}
+          >
             <img
               className={classes.appLogoFaviconPreviewImg}
               alt="favicon-preview"
@@ -923,12 +929,12 @@ export default function Whitelabel(props) {
           </Typography>
         </Grid>
         <Grid xs={12} md={6} item>
-          <div className={classes.previewBox}>
+          <div className={`${classes.previewBox} sd-brand-preview-frame`}>
             {renderMediaPreview(settingsLoaded.loginSidePanelImage)}
           </div>
         </Grid>
         <Grid xs={12} md={6} item>
-          <div className={classes.previewBox}>
+          <div className={`${classes.previewBox} sd-brand-preview-frame`}>
             {renderMediaPreview(settingsLoaded.loginBackgroundContent, "cover")}
           </div>
         </Grid>
@@ -1012,7 +1018,7 @@ export default function Whitelabel(props) {
           </Typography>
         </Grid>
         <Grid xs={12} md={6} item>
-          <div className={classes.previewBox}>
+          <div className={`${classes.previewBox} sd-brand-preview-frame`}>
             {renderMediaPreview(settingsLoaded.linkPreviewImage, "cover")}
           </div>
         </Grid>

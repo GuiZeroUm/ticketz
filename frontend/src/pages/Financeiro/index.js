@@ -162,7 +162,7 @@ const Invoices = () => {
   };
 
   return (
-    <MainContainer>
+    <MainContainer className="sd-business sd-finance">
       <SubscriptionModal
         open={contactModalOpen}
         onClose={handleCloseContactModal}
@@ -217,7 +217,11 @@ const Invoices = () => {
                       </>
                     )}
                   </TableCell>
-                  <TableCell style={{ fontWeight: "bold" }} align="center">
+                  <TableCell
+                    className="sd-ledger-amount"
+                    style={{ fontWeight: "bold" }}
+                    align="center"
+                  >
                     {safeValueFormat(invoices.value, invoices.currency)}
                   </TableCell>
                   <TableCell align="center">

@@ -38,6 +38,7 @@ export default function Fluxos() {
     <MainContainer>
       <div
         className="ew-ui pagina-fluxos"
+        data-stardew-screen="flows"
         style={{
           ...identidade,
           display: "flex",

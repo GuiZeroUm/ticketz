@@ -60,7 +60,7 @@ function CheckoutSuccess(props) {
 
   return (
     <React.Fragment>
-      <Total>
+      <Total className="sd-checkout-total">
         <span>TOTAL</span>
         <strong>
           R$
@@ -69,7 +69,7 @@ function CheckoutSuccess(props) {
           })}
         </strong>
       </Total>
-      <SuccessContent>
+      <SuccessContent className="sd-checkout-success">
         {isRedirect ? (
           <>
             <span>

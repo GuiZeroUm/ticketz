@@ -1,3 +1,4 @@
+import StardewBusinessGlyph from "../../../components/StardewBusinessGlyph";
 import React, { useCallback, useEffect, useState } from "react";
 import moment from "moment";
 
@@ -89,7 +90,7 @@ const PartnerFinanceiro = () => {
   ];
 
   return (
-    <MainContainer>
+    <MainContainer className="sd-business sd-partner-finance">
       <MainHeader>
         <Title>Financeiro</Title>
         <MainHeaderButtonsWrapper>
@@ -120,12 +121,13 @@ const PartnerFinanceiro = () => {
       <Grid spacing={1} container className={classes.cards}>
         {summaryCards.map(card => (
           <Grid xs={6} md={3} item key={card.label}>
-            <Card variant="outlined">
+            <Card variant="outlined" className="sd-gold-card">
               <CardContent>
                 <Typography variant="caption" color="textSecondary">
                   {card.label}
                 </Typography>
-                <Typography className={classes.cardValue}>
+                <Typography className={`${classes.cardValue} sd-gold-value`}>
+                  <StardewBusinessGlyph />
                   {formatCurrency(card.value)}
                 </Typography>
               </CardContent>

@@ -48,7 +48,7 @@ const useStyles = makeStyles(theme => ({
     height: 14,
     marginRight: theme.spacing(1),
     border: `1px solid ${theme.palette.divider}`,
-    borderRadius: "50%",
+    borderRadius: theme.isStardew ? 0 : "50%",
     verticalAlign: -2
   },
   formRow: {

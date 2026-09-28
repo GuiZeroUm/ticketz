@@ -438,7 +438,7 @@ export default function PlansManager() {
   };
 
   return (
-    <Paper className={classes.mainPaper} elevation={0}>
+    <Paper className={`${classes.mainPaper} sd-plans-register`} elevation={0}>
       <Grid spacing={2} container>
         <Grid xs={12} item>
           <PlanManagerForm

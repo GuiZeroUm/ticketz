@@ -1,17 +1,14 @@
+import ThemeSelector from "../../../components/ThemeSelector";
 import React, { useContext, useState } from "react";
 
 import Button from "@material-ui/core/Button";
 import CssBaseline from "@material-ui/core/CssBaseline";
-import IconButton from "@material-ui/core/IconButton";
 import Paper from "@material-ui/core/Paper";
 import TextField from "@material-ui/core/TextField";
 import Typography from "@material-ui/core/Typography";
-import Brightness4Icon from "@material-ui/icons/Brightness4";
-import Brightness7Icon from "@material-ui/icons/Brightness7";
-import { makeStyles, useTheme } from "@material-ui/core/styles";
+import { makeStyles } from "@material-ui/core/styles";
 
 import { PartnerAuthContext } from "../../../context/PartnerAuth/PartnerAuthContext";
-import ColorModeContext from "../../../layout/themeContext";
 
 export const usePartnerAuthStyles = makeStyles(theme => ({
   root: {
@@ -105,8 +102,6 @@ export const usePartnerAuthStyles = makeStyles(theme => ({
 
 const PartnerLogin = () => {
   const classes = usePartnerAuthStyles();
-  const theme = useTheme();
-  const { colorMode } = useContext(ColorModeContext);
   const { handleLogin, loading } = useContext(PartnerAuthContext);
 
   const [user, setUser] = useState({ email: "", password: "" });
@@ -121,16 +116,12 @@ const PartnerLogin = () => {
   };
 
   return (
-    <div className={classes.root}>
+    <div className={`${classes.root} sd-partner-auth`}>
       <CssBaseline />
       <div className={classes.backgroundLayer} />
-      <IconButton
-        className={classes.themeToggle}
-        onClick={colorMode.toggleColorMode}
-        aria-label="alternar tema"
-      >
-        {theme.mode === "dark" ? <Brightness7Icon /> : <Brightness4Icon />}
-      </IconButton>
+      <div className={classes.themeToggle}>
+        <ThemeSelector />
+      </div>
       <div className={classes.content}>
         <Paper className={classes.paper} elevation={6}>
           <img className={classes.logoImg} alt="logo" />

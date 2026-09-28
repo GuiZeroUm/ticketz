@@ -26,7 +26,7 @@ const MainContainer = ({ children, className = "", style }) => {
   return (
     <Container
       maxWidth={false}
-      className={`${classes.mainContainer} ${className}`}
+      className={`${classes.mainContainer} stardew-main-container ${className}`}
       style={style}
     >
       <div className={classes.contentWrapper}>{children}</div>

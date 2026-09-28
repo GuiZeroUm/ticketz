@@ -161,7 +161,7 @@ const CategoryDetail = ({ group, onBack, onOpenArticle }) => {
       </Breadcrumbs>
 
       <Box className={classes.header}>
-        <Box className={classes.iconBox}>
+        <Box className={`${classes.iconBox} sv-library-icon`}>
           <Icon fontSize="large" />
         </Box>
         <Box>
@@ -192,7 +192,11 @@ const CategoryDetail = ({ group, onBack, onOpenArticle }) => {
           </Box>
           <Box className={classes.grid}>
             {group.videos.map(video => (
-              <Card key={video.id} variant="outlined">
+              <Card
+                key={video.id}
+                className="sv-library-card"
+                variant="outlined"
+              >
                 <CardActionArea onClick={() => openVideo(video)}>
                   <VideoThumb
                     videoId={parseYoutubeId(video.video)}
@@ -237,7 +241,11 @@ const CategoryDetail = ({ group, onBack, onOpenArticle }) => {
           </Box>
           <Box className={classes.grid}>
             {group.articles.map(article => (
-              <Card key={article.id} variant="outlined">
+              <Card
+                key={article.id}
+                className="sv-library-card"
+                variant="outlined"
+              >
                 <CardActionArea onClick={() => onOpenArticle(article)}>
                   <Box className={classes.articleCard}>
                     <Box className={classes.titleRow}>

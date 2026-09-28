@@ -27,7 +27,7 @@ import MainListItems from "./MainListItems";
 import AtalhosAtendimento from "./AtalhosAtendimento";
 import CaminhoPagina from "./CaminhoPagina";
 import FerramentasBarra from "./FerramentasBarra";
-import { PanelLeft, Headphones, Moon, Sun } from "lucide-react";
+import { PanelLeft, Headphones } from "lucide-react";
 import "./estrutura.css";
 import NotificationsPopOver from "../components/NotificationsPopOver";
 import { Backendlogs } from "../components/Backendlogs";
@@ -41,6 +41,7 @@ import { i18n } from "../translate/i18n";
 import { messages } from "../translate/languages";
 import toastError from "../errors/toastError";
 import AnnouncementsPopover from "../components/AnnouncementsPopover";
+import SubscriptionNotice from "../components/SubscriptionNotice";
 
 import { SocketContext } from "../context/Socket/SocketContext";
 import ChatPopover from "../pages/Chat/ChatPopover";
@@ -48,7 +49,7 @@ import ChatPopover from "../pages/Chat/ChatPopover";
 import { useDate } from "../hooks/useDate";
 import useAuth from "../hooks/useAuth.js";
 
-import ColorModeContext from "../layout/themeContext";
+import ThemeSelector, { ThemeOptions } from "../components/ThemeSelector";
 import NestedMenuItem from "material-ui-nested-menu-item";
 import GoogleAnalytics from "../components/GoogleAnalytics";
 import OnlyForSuperUser from "../components/OnlyForSuperUser";
@@ -315,6 +316,13 @@ const useStyles = makeStyles(theme => ({
   content: {
     minWidth: 0,
     flex: 1,
+    overflow: "hidden",
+    display: "flex",
+    flexDirection: "column"
+  },
+  pageContent: {
+    minHeight: 0,
+    flex: 1,
     overflow: "auto"
   },
   container: {
@@ -381,7 +389,6 @@ const LoggedInLayout = ({ children, themeToggle }) => {
   const theme = useTheme();
   const greaterThenSm = useMediaQuery(theme.breakpoints.up("sm"));
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const { colorMode } = useContext(ColorModeContext);
 
   const [currentLanguage, setCurrentLanguage] = useState(i18n.language);
 
@@ -577,10 +584,6 @@ const LoggedInLayout = ({ children, themeToggle }) => {
     });
   };
 
-  const toggleColorMode = () => {
-    colorMode.toggleColorMode();
-  };
-
   const handleChooseLanguage = language => {
     localStorage.setItem("language", language);
     window.location.reload(false);
@@ -697,19 +700,10 @@ const LoggedInLayout = ({ children, themeToggle }) => {
               <AnnouncementsPopover />
               <ChatPopover />
             </FerramentasBarra>
-            <Tooltip
-              title={i18n.t(
-                theme.mode === "dark"
-                  ? "mainDrawer.appBar.user.lightmode"
-                  : "mainDrawer.appBar.user.darkmode"
-              )}
-            >
-              <IconButton color="inherit" onClick={toggleColorMode}>
-                {theme.mode === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-              </IconButton>
-            </Tooltip>
+            <ThemeSelector />
           </div>
         )}
+
         <Button
           className={`${classes.rodapeUsuario} nav-perfil`}
           onClick={event =>
@@ -773,11 +767,12 @@ const LoggedInLayout = ({ children, themeToggle }) => {
         <MenuItem onClick={handleOpenUserModal}>
           {i18n.t("mainDrawer.appBar.user.profile")}
         </MenuItem>
-        <MenuItem onClick={toggleColorMode}>
-          {theme.mode === "dark"
-            ? i18n.t("mainDrawer.appBar.user.lightmode")
-            : i18n.t("mainDrawer.appBar.user.darkmode")}
-        </MenuItem>
+        <NestedMenuItem
+          label={i18n.t("themes.label")}
+          parentMenuOpen={menuOpen}
+        >
+          <ThemeOptions onSelect={handleCloseProfileMenu} />
+        </NestedMenuItem>
         <NestedMenuItem
           label={i18n.t("mainDrawer.appBar.user.language")}
           parentMenuOpen={menuOpen}
@@ -853,25 +848,7 @@ const LoggedInLayout = ({ children, themeToggle }) => {
               <AnnouncementsPopover />
               <ChatPopover />
             </FerramentasBarra>
-            <Tooltip
-              title={i18n.t(
-                theme.mode === "dark"
-                  ? "mainDrawer.appBar.user.lightmode"
-                  : "mainDrawer.appBar.user.darkmode"
-              )}
-            >
-              <IconButton
-                color="inherit"
-                onClick={toggleColorMode}
-                aria-label={i18n.t(
-                  theme.mode === "dark"
-                    ? "mainDrawer.appBar.user.lightmode"
-                    : "mainDrawer.appBar.user.darkmode"
-                )}
-              >
-                {theme.mode === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-              </IconButton>
-            </Tooltip>
+            <ThemeSelector />
 
             <div className={classes.userInfoWrapper}>
               <div
@@ -913,7 +890,8 @@ const LoggedInLayout = ({ children, themeToggle }) => {
       <main className={classes.content}>
         {!isAcNorteLayout && <div className={classes.appBarSpacer} />}
         <OnlyForSuperUser user={currentUser} yes={() => <GoogleAnalytics />} />
-        {children ? children : null}
+        <SubscriptionNotice />
+        <div className={classes.pageContent}>{children ? children : null}</div>
       </main>
     </div>
   );

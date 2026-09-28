@@ -32,7 +32,12 @@ const TaskDetailsDrawer = ({ taskId, onClose }) => {
     i18n.t("todolist.targets.global");
 
   return (
-    <Drawer anchor="right" open={!!taskId} onClose={onClose}>
+    <Drawer
+      anchor="right"
+      open={!!taskId}
+      onClose={onClose}
+      PaperProps={{ className: "sv-quest-details" }}
+    >
       <div style={{ width: "min(460px, 92vw)", padding: 24 }}>
         {!task ? (
           <CircularProgress size={28} />

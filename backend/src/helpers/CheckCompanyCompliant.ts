@@ -4,6 +4,8 @@ import { logger } from "../utils/logger";
 import { GetCompanySetting } from "./CheckSettings";
 import { SimpleObjectCache } from "./simpleObjectCache";
 import moment from "moment";
+import { subscriptionDeadline } from "./subscriptionDeadline";
+import Invoices from "../models/Invoices";
 
 const companyComplianceCache = new SimpleObjectCache(60 * 1000, logger);
 const checkMutex = new Mutex();
@@ -44,11 +46,14 @@ export async function checkCompanyCompliant(
       return true;
     }
 
-    const dueDate = new Date(company.dueDate);
-    dueDate.setDate(dueDate.getDate() + gracePeriod);
-    dueDate.setHours(23, 59, 59, 999);
-
-    const isCompliant = new Date() <= dueDate;
+    const openInvoice = await Invoices.findOne({
+      where: { companyId, status: "open" },
+      attributes: ["dueDate"],
+      order: [["dueDate", "ASC"]]
+    });
+    const isCompliant = moment().isSameOrBefore(
+      subscriptionDeadline(openInvoice?.dueDate || company.dueDate, gracePeriod)
+    );
 
     companyComplianceCache.set(cacheKey, isCompliant);
 

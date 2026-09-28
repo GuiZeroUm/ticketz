@@ -567,7 +567,7 @@ const ProspeccaoContent = () => {
   };
 
   return (
-    <MainContainer>
+    <MainContainer className="sd-business sd-prospecting">
       <MainHeader>
         <Title>Prospecção</Title>
         <MainHeaderButtonsWrapper>
@@ -603,7 +603,10 @@ const ProspeccaoContent = () => {
       </MainHeader>
 
       <Paper className={classes.painel} variant="outlined">
-        <Paper className={classes.formulario} variant="outlined">
+        <Paper
+          className={`${classes.formulario} sd-search-quest`}
+          variant="outlined"
+        >
           <form onSubmit={inicia}>
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6} md={3}>
@@ -751,7 +754,10 @@ const ProspeccaoContent = () => {
         </Paper>
 
         {(acompanhando || aviso) && (
-          <Paper className={classes.progresso} variant="outlined">
+          <Paper
+            className={`${classes.progresso} sd-quest-progress`}
+            variant="outlined"
+          >
             <Typography variant="body2">
               {acompanhando ? mensagemDeEtapa() : aviso}
             </Typography>
@@ -760,7 +766,10 @@ const ProspeccaoContent = () => {
         )}
 
         {(automation.enabled || automationExecutions.length > 0) && (
-          <Paper className={classes.progresso} variant="outlined">
+          <Paper
+            className={`${classes.progresso} sd-quest-progress`}
+            variant="outlined"
+          >
             <div className={classes.automationHeader}>
               <Typography variant="subtitle2">
                 {automation.enabled
@@ -772,7 +781,12 @@ const ProspeccaoContent = () => {
               </Typography>
             </div>
             <Grid container spacing={2}>
-              <Grid item xs={6} sm={3} className={classes.automationMetric}>
+              <Grid
+                item
+                xs={6}
+                sm={3}
+                className={`${classes.automationMetric} sd-quest-metric`}
+              >
                 <Typography variant="caption" color="textSecondary">
                   Buscas hoje
                 </Typography>
@@ -781,7 +795,12 @@ const ProspeccaoContent = () => {
                   {automationProgress.searchesTotal || 0}
                 </Typography>
               </Grid>
-              <Grid item xs={6} sm={3} className={classes.automationMetric}>
+              <Grid
+                item
+                xs={6}
+                sm={3}
+                className={`${classes.automationMetric} sd-quest-metric`}
+              >
                 <Typography variant="caption" color="textSecondary">
                   Resultados encontrados
                 </Typography>
@@ -790,7 +809,12 @@ const ProspeccaoContent = () => {
                   {automationProgress.targetLeads || 0}
                 </Typography>
               </Grid>
-              <Grid item xs={6} sm={3} className={classes.automationMetric}>
+              <Grid
+                item
+                xs={6}
+                sm={3}
+                className={`${classes.automationMetric} sd-quest-metric`}
+              >
                 <Typography variant="caption" color="textSecondary">
                   Leads elegíveis na fila
                 </Typography>
@@ -799,7 +823,12 @@ const ProspeccaoContent = () => {
                     (automationProgress.sending || 0)}
                 </Typography>
               </Grid>
-              <Grid item xs={6} sm={3} className={classes.automationMetric}>
+              <Grid
+                item
+                xs={6}
+                sm={3}
+                className={`${classes.automationMetric} sd-quest-metric`}
+              >
                 <Typography variant="caption" color="textSecondary">
                   Envios hoje
                 </Typography>
@@ -839,7 +868,10 @@ const ProspeccaoContent = () => {
             {automationExecutions.length > 0 && (
               <div className={classes.automationExecutions}>
                 {automationExecutions.map(item => (
-                  <div className={classes.automationExecution} key={item.id}>
+                  <div
+                    className={`${classes.automationExecution} sd-quest-execution`}
+                    key={item.id}
+                  >
                     <Typography variant="body2">
                       {item.time || "--:--"} · {item.nicho || "Agenda alterada"}
                     </Typography>
@@ -907,7 +939,7 @@ const ProspeccaoContent = () => {
         </Paper>
 
         {carregandoLista && leads.length === 0 && (
-          <div className={classes.vazio}>
+          <div className={`${classes.vazio} sd-quest-empty`}>
             <CircularProgress size={24} />
           </div>
         )}
@@ -925,7 +957,7 @@ const ProspeccaoContent = () => {
         ))}
 
         {!carregandoLista && leads.length === 0 && (
-          <div className={classes.vazio}>
+          <div className={`${classes.vazio} sd-quest-empty`}>
             <Typography variant="body1">
               {total === 0 && filtro === "todos" && !buscaAplicada
                 ? "Nenhum lead ainda. Escolha um nicho e uma cidade para buscar no Google Maps."

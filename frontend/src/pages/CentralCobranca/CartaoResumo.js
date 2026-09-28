@@ -1,4 +1,5 @@
 import React from "react";
+import StardewBusinessGlyph from "../../components/StardewBusinessGlyph";
 import { Card, CardContent, Typography } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
 import Skeleton from "@material-ui/lab/Skeleton";
@@ -32,14 +33,17 @@ const CartaoResumo = ({ titulo, valor, detalhe, cor, carregando }) => {
   return (
     <Card
       variant="outlined"
-      className={classes.card}
+      className={`${classes.card} sd-gold-card`}
       style={{ borderLeftColor: cor }}
     >
       <CardContent className={classes.conteudo}>
         <Typography variant="caption" color="textSecondary">
           {titulo}
         </Typography>
-        <Typography className={classes.valor}>{valor}</Typography>
+        <Typography className={`${classes.valor} sd-gold-value`}>
+          <StardewBusinessGlyph />
+          {valor}
+        </Typography>
         {detalhe ? (
           <Typography variant="caption" className={classes.detalhe}>
             {detalhe}

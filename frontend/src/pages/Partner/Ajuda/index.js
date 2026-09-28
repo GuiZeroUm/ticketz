@@ -98,7 +98,7 @@ const PartnerAjuda = () => {
   };
 
   return (
-    <MainContainer>
+    <MainContainer className="sd-business sd-partner-help">
       <MainHeader>
         <Title>Ajuda e treinamentos</Title>
       </MainHeader>

@@ -30,14 +30,14 @@ export default function TicketListSurface({ children, style, onScroll }) {
     <Paper
       square
       elevation={0}
-      className={classes.wrapper}
+      className={`${classes.wrapper} fila-superficie`}
       style={style}
       data-testid="ticket-list-surface"
     >
       <Paper
         square
         elevation={0}
-        className={classes.scroll}
+        className={`${classes.scroll} fila-rolagem`}
         onScroll={onScroll}
         data-testid="ticket-list-scroll"
       >

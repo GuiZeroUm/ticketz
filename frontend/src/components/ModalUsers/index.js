@@ -123,6 +123,7 @@ const ModalUsers = ({ open, onClose, userId, companyId }) => {
   return (
     <div className={classes.root}>
       <Dialog
+        PaperProps={{ className: "sd-admin-user-dialog" }}
         open={open}
         onClose={handleClose}
         maxWidth="xs"

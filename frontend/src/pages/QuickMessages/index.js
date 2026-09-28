@@ -1,3 +1,4 @@
+import StardewEmblem from "../../components/StardewEmblem";
 import React, { useState, useEffect, useContext } from "react";
 import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
@@ -109,8 +110,9 @@ function QuickMessages(props) {
   };
 
   return (
-    <MainContainer>
+    <MainContainer className="sv-operations sv-screen-quick-messages">
       <MainHeader>
+        <StardewEmblem item="scroll" />
         <Title>{i18n.t("quickMessages.title")}</Title>
         <MainHeaderButtonsWrapper>
           <Button variant="contained" color="primary" onClick={handleOpenToAdd}>

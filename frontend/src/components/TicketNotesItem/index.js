@@ -25,7 +25,7 @@ export default function TicketNotesItem(props) {
   };
 
   return (
-    <ListItem alignItems="flex-start">
+    <ListItem alignItems="flex-start" className="conversa-nota-item">
       <ListItemAvatar>
         <Avatar alt={note.user?.name || ""} src="/static/images/avatar/1.jpg" />
       </ListItemAvatar>

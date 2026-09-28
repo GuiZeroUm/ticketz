@@ -83,6 +83,7 @@ const TicketOptionsMenu = ({
         configurarGrupo: () => setGroupConfigOpen(true)
       })}
       <Menu
+        className="conversa-menu"
         id="menu-appbar"
         anchorEl={anchorEl}
         getContentAnchorEl={null}

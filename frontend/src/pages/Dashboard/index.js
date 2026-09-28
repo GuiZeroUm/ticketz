@@ -1,3 +1,4 @@
+import StardewEmblem from "../../components/StardewEmblem";
 import React, { useState, useEffect, useContext } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
 import {
@@ -41,9 +42,10 @@ const useStyles = makeStyles(() => ({
   fullWidth: { width: "100%" }
 }));
 
-function Indicador({ titulo, valor }) {
+function Indicador({ titulo, valor, item = "chest" }) {
   return (
     <div className="painel-indicador">
+      <StardewEmblem item={item} className="sv-metric-emblem" />
       <span>{titulo}</span>
       <strong>{valor}</strong>
     </div>
@@ -288,8 +290,12 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="ew-ui pagina-painel" style={identidade}>
+    <div
+      className="ew-ui pagina-painel sv-operations sv-screen-dashboard"
+      style={identidade}
+    >
       <header className="painel-cabecalho">
+        <StardewEmblem item="sun" />
         <CabecalhoPagina
           titulo={i18n.t("redesign.visaoGeral")}
           descricao={i18n.t("redesign.descricaoPainel")}
@@ -334,24 +340,29 @@ const Dashboard = () => {
               valor={openedTotal}
             />
             <Indicador
+              item="scroll"
               titulo={i18n.t("dashboard.ticketsWaiting")}
               valor={pendingTotal}
             />
             <Indicador
+              item="star"
               titulo={i18n.t("dashboard.ticketsDone")}
               valor={ticketsData.ticketStatistics?.totalClosed ?? "—"}
             />
             <Indicador
+              item="sprout"
               titulo={i18n.t("dashboard.newContacts")}
               valor={ticketsData.ticketStatistics?.newContacts ?? "—"}
             />
             <Indicador
+              item="clock"
               titulo={i18n.t("dashboard.avgServiceTime")}
               valor={formatTimeInterval(
                 ticketsData.ticketStatistics?.avgServiceTime
               )}
             />
             <Indicador
+              item="clock"
               titulo={i18n.t("dashboard.avgWaitTime")}
               valor={formatTimeInterval(
                 ticketsData.ticketStatistics?.avgWaitTime
@@ -393,10 +404,12 @@ const Dashboard = () => {
         <Tabs.Content value="aoVivo">
           <div className="painel-indicadores painel-indicadores--tres">
             <Indicador
+              item="villager"
               titulo={i18n.t("dashboard.usersOnline")}
               valor={`${usersOnlineTotal}/${usersOnlineTotal + usersOfflineTotal}`}
             />
             <Indicador
+              item="scroll"
               titulo={i18n.t("dashboard.ticketsWaiting")}
               valor={pendingTotal}
             />

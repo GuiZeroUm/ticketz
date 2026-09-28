@@ -25,8 +25,9 @@ const useStyles = makeStyles(theme => ({
   },
 
   cardHeader: {
-    backgroundColor:
-      theme.palette.type === "light"
+    backgroundColor: theme.isStardew
+      ? "#f5d995"
+      : theme.palette.type === "light"
         ? theme.palette.grey[200]
         : theme.palette.grey[700]
   },

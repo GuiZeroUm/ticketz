@@ -295,7 +295,7 @@ const CentralCobranca = () => {
   ];
 
   return (
-    <MainContainer>
+    <MainContainer className="sd-business sd-billing">
       <ModalLancarCobranca
         aberto={lancando}
         aoFechar={() => setLancando(false)}
@@ -349,7 +349,10 @@ const CentralCobranca = () => {
           </Box>
         )}
 
-        <Paper className={classes.filtros} variant="outlined">
+        <Paper
+          className={`${classes.filtros} sd-ledger-filters`}
+          variant="outlined"
+        >
           <Grid container spacing={1} alignItems="center">
             <Grid item xs={6} sm={3} md={2}>
               <TextField
@@ -444,7 +447,10 @@ const CentralCobranca = () => {
         </Grid>
 
         {dadosGrafico.length > 0 && (
-          <Paper className={classes.grafico} variant="outlined">
+          <Paper
+            className={`${classes.grafico} sd-ledger-chart`}
+            variant="outlined"
+          >
             <Typography variant="caption" color="textSecondary">
               Cobranças por mês de vencimento
             </Typography>
@@ -455,9 +461,21 @@ const CentralCobranca = () => {
                 <YAxis tick={{ fontSize: 12 }} />
                 <ChartTooltip formatter={valor => formatCurrency(valor)} />
                 <Legend />
-                <Bar dataKey="Recebido" stackId="a" fill="#27ae60" />
-                <Bar dataKey="Em aberto" stackId="a" fill="#2f80ed" />
-                <Bar dataKey="Vencido" stackId="a" fill="#eb5757" />
+                <Bar
+                  dataKey="Recebido"
+                  stackId="a"
+                  fill={theme.isStardew ? "#477b38" : "#27ae60"}
+                />
+                <Bar
+                  dataKey="Em aberto"
+                  stackId="a"
+                  fill={theme.isStardew ? "#ca9939" : "#2f80ed"}
+                />
+                <Bar
+                  dataKey="Vencido"
+                  stackId="a"
+                  fill={theme.isStardew ? "#a94735" : "#eb5757"}
+                />
               </BarChart>
             </ResponsiveContainer>
           </Paper>

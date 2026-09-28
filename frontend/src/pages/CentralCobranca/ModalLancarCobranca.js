@@ -106,7 +106,13 @@ const ModalLancarCobranca = ({
   };
 
   return (
-    <Dialog open={aberto} onClose={aoFechar} maxWidth="sm" fullWidth>
+    <Dialog
+      PaperProps={{ className: "sd-billing-dialog" }}
+      open={aberto}
+      onClose={aoFechar}
+      maxWidth="sm"
+      fullWidth
+    >
       <DialogTitle>Lançar cobrança</DialogTitle>
       <DialogContent dividers>
         <Grid container spacing={2}>

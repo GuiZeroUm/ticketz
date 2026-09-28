@@ -171,7 +171,11 @@ export default function Chat() {
     </section>
   );
   return (
-    <div className="ew-ui chat-layout" style={identidade}>
+    <div
+      className="ew-ui chat-layout"
+      data-stardew-screen="chat"
+      style={identidade}
+    >
       <ChatModal
         open={Boolean(modal)}
         type={modal || "new"}

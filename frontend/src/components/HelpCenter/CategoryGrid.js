@@ -112,12 +112,16 @@ const CategoryGrid = ({ groups, onSelect, title }) => {
           const Icon = getIconComponent(group.icon);
 
           return (
-            <Card key={group.id} className={classes.card} variant="outlined">
+            <Card
+              key={group.id}
+              className={`${classes.card} sv-library-card`}
+              variant="outlined"
+            >
               <CardActionArea
                 className={classes.action}
                 onClick={() => onSelect(group)}
               >
-                <Box className={classes.iconBox}>
+                <Box className={`${classes.iconBox} sv-library-icon`}>
                   <Icon fontSize="large" />
                 </Box>
                 <Box className={classes.titleRow}>

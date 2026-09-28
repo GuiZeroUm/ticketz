@@ -1,13 +1,13 @@
+import ThemeSelector from "../../components/ThemeSelector";
 import React, { useContext, useEffect, useRef, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import { MenuItem, Menu, IconButton, useTheme } from "@material-ui/core";
-import { Globe2, Moon, Sun } from "lucide-react";
+import { Globe2 } from "lucide-react";
 import { i18n } from "../../translate/i18n";
 import { messages } from "../../translate/languages";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import useSettings from "../../hooks/useSettings";
 import useGoogleLogin from "../../hooks/useGoogleLogin";
-import ColorModeContext from "../../layout/themeContext";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
 import getCompanySlug from "../../helpers/getCompanySlug";
@@ -51,7 +51,6 @@ const settingKeys = [
 
 export default function Login() {
   const theme = useTheme();
-  const { colorMode } = useContext(ColorModeContext);
   const { handleLogin, handlePasswordSetup, handleSocialLogin, loading } =
     useContext(AuthContext);
   const google = useGoogleLogin(handleSocialLogin);
@@ -154,12 +153,14 @@ export default function Login() {
           setFormError(i18n.t("login.errors.passwordMismatch"));
           return;
         }
-        if (!(
-          user.newPassword.length >= 8 &&
-          /[a-z]/.test(user.newPassword) &&
-          /[A-Z]/.test(user.newPassword) &&
-          /[0-9]/.test(user.newPassword)
-        )) {
+        if (
+          !(
+            user.newPassword.length >= 8 &&
+            /[a-z]/.test(user.newPassword) &&
+            /[A-Z]/.test(user.newPassword) &&
+            /[0-9]/.test(user.newPassword)
+          )
+        ) {
           setFormError(i18n.t("login.errors.passwordStrength"));
           return;
         }
@@ -347,20 +348,7 @@ export default function Login() {
               >
                 <Globe2 size={20} />
               </IconButton>
-              <IconButton
-                onClick={colorMode.toggleColorMode}
-                aria-label={i18n.t(
-                  theme.palette.type === "light"
-                    ? "loginExperience.darkMode"
-                    : "loginExperience.lightMode"
-                )}
-              >
-                {theme.palette.type === "light" ? (
-                  <Moon size={20} />
-                ) : (
-                  <Sun size={20} />
-                )}
-              </IconButton>
+              <ThemeSelector />
             </div>
           </header>
         }

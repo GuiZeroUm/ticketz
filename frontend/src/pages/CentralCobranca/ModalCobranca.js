@@ -203,7 +203,13 @@ const ModalCobranca = ({
             : "A cobrança deixa de valer e sai dos totais em aberto."}
       </ConfirmationModal>
 
-      <Dialog open={aberto} onClose={aoFechar} maxWidth="md" fullWidth>
+      <Dialog
+        PaperProps={{ className: "sd-billing-dialog" }}
+        open={aberto}
+        onClose={aoFechar}
+        maxWidth="md"
+        fullWidth
+      >
         <DialogTitle>
           Cobrança #{invoiceId}
           {fatura ? (

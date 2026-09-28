@@ -1,3 +1,4 @@
+import StardewEmblem from "../../components/StardewEmblem";
 import React, { useCallback, useContext, useEffect, useState } from "react";
 import {
   Button,
@@ -257,8 +258,9 @@ const ToDoList = () => {
   }));
 
   return (
-    <MainContainer>
+    <MainContainer className="sv-operations sv-screen-tasks">
       <MainHeader>
+        <StardewEmblem item="scroll" />
         <Title>{i18n.t("todolist.title")}</Title>
         <MainHeaderButtonsWrapper>
           <Button
@@ -365,7 +367,7 @@ const ToDoList = () => {
             onDragCancel={() => setActiveTask(null)}
             onDragEnd={handleDragEnd}
           >
-            <div className={classes.board}>
+            <div className={`${classes.board} sv-quest-board`}>
               {themedColumns.map(column => (
                 <KanbanColumn
                   key={column.id}
@@ -382,7 +384,9 @@ const ToDoList = () => {
             </div>
             <DragOverlay>
               {activeTask ? (
-                <Paper className={classes.overlay}>{activeTask.title}</Paper>
+                <Paper className={`${classes.overlay} sv-quest-overlay`}>
+                  {activeTask.title}
+                </Paper>
               ) : null}
             </DragOverlay>
           </DndContext>

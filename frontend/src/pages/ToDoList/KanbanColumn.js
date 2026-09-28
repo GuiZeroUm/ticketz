@@ -83,16 +83,18 @@ const KanbanColumn = ({
   const contrast = column.getContrastText(color);
 
   return (
-    <Paper className={classes.column} variant="outlined">
+    <Paper className={`${classes.column} sv-quest-column`} variant="outlined">
       <div
-        className={classes.header}
+        className={`${classes.header} sv-quest-column-header`}
         style={{ backgroundColor: color, color: contrast }}
       >
         {column.isDone && <CheckCircle className={classes.doneIcon} />}
         <Typography className={classes.title} style={{ color: contrast }}>
           {column.title}
         </Typography>
-        <span className={classes.count}>{tasks.length}</span>
+        <span className={`${classes.count} sv-quest-count`}>
+          {tasks.length}
+        </span>
       </div>
 
       <SortableContext
@@ -104,7 +106,7 @@ const KanbanColumn = ({
           className={`${classes.body} ${isOver ? classes.over : ""}`}
         >
           {tasks.length === 0 && (
-            <div className={classes.empty}>
+            <div className={`${classes.empty} sv-quest-empty`}>
               {i18n.t("todolist.emptyColumn")}
             </div>
           )}
