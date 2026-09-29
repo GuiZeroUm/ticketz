@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kirby · Agente Espaço</title>
+    <style>
+      html,
+      body,
+      #avatar {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        overflow: hidden;
+        background: transparent;
+      }
+      #avatar {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <span id="avatar"></span>
+    <script type="module">
+      import {
+        mountKirby,
+        isKirbyAnimation,
+        kirbyExpression
+      } from "./kirby.bundle.js";
+
+      const avatar = mountKirby(document.getElementById("avatar"));
+      const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+      let current = "idle";
+
+      function setState(next) {
+        if (!isKirbyAnimation(next) || next === current) return;
+        current = next;
+        if (reducedMotion.matches) {
+          avatar.setExpression(kirbyExpression(next));
+          avatar.pause();
+        } else {
+          avatar.play(next);
+        }
+        document.body.dataset.animation = next;
+      }
+
+      addEventListener("message", event => {
+        if (
+          event.origin !== location.origin ||
+          event.source !== parent ||
+          event.data?.type !== "agent-avatar-state"
+        ) {
+          return;
+        }
+        setState(event.data.state);
+      });
+      reducedMotion.addEventListener("change", () => {
+        if (reducedMotion.matches) {
+          avatar.setExpression(kirbyExpression(current));
+          avatar.pause();
+        } else {
+          avatar.play(current);
+        }
+      });
+      if (reducedMotion.matches) {
+        avatar.setExpression(kirbyExpression(current));
+        avatar.pause();
+      }
+      parent.postMessage({ type: "agent-avatar-ready" }, location.origin);
+    </script>
+  </body>
+</html>

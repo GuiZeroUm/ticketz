@@ -1,6 +1,33 @@
 const messages = {
   en: {
     translations: {
+      agentPreview: {
+        launcher: "Espaço Agent",
+        subtitle: "An extra hand in your operation",
+        avatarTitle: "Kirby, the Espaço Agent character",
+        panel: "Espaço Agent · Hermes chat",
+        greeting: "Hello, {{name}}.",
+        chat: {
+          badge: "Chat connected to Hermes · other features in preview",
+          connected: "Connected to Hermes",
+          progress: "Waiting for Hermes to reply",
+          error: "Could not receive a reply. Please try again.",
+          unavailable: "Hermes is unavailable right now. Please try again.",
+          timeout: "Hermes took too long to reply. Please try again.",
+          cancelled: "Reply stopped.",
+          invalidRequest:
+            "Could not send this message. Review the text and try again.",
+          sessionExpired:
+            "Your session has expired. Sign in again to continue.",
+          permissionDenied: "Your account does not have access to this chat.",
+          busy: "The agent is busy. Wait a moment and try again.",
+          notConfigured:
+            "The connection to Hermes has not been configured yet.",
+          emptyReply: "Hermes returned no reply. Please try again.",
+          retry: "Try again",
+          placeholder: "What shall we work on today?"
+        }
+      },
       visual: {
         visualizar: "View",
         centralAtendimento: "Support center",

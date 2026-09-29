@@ -20,7 +20,7 @@ import {
   useMediaQuery
 } from "@material-ui/core";
 
-import BusinessOutlined from "@material-ui/icons/BusinessOutlined";
+import AgentPreview from "../components/AgentPreview";
 import SettingsEthernetIcon from "@material-ui/icons/SettingsEthernet";
 
 import MainListItems from "./MainListItems";
@@ -603,19 +603,11 @@ const LoggedInLayout = ({ children, themeToggle }) => {
             alt="logo"
           />
         </div>
-        {drawerOpen && (
-          <div className={classes.organizacao}>
-            <BusinessOutlined fontSize="small" color="action" />
-            <div className={classes.dadosOrganizacao}>
-              <Typography variant="body2">
-                {user?.company?.name || theme.appName}
-              </Typography>
-              <Typography variant="caption" color="textSecondary">
-                {i18n.t("redesign.organizacao")}
-              </Typography>
-            </div>
-          </div>
-        )}
+        <AgentPreview
+          collapsed={!drawerOpen}
+          companyName={user?.company?.name || theme.appName}
+          userName={user?.name || ""}
+        />
         <Button
           className={`${classes.novaConversa} nav-abrir-atendimento`}
           color="primary"

@@ -1,6 +1,33 @@
 const messages = {
   pt_PT: {
     translations: {
+      agentPreview: {
+        launcher: "Agente Espaço",
+        subtitle: "Uma ajuda extra na operação",
+        avatarTitle: "Kirby, personagem do Agente Espaço",
+        panel: "Agente Espaço · conversa com Hermes",
+        greeting: "Olá, {{name}}.",
+        chat: {
+          badge: "Chat ligado ao Hermes · restantes recursos em prévia",
+          connected: "Ligado ao Hermes",
+          progress: "A aguardar resposta do Hermes",
+          error: "Não foi possível receber a resposta. Tente novamente.",
+          unavailable:
+            "O Hermes está indisponível de momento. Tente novamente.",
+          timeout: "O Hermes demorou a responder. Tente novamente.",
+          cancelled: "Resposta interrompida.",
+          invalidRequest:
+            "Não foi possível enviar esta mensagem. Reveja o texto e tente novamente.",
+          sessionExpired:
+            "A sua sessão expirou. Entre novamente para continuar.",
+          permissionDenied: "O seu utilizador não tem acesso a esta conversa.",
+          busy: "O agente está ocupado. Aguarde um momento e tente novamente.",
+          notConfigured: "A ligação ao Hermes ainda não está configurada.",
+          emptyReply: "O Hermes não devolveu uma resposta. Tente novamente.",
+          retry: "Tentar novamente",
+          placeholder: "O que vamos resolver hoje?"
+        }
+      },
       visual: {
         visualizar: "Visualizar",
         centralAtendimento: "Central de Atendimento",

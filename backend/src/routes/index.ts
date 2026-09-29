@@ -51,7 +51,10 @@ import webPushRoutes from "./webPushRoutes";
 import billingAdminRoutes from "./billingAdminRoutes";
 import prospeccaoRoutes from "./prospeccaoRoutes";
 
+import agentRoutes from "./agentRoutes";
+
 const routes = Router();
+routes.use(agentRoutes);
 
 routes.use(platformRoutes);
 routes.use(billingAdminRoutes);
