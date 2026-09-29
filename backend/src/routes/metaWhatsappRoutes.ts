@@ -19,6 +19,13 @@ metaWhatsappRoutes.post(
   MetaWhatsAppController.connect
 );
 
+metaWhatsappRoutes.get(
+  "/whatsapp/:whatsappId/meta/onboarding",
+  isAuth,
+  isAdmin,
+  MetaWhatsAppController.getOnboardingStatus
+);
+
 // Bypass temporario do Embedded Signup - so pra quem tem acesso de
 // plataforma (isSuper), nunca pro admin comum da empresa.
 metaWhatsappRoutes.post(

@@ -1,3 +1,4 @@
+import AssertMetaSignupAssetsService from "./AssertMetaSignupAssetsService";
 import { clearTicketTemplatesCache } from "./ListTicketTemplatesService";
 import AssertMetaWabaRuntimeService from "./AssertMetaWabaRuntimeService";
 import { Op } from "sequelize";
@@ -63,17 +64,29 @@ const ConnectMetaWhatsAppService = async ({
   const { accessToken, expiresInSeconds } =
     await ExchangeEmbeddedSignupCodeService(code);
 
+  const verifiedAssets = await AssertMetaSignupAssetsService({
+    accessToken,
+    wabaId,
+    phoneNumberId,
+    businessId
+  });
+  const exchangeExpiry = expiresInSeconds
+    ? new Date(Date.now() + expiresInSeconds * 1000)
+    : null;
+  const tokenExpiry =
+    [exchangeExpiry, verifiedAssets.tokenExpiresAt]
+      .filter((value): value is Date => value !== null)
+      .sort((left, right) => left.getTime() - right.getTime())[0] || null;
+
   await RegisterPhoneNumberService(phoneNumberId, accessToken, registrationPin);
   await SubscribeWabaWebhookService(wabaId, accessToken);
 
   await whatsapp.update({
     metaWabaId: wabaId,
     metaPhoneNumberId: phoneNumberId,
-    metaBusinessId: businessId || null,
+    metaBusinessId: verifiedAssets.businessId,
     metaAccessToken: accessToken,
-    metaTokenExpiresAt: expiresInSeconds
-      ? new Date(Date.now() + expiresInSeconds * 1000)
-      : null,
+    metaTokenExpiresAt: tokenExpiry,
     metaWebhookVerifiedAt: new Date(),
     status: "CONNECTED"
   });

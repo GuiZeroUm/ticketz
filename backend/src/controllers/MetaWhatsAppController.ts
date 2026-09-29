@@ -3,6 +3,11 @@ import AppError from "../errors/AppError";
 import ShowWhatsAppService from "../services/WhatsappService/ShowWhatsAppService";
 import ConnectMetaWhatsAppService from "../services/MetaWhatsAppServices/ConnectMetaWhatsAppService";
 import ConnectMetaWhatsAppManualService from "../services/MetaWhatsAppServices/ConnectMetaWhatsAppManualService";
+import GetMetaOnboardingStatusService from "../services/MetaWhatsAppServices/GetMetaOnboardingStatusService";
+import {
+  assertMetaSignupConfigured,
+  getMetaSignupConfig
+} from "../services/MetaWhatsAppServices/GetMetaSignupConfigService";
 
 // Retorna so IDs publicos (App ID / Embedded Signup Config ID), nunca o App
 // Secret - usados pelo frontend pra montar o botao FB.login do Embedded
@@ -11,11 +16,22 @@ export const getConfig = async (
   _req: Request,
   res: Response
 ): Promise<Response> => {
-  return res.status(200).json({
-    appId: process.env.META_APP_ID || null,
-    configId: process.env.META_CONFIG_ID || null
-  });
+  return res.status(200).json(getMetaSignupConfig());
 };
+
+export const getOnboardingStatus = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const status = await GetMetaOnboardingStatusService(
+    req.params.whatsappId,
+    req.user.companyId
+  );
+  return res.status(200).json(status);
+};
+
+const isMetaId = (value: unknown): value is string =>
+  typeof value === "string" && /^\d{1,32}$/.test(value);
 
 export const connect = async (
   req: Request,
@@ -23,11 +39,20 @@ export const connect = async (
 ): Promise<Response> => {
   const { whatsappId } = req.params;
   const { companyId } = req.user;
-  const { code, wabaId, phoneNumberId, businessId, pin } = req.body;
+  const { code, wabaId, phoneNumberId, businessId, pin } = req.body || {};
 
-  if (!code || !wabaId || !phoneNumberId) {
+  if (
+    typeof code !== "string" ||
+    !code.trim() ||
+    code.length > 4096 ||
+    !isMetaId(wabaId) ||
+    !isMetaId(phoneNumberId) ||
+    (businessId !== undefined && businessId !== null && !isMetaId(businessId))
+  ) {
     throw new AppError("ERR_META_CONNECT_MISSING_FIELDS");
   }
+
+  assertMetaSignupConfigured();
 
   const whatsapp = await ShowWhatsAppService(whatsappId);
 
@@ -46,7 +71,7 @@ export const connect = async (
     pin,
     wabaId,
     phoneNumberId,
-    businessId
+    businessId: businessId || undefined
   });
 
   return res.status(200).json(updated);

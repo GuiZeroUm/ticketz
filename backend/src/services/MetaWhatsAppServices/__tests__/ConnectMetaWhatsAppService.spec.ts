@@ -1,3 +1,4 @@
+import AssertMetaSignupAssetsService from "../AssertMetaSignupAssetsService";
 import { clearTicketTemplatesCache } from "../ListTicketTemplatesService";
 import Whatsapp from "../../../models/Whatsapp";
 import ConnectMetaWhatsAppService from "../ConnectMetaWhatsAppService";
@@ -8,6 +9,10 @@ import { SubscribeWabaWebhookService } from "../SubscribeWabaWebhookService";
 import ShowWhatsAppService from "../../WhatsappService/ShowWhatsAppService";
 
 jest.mock("../../../models/Whatsapp");
+jest.mock("../AssertMetaSignupAssetsService", () => ({
+  __esModule: true,
+  default: jest.fn()
+}));
 jest.mock("../ListTicketTemplatesService", () => ({
   clearTicketTemplatesCache: jest.fn()
 }));
@@ -39,8 +44,8 @@ const request = {
   whatsappId: 9,
   companyId: 2,
   code: "code",
-  wabaId: "waba",
-  phoneNumberId: "phone",
+  wabaId: "111",
+  phoneNumberId: "222",
   pin: "012345"
 };
 const update = jest.fn();
@@ -48,6 +53,10 @@ const originalEncryptionKey = process.env.ENCRYPTION_KEY;
 beforeEach(() => {
   jest.clearAllMocks();
   process.env.ENCRYPTION_KEY = "a".repeat(64);
+  (AssertMetaSignupAssetsService as jest.Mock).mockResolvedValue({
+    businessId: "333",
+    tokenExpiresAt: null
+  });
   (Whatsapp.findOne as jest.Mock).mockResolvedValue({
     id: 9,
     apiMode: "official",
@@ -70,10 +79,10 @@ afterAll(() => {
 
 it("passes the admin's PIN to Meta without persisting it", async () => {
   await ConnectMetaWhatsAppService(request);
-  expect(AssertMetaWabaRuntimeService).toHaveBeenCalledWith("waba", 9);
+  expect(AssertMetaWabaRuntimeService).toHaveBeenCalledWith("111", 9);
   expect(clearTicketTemplatesCache).toHaveBeenCalledWith(9);
   expect(RegisterPhoneNumberService).toHaveBeenCalledWith(
-    "phone",
+    "222",
     "private-token",
     "012345"
   );
@@ -103,4 +112,46 @@ it("never marks the connection ready when registration fails", async () => {
   );
   expect(SubscribeWabaWebhookService).not.toHaveBeenCalled();
   expect(update).not.toHaveBeenCalled();
+});
+
+it("does not register, subscribe or persist when assets cannot be verified", async () => {
+  (AssertMetaSignupAssetsService as jest.Mock).mockRejectedValueOnce(
+    new Error("verification failed")
+  );
+  await expect(ConnectMetaWhatsAppService(request)).rejects.toThrow(
+    "verification failed"
+  );
+  expect(RegisterPhoneNumberService).not.toHaveBeenCalled();
+  expect(SubscribeWabaWebhookService).not.toHaveBeenCalled();
+  expect(update).not.toHaveBeenCalled();
+});
+it("persists server-verified ownership and earliest expiry instead of browser data", async () => {
+  const expiresAt = new Date(Date.now() + 60000);
+  (AssertMetaSignupAssetsService as jest.Mock).mockResolvedValueOnce({
+    businessId: "333",
+    tokenExpiresAt: expiresAt
+  });
+  (ExchangeEmbeddedSignupCodeService as jest.Mock).mockResolvedValueOnce({
+    accessToken: "private-token",
+    expiresInSeconds: 3600
+  });
+  await ConnectMetaWhatsAppService({ ...request, businessId: "333" });
+  expect(update).toHaveBeenCalledWith(
+    expect.objectContaining({
+      metaBusinessId: "333",
+      metaTokenExpiresAt: expiresAt
+    })
+  );
+  expect(AssertMetaSignupAssetsService).toHaveBeenCalledWith(
+    expect.objectContaining({
+      accessToken: "private-token",
+      wabaId: "111",
+      phoneNumberId: "222"
+    })
+  );
+  expect(
+    (AssertMetaSignupAssetsService as jest.Mock).mock.invocationCallOrder[0]
+  ).toBeLessThan(
+    (RegisterPhoneNumberService as jest.Mock).mock.invocationCallOrder[0]
+  );
 });

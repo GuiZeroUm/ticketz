@@ -20,7 +20,7 @@ export class MetaGraphApiError extends Error {
 export const getMetaGraphApiClient = (): AxiosInstance => {
   if (client) return client;
 
-  const version = process.env.META_GRAPH_API_VERSION || "v21.0";
+  const version = process.env.META_GRAPH_API_VERSION?.trim() || "v21.0";
 
   client = axios.create({
     baseURL: `https://graph.facebook.com/${version}`,
@@ -32,15 +32,22 @@ export const getMetaGraphApiClient = (): AxiosInstance => {
     error => {
       const graphError = error?.response?.data?.error;
       if (graphError) {
-        logger.error(
-          { graphError, url: error?.config?.url },
-          "Meta Graph API error"
-        );
+        const graphCode =
+          typeof graphError.code === "number" &&
+          Number.isFinite(graphError.code)
+            ? graphError.code
+            : undefined;
+        const graphSubcode =
+          typeof graphError.error_subcode === "number" &&
+          Number.isFinite(graphError.error_subcode)
+            ? graphError.error_subcode
+            : undefined;
+        logger.error({ graphCode, graphSubcode }, "Meta Graph API error");
         return Promise.reject(
           new MetaGraphApiError(
-            graphError.message || "Meta Graph API error",
-            graphError.code,
-            graphError.error_subcode
+            "Meta Graph API request failed",
+            graphCode,
+            graphSubcode
           )
         );
       }
