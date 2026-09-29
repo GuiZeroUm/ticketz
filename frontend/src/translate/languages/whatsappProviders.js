@@ -11,6 +11,32 @@ const pt = {
         "Ainda não disponível para conexões via API Oficial da Meta."
     },
     meta: {
+      signupTitle: "Conectar sua conta do WhatsApp",
+      ownAccount:
+        "Entre na Meta com seu próprio usuário administrador. Escolha ou crie a conta empresarial da sua empresa e selecione seu número de WhatsApp.",
+      billingSeparate:
+        "A mensalidade do EspaçoWhats é separada das tarifas de uso do WhatsApp cobradas diretamente pela Meta à sua empresa.",
+      cardOnlyMeta:
+        "Configure a forma de pagamento na própria Meta. O EspaçoWhats não recebe os dados do seu cartão.",
+      billingUnverified:
+        "Pagamento na Meta: ainda não verificado pelo EspaçoWhats. Uma conexão ativa não confirma que a forma de pagamento está configurada.",
+      billingChooseAccount:
+        "Na Meta, escolha a conta WhatsApp com o ID acima para conferir sua forma de pagamento e cobranças.",
+      openBilling: "Abrir cobrança na Meta",
+      wabaLabel: "ID da sua conta WhatsApp: {{id}}",
+      accountConnected: "Conta conectada à API oficial.",
+      loadingStatus: "Consultando conexão…",
+      statusFailed: "Não foi possível consultar a conexão. Tente atualizar.",
+      refreshStatus: "Atualizar conexão",
+      signupCancelled:
+        "Conexão cancelada. Você pode iniciar novamente quando quiser.",
+      signupFailed:
+        "A Meta não concluiu a conexão. Confira sua conta e tente novamente.",
+      signupAlreadyOpen:
+        "Conclua ou cancele a conexão Meta já aberta antes de iniciar outra.",
+      signupTimedOut:
+        "O tempo para concluir a conexão terminou. Feche a janela da Meta e tente novamente.",
+
       missingConfig:
         "Solicite ao administrador da plataforma a configuração desta conexão oficial.",
       missingNumber:
@@ -41,6 +67,14 @@ const pt = {
     }
   },
   backendErrors: {
+    ERR_META_ASSETS_NOT_AUTHORIZED:
+      "A conta ou o número não pertencem à autorização concluída. Conecte novamente usando a conta da sua empresa.",
+    ERR_META_ASSET_VERIFICATION_FAILED:
+      "Não foi possível confirmar a autorização na Meta. Tente novamente.",
+    ERR_META_CODE_EXCHANGE_FAILED:
+      "A autorização da Meta não pôde ser concluída. Inicie a conexão novamente.",
+    ERR_META_CONNECT_MISSING_FIELDS:
+      "A conexão está incompleta. Inicie a autorização na Meta novamente.",
     ERR_META_INVALID_REGISTRATION_PIN:
       "Informe um PIN de verificação em duas etapas com 6 dígitos.",
     ERR_META_PHONE_ALREADY_CONNECTED:
@@ -56,7 +90,7 @@ const pt = {
     ERR_META_CONNECTION_NOT_CONFIGURED:
       "A conexão da API Oficial está incompleta. Reconecte o número em Conexões.",
     ERR_META_APP_NOT_CONFIGURED:
-      "Falta configurar META_APP_ID e META_APP_SECRET no servidor.",
+      "O login Meta ainda não foi habilitado para esta plataforma. Entre em contato com o administrador.",
     ERR_META_MEDIA_TOO_LARGE:
       "Arquivo grande demais para a API Oficial da Meta. O limite é 5 MB para imagem, 16 MB para áudio e vídeo e 100 MB para documento.",
     ERR_META_MEDIA_UPLOAD:
@@ -100,6 +134,31 @@ const en = {
         "Not available yet for Meta Official API connections."
     },
     meta: {
+      signupTitle: "Connect your WhatsApp account",
+      ownAccount:
+        "Sign in to Meta with your own administrator account. Choose or create your company's business account and select your WhatsApp number.",
+      billingSeparate:
+        "Your EspaçoWhats subscription is separate from WhatsApp usage fees billed directly to your company by Meta.",
+      cardOnlyMeta:
+        "Set up your payment method on Meta. EspaçoWhats does not receive your card details.",
+      billingUnverified:
+        "Meta payment setup has not been verified by EspaçoWhats. An active connection does not confirm a payment method is configured.",
+      billingChooseAccount:
+        "On Meta, select the WhatsApp account with the ID above to review your payment method and charges.",
+      openBilling: "Open Meta billing",
+      wabaLabel: "Your WhatsApp account ID: {{id}}",
+      accountConnected: "Account connected to the official API.",
+      loadingStatus: "Checking connection…",
+      statusFailed: "Could not check the connection. Try refreshing.",
+      refreshStatus: "Refresh connection",
+      signupCancelled: "Connection cancelled. You can start again when ready.",
+      signupFailed:
+        "Meta could not complete the connection. Check your account and try again.",
+      signupAlreadyOpen:
+        "Complete or cancel the current Meta signup before starting another.",
+      signupTimedOut:
+        "The connection session expired. Close the Meta window and try again.",
+
       missingConfig:
         "Ask the platform administrator to configure this official connection.",
       missingNumber:
@@ -130,6 +189,16 @@ const en = {
     }
   },
   backendErrors: {
+    ERR_META_APP_NOT_CONFIGURED:
+      "Meta login has not been enabled for this platform yet. Contact your administrator.",
+    ERR_META_ASSETS_NOT_AUTHORIZED:
+      "The account or number does not belong to the completed authorization. Connect again using your company's account.",
+    ERR_META_ASSET_VERIFICATION_FAILED:
+      "Could not confirm authorization with Meta. Try again.",
+    ERR_META_CODE_EXCHANGE_FAILED:
+      "Meta authorization could not be completed. Start the connection again.",
+    ERR_META_CONNECT_MISSING_FIELDS:
+      "The connection is incomplete. Start Meta authorization again.",
     ERR_META_INVALID_REGISTRATION_PIN:
       "Enter a 6-digit two-step verification PIN.",
     ERR_META_PHONE_ALREADY_CONNECTED:

@@ -116,15 +116,117 @@ describe("MetaEmbeddedSignupButton signup data race", () => {
     dispatchEmbeddedSignupFinish();
 
     await waitFor(() => expect(api.post).toHaveBeenCalled());
-    expect(api.post).toHaveBeenCalledWith("/whatsapp/9/meta/connect", {
-      code: "auth-code",
-      pin: "012345",
-      wabaId: "waba-1",
-      phoneNumberId: "phone-1",
-      businessId: "biz-1"
-    });
+    expect(api.post).toHaveBeenCalledWith(
+      "/whatsapp/9/meta/connect",
+      {
+        code: "auth-code",
+        pin: "012345",
+        wabaId: "waba-1",
+        phoneNumberId: "phone-1",
+        businessId: "biz-1"
+      },
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
     expect(toast.error).not.toHaveBeenCalled();
     expect(onConnected).toHaveBeenCalledWith({ id: 9 });
+  });
+
+  it("cancels and retries without accepting a callback from the cancelled attempt", async () => {
+    render(
+      <MetaEmbeddedSignupButton
+        whatsAppId={9}
+        appId="app-1"
+        configId="config-1"
+        graphApiVersion="v23.0"
+      />
+    );
+    const connect = screen.getByRole("button", {
+      name: "connections.buttons.connectMeta"
+    });
+    await waitFor(() => expect(connect).toBeEnabled());
+    expect(window.FB.init).toHaveBeenCalledWith(
+      expect.objectContaining({ version: "v23.0", appId: "app-1" })
+    );
+    fireEvent.click(connect);
+    const pinField = screen.getByLabelText("connections.meta.pinLabel");
+    fireEvent.change(pinField, { target: { value: "012345" } });
+    const proceed = screen.getByRole("button", {
+      name: "connections.meta.continueSignup"
+    });
+    fireEvent.click(proceed);
+    const cancelledCallback = fbLoginCallback;
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          origin: "https://www.facebook.com",
+          data: JSON.stringify({ type: "WA_EMBEDDED_SIGNUP", event: "CANCEL" })
+        })
+      );
+    });
+    expect(pinField).toHaveValue("");
+    fireEvent.change(pinField, { target: { value: "012345" } });
+    fireEvent.click(proceed);
+    cancelledCallback({ authResponse: { code: "stale-code" } });
+    expect(api.post).not.toHaveBeenCalled();
+    await act(async () => {
+      dispatchEmbeddedSignupFinish();
+      fbLoginCallback({ authResponse: { code: "new-code" } });
+    });
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
+    expect(api.post.mock.calls[0][1].code).toBe("new-code");
+  });
+
+  it("does not connect after leaving the page while waiting for Meta", async () => {
+    const { unmount } = render(
+      <MetaEmbeddedSignupButton
+        whatsAppId={9}
+        appId="app-1"
+        configId="config-1"
+      />
+    );
+    const connect = screen.getByRole("button", {
+      name: "connections.buttons.connectMeta"
+    });
+    await waitFor(() => expect(connect).toBeEnabled());
+    fireEvent.click(connect);
+    fireEvent.change(screen.getByLabelText("connections.meta.pinLabel"), {
+      target: { value: "012345" }
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "connections.meta.continueSignup" })
+    );
+    fbLoginCallback({ authResponse: { code: "auth-code" } });
+    unmount();
+    dispatchEmbeddedSignupFinish();
+    await Promise.resolve();
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it("ignores completion messages received before signup is launched", async () => {
+    render(
+      <MetaEmbeddedSignupButton
+        whatsAppId={9}
+        appId="app-1"
+        configId="config-1"
+      />
+    );
+    const connect = screen.getByRole("button", {
+      name: "connections.buttons.connectMeta"
+    });
+    await waitFor(() => expect(connect).toBeEnabled());
+    dispatchEmbeddedSignupFinish();
+    fireEvent.click(connect);
+    fireEvent.change(screen.getByLabelText("connections.meta.pinLabel"), {
+      target: { value: "012345" }
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "connections.meta.continueSignup" })
+    );
+    fbLoginCallback({ authResponse: { code: "auth-code" } });
+    await Promise.resolve();
+    expect(api.post).not.toHaveBeenCalled();
+    dispatchEmbeddedSignupFinish();
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
   });
 });
 
@@ -147,6 +249,21 @@ it("preloads the SDK before enabling the popup action", async () => {
       ([node]) => node.src === "https://connect.facebook.net/en_US/sdk.js"
     )
   ).toBe(true);
+  const sdkScript = append.mock.calls.find(
+    ([node]) => node.src === "https://connect.facebook.net/en_US/sdk.js"
+  )[0];
+  // Script errors are browser events outside Testing Library's event wrappers.
+  await act(async () => {
+    sdkScript.onerror();
+  });
+  expect(button).toBeEnabled();
+  fireEvent.click(button);
+  expect(button).toBeDisabled();
+  expect(
+    append.mock.calls.filter(
+      ([node]) => node.src === "https://connect.facebook.net/en_US/sdk.js"
+    )
+  ).toHaveLength(2);
   window.FB = { init: jest.fn(), login: jest.fn() };
   // fbAsyncInit belongs to the external SDK, outside Testing Library events.
   await act(async () => {

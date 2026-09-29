@@ -60,7 +60,7 @@ import toastError from "../../errors/toastError";
 import wavoipIcon from "../../assets/wavoip.webp";
 import WavoipModal from "../../components/WavoipModal";
 import { wavoipAvailable } from "../../helpers/wavoipCallManager";
-import MetaEmbeddedSignupButton from "../../components/MetaEmbeddedSignupButton";
+import MetaOnboardingStatus from "../../components/MetaOnboardingStatus";
 import { formatWhatsappDigits } from "../../helpers/formatWhatsappDisplay";
 
 const useStyles = makeStyles(theme => ({
@@ -144,12 +144,26 @@ const Connections = () => {
   const [metaConfig, setMetaConfig] = useState({ appId: null, configId: null });
 
   useEffect(() => {
-    if (user?.company?.whatsappMode !== "meta") return;
+    setMetaConfig({ appId: null, configId: null });
+    if (user?.company?.whatsappMode !== "meta") return undefined;
+    let active = true;
+    const controller = new AbortController();
     api
-      .get("/whatsapp/meta/config")
-      .then(({ data }) => setMetaConfig(data))
-      .catch(toastError);
-  }, [user?.company?.whatsappMode]);
+      .get("/whatsapp/meta/config", {
+        signal: controller.signal,
+        timeout: 15000
+      })
+      .then(({ data }) => {
+        if (active) setMetaConfig(data);
+      })
+      .catch(error => {
+        if (active) toastError(error);
+      });
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [user?.companyId, user?.company?.whatsappMode]);
 
   const handleStartWhatsAppSession = async whatsAppId => {
     try {
@@ -305,14 +319,12 @@ const Connections = () => {
     if (isOfficial) {
       return (
         <>
-          {whatsApp.status !== "CONNECTED" && (
-            <MetaEmbeddedSignupButton
-              whatsAppId={whatsApp.id}
-              appId={metaConfig.appId}
-              configId={metaConfig.configId}
-              onConnected={() => window.location.reload()}
-            />
-          )}
+          <MetaOnboardingStatus
+            key={`${user?.companyId}-${whatsApp.id}`}
+            whatsapp={whatsApp}
+            config={metaConfig}
+            companyId={user?.companyId}
+          />
           {(whatsApp.status === "CONNECTED" ||
             whatsApp.status === "PAIRING" ||
             whatsApp.status === "TIMEOUT") && (
