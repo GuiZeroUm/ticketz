@@ -17,7 +17,12 @@ const officialBillingUrl = value => {
   }
 };
 
-export default function MetaOnboardingStatus({ whatsapp, config, companyId }) {
+export default function MetaOnboardingStatus({
+  whatsapp,
+  config,
+  companyId,
+  onRefreshConfig
+}) {
   const [onboarding, setOnboarding] = useState(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -49,7 +54,8 @@ export default function MetaOnboardingStatus({ whatsapp, config, companyId }) {
     };
   }, [whatsapp.id, whatsapp.status, companyId, refresh]);
 
-  const connected = onboarding?.connectionStatus === "CONNECTED";
+  const connected =
+    (onboarding?.connectionStatus ?? whatsapp.status) === "CONNECTED";
   const billingUrl = officialBillingUrl(onboarding?.billingManagementUrl);
 
   return (
@@ -67,7 +73,7 @@ export default function MetaOnboardingStatus({ whatsapp, config, companyId }) {
           {i18n.t("connections.meta.statusFailed")}
         </Typography>
       )}
-      {!loading && !failed && !connected && (
+      {!connected && (
         <MetaEmbeddedSignupButton
           key={`${companyId}-${whatsapp.id}`}
           whatsAppId={whatsapp.id}
@@ -75,6 +81,8 @@ export default function MetaOnboardingStatus({ whatsapp, config, companyId }) {
           configId={config.configId}
           graphApiVersion={config.graphApiVersion}
           billingMode={config.billingMode}
+          signupAvailable={config.signupAvailable}
+          disabled={loading || failed || config.loading || config.failed}
           onConnected={() => setRefresh(value => value + 1)}
         />
       )}
@@ -110,7 +118,13 @@ export default function MetaOnboardingStatus({ whatsapp, config, companyId }) {
         </>
       )}
       {!loading && (
-        <Button size="small" onClick={() => setRefresh(value => value + 1)}>
+        <Button
+          size="small"
+          onClick={() => {
+            onRefreshConfig?.();
+            setRefresh(value => value + 1);
+          }}
+        >
           {i18n.t("connections.meta.refreshStatus")}
         </Button>
       )}

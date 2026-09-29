@@ -83,6 +83,8 @@ const MetaEmbeddedSignupButton = ({
   appId,
   graphApiVersion = "v21.0",
   billingMode = "direct",
+  signupAvailable = false,
+  disabled = false,
   onConnected
 }) => {
   const [loading, setLoading] = useState(false);
@@ -93,10 +95,11 @@ const MetaEmbeddedSignupButton = ({
   const [sdkReady, setSdkReady] = useState(() => !!window.FB);
   const [sdkLoading, setSdkLoading] = useState(false);
   const [sdkAttempt, setSdkAttempt] = useState(0);
+  const configured = !!appId && !!configId && signupAvailable === true;
 
   // Prepare the SDK before clicking so FB.login retains browser user activation.
   useEffect(() => {
-    if (!appId || !configId) return undefined;
+    if (!configured) return undefined;
     let active = true;
     setSdkLoading(true);
     loadFacebookSdk(appId, graphApiVersion)
@@ -115,7 +118,7 @@ const MetaEmbeddedSignupButton = ({
     return () => {
       active = false;
     };
-  }, [appId, configId, graphApiVersion, sdkAttempt]);
+  }, [appId, configId, graphApiVersion, sdkAttempt, configured]);
   const finishAttempt = useCallback((attempt, message) => {
     if (attemptRef.current !== attempt) return;
     attemptRef.current = null;
@@ -177,10 +180,10 @@ const MetaEmbeddedSignupButton = ({
       attemptRef.current = null;
       releaseSignup(attempt);
     };
-  }, [whatsAppId, appId, configId, finishAttempt]);
+  }, [whatsAppId, appId, configId, configured, finishAttempt]);
 
   const handleClick = () => {
-    if (!sdkReady || !/^\d{6}$/.test(pin)) return;
+    if (!configured || disabled || !sdkReady || !/^\d{6}$/.test(pin)) return;
     if (activeSignup) {
       toast.error(i18n.t("connections.meta.signupAlreadyOpen"));
       return;
@@ -271,25 +274,16 @@ const MetaEmbeddedSignupButton = ({
     setPin("");
   };
 
-  if (!appId || !configId) {
-    return (
-      <Typography variant="body2" color="textSecondary">
-        {i18n.t("connections.meta.missingConfig")}
-      </Typography>
-    );
-  }
-
   return (
     <>
       <Button
         variant="outlined"
         color="primary"
         size="small"
-        disabled={loading || sdkLoading}
+        disabled={loading || sdkLoading || !configured || disabled}
         onClick={() => {
-          if (!appId || !configId) {
-            toast.error(i18n.t("connections.meta.missingConfig"));
-          } else if (!sdkReady) {
+          if (!configured || disabled) return;
+          if (!sdkReady) {
             setSdkAttempt(attempt => attempt + 1);
           } else {
             setPinDialogOpen(true);
@@ -301,6 +295,11 @@ const MetaEmbeddedSignupButton = ({
       >
         {i18n.t("connections.buttons.connectMeta")}
       </Button>
+      {(!configured || disabled) && (
+        <Typography variant="body2" color="textSecondary" role="status">
+          {i18n.t("connections.meta.missingConfig")}
+        </Typography>
+      )}
       <Dialog
         open={pinDialogOpen}
         onClose={closePinDialog}
@@ -347,7 +346,13 @@ const MetaEmbeddedSignupButton = ({
           <Button
             onClick={handleClick}
             color="primary"
-            disabled={loading || !sdkReady || !/^\d{6}$/.test(pin)}
+            disabled={
+              loading ||
+              !configured ||
+              disabled ||
+              !sdkReady ||
+              !/^\d{6}$/.test(pin)
+            }
           >
             {i18n.t("connections.meta.continueSignup")}
           </Button>

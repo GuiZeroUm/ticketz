@@ -94,7 +94,8 @@ describe("public onboarding configuration", () => {
       appId: "111",
       configId: "222",
       graphApiVersion: "v21.0",
-      billingMode: "direct"
+      billingMode: "direct",
+      signupAvailable: true
     });
     expect(() => assertMetaSignupConfigured()).not.toThrow();
   });
@@ -103,12 +104,32 @@ describe("public onboarding configuration", () => {
     "refuses a partial setup without %s before exchanging a code",
     key => {
       delete process.env[key];
+      expect(getMetaSignupConfig().signupAvailable).toBe(false);
       expect(() => assertMetaSignupConfigured()).toThrow();
     }
   );
 
   it("rejects a malformed Graph version", () => {
     process.env.META_GRAPH_API_VERSION = "../../unversioned";
+    expect(getMetaSignupConfig().signupAvailable).toBe(false);
     expect(() => assertMetaSignupConfigured()).toThrow();
   });
+
+  it.each(["META_APP_ID", "META_CONFIG_ID"])(
+    "does not offer login with an invalid public %s",
+    key => {
+      process.env[key] = "invalid";
+      expect(getMetaSignupConfig().signupAvailable).toBe(false);
+      expect(() => assertMetaSignupConfigured()).toThrow();
+    }
+  );
+
+  it.each(["META_APP_SECRET", "ENCRYPTION_KEY"])(
+    "does not offer login with a whitespace-only %s",
+    key => {
+      process.env[key] = "  ";
+      expect(getMetaSignupConfig().signupAvailable).toBe(false);
+      expect(() => assertMetaSignupConfigured()).toThrow();
+    }
+  );
 });

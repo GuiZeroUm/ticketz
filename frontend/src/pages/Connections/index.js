@@ -141,10 +141,25 @@ const Connections = () => {
   const [passkeyModalOpen, setPasskeyModalOpen] = useState(false);
   const [passkeyInitialToken, setPasskeyInitialToken] = useState("");
   const [connectorReady, setConnectorReady] = useState(false);
-  const [metaConfig, setMetaConfig] = useState({ appId: null, configId: null });
+  const [metaConfig, setMetaConfig] = useState({
+    appId: null,
+    configId: null,
+    signupAvailable: false,
+    loading: true
+  });
+  const [metaConfigRefresh, setMetaConfigRefresh] = useState(0);
+  const refreshMetaConfig = useCallback(
+    () => setMetaConfigRefresh(value => value + 1),
+    []
+  );
 
   useEffect(() => {
-    setMetaConfig({ appId: null, configId: null });
+    setMetaConfig({
+      appId: null,
+      configId: null,
+      signupAvailable: false,
+      loading: true
+    });
     if (user?.company?.whatsappMode !== "meta") return undefined;
     let active = true;
     const controller = new AbortController();
@@ -154,16 +169,23 @@ const Connections = () => {
         timeout: 15000
       })
       .then(({ data }) => {
-        if (active) setMetaConfig(data);
+        if (active) setMetaConfig({ ...data, loading: false, failed: false });
       })
-      .catch(error => {
-        if (active) toastError(error);
+      .catch(() => {
+        if (active)
+          setMetaConfig({
+            appId: null,
+            configId: null,
+            signupAvailable: false,
+            loading: false,
+            failed: true
+          });
       });
     return () => {
       active = false;
       controller.abort();
     };
-  }, [user?.companyId, user?.company?.whatsappMode]);
+  }, [user?.companyId, user?.company?.whatsappMode, metaConfigRefresh]);
 
   const handleStartWhatsAppSession = async whatsAppId => {
     try {
@@ -323,6 +345,7 @@ const Connections = () => {
             key={`${user?.companyId}-${whatsApp.id}`}
             whatsapp={whatsApp}
             config={metaConfig}
+            onRefreshConfig={refreshMetaConfig}
             companyId={user?.companyId}
           />
           {(whatsApp.status === "CONNECTED" ||

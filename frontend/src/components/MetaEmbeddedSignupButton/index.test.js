@@ -56,6 +56,7 @@ describe("MetaEmbeddedSignupButton signup data race", () => {
     api.post.mockResolvedValue({ data: { id: 9 } });
     render(
       <MetaEmbeddedSignupButton
+        signupAvailable
         whatsAppId={9}
         appId="app-1"
         configId="config-1"
@@ -88,6 +89,7 @@ describe("MetaEmbeddedSignupButton signup data race", () => {
 
     render(
       <MetaEmbeddedSignupButton
+        signupAvailable
         whatsAppId={9}
         appId="app-1"
         configId="config-1"
@@ -134,6 +136,7 @@ describe("MetaEmbeddedSignupButton signup data race", () => {
   it("cancels and retries without accepting a callback from the cancelled attempt", async () => {
     render(
       <MetaEmbeddedSignupButton
+        signupAvailable
         whatsAppId={9}
         appId="app-1"
         configId="config-1"
@@ -179,6 +182,7 @@ describe("MetaEmbeddedSignupButton signup data race", () => {
   it("does not connect after leaving the page while waiting for Meta", async () => {
     const { unmount } = render(
       <MetaEmbeddedSignupButton
+        signupAvailable
         whatsAppId={9}
         appId="app-1"
         configId="config-1"
@@ -205,6 +209,7 @@ describe("MetaEmbeddedSignupButton signup data race", () => {
   it("ignores completion messages received before signup is launched", async () => {
     render(
       <MetaEmbeddedSignupButton
+        signupAvailable
         whatsAppId={9}
         appId="app-1"
         configId="config-1"
@@ -235,6 +240,7 @@ it("preloads the SDK before enabling the popup action", async () => {
   const append = jest.spyOn(document.body, "appendChild");
   render(
     <MetaEmbeddedSignupButton
+      signupAvailable
       whatsAppId={9}
       appId="app-1"
       configId="config-1"
@@ -284,12 +290,111 @@ it("preloads the SDK before enabling the popup action", async () => {
   delete window.FB;
 });
 
-it("shows administrator setup guidance when Embedded Signup is not configured", () => {
+it("keeps the connect button visible but disabled when Embedded Signup is not configured", () => {
   render(
-    <MetaEmbeddedSignupButton whatsAppId={9} appId="app-1" configId={null} />
+    <MetaEmbeddedSignupButton
+      signupAvailable
+      whatsAppId={9}
+      appId="app-1"
+      configId={null}
+    />
   );
   expect(
     screen.getByText("connections.meta.missingConfig")
   ).toBeInTheDocument();
-  expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "connections.buttons.connectMeta" })
+  ).toBeDisabled();
+});
+
+it("does not open Meta when the platform reports signup unavailable despite public IDs", () => {
+  window.FB = { init: jest.fn(), login: jest.fn() };
+  render(
+    <MetaEmbeddedSignupButton
+      whatsAppId={9}
+      appId="app-1"
+      configId="config-1"
+      signupAvailable={false}
+    />
+  );
+  const button = screen.getByRole("button", {
+    name: "connections.buttons.connectMeta"
+  });
+  expect(button).toBeDisabled();
+  fireEvent.click(button);
+  expect(window.FB.login).not.toHaveBeenCalled();
+  expect(window.FB.init).not.toHaveBeenCalled();
+  delete window.FB;
+});
+
+it("enables self-service when refreshed platform configuration becomes available", async () => {
+  window.FB = { init: jest.fn(), login: jest.fn() };
+  const { rerender } = render(
+    <MetaEmbeddedSignupButton
+      whatsAppId={9}
+      appId="app-1"
+      configId={null}
+      signupAvailable={false}
+    />
+  );
+  const button = screen.getByRole("button", {
+    name: "connections.buttons.connectMeta"
+  });
+  expect(button).toBeDisabled();
+  rerender(
+    <MetaEmbeddedSignupButton
+      whatsAppId={9}
+      appId="app-1"
+      configId="config-1"
+      signupAvailable
+    />
+  );
+  await waitFor(() => expect(button).toBeEnabled());
+  expect(
+    screen.queryByText("connections.meta.missingConfig")
+  ).not.toBeInTheDocument();
+  delete window.FB;
+});
+
+it("invalidates an open signup if platform availability is withdrawn", async () => {
+  let callback;
+  window.FB = {
+    init: jest.fn(),
+    login: jest.fn(value => {
+      callback = value;
+    })
+  };
+  api.post.mockClear();
+  const { rerender } = render(
+    <MetaEmbeddedSignupButton
+      whatsAppId={9}
+      appId="app-1"
+      configId="config-1"
+      signupAvailable
+    />
+  );
+  const connect = screen.getByRole("button", {
+    name: "connections.buttons.connectMeta"
+  });
+  await waitFor(() => expect(connect).toBeEnabled());
+  fireEvent.click(connect);
+  fireEvent.change(screen.getByLabelText("connections.meta.pinLabel"), {
+    target: { value: "012345" }
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: "connections.meta.continueSignup" })
+  );
+  rerender(
+    <MetaEmbeddedSignupButton
+      whatsAppId={9}
+      appId="app-1"
+      configId="config-1"
+      signupAvailable={false}
+    />
+  );
+  dispatchEmbeddedSignupFinish();
+  callback({ authResponse: { code: "stale-code" } });
+  expect(api.post).not.toHaveBeenCalled();
+  expect(connect).toBeDisabled();
+  delete window.FB;
 });

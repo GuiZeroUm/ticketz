@@ -37,8 +37,7 @@ const pt = {
       signupTimedOut:
         "O tempo para concluir a conexão terminou. Feche a janela da Meta e tente novamente.",
 
-      missingConfig:
-        "Solicite ao administrador da plataforma a configuração desta conexão oficial.",
+      missingConfig: "Conexão com a Meta temporariamente indisponível.",
       missingNumber:
         "Não foi possível identificar a conta e o número escolhidos na Meta.",
       loginFailed: "Não foi possível carregar o login da Meta.",
@@ -90,7 +89,7 @@ const pt = {
     ERR_META_CONNECTION_NOT_CONFIGURED:
       "A conexão da API Oficial está incompleta. Reconecte o número em Conexões.",
     ERR_META_APP_NOT_CONFIGURED:
-      "O login Meta ainda não foi habilitado para esta plataforma. Entre em contato com o administrador.",
+      "Conexão com a Meta temporariamente indisponível.",
     ERR_META_MEDIA_TOO_LARGE:
       "Arquivo grande demais para a API Oficial da Meta. O limite é 5 MB para imagem, 16 MB para áudio e vídeo e 100 MB para documento.",
     ERR_META_MEDIA_UPLOAD:
@@ -159,8 +158,7 @@ const en = {
       signupTimedOut:
         "The connection session expired. Close the Meta window and try again.",
 
-      missingConfig:
-        "Ask the platform administrator to configure this official connection.",
+      missingConfig: "Meta connection is temporarily unavailable.",
       missingNumber:
         "Could not identify the account and phone number selected on Meta.",
       loginFailed: "Could not load Meta login.",
@@ -189,8 +187,7 @@ const en = {
     }
   },
   backendErrors: {
-    ERR_META_APP_NOT_CONFIGURED:
-      "Meta login has not been enabled for this platform yet. Contact your administrator.",
+    ERR_META_APP_NOT_CONFIGURED: "Meta connection is temporarily unavailable.",
     ERR_META_ASSETS_NOT_AUTHORIZED:
       "The account or number does not belong to the completed authorization. Connect again using your company's account.",
     ERR_META_ASSET_VERIFICATION_FAILED:

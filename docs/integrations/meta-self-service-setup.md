@@ -16,7 +16,7 @@ A autorização e o pagamento exigem ações do cliente dentro da Meta. Uma conf
 
 ## Preparação pelo operador
 
-O aplicativo público atual tem ID `25837857089132470`. O ID identifica o aplicativo; não comprova aprovação, publicação ou acesso a contas de outros clientes. Não registrar App Secret, tokens, PINs ou dados financeiros em tickets, capturas públicas ou neste documento.
+O aplicativo escolhido pelo operador para o fluxo comercial tem ID `1100018862681124`, com o nome pretendido **Espaço Whats**. Na conferência de 29/09/2026, os runtimes geral e dedicado da ACNorte ainda estavam configurados com `25837857089132470`. O App Secret foi validado por leitura autenticada na Graph API, e o Configuration ID público `28156735987329187` foi confirmado na lista `config_ids` desse aplicativo. A configuração se chama **Ticketz Embedded Signup**. Não trocar o runtime dedicado nem seu callback. A tentativa autorizada de renomear via API recebeu código 10 da Meta; o nome continua **Espaço Whats - AC Norte**, exigindo uma conta com permissão administrativa no painel. O ID identifica o aplicativo; não comprova aprovação, publicação ou acesso a contas de outros clientes. Não registrar App Secret, tokens, PINs ou dados financeiros em tickets, capturas públicas ou neste documento.
 
 O [exemplo oficial de Tech Provider da Meta](https://github.com/fbsamples/business-messaging-sample-tech-provider-app/blob/main/README.md#going-to-production) orienta verificar a empresa vinculada, criar uma configuração Tech Provider, submeter as permissões necessárias ao App Review e publicar o aplicativo. Também exige conferir os domínios/redirects do Facebook Login for Business e o webhook `messages`. Em modo não publicado, o exemplo limita o uso a pessoas com papel no aplicativo.
 
@@ -57,7 +57,7 @@ Não recadastrar, desregistrar, desconectar ou trocar o provedor do número da A
 
 O endpoint autenticado de onboarding retorna `billingMode: "direct"` e `billingStatus: "unverified"`, com link para `https://business.facebook.com/billing_hub/`. O link abre a área da Meta; o cliente seleciona sua conta. A aplicação não afirma que o cartão está presente, que há saldo ou que os dados de pagamento estão aprovados.
 
-`connectionStatus`, `wabaId` e `phoneNumberId` servem para o estado técnico da conexão pertencente à empresa autenticada. Eles não alteram o estado financeiro. O endpoint de configuração expõe somente configuração pública e informa a modalidade de cobrança direta.
+`connectionStatus`, `wabaId` e `phoneNumberId` servem para o estado técnico da conexão pertencente à empresa autenticada. Eles não alteram o estado financeiro. O endpoint de configuração expõe somente configuração pública, a modalidade de cobrança direta e `signupAvailable`, que verifica a preparação técnica do runtime. Esse indicador não comprova publicação, App Review ou pagamento. O botão de conexão permanece visível quando a integração está indisponível, com mensagem neutra; o cliente nunca precisa solicitar credenciais ao administrador.
 
 A [amostra oficial da Meta consulta `health_status`](https://github.com/fbsamples/business-messaging-sample-tech-provider-app/blob/main/app/api/beUtils.ts) para identificar sinais de problemas de pagamento. Essa consulta não foi incorporada nesta entrega: ausência de erro não é uma confirmação de cartão. Não criar um endpoint presumido de cartão/pagamento nem converter ausência de resposta em aprovação.
 
