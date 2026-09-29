@@ -75,9 +75,18 @@ async function renderApp() {
 
 async function renderPublicLanding() {
   document.getElementById("splash-background")?.remove();
-  document.documentElement.style.backgroundColor = "#f6f8fb";
+  document.documentElement.style.backgroundColor = "#f2f5fb";
   const { default: LandingPage } = await import("./pages/LandingPage");
   ReactDOM.render(<LandingPage />, document.getElementById("root"), () => {
+    window.finishProgress();
+  });
+}
+
+async function renderPublicCheckout() {
+  document.getElementById("splash-background")?.remove();
+  document.documentElement.style.backgroundColor = "#f2f5fb";
+  const { default: Checkout } = await import("./pages/Checkout");
+  ReactDOM.render(<Checkout />, document.getElementById("root"), () => {
     window.finishProgress();
   });
 }
@@ -101,11 +110,17 @@ async function probeBackendAndRender(config, attempt = 1) {
 
 const config = loadJSON("/config.json");
 const isPublicLanding = window.location.pathname === "/" && !getCompanySlug();
+const isPublicCheckout =
+  /^\/(assinar|signup)\/?$/.test(window.location.pathname) &&
+  !getCompanySlug() &&
+  !new URLSearchParams(window.location.search).has("companyId");
 
 if (!config) {
   window.renderError(i18n.t("frontendErrors.ERR_CONFIG_ERROR"));
 } else if (isPublicLanding) {
   renderPublicLanding();
+} else if (isPublicCheckout) {
+  renderPublicCheckout();
 } else {
   probeBackendAndRender(config);
 }

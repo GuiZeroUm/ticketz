@@ -44,6 +44,8 @@ type CompanyData = {
   introValue?: number | null;
   introMonths?: number | null;
   platformCost?: number | null;
+  whatsappMode?: string | null;
+  aiAddon?: string | null;
 };
 
 type SchedulesData = {
@@ -93,7 +95,13 @@ const companySchema = Yup.object()
     introMonths: Yup.number().integer().nullable(),
     platformCost: Yup.number().nullable(),
     captchaToken: Yup.string(),
-    passwordConfigured: Yup.boolean()
+    passwordConfigured: Yup.boolean(),
+    whatsappMode: Yup.string()
+      .oneOf(["official", "unofficial"], "ERR_INVALID_WHATSAPP_MODE")
+      .nullable(),
+    aiAddon: Yup.string()
+      .oneOf(["atendimento", "equipe", "gestao"], "ERR_INVALID_AI_ADDON")
+      .nullable()
   })
   .noUnknown(true, "ERR_UNKNOWN_FIELD")
   .strict(true);

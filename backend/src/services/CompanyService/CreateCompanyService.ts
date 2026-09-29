@@ -38,7 +38,14 @@ interface CompanyData {
   introMonths?: number | null;
   platformCost?: number | null;
   passwordConfigured?: boolean;
+  whatsappMode?: string | null;
+  aiAddon?: string | null;
 }
+
+const WHATSAPP_MODE_COLUMN: Record<string, string> = {
+  official: "meta",
+  unofficial: "normal"
+};
 
 const CreateCompanyService = async (
   companyData: CompanyData,
@@ -149,7 +156,11 @@ const CreateCompanyService = async (
       saleValue: companyData.saleValue ?? null,
       introValue: companyData.introValue ?? null,
       introMonths: companyData.introMonths ?? null,
-      platformCost: companyData.platformCost ?? null
+      platformCost: companyData.platformCost ?? null,
+      // Stored with the values the column already uses: "meta" for the
+      // official API, "normal" for the QR code session (column default).
+      whatsappMode: WHATSAPP_MODE_COLUMN[companyData.whatsappMode] || undefined,
+      aiAddon: companyData.aiAddon || null
     },
     { transaction }
   );

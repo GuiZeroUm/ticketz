@@ -100,6 +100,10 @@ class Company extends Model<Company> {
   @Column
   platformBilling: string;
 
+  // AI package chosen at signup on plans where AI is billed separately.
+  @Column
+  aiAddon: string;
+
   @Column
   platformPartnerRef: string;
 
