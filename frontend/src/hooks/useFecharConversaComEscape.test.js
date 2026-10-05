@@ -102,6 +102,25 @@ test("seções expandidas do contato não impedem fechar a conversa", () => {
   expect(fechar).toHaveBeenCalledTimes(1);
 });
 
+test("ignora popover Radix fechado e seus menus forceMount, mas protege quando aberto", () => {
+  const fechar = jest.fn();
+  const camada = estado => (
+    <Conversa fechar={fechar}>
+      <div role="dialog" data-state={estado} className="barra-ferramentas">
+        <ul role="menu">
+          <li role="menuitem">Agendamento</li>
+        </ul>
+      </div>
+    </Conversa>
+  );
+  const { rerender } = render(camada("closed"));
+  fireEvent.keyDown(document.body, { key: "Escape" });
+  expect(fechar).toHaveBeenCalledTimes(1);
+  rerender(camada("open"));
+  fireEvent.keyDown(document.body, { key: "Escape" });
+  expect(fechar).toHaveBeenCalledTimes(1);
+});
+
 test("ignora camadas ocultas e remove listeners ao desmontar ou desativar", () => {
   const fechar = jest.fn();
   const { rerender, unmount } = render(

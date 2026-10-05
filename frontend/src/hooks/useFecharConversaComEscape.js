@@ -16,7 +16,12 @@ const camadas = [
 
 const estaVisivel = elemento => {
   for (let atual = elemento; atual; atual = atual.parentElement) {
-    if (atual.hidden || atual.getAttribute("aria-hidden") === "true")
+    // Radix forceMount keeps closed popovers (and nested menus) in the DOM.
+    if (
+      atual.hidden ||
+      atual.getAttribute("aria-hidden") === "true" ||
+      atual.getAttribute("data-state") === "closed"
+    )
       return false;
     const estilo = window.getComputedStyle(atual);
     if (estilo.display === "none" || estilo.visibility === "hidden")
