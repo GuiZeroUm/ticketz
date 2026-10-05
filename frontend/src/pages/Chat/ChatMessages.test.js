@@ -6,6 +6,7 @@ import { AuthContext } from "../../context/Auth/AuthContext";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
 import MicRecorder from "mic-recorder-to-mp3";
+import { i18n } from "../../translate/i18n";
 
 jest.mock("../../services/config", () => ({ getBackendURL: () => "/backend" }));
 jest.mock("../../services/api", () => ({ post: jest.fn() }));
@@ -247,4 +248,25 @@ test("renders links and WhatsApp formatting using the same renderer as customer 
   expect(container.querySelector(".chat-texto a").getAttribute("href")).toBe(
     "https://example.com"
   );
+});
+
+test("renders real message dates and times for the supported pt_PT locale", () => {
+  i18n.language = "pt_PT";
+  try {
+    const { container } = setup([
+      {
+        id: 1,
+        senderId: 2,
+        createdAt: "2026-10-05T14:21:00Z",
+        message: "Mensagem em português"
+      }
+    ]);
+    expect(screen.getByRole("textbox").getAttribute("lang")).toBe("pt-PT");
+    expect(container.querySelector(".chat-balao time").textContent).toMatch(
+      /14:21/
+    );
+    expect(container.querySelector(".chat-dia").textContent).toContain("2026");
+  } finally {
+    i18n.language = "pt";
+  }
 });

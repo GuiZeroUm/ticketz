@@ -131,6 +131,11 @@
 }
 .chat-identidade {
   min-width: 0;
+  flex: 1;
+}
+.chat-espaco-menu {
+  width: 34px;
+  flex: 0 0 34px;
 }
 .chat-identidade strong {
   font-size: 14px;

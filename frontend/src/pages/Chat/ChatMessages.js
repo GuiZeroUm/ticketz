@@ -563,12 +563,12 @@ export default function ChatMessages({
         {messages.map((item, indice) => {
           const minha = item.senderId === user.id;
           const dia = new Date(item.createdAt).toLocaleDateString(
-            i18n.language
+            writingAssistance.lang
           );
           const diaAnterior =
             indice > 0
               ? new Date(messages[indice - 1].createdAt).toLocaleDateString(
-                  i18n.language
+                  writingAssistance.lang
                 )
               : null;
           return (
@@ -599,7 +599,7 @@ export default function ChatMessages({
                     )}
                   <time title={datetimeToClient(item.createdAt)}>
                     {new Date(item.createdAt).toLocaleTimeString(
-                      i18n.language,
+                      writingAssistance.lang,
                       { hour: "2-digit", minute: "2-digit" }
                     )}
                   </time>
