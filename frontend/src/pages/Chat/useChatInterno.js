@@ -33,6 +33,9 @@ export default function useChatInterno() {
   const scrollToBottomRef = useRef(null);
   const conversasRef = useRef(conversas);
   conversasRef.current = conversas;
+  const mensagensRef = useRef(mensagens);
+  mensagensRef.current = mensagens;
+  const sincronizacao = useRef(0);
 
   const carregarConversas = useCallback(
     async (reiniciar = false) => {
@@ -86,7 +89,10 @@ export default function useChatInterno() {
       paginaMensagens.current += 1;
       definirMaisMensagens(data.hasMore);
       definirMensagens(atuais => mesclarMensagens(atuais, data.records));
-      if (primeira) requestAnimationFrame(() => scrollToBottomRef.current?.());
+      if (primeira)
+        requestAnimationFrame(() => {
+          if (versao === requisicao.current) scrollToBottomRef.current?.();
+        });
     } catch (erro) {
       if (versao === requisicao.current) toastError(erro);
     } finally {
@@ -116,7 +122,8 @@ export default function useChatInterno() {
           conversaAtual.current = dados.id;
           definirConversa(dados);
           await carregarMensagens();
-          await api.post(`/chats/${dados.id}/read`, { userId: user.id });
+          if (ativo)
+            await api.post(`/chats/${dados.id}/read`, { userId: user.id });
         } catch (erro) {
           if (ativo) {
             toastError(erro);
@@ -131,6 +138,54 @@ export default function useChatInterno() {
       requisicao.current += 1;
     };
   }, [id, user.id, carregarMensagens]);
+
+  const sincronizarMensagens = useCallback(async () => {
+    const chatId = conversaAtual.current;
+    if (!chatId) return;
+    const versao = requisicao.current;
+    const sincronizando = ++sincronizacao.current;
+    const ultima = mensagensRef.current[mensagensRef.current.length - 1]?.id;
+    let pagina = 1;
+    try {
+      // Recover every missed page, including outages longer than one page.
+      while (true) {
+        const { data } = await api.get(`/chats/${chatId}/messages`, {
+          params: { pageNumber: pagina }
+        });
+        if (
+          versao !== requisicao.current ||
+          sincronizando !== sincronizacao.current
+        )
+          return;
+        definirMensagens(atuais => mesclarMensagens(atuais, data.records));
+        if (
+          !ultima ||
+          !data.hasMore ||
+          !data.records.length ||
+          data.records.some(mensagem => mensagem.id <= ultima)
+        )
+          break;
+        pagina += 1;
+      }
+      requestAnimationFrame(() => {
+        if (versao === requisicao.current) scrollToBottomRef.current?.(false);
+      });
+      await api.post(`/chats/${chatId}/read`, { userId: user.id });
+    } catch (erro) {
+      if (versao === requisicao.current) toastError(erro);
+    }
+  }, [user.id]);
+
+  useEffect(() => {
+    const socket = socketManager.GetSocket(user.companyId);
+    const recuperar = ativo => {
+      if (!ativo) return;
+      carregarConversas(true);
+      sincronizarMensagens();
+    };
+    socket.on("wsRefreshRequired", recuperar);
+    return () => socket.disconnect();
+  }, [socketManager, user.companyId, carregarConversas, sincronizarMensagens]);
 
   useEffect(() => {
     const socket = socketManager.GetSocket(user.companyId);
@@ -155,7 +210,11 @@ export default function useChatInterno() {
         definirMensagens(atuais =>
           mesclarMensagens(atuais, [dados.newMessage])
         );
-        requestAnimationFrame(() => scrollToBottomRef.current?.());
+        const chatId = conversaAtual.current;
+        requestAnimationFrame(() => {
+          if (chatId === conversaAtual.current)
+            scrollToBottomRef.current?.(dados.newMessage.senderId === user.id);
+        });
         if (dados.newMessage.senderId !== user.id)
           api
             .post(`/chats/${conversaAtual.current}/read`, { userId: user.id })
@@ -196,8 +255,12 @@ export default function useChatInterno() {
     if (!chatId) return false;
     try {
       const { data } = await api.post(`/chats/${chatId}/messages`, { message });
-      if (chatId === conversaAtual.current && data?.id)
+      if (chatId === conversaAtual.current && data?.id) {
         definirMensagens(atuais => mesclarMensagens(atuais, [data]));
+        requestAnimationFrame(() => {
+          if (chatId === conversaAtual.current) scrollToBottomRef.current?.();
+        });
+      }
       return true;
     } catch (erro) {
       toastError(erro);

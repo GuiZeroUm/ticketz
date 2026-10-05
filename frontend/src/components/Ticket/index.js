@@ -10,7 +10,7 @@ import ContactDrawer from "../ContactDrawer";
 import CompositorAtendimento from "../Conversa/CompositorAtendimento";
 import PainelMensagens from "../Conversa/PainelMensagens";
 import { BotaoIcone, useIdentidade } from "../interface";
-import { Search, PanelRight, Hash, Headphones, Radio } from "lucide-react";
+import { Search, PanelRight, Hash, Headphones, Radio, X } from "lucide-react";
 import { i18n } from "../../translate/i18n";
 import "../Conversa/conversa.css";
 import TicketHeader from "../TicketHeader";
@@ -27,6 +27,7 @@ import { AuthContext } from "../../context/Auth/AuthContext";
 import { SocketContext } from "../../context/Socket/SocketContext";
 import useSettings from "../../hooks/useSettings";
 import { shouldShowGroupsTab } from "../../helpers/groupTabs";
+import useFecharConversaComEscape from "../../hooks/useFecharConversaComEscape";
 
 const useStyles = makeStyles(theme => ({
   root: {
@@ -77,6 +78,8 @@ const useStyles = makeStyles(theme => ({
 const Ticket = () => {
   const { ticketId } = useParams();
   const history = useHistory();
+  const fecharConversa = () => history.push("/tickets");
+  useFecharConversaComEscape(fecharConversa, Boolean(ticketId));
   const classes = useStyles();
 
   const { user } = useContext(AuthContext);
@@ -243,6 +246,13 @@ const Ticket = () => {
         <TicketHeader loading={loading}>
           {renderTicketInfo()}
           <div className="conversa-cabecalho-acoes">
+            <BotaoIcone
+              titulo={`${i18n.t("conversa.voltar")} (Esc)`}
+              aria-keyshortcuts="Escape"
+              onClick={fecharConversa}
+            >
+              <X size={18} />
+            </BotaoIcone>
             <BotaoIcone
               titulo={i18n.t("conversa.pesquisa")}
               onClick={() => {

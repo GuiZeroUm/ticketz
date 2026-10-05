@@ -48,6 +48,7 @@ import Autocomplete from "@material-ui/lab/Autocomplete";
 import { isString, isEmpty, isObject, has } from "lodash";
 
 import { i18n } from "../../translate/i18n";
+import useWritingAssistance from "../../hooks/useWritingAssistance";
 import TemplateMessageModal from "../TemplateMessageModal";
 import { isOfficialApiConnection } from "../../helpers/officialApiRestriction";
 import api from "../../services/api";
@@ -62,6 +63,7 @@ import useQuickMessages from "../../hooks/useQuickMessages";
 
 import LinearWithValueLabel from "./ProgressBarCustom";
 import { prepareMediaUpload } from "./prepareMediaUpload";
+import useRascunhoDoTicket from "./useRascunhoDoTicket";
 import WhatsMarked from "react-whatsmarked";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSignature } from "@fortawesome/free-solid-svg-icons";
@@ -265,6 +267,16 @@ const useStyles = makeStyles(theme => ({
 const EmojiOptions = props => {
   const { disabled, showEmoji, setShowEmoji, handleAddEmoji } = props;
   const classes = useStyles();
+  useEffect(() => {
+    if (!showEmoji) return undefined;
+    const fechar = evento => {
+      if (evento.key !== "Escape" || evento.isComposing) return;
+      evento.preventDefault();
+      setShowEmoji(false);
+    };
+    document.addEventListener("keydown", fechar);
+    return () => document.removeEventListener("keydown", fechar);
+  }, [showEmoji, setShowEmoji]);
   return (
     <>
       <IconButton
@@ -425,6 +437,7 @@ function UpwardPopper(props) {
 }
 
 const CustomInput = props => {
+  const writingAssistance = useWritingAssistance();
   const {
     compact,
     loading,
@@ -744,6 +757,7 @@ const CustomInput = props => {
               <InputBase
                 {...params.InputProps}
                 {...rest}
+                inputProps={{ ...params.inputProps, ...writingAssistance }}
                 disabled={disableOption}
                 inputRef={input => setInputRef(input)}
                 placeholder={renderPlaceholder()}
@@ -907,6 +921,8 @@ const MessageInputCustom = props => {
   const [currentPresence, setCurrentPresence] = useState(null);
   const [presenceTimeout, setPresenceTimeout] = useState(null);
 
+  useRascunhoDoTicket(ticketId, inputMessage, setInputMessage);
+
   // Conexao oficial da Meta: texto livre so vale nas 24h seguintes a ultima
   // mensagem do cliente. Fora disso o unico envio aceito e um template
   // aprovado, entao a barra precisa saber em que lado da janela esta.
@@ -963,21 +979,6 @@ const MessageInputCustom = props => {
       appMessageSocket.off(`company-${companyId}-appMessage`, onAppMessage);
     };
   }, [isOfficial, ticketId, socketManager, loadServiceWindow]);
-
-  useEffect(() => {
-    if (!inputMessage) {
-      sessionStorage.removeItem("messageDraft-" + ticketId);
-      return;
-    }
-    sessionStorage.setItem("messageDraft-" + ticketId, inputMessage);
-  }, [inputMessage]);
-
-  useEffect(() => {
-    const draftMessage = sessionStorage.getItem("messageDraft-" + ticketId);
-    if (draftMessage) {
-      setInputMessage(draftMessage);
-    }
-  }, [ticketId]);
 
   useEffect(() => {
     const socket = socketManager.GetSocket();
@@ -1320,6 +1321,7 @@ const MessageInputCustom = props => {
       square
       elevation={0}
       className={`${classes.mainWrapper} conversa-entrada`}
+      data-conversation-escape-block={recording || loading || medias.length > 0}
     >
       {(replyingMessage && renderReplyingMessage(replyingMessage)) ||
         (editingMessage && renderReplyingMessage(editingMessage))}
