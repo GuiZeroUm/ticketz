@@ -14,6 +14,7 @@ import ChatModal from "./ChatModal";
 import ChatList from "./ChatList";
 import ChatMessages from "./ChatMessages";
 import useChatInterno from "./useChatInterno";
+import useFecharConversaComEscape from "../../hooks/useFecharConversaComEscape";
 import AvatarUsuario from "../../components/AvatarUsuario";
 import { Botao, BotaoIcone, useIdentidade } from "../../components/interface";
 import PainelMensagens from "../../components/Conversa/PainelMensagens";
@@ -29,6 +30,12 @@ export default function Chat() {
   const compacto = useMediaQuery("(max-width:959px)");
   const [modal, definirModal] = useState(null);
   const [contexto, definirContexto] = useState(null);
+  const fecharConversa = () => {
+    definirContexto(null);
+    chat.voltar();
+  };
+  useFecharConversaComEscape(fecharConversa, Boolean(chat.conversa) && !modal);
+  const tituloFechar = `${i18n.t("conversa.voltar")} (Esc)`;
   const participante = chat.conversa?.users?.find(
     item => item.userId !== chat.user.id
   )?.user;
@@ -86,7 +93,11 @@ export default function Chat() {
     <section className="chat-conversa conversa-painel">
       <header className="conversa-cabecalho">
         {compacto && (
-          <BotaoIcone titulo={i18n.t("conversa.voltar")} onClick={chat.voltar}>
+          <BotaoIcone
+            titulo={tituloFechar}
+            aria-keyshortcuts="Escape"
+            onClick={fecharConversa}
+          >
             <ArrowLeft size={18} />
           </BotaoIcone>
         )}
@@ -100,6 +111,15 @@ export default function Chat() {
           </small>
         </div>
         <div className="conversa-cabecalho-acoes">
+          {!compacto && (
+            <BotaoIcone
+              titulo={tituloFechar}
+              aria-keyshortcuts="Escape"
+              onClick={fecharConversa}
+            >
+              <X size={18} />
+            </BotaoIcone>
+          )}
           <BotaoIcone
             titulo={i18n.t("conversa.pesquisa")}
             onClick={() =>

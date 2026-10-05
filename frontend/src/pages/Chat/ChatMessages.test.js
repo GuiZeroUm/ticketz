@@ -58,6 +58,7 @@ const setup = (
   );
 const image = () => new File(["png"], "preview.png", { type: "image/png" });
 beforeEach(() => {
+  sessionStorage.clear();
   MicRecorder.mockImplementation(() => ({ stop: jest.fn() }));
   URL.createObjectURL = jest.fn(() => "blob:preview");
   URL.revokeObjectURL = jest.fn();
@@ -178,10 +179,14 @@ test("annotates received and sent Stardew messages while leaving the composer an
     container.querySelector(".chat-compositor .sd-junimo-text")
   ).toBeNull();
   expect(
-    container.querySelector(".chat-mensagem.minha .chat-texto").textContent
+    container
+      .querySelector(".chat-mensagem.minha .chat-texto")
+      .textContent.trimEnd()
   ).toBe(text);
   expect(
-    container.querySelector(".chat-mensagem.recebida .chat-texto").textContent
+    container
+      .querySelector(".chat-mensagem.recebida .chat-texto")
+      .textContent.trimEnd()
   ).toBe(text);
   fireEvent.change(screen.getByRole("textbox"), { target: { value: text } });
   await act(async () =>
@@ -191,4 +196,55 @@ test("annotates received and sent Stardew messages while leaving the composer an
     })
   );
   expect(send).toHaveBeenCalledWith(text);
+});
+
+test("restores text after closing chat and clears saved draft only after success", async () => {
+  const { unmount } = setup();
+  fireEvent.change(screen.getByRole("textbox"), {
+    target: { value: "Rascunho preservado" }
+  });
+  unmount();
+  const send = jest.fn(async () => false);
+  const reopened = setup([], theme, send);
+  expect(screen.getByRole("textbox").value).toBe("Rascunho preservado");
+  await act(async () =>
+    fireEvent.click(screen.getByLabelText("conversa.enviar"))
+  );
+  expect(screen.getByRole("textbox").value).toBe("Rascunho preservado");
+  send.mockResolvedValue(true);
+  await act(async () =>
+    fireEvent.click(screen.getByLabelText("conversa.enviar"))
+  );
+  reopened.unmount();
+  setup();
+  expect(screen.getByRole("textbox").value).toBe("");
+});
+
+test("blocks conversation Escape while attachments are selected", () => {
+  const { container } = setup();
+  const panel = container.querySelector(".chat-mensagens");
+  expect(panel.getAttribute("data-conversation-escape-block")).toBeNull();
+  fireEvent.change(container.querySelector('input[type="file"]'), {
+    target: { files: [image()] }
+  });
+  expect(panel.getAttribute("data-conversation-escape-block")).toBe("true");
+  fireEvent.click(screen.getByLabelText("conversa.removerAnexo preview.png"));
+  expect(panel.getAttribute("data-conversation-escape-block")).toBeNull();
+});
+
+test("renders links and WhatsApp formatting using the same renderer as customer conversations", () => {
+  const { container } = setup([
+    {
+      id: 1,
+      senderId: 2,
+      createdAt: new Date().toISOString(),
+      message: "*Importante* https://example.com"
+    }
+  ]);
+  expect(
+    container.querySelector(".chat-texto strong, .chat-texto b").textContent
+  ).toBe("Importante");
+  expect(container.querySelector(".chat-texto a").getAttribute("href")).toBe(
+    "https://example.com"
+  );
 });

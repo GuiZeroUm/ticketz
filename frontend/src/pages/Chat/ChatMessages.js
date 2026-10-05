@@ -10,10 +10,17 @@ import {
 } from "@material-ui/core";
 import AvatarUsuario from "../../components/AvatarUsuario";
 import AudioMessage from "../../components/AudioMessage";
-import JunimoText from "../../components/JunimoText";
+import WhatsMarked from "../../components/JunimoWhatsMarked";
 import chatMediaUrl from "../../helpers/chatMediaUrl";
 import AttachmentPreview from "./AttachmentPreview";
+import {
+  chaveRascunho,
+  lerRascunho,
+  salvarRascunho,
+  limparRascunhoEnviado
+} from "./rascunhoChat";
 import { i18n } from "../../translate/i18n";
+import useWritingAssistance from "../../hooks/useWritingAssistance";
 import {
   Send as SendIcon,
   Paperclip as AttachFileIcon,
@@ -204,6 +211,7 @@ export default function ChatMessages({
   carregandoHistorico = false
 }) {
   const classes = useStyles();
+  const writingAssistance = useWritingAssistance();
   const { user } = useContext(AuthContext);
   const { datetimeToClient } = useDate();
   const baseRef = useRef();
@@ -212,6 +220,7 @@ export default function ChatMessages({
   const Mp3Recorder = gravador.current;
   const enviando = useRef(false);
   const listaRef = useRef(null);
+  const pertoDoFim = useRef(true);
   const alturaAnterior = useRef(null);
   useEffect(
     () => () => {
@@ -232,7 +241,10 @@ export default function ChatMessages({
   }, [messages, carregandoHistorico]);
   const previewVideoRefs = useRef({});
 
-  const [contentMessage, setContentMessage] = useState("");
+  const chave = chaveRascunho(user, chat);
+  const [contentMessage, setContentMessage] = useState(() =>
+    lerRascunho(chave)
+  );
   const [medias, setMedias] = useState([]);
   const [loading, setLoading] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -260,9 +272,10 @@ export default function ChatMessages({
     setLightboxOpen(false);
   };
 
-  const scrollToBottom = () => {
-    if (baseRef.current) {
-      baseRef.current.scrollIntoView({});
+  const scrollToBottom = (forcar = true) => {
+    if (baseRef.current && (forcar || pertoDoFim.current)) {
+      baseRef.current.scrollIntoView?.({});
+      pertoDoFim.current = true;
     }
   };
 
@@ -274,6 +287,11 @@ export default function ChatMessages({
   }, [scrollToBottomRef]);
 
   const handleScroll = e => {
+    pertoDoFim.current =
+      e.currentTarget.scrollHeight -
+        e.currentTarget.scrollTop -
+        e.currentTarget.clientHeight <
+      100;
     if (
       !pageInfo.hasMore ||
       loading ||
@@ -294,7 +312,12 @@ export default function ChatMessages({
     setLoading(true);
     try {
       const sucesso = await handleSendMessage(contentMessage.trim());
-      if (sucesso !== false) setContentMessage("");
+      if (sucesso !== false) {
+        limparRascunhoEnviado(chave, contentMessage);
+        setContentMessage("");
+      }
+    } catch (erro) {
+      toastError(erro);
     } finally {
       enviando.current = false;
       setLoading(false);
@@ -456,6 +479,7 @@ export default function ChatMessages({
     try {
       await api.post(`/chats/${chat.id}/messages`, formData);
       setMedias([]);
+      limparRascunhoEnviado(chave, contentMessage);
       setContentMessage("");
     } catch (err) {
       toastError(err);
@@ -514,7 +538,13 @@ export default function ChatMessages({
   };
 
   return (
-    <Paper className={`${classes.mainContainer} chat-mensagens`} elevation={0}>
+    <Paper
+      className={`${classes.mainContainer} chat-mensagens`}
+      elevation={0}
+      data-conversation-escape-block={
+        recording || loading || medias.length > 0 ? "true" : undefined
+      }
+    >
       <div
         ref={listaRef}
         onScroll={handleScroll}
@@ -564,7 +594,7 @@ export default function ChatMessages({
                   {item.message &&
                     !(item.mediaPath && item.message === item.mediaName) && (
                       <div className="chat-texto">
-                        <JunimoText text={item.message} />
+                        <WhatsMarked>{item.message}</WhatsMarked>
                       </div>
                     )}
                   <time title={datetimeToClient(item.createdAt)}>
@@ -581,7 +611,7 @@ export default function ChatMessages({
         <div ref={baseRef}></div>
       </div>
       <div
-        className={`${classes.inputArea} conversa-compositor chat-compositor chat-compositor--compact`}
+        className={`${classes.inputArea} conversa-compositor conversa-compositor--compact chat-compositor chat-compositor--compact`}
       >
         <FormControl variant="outlined" fullWidth>
           {recording ? (
@@ -625,7 +655,10 @@ export default function ChatMessages({
                 multiline
                 value={contentMessage}
                 placeholder={i18n.t("conversa.escrever")}
-                inputProps={{ "aria-label": i18n.t("conversa.escrever") }}
+                inputProps={{
+                  "aria-label": i18n.t("conversa.escrever"),
+                  ...writingAssistance
+                }}
                 disabled={loading}
                 maxRows={6}
                 disableUnderline
@@ -640,8 +673,11 @@ export default function ChatMessages({
                     else enviarTexto();
                   }
                 }}
-                onChange={e => setContentMessage(e.target.value)}
-                className={classes.input}
+                onChange={e => {
+                  setContentMessage(e.target.value);
+                  salvarRascunho(chave, e.target.value);
+                }}
+                className={`${classes.input} conversa-caixa-mensagem--compact`}
                 startAdornment={
                   <InputAdornment position="start">
                     <FileInput
