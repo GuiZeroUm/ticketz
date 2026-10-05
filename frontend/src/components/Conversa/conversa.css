@@ -440,7 +440,8 @@
   padding: 24px clamp(14px, 3vw, 40px);
   overscroll-behavior: contain;
 }
-.conversa-principal #messagesList > div[data-message-side] {
+.conversa-principal #messagesList > div[data-message-side],
+.chat-mensagem .chat-balao {
   margin-top: 5px;
   margin-bottom: 7px;
   padding: 10px 12px 5px;
@@ -449,7 +450,8 @@
   border-color: color-mix(in srgb, var(--ew-border) 75%, transparent);
   box-shadow: 0 2px 5px #00000004;
 }
-.conversa-principal #messagesList > div[data-message-side="sent"] {
+.conversa-principal #messagesList > div[data-message-side="sent"],
+.chat-mensagem.minha .chat-balao {
   border-radius: 16px 16px 5px 16px;
   background-color: color-mix(
     in srgb,
@@ -493,7 +495,8 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--ew-primary) 9%, transparent);
 }
 @media (max-width: 599px) {
-  .conversa-principal #messagesList {
+  .conversa-principal #messagesList,
+  .chat-mensagens .chat-mensagens-lista {
     padding: 14px 10px;
   }
   .conversa-principal #messagesList > div[data-message-side] {
