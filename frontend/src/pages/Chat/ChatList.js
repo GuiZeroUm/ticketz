@@ -6,6 +6,7 @@ import AvatarUsuario from "../../components/AvatarUsuario";
 import MenuAcoes from "../../components/interface/MenuAcoes";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import { i18n } from "../../translate/i18n";
+import useWritingAssistance from "../../hooks/useWritingAssistance";
 
 export default function ChatList({
   chats,
@@ -15,6 +16,7 @@ export default function ChatList({
   loading
 }) {
   const { user } = useContext(AuthContext);
+  const { lang } = useWritingAssistance();
   const { id } = useParams();
   const [excluir, definirExcluir] = useState(null);
   return (
@@ -62,10 +64,10 @@ export default function ChatList({
                   <strong>{chat.title}</strong>
                   <time>
                     {chat.updatedAt &&
-                      new Date(chat.updatedAt).toLocaleDateString(
-                        i18n.language,
-                        { day: "2-digit", month: "2-digit" }
-                      )}
+                      new Date(chat.updatedAt).toLocaleDateString(lang, {
+                        day: "2-digit",
+                        month: "2-digit"
+                      })}
                   </time>
                 </span>
                 <span className="chat-item-previa">

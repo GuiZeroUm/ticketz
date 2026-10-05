@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useMediaQuery } from "@material-ui/core";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { ArrowLeft, PanelRight, Files } from "lucide-react";
+import { PanelRight, Files } from "lucide-react";
 import {
   MessageSquare,
   Plus,
@@ -92,15 +92,7 @@ export default function Chat() {
   const conversa = chat.conversa ? (
     <section className="chat-conversa conversa-painel">
       <header className="conversa-cabecalho">
-        {compacto && (
-          <BotaoIcone
-            titulo={tituloFechar}
-            aria-keyshortcuts="Escape"
-            onClick={fecharConversa}
-          >
-            <ArrowLeft size={18} />
-          </BotaoIcone>
-        )}
+        {compacto && <span className="chat-espaco-menu" aria-hidden="true" />}
         <AvatarUsuario usuario={usuarioAvatar} tamanho={40} />
         <div className="chat-identidade">
           <strong>{chat.conversa.title}</strong>
@@ -111,15 +103,13 @@ export default function Chat() {
           </small>
         </div>
         <div className="conversa-cabecalho-acoes">
-          {!compacto && (
-            <BotaoIcone
-              titulo={tituloFechar}
-              aria-keyshortcuts="Escape"
-              onClick={fecharConversa}
-            >
-              <X size={18} />
-            </BotaoIcone>
-          )}
+          <BotaoIcone
+            titulo={tituloFechar}
+            aria-keyshortcuts="Escape"
+            onClick={fecharConversa}
+          >
+            <X size={18} />
+          </BotaoIcone>
           <BotaoIcone
             titulo={i18n.t("conversa.pesquisa")}
             onClick={() =>
