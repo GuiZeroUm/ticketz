@@ -62,6 +62,7 @@ import useQuickMessages from "../../hooks/useQuickMessages";
 
 import LinearWithValueLabel from "./ProgressBarCustom";
 import { prepareMediaUpload } from "./prepareMediaUpload";
+import useRascunhoDoTicket from "./useRascunhoDoTicket";
 import WhatsMarked from "react-whatsmarked";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSignature } from "@fortawesome/free-solid-svg-icons";
@@ -907,6 +908,8 @@ const MessageInputCustom = props => {
   const [currentPresence, setCurrentPresence] = useState(null);
   const [presenceTimeout, setPresenceTimeout] = useState(null);
 
+  useRascunhoDoTicket(ticketId, inputMessage, setInputMessage);
+
   // Conexao oficial da Meta: texto livre so vale nas 24h seguintes a ultima
   // mensagem do cliente. Fora disso o unico envio aceito e um template
   // aprovado, entao a barra precisa saber em que lado da janela esta.
@@ -963,21 +966,6 @@ const MessageInputCustom = props => {
       appMessageSocket.off(`company-${companyId}-appMessage`, onAppMessage);
     };
   }, [isOfficial, ticketId, socketManager, loadServiceWindow]);
-
-  useEffect(() => {
-    if (!inputMessage) {
-      sessionStorage.removeItem("messageDraft-" + ticketId);
-      return;
-    }
-    sessionStorage.setItem("messageDraft-" + ticketId, inputMessage);
-  }, [inputMessage]);
-
-  useEffect(() => {
-    const draftMessage = sessionStorage.getItem("messageDraft-" + ticketId);
-    if (draftMessage) {
-      setInputMessage(draftMessage);
-    }
-  }, [ticketId]);
 
   useEffect(() => {
     const socket = socketManager.GetSocket();
