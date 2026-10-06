@@ -39,6 +39,8 @@ import { SocketContext } from "../../context/Socket/SocketContext";
 import { usesOwnerOnlyTicketAccess } from "../../helpers/ticketAccess";
 import { shouldShowGroupsTab } from "../../helpers/groupTabs";
 
+const EMPTY_QUEUE_IDS = [];
+
 const useStyles = makeStyles(theme => ({
   ticketsWrapper: {
     "& .MuiTab-wrapper": { flexDirection: "row", gap: 6 },
@@ -137,6 +139,7 @@ const TicketsManagerTabs = () => {
   const searchInputRef = useRef();
   const { user } = useContext(AuthContext);
   const { profile } = user;
+  const supplierPortal = isSupplierPortal();
 
   const [openCount, setOpenCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
@@ -149,6 +152,12 @@ const TicketsManagerTabs = () => {
   const [selectedContact, setSelectedContact] = useState(null);
   const [selectedTags, setSelectedTags] = useState([]);
   const [selectedUsers, setSelectedUsers] = useState([]);
+  const [connections, setConnections] = useState([]);
+  const [selectedWhatsappId, setSelectedWhatsappId] = useState("");
+  const connectionId = selectedWhatsappId
+    ? Number(selectedWhatsappId)
+    : undefined;
+  const visibleQueueIds = supplierPortal ? EMPTY_QUEUE_IDS : selectedQueueIds;
 
   const { getSetting } = useSettings();
   const [showTabGroups, setShowTabGroups] = useState(false);
@@ -157,21 +166,50 @@ const TicketsManagerTabs = () => {
   const socketManager = useContext(SocketContext);
   const ownerOnlyAccess = usesOwnerOnlyTicketAccess(user);
 
+  useEffect(() => {
+    if (!supplierPortal) return undefined;
+    let active = true;
+    const loadConnections = async () => {
+      try {
+        const { data } = await api.get("/whatsapp/");
+        if (!active) return;
+        const next = Array.isArray(data) ? data : [];
+        setConnections(next);
+        setSelectedWhatsappId(current =>
+          current && !next.some(item => String(item.id) === current)
+            ? ""
+            : current
+        );
+      } catch {
+        // Keep the last loaded options if a refresh fails.
+      }
+    };
+    loadConnections();
+    window.addEventListener("focus", loadConnections);
+    return () => {
+      active = false;
+      window.removeEventListener("focus", loadConnections);
+    };
+  }, [supplierPortal]);
+
   const refreshTicketCounts = useCallback(async () => {
-    if (!ownerOnlyAccess) return;
+    if (!ownerOnlyAccess && !supplierPortal) return;
     try {
       const { data } = await api.get("/tickets/counts", {
-        params: { queueIds: JSON.stringify(selectedQueueIds) }
+        params: {
+          queueIds: JSON.stringify(supplierPortal ? [] : selectedQueueIds),
+          whatsappId: connectionId
+        }
       });
       setOpenCount(Number(data.open) || 0);
       setPendingCount(Number(data.pending) || 0);
     } catch {
       // Preserve the last known values during a transient failure.
     }
-  }, [ownerOnlyAccess, selectedQueueIds]);
+  }, [ownerOnlyAccess, supplierPortal, selectedQueueIds, connectionId]);
 
   useEffect(() => {
-    if (!ownerOnlyAccess) return undefined;
+    if (!ownerOnlyAccess && !supplierPortal) return undefined;
     let timer;
     const scheduleRefresh = () => {
       clearTimeout(timer);
@@ -187,7 +225,7 @@ const TicketsManagerTabs = () => {
       socket.off(`company-${companyId}-ticket`, scheduleRefresh);
       socket.off(`company-${companyId}-appMessage`, scheduleRefresh);
     };
-  }, [ownerOnlyAccess, refreshTicketCounts, socketManager]);
+  }, [ownerOnlyAccess, supplierPortal, refreshTicketCounts, socketManager]);
 
   useEffect(() => {
     if (profile !== "admin") {
@@ -228,14 +266,16 @@ const TicketsManagerTabs = () => {
   const refreshGroupUnreadCount = useCallback(async () => {
     const requestId = ++groupUnreadRequestRef.current;
     try {
-      const { data } = await api.get("/whatsapp-groups/unread-count");
+      const { data } = await api.get("/whatsapp-groups/unread-count", {
+        params: { whatsappId: connectionId }
+      });
       if (requestId === groupUnreadRequestRef.current) {
         setGroupUnreadCount(Number(data.count) || 0);
       }
     } catch {
       // Preserve the last known count during a transient connection failure.
     }
-  }, []);
+  }, [connectionId]);
 
   useEffect(() => {
     Promise.all([getSetting("CheckMsgIsGroup"), getSetting("groupsTab")]).then(
@@ -428,7 +468,7 @@ const TicketsManagerTabs = () => {
         elevation={0}
         className={`${classes.ticketOptionsBox} fila-opcoes`}
       >
-        {tab === "open" && (
+        {tab === "open" && !supplierPortal && (
           <Can
             role={user.profile}
             perform="tickets-manager:showall"
@@ -449,29 +489,55 @@ const TicketsManagerTabs = () => {
             )}
           />
         )}
-        <TicketsQueueSelect
-          style={{ marginLeft: 6 }}
-          selectedQueueIds={selectedQueueIds}
-          userQueues={availableQueues}
-          onChange={values => setSelectedQueueIds(values)}
-        />
+        {supplierPortal ? (
+          <label className="fila-conexao-filtro">
+            <span>Conexão</span>
+            <select
+              aria-label="Filtrar atendimentos por conexão"
+              value={selectedWhatsappId}
+              onChange={event => setSelectedWhatsappId(event.target.value)}
+            >
+              <option value="">Todas as conexões</option>
+              {connections.map(connection => (
+                <option key={connection.id} value={connection.id}>
+                  {connection.name || `Conexão ${connection.id}`}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <TicketsQueueSelect
+            style={{ marginLeft: 6 }}
+            selectedQueueIds={selectedQueueIds}
+            userQueues={availableQueues}
+            onChange={values => setSelectedQueueIds(values)}
+          />
+        )}
       </Paper>
       <TabPanel value={tab} name="open" className={classes.ticketsWrapper}>
         <Paper square elevation={0} className={classes.ticketsWrapper}>
           <TicketsList
             status="open"
             showAll={showAllTickets}
-            selectedQueueIds={selectedQueueIds}
-            updateCount={ownerOnlyAccess ? undefined : val => setOpenCount(val)}
+            selectedQueueIds={visibleQueueIds}
+            whatsappId={connectionId}
+            updateCount={
+              ownerOnlyAccess || supplierPortal
+                ? undefined
+                : val => setOpenCount(val)
+            }
             style={applyPanelStyle("open")}
             setTabOpen={setTabOpen}
             showTabGroups={showTabGroups}
           />
           <TicketsList
             status="pending"
-            selectedQueueIds={selectedQueueIds}
+            selectedQueueIds={visibleQueueIds}
+            whatsappId={connectionId}
             updateCount={
-              ownerOnlyAccess ? undefined : val => setPendingCount(val)
+              ownerOnlyAccess || supplierPortal
+                ? undefined
+                : val => setPendingCount(val)
             }
             style={applyPanelStyle("pending")}
             setTabOpen={setTabOpen}
@@ -483,7 +549,8 @@ const TicketsManagerTabs = () => {
         <TicketsList
           status="closed"
           showAll={true}
-          selectedQueueIds={selectedQueueIds}
+          selectedQueueIds={visibleQueueIds}
+          whatsappId={connectionId}
           showTabGroups={showTabGroups}
         />
       </TabPanel>
@@ -509,7 +576,8 @@ const TicketsManagerTabs = () => {
             groups={true}
             groupMode="conversation"
             showAll={true}
-            selectedQueueIds={selectedQueueIds}
+            selectedQueueIds={visibleQueueIds}
+            whatsappId={connectionId}
             showTabGroups={showTabGroups}
           />
         ) : (
@@ -536,7 +604,8 @@ const TicketsManagerTabs = () => {
               groupMode="ticket"
               status={groupTicketStatus}
               showAll={true}
-              selectedQueueIds={selectedQueueIds}
+              selectedQueueIds={visibleQueueIds}
+              whatsappId={connectionId}
               showTabGroups={showTabGroups}
             />
           </>
@@ -562,7 +631,8 @@ const TicketsManagerTabs = () => {
           contactId={selectedContact}
           tags={selectedTags}
           users={selectedUsers}
-          selectedQueueIds={selectedQueueIds}
+          selectedQueueIds={visibleQueueIds}
+          whatsappId={connectionId}
           showTabGroups={showTabGroups}
         />
       </TabPanel>

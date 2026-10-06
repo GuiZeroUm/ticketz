@@ -22,6 +22,7 @@ import ShowUserService from "../services/UserServices/ShowUserService";
 import { usesOwnerTicketAccess } from "../services/TicketServices/TicketAccessPolicy";
 import { serializeClaimOnlyTicket } from "../services/TicketServices/ClaimOnlyTicket";
 import CountVisibleTicketsService from "../services/TicketServices/CountVisibleTicketsService";
+import parseConnectionFilter from "../helpers/parseConnectionFilter";
 
 type IndexQuery = {
   isSearch?: string;
@@ -40,6 +41,7 @@ type IndexQuery = {
   all: string;
   queueIds: string;
   contactId: string;
+  whatsappId?: string;
   tags: string;
   users: string;
 };
@@ -70,6 +72,7 @@ export const counts = async (
   const result = await CountVisibleTicketsService({
     companyId: req.user.companyId,
     userId: req.user.id,
+    whatsappId: parseConnectionFilter(req.query.whatsappId),
     profile:
       process.env.ACNORTE_SUPPLIER_SSO_ROLE === "target"
         ? "admin"
@@ -92,6 +95,7 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
     showAll,
     queueIds: queueIdsStringified,
     contactId,
+    whatsappId: whatsappIdQuery,
     tags: tagIdsStringified,
     users: userIdsStringified,
     withUnreadMessages,
@@ -134,6 +138,7 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
     isSearch: isSearch === "true",
     searchParam,
     contactId: Number(contactId) || undefined,
+    whatsappId: parseConnectionFilter(whatsappIdQuery),
     tags: tagsIds,
     users: usersIds,
     nextUpdatedAt,

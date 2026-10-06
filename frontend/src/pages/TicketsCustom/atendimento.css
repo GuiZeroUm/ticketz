@@ -127,6 +127,34 @@
 .fila-opcoes .MuiInputBase-root {
   font-size: 11px;
 }
+.fila-conexao-filtro {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  color: var(--ew-text);
+  font-size: 12px;
+}
+.fila-conexao-filtro span {
+  flex: none;
+  font-weight: 600;
+}
+.fila-conexao-filtro select {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--ew-border);
+  border-radius: 8px;
+  background: var(--ew-surface);
+  color: var(--ew-text);
+  font: inherit;
+}
+.fila-conexao-filtro select:focus-visible {
+  outline: 2px solid var(--ew-primary);
+  outline-offset: 1px;
+}
 .fila-opcoes .MuiSelect-select {
   padding: 8px 30px 8px 10px;
 }

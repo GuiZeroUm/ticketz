@@ -21,6 +21,7 @@ interface Request {
   nextUpdatedAt?: string;
   nextTicketId?: number;
   minUpdatedAt?: string;
+  whatsappId?: number;
 }
 
 const ListGroupsService = async ({
@@ -33,7 +34,8 @@ const ListGroupsService = async ({
   pageNumber = 1,
   nextUpdatedAt,
   nextTicketId,
-  minUpdatedAt
+  minUpdatedAt,
+  whatsappId
 }: Request) => {
   let contactIds: number[] | undefined;
   if (profile !== "admin") {
@@ -56,6 +58,7 @@ const ListGroupsService = async ({
     contactWhere.name = { [Op.iLike]: `%${searchParam.trim()}%` };
   }
   const where: Record<string | symbol, unknown> = { companyId, isGroup: true };
+  if (whatsappId) where.whatsappId = whatsappId;
   if (mode === "ticket" && status) where.status = status;
   if (minUpdatedAt) {
     const minimumDate = new Date(minUpdatedAt);

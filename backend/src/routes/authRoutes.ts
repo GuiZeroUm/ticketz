@@ -1,7 +1,7 @@
 import { Router } from "express";
 import * as SessionController from "../controllers/SessionController";
 import isAuth from "../middleware/isAuth";
-import isSuper from "../middleware/isAdmin";
+import isAdmin from "../middleware/isAdmin";
 import * as SocialAuthController from "../controllers/SocialAuthController";
 import mobileAuthRoutes from "./mobileAuthRoutes";
 import {
@@ -23,6 +23,7 @@ authRoutes.post("/login", SessionController.store);
 authRoutes.post(
   "/fornecedores/emitir",
   isAuth,
+  isAdmin,
   SessionController.supplierIssue
 );
 authRoutes.post(
@@ -48,7 +49,7 @@ authRoutes.post(
 authRoutes.get(
   "/impersonate/:companyId",
   isAuth,
-  isSuper,
+  isAdmin,
   SessionController.impersonate
 );
 /**

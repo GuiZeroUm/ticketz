@@ -42,6 +42,7 @@ interface Request {
   all?: boolean;
   queueIds: number[];
   contactId?: number;
+  whatsappId?: number;
   tags: number[];
   users: number[];
   companyId: number;
@@ -58,6 +59,7 @@ const ListTicketsService = async ({
   nextUpdatedAt,
   queueIds,
   contactId,
+  whatsappId,
   tags,
   users,
   status,
@@ -315,6 +317,13 @@ const ListTicketsService = async ({
     whereCondition = {
       ...whereCondition,
       contactId
+    };
+  }
+
+  if (whatsappId) {
+    whereCondition = {
+      ...whereCondition,
+      whatsappId
     };
   }
 
