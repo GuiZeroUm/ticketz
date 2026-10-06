@@ -1,6 +1,7 @@
 import Contact from "../../models/Contact";
 import Message from "../../models/Message";
 import OutOfTicketMessage from "../../models/OutOfTicketMessages";
+import Queue from "../../models/Queue";
 import Tag from "../../models/Tag";
 import Ticket from "../../models/Ticket";
 import TicketTag from "../../models/TicketTag";
@@ -75,6 +76,16 @@ export const syncBillingDeliveryVisibility = async (
   });
   if (existingMessage) return;
 
+  // A cobranca inicia um atendimento do setor financeiro. Resolver a fila
+  // dentro do tenant evita atrelar o envio a um ID que muda entre ambientes.
+  const billingQueue = await Queue.findOne({
+    where: { companyId: delivery.companyId, name: "BOLETOS" },
+    attributes: ["id"]
+  });
+  if (!billingQueue) {
+    throw new Error(`BOLETOS queue missing for company ${delivery.companyId}`);
+  }
+
   const contact = await Contact.findOne({
     where: {
       id: delivery.contactId,
@@ -129,7 +140,9 @@ export const syncBillingDeliveryVisibility = async (
       channel: "whatsapp",
       isGroup: false,
       userId: null,
-      queueId: null,
+      queueId: billingQueue.id,
+      chatbot: false,
+      queueOptionId: null,
       unreadMessages: 0,
       lastMessage:
         delivery.body?.replace(/\s+/g, " ").slice(0, 255) || "Cobrança enviada"
@@ -144,7 +157,9 @@ export const syncBillingDeliveryVisibility = async (
     await ticket.update({
       status: "pending",
       userId: null,
-      queueId: null,
+      queueId: billingQueue.id,
+      chatbot: false,
+      queueOptionId: null,
       unreadMessages: 0,
       lastMessage:
         delivery.body?.replace(/\s+/g, " ").slice(0, 255) || "Cobrança enviada"
