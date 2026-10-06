@@ -28,6 +28,7 @@ import { SocketContext } from "../../context/Socket/SocketContext";
 import useSettings from "../../hooks/useSettings";
 import { shouldShowGroupsTab } from "../../helpers/groupTabs";
 import useFecharConversaComEscape from "../../hooks/useFecharConversaComEscape";
+import { isSupplierPortal } from "../../helpers/supplierPortal";
 
 const useStyles = makeStyles(theme => ({
   root: {
@@ -215,11 +216,13 @@ const Ticket = () => {
           markAsRead={true}
           aoAtualizarMensagens={definirMensagens}
         ></MessagesList>
-        <CompositorAtendimento
-          key={ticket.id}
-          ticket={ticket}
-          aoSalvarNota={() => definirVersaoNotas(v => v + 1)}
-        />
+        {!isSupplierPortal() && (
+          <CompositorAtendimento
+            key={ticket.id}
+            ticket={ticket}
+            aoSalvarNota={() => definirVersaoNotas(v => v + 1)}
+          />
+        )}
       </>
     );
   };
@@ -300,7 +303,7 @@ const Ticket = () => {
               </EditMessageProvider>
             </ReplyMessageProvider>
           </div>
-          {!loading && (
+          {!loading && !isSupplierPortal() && (
             <TicketActionButtons
               lateral
               ticket={ticket}
@@ -327,16 +330,18 @@ const Ticket = () => {
           }
         />
       )}
-      <ContactDrawer
-        open={drawerOpen}
-        handleDrawerClose={handleDrawerClose}
-        contact={contact}
-        loading={loading}
-        ticket={ticket}
-        aba={abaContexto}
-        aoAlterarAba={definirAbaContexto}
-        versaoNotas={versaoNotas}
-      />
+      {!isSupplierPortal() && (
+        <ContactDrawer
+          open={drawerOpen}
+          handleDrawerClose={handleDrawerClose}
+          contact={contact}
+          loading={loading}
+          ticket={ticket}
+          aba={abaContexto}
+          aoAlterarAba={definirAbaContexto}
+          versaoNotas={versaoNotas}
+        />
+      )}
     </div>
   );
 };

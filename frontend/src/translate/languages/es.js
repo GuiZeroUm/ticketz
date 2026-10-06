@@ -967,6 +967,7 @@ const messages = {
       },
       mainDrawer: {
         listItems: {
+          fornecedores: "Proveedores",
           dashboard: "Tablero",
           connections: "Conexiones",
           tickets: "Atenciones",

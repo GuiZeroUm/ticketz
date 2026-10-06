@@ -55,6 +55,7 @@ import GoogleAnalytics from "../components/GoogleAnalytics";
 import OnlyForSuperUser from "../components/OnlyForSuperUser";
 import NewTicketModal from "../components/NewTicketModal/index.js";
 import isAcNorte from "../helpers/isAcNorte";
+import { isSupplierPortal } from "../helpers/supplierPortal";
 
 const drawerWidth = 260;
 const DRAWER_STORAGE_KEY = "drawerOpen";
@@ -384,7 +385,8 @@ const LoggedInLayout = ({ children, themeToggle }) => {
   const [drawerVariant, setDrawerVariant] = useState("permanent");
   // const [dueDate, setDueDate] = useState("");
   const { user } = useContext(AuthContext);
-  const isAcNorteLayout = isAcNorte(user);
+  const supplierPortal = isSupplierPortal();
+  const isAcNorteLayout = isAcNorte(user) || supplierPortal;
 
   const theme = useTheme();
   const greaterThenSm = useMediaQuery(theme.breakpoints.up("sm"));
@@ -652,20 +654,22 @@ const LoggedInLayout = ({ children, themeToggle }) => {
             </div>
           </div>
         )}
-        <Button
-          className={`${classes.novaConversa} nav-abrir-atendimento`}
-          color="primary"
-          variant="contained"
-          aria-label={i18n.t("redesign.abrirAtendimento")}
-          onClick={() => definirNovoAtendimentoAberto(true)}
-        >
-          <Headphones size={17} />
-          {drawerOpen && (
-            <span style={{ marginLeft: 8 }}>
-              {i18n.t("redesign.abrirAtendimento")}
-            </span>
-          )}
-        </Button>
+        {!isSupplierPortal() && (
+          <Button
+            className={`${classes.novaConversa} nav-abrir-atendimento`}
+            color="primary"
+            variant="contained"
+            aria-label={i18n.t("redesign.abrirAtendimento")}
+            onClick={() => definirNovoAtendimentoAberto(true)}
+          >
+            <Headphones size={17} />
+            {drawerOpen && (
+              <span style={{ marginLeft: 8 }}>
+                {i18n.t("redesign.abrirAtendimento")}
+              </span>
+            )}
+          </Button>
+        )}
         <List component="nav" className={classes.containerWithScroll}>
           <MainListItems
             drawerClose={drawerClose}
@@ -674,7 +678,7 @@ const LoggedInLayout = ({ children, themeToggle }) => {
           />
         </List>
         <Divider />
-        {isAcNorteLayout && (
+        {isAcNorteLayout && !supplierPortal && (
           <div className={classes.ferramentasLaterais}>
             {wsConnectionIssue && (
               <Tooltip title={i18n.t("common.connection")} arrow>
@@ -764,9 +768,11 @@ const LoggedInLayout = ({ children, themeToggle }) => {
           )}
         </div>
         <Divider />
-        <MenuItem onClick={handleOpenUserModal}>
-          {i18n.t("mainDrawer.appBar.user.profile")}
-        </MenuItem>
+        {!supplierPortal && (
+          <MenuItem onClick={handleOpenUserModal}>
+            {i18n.t("mainDrawer.appBar.user.profile")}
+          </MenuItem>
+        )}
         <NestedMenuItem
           label={i18n.t("themes.label")}
           parentMenuOpen={menuOpen}
@@ -876,21 +882,28 @@ const LoggedInLayout = ({ children, themeToggle }) => {
           </Toolbar>
         </AppBar>
       )}
-      <NewTicketModal
-        modalOpen={novoAtendimentoAberto || !!newTicketContact}
-        contact={newTicketContact}
-        onClose={ticket => {
-          setNewTicketContact(null);
-          definirNovoAtendimentoAberto(false);
-          if (ticket !== undefined && ticket.uuid !== undefined) {
-            history.push(`/tickets/${ticket.uuid}`);
-          }
-        }}
-      />
+      {!isSupplierPortal() && (
+        <NewTicketModal
+          modalOpen={novoAtendimentoAberto || !!newTicketContact}
+          contact={newTicketContact}
+          onClose={ticket => {
+            setNewTicketContact(null);
+            definirNovoAtendimentoAberto(false);
+            if (ticket !== undefined && ticket.uuid !== undefined) {
+              history.push(`/tickets/${ticket.uuid}`);
+            }
+          }}
+        />
+      )}
       <main className={classes.content}>
         {!isAcNorteLayout && <div className={classes.appBarSpacer} />}
-        <OnlyForSuperUser user={currentUser} yes={() => <GoogleAnalytics />} />
-        <SubscriptionNotice />
+        {!supplierPortal && (
+          <OnlyForSuperUser
+            user={currentUser}
+            yes={() => <GoogleAnalytics />}
+          />
+        )}
+        {!supplierPortal && <SubscriptionNotice />}
         <div className={classes.pageContent}>{children ? children : null}</div>
       </main>
     </div>

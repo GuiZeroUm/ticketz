@@ -1020,6 +1020,7 @@ const messages = {
       },
       mainDrawer: {
         listItems: {
+          fornecedores: "Suppliers",
           dashboard: "Dashboard",
           connections: "Connections",
           tickets: "Tickets",

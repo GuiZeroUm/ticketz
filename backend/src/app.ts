@@ -15,6 +15,7 @@ import routes from "./routes";
 import { logger } from "./utils/logger";
 import { sendScheduledMessages } from "./queues";
 import { corsOrigin } from "./helpers/corsOrigin";
+import supplierReadOnly from "./middleware/supplierReadOnly";
 
 class SystemError extends Error {
   code?: string;
@@ -121,6 +122,7 @@ app.use((req, _res, next) => {
   next();
 });
 
+app.use(supplierReadOnly);
 app.use(routes);
 
 app.use(Sentry.Handlers.errorHandler());

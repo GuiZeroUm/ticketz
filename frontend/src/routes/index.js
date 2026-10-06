@@ -1,5 +1,10 @@
 import React, { lazy, Suspense, useEffect, useState } from "react";
-import { BrowserRouter, Route as RouterRoute, Switch } from "react-router-dom";
+import {
+  BrowserRouter,
+  Redirect,
+  Route as RouterRoute,
+  Switch
+} from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 
 import LoggedInLayout from "../layout";
@@ -40,10 +45,13 @@ import Subscription from "../pages/Subscription/";
 import PlatformAccess from "../pages/PlatformAccess";
 import PlatformActivation from "../pages/PlatformActivation";
 import MobileLogin from "../pages/MobileLogin";
+import SupplierAccess from "../pages/SupplierAccess";
+import { isSupplierPortal } from "../helpers/supplierPortal";
 
 const Fluxos = lazy(() => import("../pages/Fluxos"));
 
 const Routes = () => {
+  const supplierPortal = isSupplierPortal();
   const [showCampaigns, setShowCampaigns] = useState(false);
 
   useEffect(() => {
@@ -71,6 +79,11 @@ const Routes = () => {
                 />
                 <RouterRoute
                   exact
+                  path="/fornecedores/entrar"
+                  component={SupplierAccess}
+                />
+                <RouterRoute
+                  exact
                   path="/ativar/:token"
                   component={PlatformActivation}
                 />
@@ -81,162 +94,198 @@ const Routes = () => {
                 <RouterRoute path="/parceiros" component={PartnerRoutes} />
                 <WhatsAppsProvider>
                   <LoggedInLayout>
-                    <Route exact path="/" component={Dashboard} isPrivate />
-                    <Route
-                      exact
-                      path="/sga"
-                      component={Sga}
-                      isPrivate
-                      adminOnly
-                    />
-                    <Route
-                      exact
-                      path="/sga/cobrancas"
-                      component={SgaBilling}
-                      isPrivate
-                      adminOnly
-                    />
-                    <Route
-                      exact
-                      path="/cobranca"
-                      component={CentralCobranca}
-                      isPrivate
-                    />
-                    <Route
-                      exact
-                      path="/prospeccao"
-                      component={Prospeccao}
-                      isPrivate
-                    />
-                    <Route
-                      exact
-                      path="/tickets/:ticketId?"
-                      component={TicketResponsiveContainer}
-                      isPrivate
-                    />
-                    <Route
-                      exact
-                      path="/connections"
-                      component={Connections}
-                      isPrivate
-                    />
-                    <Route
-                      exact
-                      path="/quick-messages"
-                      component={QuickMessages}
-                      isPrivate
-                    />
-                    <Route
-                      exact
-                      path="/schedules"
-                      component={Schedules}
-                      isPrivate
-                    />
-                    <Route
-                      exact
-                      path="/todolist"
-                      component={ToDoList}
-                      isPrivate
-                    />
-                    <Route exact path="/tags" component={Tags} isPrivate />
-                    <Route
-                      exact
-                      path="/contacts"
-                      component={Contacts}
-                      isPrivate
-                    />
-                    <Route exact path="/helps" component={Helps} isPrivate />
-                    <Route
-                      exact
-                      path="/helps/:groupId"
-                      component={Helps}
-                      isPrivate
-                    />
-                    <Route
-                      exact
-                      path="/helps/:groupId/:contentId"
-                      component={Helps}
-                      isPrivate
-                    />
-                    <Route exact path="/users" component={Users} isPrivate />
-                    <Route
-                      exact
-                      path="/chatgpt"
-                      component={ChatGPT}
-                      isPrivate
-                    />
-                    <Route
-                      exact
-                      path="/settings"
-                      component={SettingsCustom}
-                      isPrivate
-                    />
-                    <Route
-                      exact
-                      path="/financeiro"
-                      component={Financeiro}
-                      isPrivate
-                    />
-                    <Route exact path="/queues" component={Queues} isPrivate />
-                    <Suspense fallback={null}>
-                      <Route
-                        exact
-                        path="/fluxos/:queueId?"
-                        component={Fluxos}
-                        isPrivate
-                      />
-                    </Suspense>
-                    <Route
-                      exact
-                      path="/announcements"
-                      component={Annoucements}
-                      isPrivate
-                    />
-                    <Route
-                      exact
-                      path="/subscription"
-                      component={Subscription}
-                      isPrivate
-                    />
-
-                    <Route
-                      exact
-                      path="/chats/:id?"
-                      component={Chat}
-                      isPrivate
-                    />
-                    {showCampaigns && (
+                    {supplierPortal ? (
+                      <Switch>
+                        <Route
+                          exact
+                          path="/tickets/:ticketId?"
+                          component={TicketResponsiveContainer}
+                          isPrivate
+                        />
+                        <Route
+                          exact
+                          path="/connections"
+                          component={Connections}
+                          isPrivate
+                          adminOnly
+                        />
+                        <Redirect to="/tickets" />
+                      </Switch>
+                    ) : (
                       <>
+                        <Route exact path="/" component={Dashboard} isPrivate />
                         <Route
                           exact
-                          path="/contact-lists"
-                          component={ContactLists}
+                          path="/sga"
+                          component={Sga}
+                          isPrivate
+                          adminOnly
+                        />
+                        <Route
+                          exact
+                          path="/sga/cobrancas"
+                          component={SgaBilling}
+                          isPrivate
+                          adminOnly
+                        />
+                        <Route
+                          exact
+                          path="/cobranca"
+                          component={CentralCobranca}
                           isPrivate
                         />
                         <Route
                           exact
-                          path="/contact-lists/:contactListId/contacts"
-                          component={ContactListItems}
+                          path="/prospeccao"
+                          component={Prospeccao}
                           isPrivate
                         />
                         <Route
                           exact
-                          path="/campaigns"
-                          component={Campaigns}
+                          path="/tickets/:ticketId?"
+                          component={TicketResponsiveContainer}
                           isPrivate
                         />
                         <Route
                           exact
-                          path="/campaign/:campaignId/report"
-                          component={CampaignReport}
+                          path="/connections"
+                          component={Connections}
                           isPrivate
                         />
                         <Route
                           exact
-                          path="/campaigns-config"
-                          component={CampaignsConfig}
+                          path="/quick-messages"
+                          component={QuickMessages}
                           isPrivate
                         />
+                        <Route
+                          exact
+                          path="/schedules"
+                          component={Schedules}
+                          isPrivate
+                        />
+                        <Route
+                          exact
+                          path="/todolist"
+                          component={ToDoList}
+                          isPrivate
+                        />
+                        <Route exact path="/tags" component={Tags} isPrivate />
+                        <Route
+                          exact
+                          path="/contacts"
+                          component={Contacts}
+                          isPrivate
+                        />
+                        <Route
+                          exact
+                          path="/helps"
+                          component={Helps}
+                          isPrivate
+                        />
+                        <Route
+                          exact
+                          path="/helps/:groupId"
+                          component={Helps}
+                          isPrivate
+                        />
+                        <Route
+                          exact
+                          path="/helps/:groupId/:contentId"
+                          component={Helps}
+                          isPrivate
+                        />
+                        <Route
+                          exact
+                          path="/users"
+                          component={Users}
+                          isPrivate
+                        />
+                        <Route
+                          exact
+                          path="/chatgpt"
+                          component={ChatGPT}
+                          isPrivate
+                        />
+                        <Route
+                          exact
+                          path="/settings"
+                          component={SettingsCustom}
+                          isPrivate
+                        />
+                        <Route
+                          exact
+                          path="/financeiro"
+                          component={Financeiro}
+                          isPrivate
+                        />
+                        <Route
+                          exact
+                          path="/queues"
+                          component={Queues}
+                          isPrivate
+                        />
+                        <Suspense fallback={null}>
+                          <Route
+                            exact
+                            path="/fluxos/:queueId?"
+                            component={Fluxos}
+                            isPrivate
+                          />
+                        </Suspense>
+                        <Route
+                          exact
+                          path="/announcements"
+                          component={Annoucements}
+                          isPrivate
+                        />
+                        <Route
+                          exact
+                          path="/subscription"
+                          component={Subscription}
+                          isPrivate
+                        />
+
+                        <Route
+                          exact
+                          path="/chats/:id?"
+                          component={Chat}
+                          isPrivate
+                        />
+                        {showCampaigns && (
+                          <>
+                            <Route
+                              exact
+                              path="/contact-lists"
+                              component={ContactLists}
+                              isPrivate
+                            />
+                            <Route
+                              exact
+                              path="/contact-lists/:contactListId/contacts"
+                              component={ContactListItems}
+                              isPrivate
+                            />
+                            <Route
+                              exact
+                              path="/campaigns"
+                              component={Campaigns}
+                              isPrivate
+                            />
+                            <Route
+                              exact
+                              path="/campaign/:campaignId/report"
+                              component={CampaignReport}
+                              isPrivate
+                            />
+                            <Route
+                              exact
+                              path="/campaigns-config"
+                              component={CampaignsConfig}
+                              isPrivate
+                            />
+                          </>
+                        )}
                       </>
                     )}
                   </LoggedInLayout>

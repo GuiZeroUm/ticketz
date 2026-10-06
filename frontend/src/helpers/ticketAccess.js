@@ -1,3 +1,5 @@
+import { isSupplierPortal } from "./supplierPortal";
+
 const ticketQueueId = ticket => ticket?.queue?.id ?? ticket?.queueId ?? null;
 
 const ticketUserId = ticket => ticket?.user?.id ?? ticket?.userId ?? null;
@@ -14,6 +16,7 @@ export const usesOwnerOnlyTicketAccess = (user, ticket) =>
   user?.company?.settings?.ticketAccessMode === "owner";
 
 export const canClaimTicket = (user, ticket) => {
+  if (isSupplierPortal()) return false;
   if (!user || ticket?.status !== "pending" || ticketUserId(ticket)) {
     return false;
   }
@@ -30,6 +33,7 @@ export const canClaimTicket = (user, ticket) => {
 // ticket; no modo owner, somente o responsavel acessa o conteudo.
 export const canSeeTicket = (user, ticket) => {
   if (!user) return false;
+  if (isSupplierPortal()) return true;
   if (user.profile === "admin") return true;
   if (
     ticketUserId(ticket) &&
@@ -63,6 +67,7 @@ export const isClaimOnlyTicket = (user, ticket) =>
 // nao pode oferecer o botao para os demais - era assim que o atendente
 // esbarrava em "Você não tem permissão para acessar este recurso".
 export const canActOnTicket = (user, ticket) => {
+  if (isSupplierPortal()) return false;
   if (!user) return false;
   if (user.profile === "admin") return true;
   if (usesOwnerOnlyTicketAccess(user, ticket)) {

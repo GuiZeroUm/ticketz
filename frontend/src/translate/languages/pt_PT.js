@@ -943,6 +943,7 @@ const messages = {
       },
       mainDrawer: {
         listItems: {
+          fornecedores: "Fornecedores",
           dashboard: "Dashboard",
           connections: "Conexões",
           tickets: "Atendimentos",

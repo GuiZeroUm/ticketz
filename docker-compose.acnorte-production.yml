@@ -12,6 +12,8 @@ services:
     env_file:
       - path: /etc/dokploy/secrets/espaco_whats_clerk_production.env
         required: false
+      - path: /etc/dokploy/secrets/acnorte_supplier_sso.env
+        required: false
     environment:
       NODE_ENV: production
       CLERK_ENVIRONMENT: production
@@ -34,6 +36,8 @@ services:
       QUEUE_PREFIX: acnorte-production
       TENANT_RUNTIME_COMPANY_ID: "9"
       MASTER_COMPANY_ID: "9"
+      ACNORTE_SUPPLIER_SSO_ROLE: source
+      ACNORTE_SUPPLIER_SOURCE_COMPANY_ID: "9"
       WHATSAPP_AUTOSTART_ENABLED: "true"
       WHATSAPP_AUTOSTART_EXISTING_ONLY: "true"
       FRONTEND_URL: https://acnorte.espacowhats.com.br
@@ -99,6 +103,7 @@ services:
     mem_limit: 256m
     environment:
       FRONTEND_HOST: acnorte.espacowhats.com.br
+      ACNORTE_SUPPLIER_LINK: "true"
       APP_BASE_DOMAIN: espacowhats.com.br
       EMAIL_ADDRESS: ${EMAIL_ADDRESS}
       BACKEND_SERVICE: acnorte-backend

@@ -21,6 +21,7 @@ import FormControlLabel from "@material-ui/core/FormControlLabel";
 import Switch from "@material-ui/core/Switch";
 
 import NewTicketModal from "../NewTicketModal";
+import { isSupplierPortal } from "../../helpers/supplierPortal";
 import TicketsList from "../TicketsListCustom";
 import TabPanel from "../TabPanel";
 
@@ -280,7 +281,7 @@ const TicketsManagerTabs = () => {
   }, [showTabGroups, socketManager, refreshGroupUnreadCount]);
 
   useEffect(() => {
-    if (user.profile.toUpperCase() === "ADMIN") {
+    if (isSupplierPortal() || user.profile.toUpperCase() === "ADMIN") {
       setShowAllTickets(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -340,12 +341,14 @@ const TicketsManagerTabs = () => {
       className={`${classes.ticketsWrapper} ew-ui fila-atendimento`}
       style={identidade}
     >
-      <NewTicketModal
-        modalOpen={newTicketModalOpen}
-        onClose={ticket => {
-          handleCloseOrOpenTicket(ticket);
-        }}
-      />
+      {!isSupplierPortal() && (
+        <NewTicketModal
+          modalOpen={newTicketModalOpen}
+          onClose={ticket => {
+            handleCloseOrOpenTicket(ticket);
+          }}
+        />
+      )}
       <Abas.Root
         value={tab === "open" ? tabOpen : tab}
         onValueChange={valor => {
@@ -380,12 +383,14 @@ const TicketsManagerTabs = () => {
             }}
           />
         </label>
-        <BotaoIcone
-          titulo={i18n.t("ticketsManager.buttons.newTicket")}
-          onClick={() => setNewTicketModalOpen(true)}
-        >
-          <Plus size={16} />
-        </BotaoIcone>
+        {!isSupplierPortal() && (
+          <BotaoIcone
+            titulo={i18n.t("ticketsManager.buttons.newTicket")}
+            onClick={() => setNewTicketModalOpen(true)}
+          >
+            <Plus size={16} />
+          </BotaoIcone>
+        )}
       </div>
       <div className="fila-atalhos">
         <Botao

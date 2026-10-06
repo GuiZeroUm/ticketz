@@ -21,6 +21,16 @@ authRoutes.post(
 
 authRoutes.post("/login", SessionController.store);
 authRoutes.post(
+  "/fornecedores/emitir",
+  isAuth,
+  SessionController.supplierIssue
+);
+authRoutes.post(
+  "/fornecedores/trocar",
+  loginIdentifyLimiter,
+  SessionController.supplierExchange
+);
+authRoutes.post(
   "/login/identify",
   loginIdentifyLimiter,
   SessionController.identify

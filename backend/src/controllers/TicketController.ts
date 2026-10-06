@@ -70,7 +70,10 @@ export const counts = async (
   const result = await CountVisibleTicketsService({
     companyId: req.user.companyId,
     userId: req.user.id,
-    profile: req.user.profile,
+    profile:
+      process.env.ACNORTE_SUPPLIER_SSO_ROLE === "target"
+        ? "admin"
+        : req.user.profile,
     requestedQueueIds
   });
   return res.json(result);
@@ -442,9 +445,7 @@ export const remove = async (
 
   const io = getIO();
   if (await usesOwnerTicketAccess(companyId)) {
-    let recipients = io
-      .to(ticketId)
-      .to(`company-${companyId}-admin`);
+    let recipients = io.to(ticketId).to(`company-${companyId}-admin`);
     if (ticket.userId) {
       recipients = recipients.to(`user-${ticket.userId}`);
     }
