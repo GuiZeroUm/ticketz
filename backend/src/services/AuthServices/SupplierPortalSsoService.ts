@@ -177,6 +177,9 @@ export const exchangeSupplierAccess = async (rawToken: unknown) => {
         { transaction }
       );
     } else {
+      if (user.super && !claims.super) {
+        throw new AppError("ERR_SUPPLIER_SSO_INVALID", 403);
+      }
       if (claims.super && !user.super) {
         throw new AppError("ERR_SUPPLIER_SSO_INVALID", 403);
       }
