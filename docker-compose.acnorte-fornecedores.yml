@@ -104,7 +104,7 @@ services:
       ACNORTE_SUPPLIER_PORTAL: "true"
       BACKEND_SERVICE: backend
       BACKEND_PATH: /backend
-      BACKEND_PROTOCOL: http
+      BACKEND_PROTOCOL: https
       EMAIL_ADDRESS: ${SUPPLIER_ADMIN_EMAIL:?required}
     depends_on:
       backend: { condition: service_healthy }
@@ -127,6 +127,21 @@ services:
       - traefik.http.routers.acnorte-suppliers-https.tls=true
       - traefik.http.routers.acnorte-suppliers-https.tls.certresolver=letsencrypt
       - traefik.http.routers.acnorte-suppliers-https.service=acnorte-suppliers-frontend
+      - traefik.http.routers.acnorte-suppliers-alias-http.rule=Host(`fornecedores.espacowhats.com.br`)
+      - traefik.http.routers.acnorte-suppliers-alias-http.entrypoints=web
+      - traefik.http.routers.acnorte-suppliers-alias-http.priority=400
+      - traefik.http.routers.acnorte-suppliers-alias-http.middlewares=redirect-to-https@file
+      - traefik.http.routers.acnorte-suppliers-alias-http.service=acnorte-suppliers-frontend
+      - traefik.http.routers.acnorte-suppliers-alias-https.rule=Host(`fornecedores.espacowhats.com.br`)
+      - traefik.http.routers.acnorte-suppliers-alias-https.entrypoints=websecure
+      - traefik.http.routers.acnorte-suppliers-alias-https.priority=400
+      - traefik.http.routers.acnorte-suppliers-alias-https.tls=true
+      - traefik.http.routers.acnorte-suppliers-alias-https.tls.certresolver=letsencrypt
+      - traefik.http.routers.acnorte-suppliers-alias-https.middlewares=acnorte-suppliers-canonical
+      - traefik.http.routers.acnorte-suppliers-alias-https.service=acnorte-suppliers-frontend
+      - traefik.http.middlewares.acnorte-suppliers-canonical.redirectregex.regex=^https://fornecedores[.]espacowhats[.]com[.]br(.*)
+      - traefik.http.middlewares.acnorte-suppliers-canonical.redirectregex.replacement=https://acnortefornecedores.espacowhats.com.br$${1}
+      - traefik.http.middlewares.acnorte-suppliers-canonical.redirectregex.permanent=true
       - traefik.http.services.acnorte-suppliers-frontend.loadbalancer.server.port=80
     networks: [internal, dokploy-network]
 

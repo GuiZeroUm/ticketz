@@ -6,6 +6,9 @@ upload volumes. Its only company is `acnortefornecedores` (ID 1), with a plan
 of six users and 20 WhatsApp connections in `normal`/Baileys mode. The first
 user is the ACNorte platform super administrator; five regular users can be
 created by the SSO handoff. No Meta Cloud API connection can be created there.
+The ACNorte emblem is installed as the light/dark logo and favicon, and the
+interface primary color is `#007A25`. The short address
+`fornecedores.espacowhats.com.br` redirects to the dedicated hostname.
 
 The ACNorte source runtime issues a one minute JWT only for an authenticated
 user in company 9. The target verifies its issuer, audience and signature,

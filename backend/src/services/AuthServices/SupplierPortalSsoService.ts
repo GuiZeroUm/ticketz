@@ -177,14 +177,21 @@ export const exchangeSupplierAccess = async (rawToken: unknown) => {
         { transaction }
       );
     } else {
-      if (user.super && !claims.super) {
+      const seededAdminEmail = String(process.env.EMAIL_ADDRESS || "")
+        .trim()
+        .toLowerCase();
+      if (
+        user.super &&
+        !claims.super &&
+        (email !== seededAdminEmail || claims.profile !== "admin")
+      ) {
         throw new AppError("ERR_SUPPLIER_SSO_INVALID", 403);
       }
       if (claims.super && !user.super) {
         throw new AppError("ERR_SUPPLIER_SSO_INVALID", 403);
       }
-      // A source administrator cannot turn a local super user into a regular
-      // user, nor can a regular account gain global privileges by a claim.
+      // The seeded local super administrator keeps that role when the same
+      // ACNorte account arrives with its regular company-admin claim.
       await user.update(
         {
           name: claims.name.trim(),

@@ -18,6 +18,7 @@ COPY --from=build /usr/src/app/dist ./dist
 COPY --from=build /usr/src/app/node_modules ./node_modules
 COPY --from=build /usr/src/app/package.json ./package.json
 COPY --from=build /usr/src/app/scripts ./scripts
+COPY --from=build /usr/src/app/assets ./assets
 
 ENV NODE_ENV=production
 ENV PORT=3000

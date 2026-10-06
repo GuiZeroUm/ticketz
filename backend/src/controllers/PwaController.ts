@@ -7,11 +7,15 @@ export const manifest = async (
 ): Promise<Response> => {
   const appName = await GetPublicSettingService({ key: "appName" });
   const logoFavicon = await GetPublicSettingService({ key: "appLogoFavicon" });
+  const primaryColor = await GetPublicSettingService({ key: "primaryColorLight" });
 
   const mimes = {
     svg: "image/svg+xml",
     png: "image/png",
-    ico: "image/x-icon"
+    ico: "image/x-icon",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    webp: "image/webp"
   };
 
   let mimeFavicon = "image/png";
@@ -28,7 +32,7 @@ export const manifest = async (
     icons: [
       {
         src: logoFavicon
-          ? `/backend/public/${logoFavicon}`
+          ? `/backend/public/${logoFavicon}?inline=1`
           : "/branding/icon.png",
         sizes: "512x512 192x192 64x64 32x32 24x24 16x16",
         type: mimeFavicon
@@ -37,8 +41,8 @@ export const manifest = async (
     start_url: "/",
     scope: "/",
     display: "standalone",
-    theme_color: "#ff6b00",
-    background_color: "#fffaf6"
+    theme_color: primaryColor || "#ff6b00",
+    background_color: primaryColor ? "#ffffff" : "#fffaf6"
   };
 
   return res.status(200).json(data);
@@ -50,7 +54,7 @@ export const favicon = async (
 ): Promise<Response> => {
   const logoFavicon = await GetPublicSettingService({ key: "appLogoFavicon" });
   const faviconUrl = logoFavicon
-    ? `${process.env.BACKEND_URL}/public/${logoFavicon}`
+    ? `${process.env.BACKEND_URL}/public/${logoFavicon}?inline=1`
     : `${process.env.FRONTEND_URL}/branding/icon.png`;
   res.redirect(302, faviconUrl);
   return res;
