@@ -32,6 +32,7 @@ import {
   isClaimOnlyTicket
 } from "../../helpers/ticketAccess";
 import "./ticket-card.css";
+import { isSupplierPortal } from "../../helpers/supplierPortal";
 
 export default function TicketListItemCustom({
   ticket,
@@ -156,7 +157,7 @@ export default function TicketListItemCustom({
         aria-label={name}
         aria-current={selected ? "page" : undefined}
         onClick={() => {
-          if (ticket.status !== "pending" || !actions)
+          if (isSupplierPortal() || ticket.status !== "pending" || !actions)
             setCurrentTicket({
               id: ticket.id,
               uuid: ticket.uuid,

@@ -1,0 +1,157 @@
+name: espaco-whats-acnorte-fornecedores
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fornecedores
+      POSTGRES_USER: fornecedores
+      POSTGRES_PASSWORD: ${SUPPLIER_DB_PASSWORD:?required}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fornecedores -d fornecedores"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+
+  redis:
+    image: redis:8.2.1-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${SUPPLIER_REDIS_PASSWORD:?required}"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    environment:
+      REDIS_PASSWORD: ${SUPPLIER_REDIS_PASSWORD:?required}
+    networks: [internal]
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    mem_limit: 1536m
+    command:
+      - sh
+      - -c
+      - >-
+        npx sequelize db:migrate --config dist/config/database.js --migrations-path dist/database/migrations &&
+        npx sequelize db:seed:all --config dist/config/database.js --seeders-path dist/database/seeds &&
+        node dist/scripts/InitializeSupplierPortal.js && exec node dist/server.js
+    env_file:
+      - path: /etc/dokploy/secrets/acnorte_supplier_sso.env
+        required: false
+      - path: /etc/dokploy/secrets/acnorte_suppliers.env
+        required: false
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DB_DIALECT: postgres
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: fornecedores
+      DB_PASS: ${SUPPLIER_DB_PASSWORD:?required}
+      DB_NAME: fornecedores
+      REDIS_URI: redis://:${SUPPLIER_REDIS_PASSWORD:?required}@redis:6379
+      QUEUE_PREFIX: acnorte-fornecedores
+      TENANT_RUNTIME_COMPANY_ID: "1"
+      MASTER_COMPANY_ID: "1"
+      ACNORTE_SUPPLIER_SSO_ROLE: target
+      ACNORTE_SUPPLIER_SOURCE_COMPANY_ID: "9"
+      ACNORTE_SUPPLIER_COMPANY_ID: "1"
+      FRONTEND_URL: https://acnortefornecedores.espacowhats.com.br
+      FRONTEND_URL_REGEX: ^https://acnortefornecedores\.espacowhats\.com\.br$$
+      BACKEND_URL: https://acnortefornecedores.espacowhats.com.br/backend
+      MCP_BASE_URL: https://acnortefornecedores.espacowhats.com.br/backend
+      APP_BASE_DOMAIN: espacowhats.com.br
+      EMAIL_ADDRESS: ${SUPPLIER_ADMIN_EMAIL:?required}
+      ADMIN_PASSWORD: ${SUPPLIER_ADMIN_PASSWORD:?required}
+      USER_LIMIT: "6"
+      CONNECTIONS_LIMIT: "20"
+      WACALLS_ENABLED: "false"
+      META_ALLOWED_COMPANY_IDS: ""
+      SOCKET_ADMIN: "false"
+      LOG_LEVEL: warn
+    volumes:
+      - backend_public:/usr/src/app/public
+      - backend_private:/usr/src/app/private
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://127.0.0.1:3000/api/platform/v1/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 120s
+    networks: [internal]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      FRONTEND_HOST: acnortefornecedores.espacowhats.com.br
+      APP_BASE_DOMAIN: espacowhats.com.br
+      ACNORTE_SUPPLIER_PORTAL: "true"
+      BACKEND_SERVICE: backend
+      BACKEND_PATH: /backend
+      BACKEND_PROTOCOL: https
+      EMAIL_ADDRESS: ${SUPPLIER_ADMIN_EMAIL:?required}
+    depends_on:
+      backend: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=dokploy-network
+      - traefik.http.routers.acnorte-suppliers-http.rule=Host(`acnortefornecedores.espacowhats.com.br`)
+      - traefik.http.routers.acnorte-suppliers-http.entrypoints=web
+      - traefik.http.routers.acnorte-suppliers-http.priority=400
+      - traefik.http.routers.acnorte-suppliers-http.middlewares=redirect-to-https@file
+      - traefik.http.routers.acnorte-suppliers-http.service=acnorte-suppliers-frontend
+      - traefik.http.routers.acnorte-suppliers-https.rule=Host(`acnortefornecedores.espacowhats.com.br`)
+      - traefik.http.routers.acnorte-suppliers-https.entrypoints=websecure
+      - traefik.http.routers.acnorte-suppliers-https.priority=400
+      - traefik.http.routers.acnorte-suppliers-https.tls=true
+      - traefik.http.routers.acnorte-suppliers-https.tls.certresolver=letsencrypt
+      - traefik.http.routers.acnorte-suppliers-https.service=acnorte-suppliers-frontend
+      - traefik.http.routers.acnorte-suppliers-alias-http.rule=Host(`fornecedores.espacowhats.com.br`)
+      - traefik.http.routers.acnorte-suppliers-alias-http.entrypoints=web
+      - traefik.http.routers.acnorte-suppliers-alias-http.priority=400
+      - traefik.http.routers.acnorte-suppliers-alias-http.middlewares=redirect-to-https@file
+      - traefik.http.routers.acnorte-suppliers-alias-http.service=acnorte-suppliers-frontend
+      - traefik.http.routers.acnorte-suppliers-alias-https.rule=Host(`fornecedores.espacowhats.com.br`)
+      - traefik.http.routers.acnorte-suppliers-alias-https.entrypoints=websecure
+      - traefik.http.routers.acnorte-suppliers-alias-https.priority=400
+      - traefik.http.routers.acnorte-suppliers-alias-https.tls=true
+      - traefik.http.routers.acnorte-suppliers-alias-https.tls.certresolver=letsencrypt
+      - traefik.http.routers.acnorte-suppliers-alias-https.middlewares=acnorte-suppliers-canonical
+      - traefik.http.routers.acnorte-suppliers-alias-https.service=acnorte-suppliers-frontend
+      - traefik.http.middlewares.acnorte-suppliers-canonical.redirectregex.regex=^https://fornecedores[.]espacowhats[.]com[.]br(.*)
+      - traefik.http.middlewares.acnorte-suppliers-canonical.redirectregex.replacement=https://acnortefornecedores.espacowhats.com.br$${1}
+      - traefik.http.middlewares.acnorte-suppliers-canonical.redirectregex.permanent=true
+      - traefik.http.services.acnorte-suppliers-frontend.loadbalancer.server.port=80
+    networks: [internal, dokploy-network]
+
+networks:
+  internal:
+  dokploy-network:
+    external: true
+
+volumes:
+  postgres_data:
+  redis_data:
+  backend_public:
+  backend_private:

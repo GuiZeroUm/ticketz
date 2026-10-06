@@ -28,13 +28,13 @@ it("preserva cores e arquivos personalizados da empresa", async () => {
   expect(aplicadores.setPrimaryColorLight).toHaveBeenCalledWith("#1450AF");
   expect(aplicadores.setPrimaryColorDark).toHaveBeenCalledWith("#68AAFF");
   expect(aplicadores.setAppLogoLight).toHaveBeenCalledWith(
-    "/backend/public/empresa.png"
+    "/backend/public/empresa.png?inline=1"
   );
   expect(aplicadores.setAppLogoDark).toHaveBeenCalledWith(
-    "/backend/public/empresa-dark.png"
+    "/backend/public/empresa-dark.png?inline=1"
   );
   expect(aplicadores.setAppLogoFavicon).toHaveBeenCalledWith(
-    "/backend/public/icone.png"
+    "/backend/public/icone.png?inline=1"
   );
   expect(aplicadores.setAppName).toHaveBeenCalledWith("Minha empresa");
 });

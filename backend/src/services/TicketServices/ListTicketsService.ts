@@ -99,8 +99,11 @@ const ListTicketsService = async ({
     (await GetCompanySetting(companyId, "groupsTab", "disabled")) === "enabled";
 
   const user = await ShowUserService(userId);
+  const profile =
+    process.env.ACNORTE_SUPPLIER_SSO_ROLE === "target" ? "admin" : user.profile;
+  if (process.env.ACNORTE_SUPPLIER_SSO_ROLE === "target") showAll = "true";
   const accessMode = await getTicketAccessMode(companyId);
-  const ownerOnly = user.profile !== "admin" && accessMode === "owner";
+  const ownerOnly = profile !== "admin" && accessMode === "owner";
 
   // O atendente ve os atendimentos que sao dele e a fila de espera; o admin ve
   // tudo. A restricao de fila e aplicada logo abaixo, em cima disso.
@@ -113,7 +116,7 @@ const ListTicketsService = async ({
               [Op.and]: [
                 { status: "pending" },
                 { userId: null },
-                ticketQueueScope(user.profile, queueIds)
+                ticketQueueScope(profile, queueIds)
               ]
             }
           ]
@@ -129,10 +132,10 @@ const ListTicketsService = async ({
     [Op.and]: andedOrs
   };
 
-  if (!ownerOnly && shouldApplyQueueFilter(user.profile, queueIds)) {
+  if (!ownerOnly && shouldApplyQueueFilter(profile, queueIds)) {
     whereCondition = {
       ...whereCondition,
-      ...ticketQueueScope(user.profile, queueIds)
+      ...ticketQueueScope(profile, queueIds)
     };
   }
 
@@ -170,12 +173,12 @@ const ListTicketsService = async ({
     }
   ];
 
-  if (showAll === "true" && user.profile === "admin") {
+  if (showAll === "true" && profile === "admin") {
     andedOrs.length = 0;
     whereCondition = {
       [Op.and]: andedOrs
     };
-    if (shouldApplyQueueFilter(user.profile, queueIds)) {
+    if (shouldApplyQueueFilter(profile, queueIds)) {
       whereCondition = {
         ...whereCondition,
         queueId: { [Op.or]: [queueIds, null] }

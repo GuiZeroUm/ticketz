@@ -11,7 +11,7 @@ import { getBackendURL } from "../services/config";
 const defaultLogoLight = "/branding/logo-light.png";
 const defaultLogoDark = "/branding/logo-dark.png";
 
-const toPublicUrl = file => `${getBackendURL()}/public/${file}`;
+const toPublicUrl = file => `${getBackendURL()}/public/${file}?inline=1`;
 
 export const loadBranding = async (setters, fetchSetting) => {
   const read = async key => {

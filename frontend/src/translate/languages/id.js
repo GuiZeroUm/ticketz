@@ -913,6 +913,7 @@ const messages = {
       },
       mainDrawer: {
         listItems: {
+          fornecedores: "Pemasok",
           dashboard: "Dasbor",
           connections: "Koneksi",
           tickets: "Tiket",

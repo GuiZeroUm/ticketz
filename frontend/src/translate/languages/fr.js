@@ -901,6 +901,7 @@ const messages = {
       },
       mainDrawer: {
         listItems: {
+          fornecedores: "Fournisseurs",
           dashboard: "Tableau de bord",
           connections: "Connexions",
           tickets: "Interventions",

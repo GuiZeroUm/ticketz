@@ -180,3 +180,11 @@ jobs:
           ACNORTE_SGA_TOKEN: ci-only
           ENCRYPTION_KEY: ci-only
         run: docker compose -f docker-compose.acnorte-production.yml config --quiet
+
+      - name: Validate AC Norte suppliers manifest
+        env:
+          SUPPLIER_DB_PASSWORD: ci-only
+          SUPPLIER_REDIS_PASSWORD: ci-only
+          SUPPLIER_ADMIN_EMAIL: ci@example.invalid
+          SUPPLIER_ADMIN_PASSWORD: ci-only
+        run: docker compose -f docker-compose.acnorte-fornecedores.yml config --quiet

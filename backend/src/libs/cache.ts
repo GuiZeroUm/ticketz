@@ -48,6 +48,14 @@ export function set(
   return setPromisefy(key, value);
 }
 
+export async function setOnce(
+  key: string,
+  value: string,
+  ttlSeconds: number
+): Promise<boolean> {
+  return (await redis.set(key, value, "EX", ttlSeconds, "NX")) === "OK";
+}
+
 export function get(key: string) {
   const getPromisefy = util.promisify(redis.get).bind(redis);
   return getPromisefy(key);
@@ -96,6 +104,7 @@ export async function delFromPattern(pattern: string) {
 
 export const cacheLayer = {
   set,
+  setOnce,
   setFromParams,
   get,
   getFromParams,

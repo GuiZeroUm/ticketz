@@ -86,14 +86,18 @@ function ItemNavegacao({ item, expandido, aoNavegar }) {
         ) : (
           <ListItem
             button
-            component={NavLink}
-            role="link"
-            exact={item.to === "/"}
-            to={item.to}
-            activeClassName="ativo"
+            component={item.aoClicar ? "button" : NavLink}
+            role={item.aoClicar ? "button" : "link"}
+            {...(item.aoClicar
+              ? {}
+              : {
+                  exact: item.to === "/",
+                  to: item.to,
+                  activeClassName: "ativo"
+                })}
             className={`ew-nav-motion ${classes.item}`}
             aria-label={titulo}
-            onClick={aoNavegar}
+            onClick={item.aoClicar || aoNavegar}
           >
             {conteudo}
           </ListItem>

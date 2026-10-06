@@ -34,6 +34,9 @@ import { SocketContext } from "../context/Socket/SocketContext";
 import { isArray } from "lodash";
 import api from "../services/api";
 import toastError from "../errors/toastError";
+import isAcNorte from "../helpers/isAcNorte";
+import { isSupplierPortal } from "../helpers/supplierPortal";
+import config from "../services/config";
 
 const reducer = (state, action) => {
   if (action.type === "LOAD_CHATS") {
@@ -218,6 +221,33 @@ const MainListItems = props => {
     icone
   });
   const administrador = user.profile === "admin";
+  if (isSupplierPortal()) {
+    return (
+      <Navegacao
+        grupos={[
+          {
+            chave: "redesign.operacao",
+            itens: [
+              item("/tickets", "tickets", <WhatsAppIcon />),
+              ...(administrador
+                ? [item("/connections", "connections", <SyncAltIcon />)]
+                : [])
+            ]
+          }
+        ]}
+        expandido={drawerOpen}
+        aoNavegar={drawerClose}
+      />
+    );
+  }
+  const abrirFornecedores = async () => {
+    try {
+      const { data } = await api.post("/auth/fornecedores/emitir");
+      window.location.assign(data.url);
+    } catch (err) {
+      toastError(err);
+    }
+  };
   // Central de Cobrança: só no tenant dono da plataforma. O backend repete a
   // checagem; aqui é pra não oferecer um menu que responderia 401.
   const centralCobranca = podeVerCentralCobranca(user);
@@ -238,6 +268,16 @@ const MainListItems = props => {
             ]
           : []),
         item("/tickets", "tickets", <WhatsAppIcon />),
+        ...(isAcNorte(user) && config.ACNORTE_SUPPLIER_LINK === "true"
+          ? [
+              {
+                to: "/fornecedores",
+                chave: "mainDrawer.listItems.fornecedores",
+                icone: <PeopleAltOutlinedIcon />,
+                aoClicar: abrirFornecedores
+              }
+            ]
+          : []),
         item(
           "/chats",
           "chats",

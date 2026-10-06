@@ -17,6 +17,7 @@ const AssertTicketAccessService = async (
   requestUser: RequestUser,
   options: { allowClaimOnly?: boolean } = {}
 ): Promise<void> => {
+  if (process.env.ACNORTE_SUPPLIER_SSO_ROLE === "target") return;
   if (requestUser.profile === "admin") return;
 
   const user = await ShowUserService(requestUser.id);

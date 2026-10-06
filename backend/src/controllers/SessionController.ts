@@ -14,6 +14,10 @@ import Setting from "../models/Setting";
 import Translation from "../models/Translation";
 import { decodeRefreshToken } from "../helpers/DecodeRefreshToken";
 import {
+  issueSupplierAccess,
+  exchangeSupplierAccess
+} from "../services/AuthServices/SupplierPortalSsoService";
+import {
   identifyLogin,
   inspectActivation,
   setupInitialPassword
@@ -88,6 +92,24 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     token,
     user: serializedUser
   });
+};
+
+export const supplierIssue = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  res.setHeader("Cache-Control", "no-store");
+  return res.json(await issueSupplierAccess(Number(req.user.id)));
+};
+
+export const supplierExchange = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const result = await exchangeSupplierAccess(req.body.token);
+  SendRefreshToken(res, result.refreshToken);
+  res.setHeader("Cache-Control", "no-store");
+  return res.json({ token: result.token, user: result.user });
 };
 
 export const update = async (
