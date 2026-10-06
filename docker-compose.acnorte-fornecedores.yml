@@ -48,6 +48,8 @@ services:
     env_file:
       - path: /etc/dokploy/secrets/acnorte_supplier_sso.env
         required: false
+      - path: /etc/dokploy/secrets/acnorte_suppliers.env
+        required: false
     environment:
       NODE_ENV: production
       PORT: "3000"
@@ -67,6 +69,7 @@ services:
       FRONTEND_URL: https://acnortefornecedores.espacowhats.com.br
       FRONTEND_URL_REGEX: ^https://acnortefornecedores\.espacowhats\.com\.br$$
       BACKEND_URL: https://acnortefornecedores.espacowhats.com.br/backend
+      MCP_BASE_URL: https://acnortefornecedores.espacowhats.com.br/backend
       APP_BASE_DOMAIN: espacowhats.com.br
       EMAIL_ADDRESS: ${SUPPLIER_ADMIN_EMAIL:?required}
       ADMIN_PASSWORD: ${SUPPLIER_ADMIN_PASSWORD:?required}
