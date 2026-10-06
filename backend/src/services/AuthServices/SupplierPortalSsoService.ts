@@ -42,6 +42,7 @@ export const issueSupplierAccess = async (sourceUserId: number) => {
   });
   if (
     !user ||
+    user.profile !== "admin" ||
     !user.company?.status ||
     user.company.platformStatus !== "ativo"
   ) {

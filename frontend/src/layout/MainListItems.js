@@ -268,16 +268,6 @@ const MainListItems = props => {
             ]
           : []),
         item("/tickets", "tickets", <WhatsAppIcon />),
-        ...(isAcNorte(user) && config.ACNORTE_SUPPLIER_LINK === "true"
-          ? [
-              {
-                to: "/fornecedores",
-                chave: "mainDrawer.listItems.fornecedores",
-                icone: <PeopleAltOutlinedIcon />,
-                aoClicar: abrirFornecedores
-              }
-            ]
-          : []),
         item(
           "/chats",
           "chats",
@@ -358,6 +348,16 @@ const MainListItems = props => {
         ...(administrador
           ? [
               item("/users", "users", <PeopleAltOutlinedIcon />),
+              ...(isAcNorte(user) && config.ACNORTE_SUPPLIER_LINK === "true"
+                ? [
+                    {
+                      to: "/fornecedores",
+                      chave: "mainDrawer.listItems.fornecedores",
+                      icone: <PeopleAltOutlinedIcon />,
+                      aoClicar: abrirFornecedores
+                    }
+                  ]
+                : []),
               item("/announcements", "annoucements", <AnnouncementIcon />),
               item("/financeiro", "financeiro", <LocalAtmIcon />),
               ...(sgaEnabled

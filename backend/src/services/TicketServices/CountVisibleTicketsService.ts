@@ -9,13 +9,15 @@ interface Request {
   userId: number | string;
   profile: string;
   requestedQueueIds?: number[];
+  whatsappId?: number;
 }
 
 const CountVisibleTicketsService = async ({
   companyId,
   userId,
   profile,
-  requestedQueueIds
+  requestedQueueIds,
+  whatsappId
 }: Request): Promise<{ open: number; pending: number }> => {
   const user = await ShowUserService(userId);
   const assignedQueueIds = (user.queues || []).map(queue => Number(queue.id));
@@ -29,7 +31,8 @@ const CountVisibleTicketsService = async ({
   const accessMode = await getTicketAccessMode(companyId);
   const base: WhereOptions<Ticket> = {
     companyId,
-    isGroup: false
+    isGroup: false,
+    ...(whatsappId ? { whatsappId } : {})
   };
 
   if (profile === "admin") {

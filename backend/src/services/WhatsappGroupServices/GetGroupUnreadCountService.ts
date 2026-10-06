@@ -4,7 +4,8 @@ import sequelize from "../../database";
 const GetGroupUnreadCountService = async (
   userId: number,
   companyId: number,
-  profile: string
+  profile: string,
+  whatsappId?: number
 ): Promise<number> => {
   const accessCondition =
     profile === "admin"
@@ -33,10 +34,11 @@ const GetGroupUnreadCountService = async (
         AND ticket."isGroup" = true
         AND contact."isGroup" = true
         AND contact."groupMode" = 'conversation'
+        ${whatsappId ? 'AND ticket."whatsappId" = :whatsappId' : ""}
         ${accessCondition}
     `,
     {
-      replacements: { userId, companyId },
+      replacements: { userId, companyId, ...(whatsappId ? { whatsappId } : {}) },
       type: QueryTypes.SELECT
     }
   );

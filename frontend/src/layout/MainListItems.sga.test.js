@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import MainListItems from "./MainListItems";
 import CaminhoPagina from "./CaminhoPagina";
@@ -20,6 +20,10 @@ jest.mock("../context/Socket/SocketContext", () => ({
   SocketContext: require("react").createContext({})
 }));
 jest.mock("../services/api", () => ({ get: jest.fn() }));
+jest.mock("../services/config", () => ({
+  __esModule: true,
+  default: { ACNORTE_SUPPLIER_LINK: "true" }
+}));
 jest.mock("../errors/toastError", () => jest.fn());
 
 const socketManager = {
@@ -27,7 +31,16 @@ const socketManager = {
 };
 const view = (companyId, profile = "admin") => (
   <MemoryRouter initialEntries={["/sga"]}>
-    <AuthContext.Provider value={{ user: { id: 1, companyId, profile } }}>
+    <AuthContext.Provider
+      value={{
+        user: {
+          id: 1,
+          companyId,
+          profile,
+          company: { slug: companyId === 9 ? "acnorte" : "other" }
+        }
+      }}
+    >
       <WhatsAppsContext.Provider value={{ whatsApps: [] }}>
         <SocketContext.Provider value={socketManager}>
           <MainListItems drawerOpen drawerClose={() => {}} />
@@ -58,6 +71,29 @@ it("não consulta nem exibe Placas para atendentes", async () => {
   render(view(9, "user"));
   await waitFor(() => expect(api.get).not.toHaveBeenCalledWith("/sga/status"));
   expect(screen.queryByRole("link", { name: "sga.title" })).toBeNull();
+});
+
+it("mostra Fornecedores somente na Administração para admins da ACNorte", () => {
+  api.get.mockResolvedValue({ data: { enabled: false, records: [] } });
+  const { rerender } = render(view(9, "admin"));
+  const administration = screen.getByText("redesign.administracao").closest("ul");
+  expect(
+    within(administration).getByRole("button", {
+      name: "mainDrawer.listItems.fornecedores"
+    })
+  ).toBeTruthy();
+  const operation = screen.getByText("redesign.operacao").closest("ul");
+  expect(
+    within(operation).queryByRole("button", {
+      name: "mainDrawer.listItems.fornecedores"
+    })
+  ).toBeNull();
+  rerender(view(9, "user"));
+  expect(
+    screen.queryByRole("button", {
+      name: "mainDrawer.listItems.fornecedores"
+    })
+  ).toBeNull();
 });
 
 it("preserva simultaneamente as traduções do SGA e das novas conversas", () => {

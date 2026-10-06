@@ -5,20 +5,25 @@ import { assertGroupAccess } from "../services/WhatsappGroupServices/GroupAccess
 import { markGroupRead } from "../services/WhatsappGroupServices/GroupUnreadService";
 import ListGroupParticipantsService from "../services/WhatsappGroupServices/ListGroupParticipantsService";
 import GetGroupUnreadCountService from "../services/WhatsappGroupServices/GetGroupUnreadCountService";
+import parseConnectionFilter from "../helpers/parseConnectionFilter";
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const mode = req.query.mode === "ticket" ? "ticket" : "conversation";
   const result = await ListGroupsService({
     companyId: req.user.companyId,
     userId: Number(req.user.id),
-    profile: req.user.profile,
+    profile:
+      process.env.ACNORTE_SUPPLIER_SSO_ROLE === "target"
+        ? "admin"
+        : req.user.profile,
     mode,
     status: String(req.query.status || "") || undefined,
     searchParam: String(req.query.searchParam || ""),
     pageNumber: Number(req.query.pageNumber || 1),
     nextUpdatedAt: String(req.query.nextUpdatedAt || "") || undefined,
     nextTicketId: Number(req.query.nextTicketId) || undefined,
-    minUpdatedAt: String(req.query.minUpdatedAt || "") || undefined
+    minUpdatedAt: String(req.query.minUpdatedAt || "") || undefined,
+    whatsappId: parseConnectionFilter(req.query.whatsappId)
   });
   return res.json(result);
 };
@@ -51,7 +56,10 @@ export const unreadCount = async (
   const count = await GetGroupUnreadCountService(
     Number(req.user.id),
     req.user.companyId,
-    req.user.profile
+    process.env.ACNORTE_SUPPLIER_SSO_ROLE === "target"
+      ? "admin"
+      : req.user.profile,
+    parseConnectionFilter(req.query.whatsappId)
   );
   return res.json({ count });
 };

@@ -27,6 +27,7 @@ import {
   canListTicket,
   usesOwnerOnlyTicketAccess
 } from "../../helpers/ticketAccess";
+import { isSupplierPortal } from "../../helpers/supplierPortal";
 
 const useStyles = makeStyles(theme => ({
   ticketsListHeader: {
@@ -174,6 +175,7 @@ const TicketsListCustom = props => {
     isSearch,
     searchParam,
     contactId,
+    whatsappId,
     tags,
     users,
     showAll,
@@ -197,6 +199,7 @@ const TicketsListCustom = props => {
   const [ticketsListUpdated, setTicketsListUpdated] = useState([]);
   const { user } = useContext(AuthContext);
   const { profile, queues } = user;
+  const supplierPortal = isSupplierPortal();
 
   const socketManager = useContext(SocketContext);
 
@@ -209,6 +212,7 @@ const TicketsListCustom = props => {
     dispatch,
     showAll,
     contactId,
+    whatsappId,
     tags,
     users,
     selectedQueueIds,
@@ -233,6 +237,7 @@ const TicketsListCustom = props => {
     groupMode,
     showAll,
     contactId,
+    whatsappId,
     tags: JSON.stringify(tags),
     users: JSON.stringify(users),
     queueIds: JSON.stringify(selectedQueueIds)
@@ -240,17 +245,18 @@ const TicketsListCustom = props => {
 
   useEffect(() => {
     const queueIds = queues.map(q => q.id);
-    const filteredTickets = tickets.filter(
-      ticket =>
-        isTicketQueueVisible(ticket, queueIds) && canListTicket(user, ticket)
+    const filteredTickets = tickets.filter(ticket =>
+      supplierPortal
+        ? !whatsappId || Number(ticket.whatsappId) === whatsappId
+        : isTicketQueueVisible(ticket, queueIds) && canListTicket(user, ticket)
     );
 
-    if (profile === "user" && !groups) {
+    if (supplierPortal || (profile === "user" && !groups)) {
       dispatch({ type: "LOAD_TICKETS", payload: filteredTickets });
     } else {
       dispatch({ type: "LOAD_TICKETS", payload: tickets });
     }
-  }, [tickets, queues, profile, groups, status, user]);
+  }, [tickets, queues, profile, groups, status, user, whatsappId, supplierPortal]);
 
   useEffect(() => {
     const companyId = localStorage.getItem("companyId");
@@ -263,6 +269,7 @@ const TicketsListCustom = props => {
         canListTicket(user, ticket);
       return (
         (!isSearch || !searchParam) &&
+        (!whatsappId || Number(ticket.whatsappId) === whatsappId) &&
         (!contactId || ticket.contactId === contactId) &&
         (!tags?.length ||
           tags.some(
@@ -271,22 +278,24 @@ const TicketsListCustom = props => {
               ticket.contact.tags.some(t => t.id === tag)
           )) &&
         (!users?.length || users.some(u => u === ticket.userId)) &&
-        (getTicketQueueId(ticket) === null ||
+        (supplierPortal ||
+          getTicketQueueId(ticket) === null ||
           !ticket.userId ||
           ticket.userId === user?.id ||
           showAll) &&
         ownerAccessAllowed &&
-        isTicketQueueVisible(ticket, selectedQueueIds)
+        (supplierPortal || isTicketQueueVisible(ticket, selectedQueueIds))
       );
     };
 
     const notBelongsToUserQueues = ticket =>
-      !isTicketQueueVisible(ticket, selectedQueueIds);
+      !supplierPortal && !isTicketQueueVisible(ticket, selectedQueueIds);
 
     // Um ticket do pool entra na lista do atendente quando o cliente escreve,
     // nao quando a cobranca dispara. Admin continua vendo tudo.
     const skipUnansweredPoolTicket = ticket =>
       profile !== "admin" &&
+      !supplierPortal &&
       isUnansweredPoolTicket(
         ticket,
         ticketsListRef.current.map(item => item.id)
@@ -344,6 +353,14 @@ const TicketsListCustom = props => {
 
       if (
         data.action === "update" &&
+        whatsappId &&
+        Number(data.ticket?.whatsappId) !== whatsappId
+      ) {
+        dispatch({ type: "DELETE_TICKET", payload: data.ticket?.id });
+      }
+
+      if (
+        data.action === "update" &&
         profile !== "admin" &&
         usesOwnerOnlyTicketAccess(user, data.ticket) &&
         !canListTicket(user, data.ticket)
@@ -383,6 +400,7 @@ const TicketsListCustom = props => {
       }
       if (
         profile === "user" &&
+        !supplierPortal &&
         !groups &&
         eventQueueId !== null &&
         queueIds.indexOf(eventQueueId) === -1
@@ -476,6 +494,8 @@ const TicketsListCustom = props => {
     showTabGroups,
     user,
     selectedQueueIds,
+    whatsappId,
+    supplierPortal,
     contactId,
     tags,
     users,
