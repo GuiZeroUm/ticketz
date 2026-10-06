@@ -123,16 +123,18 @@ export const exchangeSupplierAccess = async (rawToken: unknown) => {
 
   const userId = await sequelize.transaction(async transaction => {
     const company = await Company.findByPk(companyId, {
-      include: [Plan],
       transaction,
       lock: transaction.LOCK.UPDATE
     });
+    const plan = company
+      ? await Plan.findByPk(company.planId, { transaction })
+      : null;
     if (
       !company?.status ||
       company.platformStatus !== "ativo" ||
       company.whatsappMode !== "normal" ||
-      company.plan?.users !== 6 ||
-      company.plan?.connections !== 20
+      plan?.users !== 6 ||
+      plan?.connections !== 20
     ) {
       throw new AppError("ERR_SUPPLIER_SSO_UNAVAILABLE", 503);
     }
