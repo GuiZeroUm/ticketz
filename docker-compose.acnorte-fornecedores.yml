@@ -47,7 +47,7 @@ services:
         node dist/scripts/InitializeSupplierPortal.js && exec node dist/server.js
     env_file:
       - path: /etc/dokploy/secrets/acnorte_supplier_sso.env
-        required: true
+        required: false
     environment:
       NODE_ENV: production
       PORT: "3000"
