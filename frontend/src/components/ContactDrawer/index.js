@@ -31,6 +31,7 @@ import ContactDrawerSkeleton from "../ContactDrawerSkeleton";
 import WhatsMarked from "react-whatsmarked";
 import { CardHeader } from "@material-ui/core";
 import ContactModal from "../ContactModal";
+import ExtraInfoDialog from "./ExtraInfoDialog";
 import { TicketNotes } from "../TicketNotes";
 import { corAvatar as generateColor } from "../../helpers/coresAvatar";
 import { getInitials } from "../../helpers/getInitials";
@@ -151,6 +152,8 @@ const ContactDrawer = ({
   const isGroupConversation = ticket.isGroup && contact?.groupMode !== "ticket";
 
   const [modalOpen, setModalOpen] = useState(false);
+  const [extraInfoOpen, setExtraInfoOpen] = useState(false);
+  const [displayFields, setDisplayFields] = useState([]);
   const [openForm, setOpenForm] = useState(false);
   const [showTags, setShowTags] = useState(false);
   const [tagsTicket, definirTagsTicket] = useState(true);
@@ -158,6 +161,10 @@ const ContactDrawer = ({
   const [participantsLoading, setParticipantsLoading] = useState(false);
   const [participantsError, setParticipantsError] = useState(false);
   const [participantContactId, setParticipantContactId] = useState(null);
+
+  useEffect(() => {
+    setDisplayFields(contact?.extraInfo || []);
+  }, [contact?.id, contact?.extraInfo]);
 
   useEffect(() => {
     getSetting("tagsMode").then(res => {
@@ -309,6 +316,18 @@ const ContactDrawer = ({
                   <Button
                     variant="outlined"
                     color="primary"
+                    onClick={() => setExtraInfoOpen(true)}
+                    style={{ fontSize: 12, marginTop: 8 }}
+                  >
+                    {i18n.t("contactDrawer.addExtraInfo", {
+                      defaultValue: "Informações adicionais"
+                    })}
+                  </Button>
+                )}
+                {!isGroupConversation && (
+                  <Button
+                    variant="outlined"
+                    color="primary"
                     onClick={() => setModalOpen(!openForm)}
                     style={{ fontSize: 12, marginTop: 8 }}
                   >
@@ -344,12 +363,12 @@ const ContactDrawer = ({
                     <TagsContainer contact={contact} />
                   </section>
                 )}
-                {contact?.extraInfo?.length > 0 && (
+                {displayFields.length > 0 && (
                   <div className={classes.contactExtraInfo}>
                     <Typography variant="subtitle1">
                       {i18n.t("contactModal.form.extraInfo")}
                     </Typography>
-                    {contact?.extraInfo?.map(info => (
+                    {displayFields.map(info => (
                       <WhatsMarked
                         key={info.id || info.name}
                       >{`*${info?.name}:* ${info?.value}`}</WhatsMarked>
@@ -508,6 +527,12 @@ const ContactDrawer = ({
               }}
               contactId={participantContactId || contact.id}
             ></ContactModal>
+            <ExtraInfoDialog
+              open={extraInfoOpen}
+              onClose={() => setExtraInfoOpen(false)}
+              contact={contact}
+              onSave={updated => setDisplayFields(updated.extraInfo || [])}
+            />
           </div>
         )}
       </Drawer>

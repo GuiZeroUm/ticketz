@@ -18,6 +18,7 @@ import PaymentGateway from "../../components/Settings/PaymentGateway";
 import I18nSettings from "../../components/Settings/I18nSettings";
 import VoiceSettings from "../../components/VoiceSettings";
 import api from "../../services/api";
+import { canSeeScreen } from "../../helpers/screenAccess";
 
 import { i18n } from "../../translate/i18n.js";
 import { toast } from "react-toastify";
@@ -208,7 +209,7 @@ const SettingsCustom = () => {
   };
 
   const isAdmin = () => {
-    return currentUser.profile === "admin";
+    return canSeeScreen(currentUser, "settings");
   };
 
   const renderizarSecao = tab => (
