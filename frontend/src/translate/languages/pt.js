@@ -1117,6 +1117,17 @@ const messages = {
         token: "Token"
       },
       dashboard: {
+        contactReport: {
+          button: "Exportar contatos",
+          title: "Exportar fluxo de contatos",
+          columns: "Colunas do relatório",
+          contactedAt: "Data do contato",
+          name: "Nome",
+          number: "Número",
+          notes: "Notas internas",
+          historyNotice:
+            "Alterações feitas antes da ativação deste histórico não podem ser reconstruídas."
+        },
         usersOnline: "Usuários online",
         ticketsWaiting: "Atendimentos aguardando",
         ticketsOpen: "Atendimentos abertos",
@@ -1404,7 +1415,10 @@ const messages = {
           name: "Nome",
           email: "Email",
           password: "Senha",
-          profile: "Perfil"
+          profile: "Perfil",
+          visibleScreens: "Telas visíveis",
+          screenAccessHint:
+            "Usuários comuns podem visualizar as telas selecionadas. Ações administrativas continuam reservadas aos administradores."
         },
         buttons: {
           okAdd: "Adicionar",
@@ -1683,6 +1697,7 @@ const messages = {
           annoucements: "Informativos",
           chats: "Chat Interno",
           financeiro: "Financeiro",
+          subscription: "Assinatura",
           cobranca: "Cobrança",
           prospeccao: "Prospecção",
           logout: "Sair",
@@ -2559,6 +2574,8 @@ const messages = {
 
       contactDrawer: {
         header: "Dados do contato",
+        addExtraInfo: "Informações adicionais",
+        fieldAddedAt: "Adicionado em",
         groupHeader: "Dados do grupo",
         buttons: {
           edit: "Editar contato"

@@ -97,6 +97,16 @@ const UpdateContactService = async ({
   }
 
   if (extraInfo) {
+    const ownedIds = new Set(contact.extraInfo.map(field => field.id));
+    const providedIds = extraInfo
+      .filter(field => field.id)
+      .map(field => field.id);
+    if (
+      new Set(providedIds).size !== providedIds.length ||
+      providedIds.some(id => !ownedIds.has(id))
+    ) {
+      throw new AppError("ERR_INVALID_CONTACT_FIELD", 400);
+    }
     await Promise.all(
       extraInfo.map(async (info: any) => {
         await ContactCustomField.upsert({ ...info, contactId: contact.id });

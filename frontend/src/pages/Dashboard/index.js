@@ -36,6 +36,8 @@ import { getTimezoneOffset } from "../../helpers/getTimezoneOffset.js";
 import api from "../../services/api.js";
 import { SocketContext } from "../../context/Socket/SocketContext.js";
 import { formatTimeInterval } from "../../helpers/formatTimeInterval.js";
+import { canSeeScreen } from "../../helpers/screenAccess";
+import ContactFlowReportDialog from "./ContactFlowReportDialog";
 
 const useStyles = makeStyles(() => ({
   selectContainer: { width: "100%" },
@@ -57,6 +59,7 @@ const Dashboard = () => {
   const identidade = useIdentidade();
   const [period, setPeriod] = useState(0);
   const [currentUser, setCurrentUser] = useState({});
+  const [reportOpen, setReportOpen] = useState(false);
   const [dateFrom, setDateFrom] = useState(
     moment("1", "D").format("YYYY-MM-DDTHH") + ":00"
   );
@@ -92,7 +95,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     getCurrentUserInfo().then(user => {
-      if (user?.profile !== "admin") {
+      if (!canSeeScreen(user, "dashboard")) {
         window.location.href = "/tickets";
       }
       setCurrentUser(user);
@@ -285,7 +288,7 @@ const Dashboard = () => {
     );
   }
 
-  if (currentUser?.profile !== "admin") {
+  if (!canSeeScreen(currentUser, "dashboard")) {
     return <div></div>;
   }
 
@@ -300,6 +303,11 @@ const Dashboard = () => {
           titulo={i18n.t("redesign.visaoGeral")}
           descricao={i18n.t("redesign.descricaoPainel")}
         />
+        <Botao onClick={() => setReportOpen(true)}>
+          {i18n.t("dashboard.contactReport.button", {
+            defaultValue: "Exportar contatos"
+          })}
+        </Botao>
         <Botao
           onClick={() => {
             fetchData();
@@ -310,6 +318,10 @@ const Dashboard = () => {
           {i18n.t("visual.atualizar")}
         </Botao>
       </header>
+      <ContactFlowReportDialog
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+      />
       <Tabs.Root defaultValue="resumo">
         <Tabs.List className="ew-tabs" aria-label={i18n.t("visual.resumo")}>
           <Tabs.Trigger className="ew-tab" value="resumo">

@@ -62,6 +62,9 @@ class User extends Model<User> {
   @Column
   profile: string;
 
+  @Column(DataType.JSONB)
+  visibleScreens: string[] | null;
+
   @Column
   super: boolean;
 

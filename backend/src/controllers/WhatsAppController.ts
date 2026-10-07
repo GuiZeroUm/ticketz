@@ -15,6 +15,8 @@ import AppError from "../errors/AppError";
 import Ticket from "../models/Ticket";
 import { sendWhatsappUpdate } from "../services/WhatsappService/SocketSendWhatsappUpdate";
 import { UnsubscribeWabaWebhookService } from "../services/MetaWhatsAppServices/SubscribeWabaWebhookService";
+import User from "../models/User";
+import { canAccessScreen } from "../helpers/screenAccess";
 
 interface WhatsappData {
   name: string;
@@ -32,7 +34,8 @@ interface WhatsappData {
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
 
-  if (req.user.profile !== "admin") {
+  const user = await User.findByPk(req.user.id);
+  if (!user || !canAccessScreen(user, "connections")) {
     return res.status(200).json([]);
   }
 

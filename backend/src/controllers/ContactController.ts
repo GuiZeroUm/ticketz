@@ -1,6 +1,7 @@
 import * as Yup from "yup";
 import { Request, Response } from "express";
 import { Op } from "sequelize";
+import sequelize from "../database";
 import { parse as csvParser, stringify } from "csv";
 import fs from "fs";
 import { getIO } from "../libs/socket";
@@ -8,7 +9,9 @@ import { getIO } from "../libs/socket";
 import ListContactsService from "../services/ContactServices/ListContactsService";
 import CreateContactService from "../services/ContactServices/CreateContactService";
 import ShowContactService from "../services/ContactServices/ShowContactService";
-import UpdateContactService from "../services/ContactServices/UpdateContactService";
+import UpdateContactService, {
+  websocketUpdateContact
+} from "../services/ContactServices/UpdateContactService";
 import DeleteContactService from "../services/ContactServices/DeleteContactService";
 import GetContactService from "../services/ContactServices/GetContactService";
 
@@ -31,6 +34,77 @@ import { verifyContact } from "../services/WbotServices/verifyContact";
 import { getWbot } from "../libs/wbot";
 import GetDefaultWhatsApp from "../helpers/GetDefaultWhatsApp";
 import { csvDetectDelimiter } from "../helpers/csvDetectDelimiter";
+
+export const updateExtraInfo = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const schema = Yup.object().shape({
+    extraInfo: Yup.array()
+      .of(
+        Yup.object().shape({
+          id: Yup.number().integer().positive().optional(),
+          name: Yup.string().trim().max(100).required(),
+          value: Yup.string().max(255).required()
+        })
+      )
+      .required()
+  });
+  let payload: {
+    extraInfo: Array<{ id?: number; name: string; value: string }>;
+  };
+  try {
+    payload = await schema.validate(req.body, { stripUnknown: true });
+  } catch (error) {
+    throw new AppError((error as Error).message, 400);
+  }
+  const contact = await Contact.findOne({
+    where: { id: req.params.contactId, companyId: req.user.companyId },
+    include: ["extraInfo"]
+  });
+  if (!contact) throw new AppError("ERR_NO_CONTACT_FOUND", 404);
+  const oldIds = new Set(contact.extraInfo.map(field => field.id));
+  const incomingIds = payload.extraInfo
+    .filter(field => field.id)
+    .map(field => field.id);
+  if (
+    new Set(incomingIds).size !== incomingIds.length ||
+    incomingIds.some(id => !oldIds.has(id))
+  ) {
+    throw new AppError("ERR_INVALID_CONTACT_FIELD", 400);
+  }
+  await sequelize.transaction(async transaction => {
+    await Promise.all(
+      payload.extraInfo.map(async field => {
+        if (field.id) {
+          await ContactCustomField.update(
+            { name: field.name.trim(), value: field.value },
+            { where: { id: field.id, contactId: contact.id }, transaction }
+          );
+        } else {
+          await ContactCustomField.create(
+            {
+              name: field.name.trim(),
+              value: field.value,
+              contactId: contact.id
+            },
+            { transaction }
+          );
+        }
+      })
+    );
+    const removed = [...oldIds].filter(id => !incomingIds.includes(id));
+    if (removed.length) {
+      await ContactCustomField.destroy({
+        where: { id: { [Op.in]: removed }, contactId: contact.id },
+        transaction
+      });
+    }
+  });
+  await contact.reload({ include: ["extraInfo", "tags"] });
+  websocketUpdateContact(contact);
+  return res.json(contact);
+};
 
 export const refreshPicture = async (
   req: Request,

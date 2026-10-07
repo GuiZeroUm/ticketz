@@ -5,6 +5,7 @@ import ShowUserService from "./ShowUserService";
 import Company from "../../models/Company";
 import User from "../../models/User";
 import { revokeUserMcpGrants } from "../McpServices/RevokeMcpGrantsService";
+import { validateVisibleScreens } from "../../helpers/screenAccess";
 
 interface UserData {
   email?: string;
@@ -13,6 +14,7 @@ interface UserData {
   profile?: string;
   companyId?: number;
   queueIds?: number[];
+  visibleScreens?: string[] | null;
 }
 
 interface Request {
@@ -26,6 +28,7 @@ interface Response {
   name: string;
   email: string;
   profile: string;
+  visibleScreens: string[] | null;
 }
 
 const UpdateUserService = async ({
@@ -53,7 +56,14 @@ const UpdateUserService = async ({
     password: Yup.string()
   });
 
-  const { email, password, profile, name, queueIds = [] } = userData;
+  const {
+    email,
+    password,
+    profile,
+    name,
+    queueIds = [],
+    visibleScreens
+  } = userData;
   const securityIdentityChanged =
     Boolean(password) || (profile !== undefined && profile !== user.profile);
 
@@ -68,6 +78,10 @@ const UpdateUserService = async ({
       email,
       password,
       profile,
+      visibleScreens:
+        visibleScreens === undefined
+          ? undefined
+          : validateVisibleScreens(visibleScreens),
       name
     });
     await user.$set("queues", queueIds);
@@ -94,6 +108,7 @@ const UpdateUserService = async ({
     profilePicUrl: user.profilePicUrl,
     super: user.super,
     profile: user.profile,
+    visibleScreens: user.visibleScreens,
     companyId: user.companyId,
     company,
     queues: user.queues

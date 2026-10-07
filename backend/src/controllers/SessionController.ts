@@ -113,13 +113,13 @@ export const update = async (
 export const me = async (req: Request, res: Response): Promise<Response> => {
   const token: string = req.cookies.jrt;
   const user = await FindUserFromToken(token);
-  const { id, profile, email, super: superAdmin } = user;
+  const { id, profile, email, super: superAdmin, visibleScreens } = user;
 
   if (!token) {
     throw new AppError("ERR_UNAUTHORIZED", 401);
   }
 
-  return res.json({ id, profile, email, super: superAdmin });
+  return res.json({ id, profile, email, super: superAdmin, visibleScreens });
 };
 
 export const remove = async (

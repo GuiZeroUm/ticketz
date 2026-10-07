@@ -16,6 +16,7 @@ const ShowUserService = async (
       "profilePicUrl",
       "companyId",
       "profile",
+      "visibleScreens",
       "super",
       "tokenVersion"
     ],

@@ -33,6 +33,7 @@ import { SocketContext } from "../context/Socket/SocketContext";
 import { isArray } from "lodash";
 import api from "../services/api";
 import toastError from "../errors/toastError";
+import { canSeeScreen, screenForPath } from "../helpers/screenAccess";
 
 const reducer = (state, action) => {
   if (action.type === "LOAD_CHATS") {
@@ -198,7 +199,8 @@ const MainListItems = props => {
     chave: `mainDrawer.listItems.${chave}`,
     icone
   });
-  const administrador = user.profile === "admin";
+  const administrador =
+    user.profile === "admin" || Array.isArray(user.visibleScreens);
   // Central de Cobrança: só no tenant dono da plataforma. O backend repete a
   // checagem; aqui é pra não oferecer um menu que responderia 401.
   const centralCobranca = podeVerCentralCobranca(user);
@@ -311,8 +313,34 @@ const MainListItems = props => {
       ]
     }
   ];
+  const visibleGroups = grupos
+    .map(group => ({
+      ...group,
+      itens: group.itens
+        .map(entry =>
+          entry.filhos
+            ? {
+                ...entry,
+                filhos: entry.filhos.filter(child =>
+                  canSeeScreen(user, screenForPath(child.to))
+                )
+              }
+            : entry
+        )
+        .filter(entry =>
+          entry.filhos
+            ? entry.filhos.length > 0
+            : !screenForPath(entry.to) ||
+              canSeeScreen(user, screenForPath(entry.to))
+        )
+    }))
+    .filter(group => group.itens.length);
   return (
-    <Navegacao grupos={grupos} expandido={drawerOpen} aoNavegar={drawerClose} />
+    <Navegacao
+      grupos={visibleGroups}
+      expandido={drawerOpen}
+      aoNavegar={drawerClose}
+    />
   );
 };
 

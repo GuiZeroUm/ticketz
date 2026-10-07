@@ -36,6 +36,7 @@ import UserModal from "../../components/UserModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import toastError from "../../errors/toastError";
 import { SocketContext } from "../../context/Socket/SocketContext";
+import { AuthContext } from "../../context/Auth/AuthContext";
 import { filterUsersByQueue, groupUsersByProfile } from "./usersView";
 
 const reducer = (state, action) => {
@@ -137,6 +138,7 @@ const Users = () => {
   const [users, dispatch] = useReducer(reducer, []);
 
   const socketManager = useContext(SocketContext);
+  const { user: loggedInUser } = useContext(AuthContext);
 
   useEffect(() => {
     const fetchQueues = async () => {
@@ -314,13 +316,15 @@ const Users = () => {
               ))}
             </Select>
           </FormControl>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleOpenUserModal}
-          >
-            {i18n.t("users.buttons.add")}
-          </Button>
+          {loggedInUser.profile === "admin" && (
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleOpenUserModal}
+            >
+              {i18n.t("users.buttons.add")}
+            </Button>
+          )}
         </MainHeaderButtonsWrapper>
       </MainHeader>
       <Paper
@@ -398,22 +402,26 @@ const Users = () => {
                       )}
                     </TableCell>
                     <TableCell align="center">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleEditUser(user)}
-                      >
-                        <EditIcon />
-                      </IconButton>
+                      {loggedInUser.profile === "admin" && (
+                        <IconButton
+                          size="small"
+                          onClick={() => handleEditUser(user)}
+                        >
+                          <EditIcon />
+                        </IconButton>
+                      )}
 
-                      <IconButton
-                        size="small"
-                        onClick={e => {
-                          setConfirmModalOpen(true);
-                          setDeletingUser(user);
-                        }}
-                      >
-                        <DeleteOutlineIcon />
-                      </IconButton>
+                      {loggedInUser.profile === "admin" && (
+                        <IconButton
+                          size="small"
+                          onClick={e => {
+                            setConfirmModalOpen(true);
+                            setDeletingUser(user);
+                          }}
+                        >
+                          <DeleteOutlineIcon />
+                        </IconButton>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

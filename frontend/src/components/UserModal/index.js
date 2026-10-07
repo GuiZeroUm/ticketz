@@ -17,6 +17,9 @@ import Select from "@material-ui/core/Select";
 import InputLabel from "@material-ui/core/InputLabel";
 import MenuItem from "@material-ui/core/MenuItem";
 import FormControl from "@material-ui/core/FormControl";
+import Checkbox from "@material-ui/core/Checkbox";
+import FormControlLabel from "@material-ui/core/FormControlLabel";
+import Typography from "@material-ui/core/Typography";
 
 import { i18n } from "../../translate/i18n";
 
@@ -27,6 +30,7 @@ import QueueSelect from "../QueueSelect";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { Can } from "../Can";
 import useFocoDialogo from "../../hooks/useFocoDialogo";
+import { screenOptions, defaultUserScreens } from "../../helpers/screenAccess";
 
 const useStyles = makeStyles(theme => ({
   root: {
@@ -92,6 +96,7 @@ const UserModal = ({ open, onClose, userId }) => {
   }, [open, userId]);
   const [user, setUser] = useState(initialState);
   const [selectedQueueIds, setSelectedQueueIds] = useState([]);
+  const [selectedScreens, setSelectedScreens] = useState(defaultUserScreens);
 
   useEffect(() => {
     let ativo = true;
@@ -105,6 +110,13 @@ const UserModal = ({ open, onClose, userId }) => {
         });
         const userQueueIds = data.queues?.map(queue => queue.id);
         setSelectedQueueIds(userQueueIds);
+        setSelectedScreens(
+          Array.isArray(data.visibleScreens)
+            ? data.visibleScreens
+            : data.profile === "admin"
+              ? screenOptions.map(screen => screen.id)
+              : defaultUserScreens
+        );
       } catch (err) {
         toastError(err);
       }
@@ -120,10 +132,15 @@ const UserModal = ({ open, onClose, userId }) => {
     onClose();
     setUser(initialState);
     setSelectedQueueIds([]);
+    setSelectedScreens(defaultUserScreens);
   };
 
   const handleSaveUser = async values => {
-    const userData = { ...values, queueIds: selectedQueueIds };
+    const userData = {
+      ...values,
+      queueIds: selectedQueueIds,
+      visibleScreens: selectedScreens
+    };
     try {
       if (usuarioSalvo.current) {
         await api.put(`/users/${usuarioSalvo.current}`, userData);
@@ -153,7 +170,7 @@ const UserModal = ({ open, onClose, userId }) => {
         disableRestoreFocus
         TransitionProps={{ onExited: restaurarFoco }}
         onClose={handleClose}
-        maxWidth="xs"
+        maxWidth="sm"
         fullWidth
         scroll="paper"
       >
@@ -171,7 +188,7 @@ const UserModal = ({ open, onClose, userId }) => {
             actions.setSubmitting(false);
           }}
         >
-          {({ touched, errors, isSubmitting }) => (
+          {({ touched, errors, isSubmitting, setFieldValue }) => (
             <Form>
               <DialogContent dividers>
                 <FotoUsuario
@@ -247,6 +264,15 @@ const UserModal = ({ open, onClose, userId }) => {
                             labelId="profile-selection-input-label"
                             id="profile-selection"
                             required
+                            onChange={event => {
+                              const profile = event.target.value;
+                              setFieldValue("profile", profile);
+                              setSelectedScreens(
+                                profile === "admin"
+                                  ? screenOptions.map(screen => screen.id)
+                                  : defaultUserScreens
+                              );
+                            }}
                           >
                             <MenuItem value="admin">
                               {i18n.t("userModal.listItems.adminProfile")}
@@ -270,6 +296,37 @@ const UserModal = ({ open, onClose, userId }) => {
                     />
                   )}
                 />
+                <Typography variant="subtitle1">
+                  {i18n.t("userModal.form.visibleScreens", {
+                    defaultValue: "Telas visíveis"
+                  })}
+                </Typography>
+                <Typography variant="caption" color="textSecondary">
+                  {i18n.t("userModal.form.screenAccessHint")}
+                </Typography>
+                <div
+                  style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}
+                >
+                  {screenOptions.map(screen => (
+                    <FormControlLabel
+                      key={screen.id}
+                      control={
+                        <Checkbox
+                          checked={selectedScreens.includes(screen.id)}
+                          onChange={event =>
+                            setSelectedScreens(previous =>
+                              event.target.checked
+                                ? [...previous, screen.id]
+                                : previous.filter(id => id !== screen.id)
+                            )
+                          }
+                          disabled={loggedInUser.profile !== "admin"}
+                        />
+                      }
+                      label={i18n.t(screen.label, { defaultValue: screen.id })}
+                    />
+                  ))}
+                </div>
               </DialogContent>
               <DialogActions>
                 <Button

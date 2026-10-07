@@ -459,6 +459,17 @@ const messages = {
         token: "Token"
       },
       dashboard: {
+        contactReport: {
+          button: "Export contacts",
+          title: "Export contact flow",
+          columns: "Report columns",
+          contactedAt: "Contact date",
+          name: "Name",
+          number: "Number",
+          notes: "Internal notes",
+          historyNotice:
+            "Changes made before this history was enabled cannot be reconstructed."
+        },
         usersOnline: "Users online",
         ticketsWaiting: "Tickets waiting",
         ticketsOpen: "Open tickets",
@@ -746,7 +757,10 @@ const messages = {
           name: "Name",
           email: "Email",
           password: "Password",
-          profile: "Profile"
+          profile: "Profile",
+          visibleScreens: "Visible screens",
+          screenAccessHint:
+            "Regular users can view selected screens. Administrative actions remain limited to administrators."
         },
         buttons: {
           okAdd: "Add",
@@ -1023,6 +1037,7 @@ const messages = {
           annoucements: "Announcements",
           chats: "Internal Chat",
           financeiro: "Financial",
+          subscription: "Subscription",
           cobranca: "Billing",
           prospeccao: "Prospecting",
           logout: "Logout",
@@ -1895,6 +1910,8 @@ const messages = {
 
       contactDrawer: {
         header: "Contact Information",
+        addExtraInfo: "Additional information",
+        fieldAddedAt: "Added on",
         groupHeader: "Group information",
         buttons: {
           edit: "Edit Contact"
