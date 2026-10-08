@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Helmet } from "react-helmet";
 import { getContrastRatio } from "@material-ui/core/styles";
 import {
@@ -6,23 +6,27 @@ import {
   ArrowDownwardRounded,
   ForumOutlined,
   GroupOutlined,
-  WhatsApp,
   HistoryRounded,
-  DoneAllRounded,
   AccountTreeOutlined,
-  ScheduleOutlined,
   AssessmentOutlined,
   CloseRounded,
   MenuRounded,
-  CheckCircleOutlineRounded,
   SendRounded,
-  MoreHorizRounded,
   AddRounded
 } from "@material-ui/icons";
 import config, { getBackendURL } from "../../services/config";
 import { i18n } from "../../translate/i18n";
 import useLandingMotion from "./useLandingMotion";
+import { AskAgent, ModesTrack, Pieces, Plans } from "./Experience";
 import "./styles.css";
+import "./experience.css";
+import {
+  ExperienceNav,
+  ProductExperience,
+  CustomerContext,
+  BrandLetter
+} from "./Showcases";
+import "./showcases.css";
 
 const t = key => i18n.t(`landing.${key}`);
 const list = key => i18n.t(`landing.${key}`, { returnObjects: true });
@@ -50,267 +54,18 @@ const Brand = () => (
   </span>
 );
 
-const Inbox = ({ preview = false }) => (
-  <div className={`lp-inbox ${preview ? "lp-inbox--preview" : ""}`}>
-    <aside className="lp-inbox-rail" aria-hidden="true">
-      <ForumOutlined />
-      <GroupOutlined />
-      <AccountTreeOutlined />
-      <AssessmentOutlined />
-    </aside>
-    <div className="lp-inbox-list">
-      <div className="lp-inbox-heading">
-        <strong>{t("mock.inbox")}</strong>
-        <span>04</span>
-      </div>
-      <div className="lp-inbox-tabs">
-        <span>{t("mock.waiting")}</span>
-        <b>{t("mock.open")}</b>
-      </div>
-      {list("mock.contacts").map((contact, index) => (
-        <div
-          className={`lp-inbox-row ${index === 0 ? "is-selected" : ""}`}
-          key={contact.name}
-        >
-          <span className={`lp-avatar lp-avatar--${index}`}>
-            {contact.initials}
-          </span>
-          <div>
-            <strong>{contact.name}</strong>
-            <small>{contact.message}</small>
-          </div>
-          <small>{contact.time}</small>
-        </div>
-      ))}
-    </div>
-    <div className="lp-chat">
-      <header>
-        <span className="lp-avatar">MC</span>
-        <div>
-          <strong>{list("mock.contacts")[0].name}</strong>
-          <small>{t("mock.salesQueue")}</small>
-        </div>
-        <MoreHorizRounded />
-      </header>
-      <div className="lp-messages">
-        <small>{t("mock.today")}</small>
-        <p>
-          {t("mock.customerMessage")}
-          <small>10:32</small>
-        </p>
-        <p className="is-sent">
-          {t("mock.agentMessage")}
-          <small>
-            10:33 <DoneAllRounded />
-          </small>
-        </p>
-        <span className="lp-typing" aria-hidden="true">
-          <i />
-          <i />
-          <i />
-        </span>
-      </div>
-      <footer>
-        <span>{t("mock.typeMessage")}</span>
-        <SendRounded />
-      </footer>
-    </div>
-  </div>
-);
-
-const Journey = () => {
-  const [active, setActive] = useState(0);
-  const [scrollEnabled, setScrollEnabled] = useState(false);
-  const areaRef = useRef(null);
-  const steps = list("story.steps");
-
-  useEffect(() => {
-    const root = document.getElementById("root");
-    const media = window.matchMedia(
-      "(min-width: 961px) and (min-height: 900px) and (prefers-reduced-motion: no-preference)"
-    );
-    let frame;
-    const update = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        if (!media.matches || !areaRef.current || !root) return;
-        const rect = areaRef.current.getBoundingClientRect();
-        const distance = areaRef.current.offsetHeight - root.clientHeight;
-        const progress = Math.max(
-          0,
-          Math.min(
-            0.999,
-            (root.getBoundingClientRect().top - rect.top) /
-              Math.max(1, distance)
-          )
-        );
-        setActive(Math.floor(progress * 3));
-      });
-    };
-    const modeChanged = () => {
-      setScrollEnabled(media.matches);
-      update();
-    };
-    modeChanged();
-    root?.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", modeChanged);
-    media.addEventListener("change", modeChanged);
-    return () => {
-      cancelAnimationFrame(frame);
-      root?.removeEventListener("scroll", update);
-      window.removeEventListener("resize", modeChanged);
-      media.removeEventListener("change", modeChanged);
-    };
-  }, []);
-
-  const select = index => {
-    setActive(index);
-    if (!scrollEnabled) return;
-    const root = document.getElementById("root");
-    const area = areaRef.current;
-    const top =
-      area.getBoundingClientRect().top -
-      root.getBoundingClientRect().top +
-      root.scrollTop;
-    root.scrollTo({
-      top: top + (area.offsetHeight - root.clientHeight) * ((index + 0.1) / 3),
-      behavior: "instant"
-    });
-  };
-
-  return (
-    <section className="lp-journey" id="como-funciona" ref={areaRef}>
-      <div className="lp-journey-sticky lp-wrap">
-        <div className="lp-section-heading" data-lp-motion>
-          <div>
-            <span className="lp-kicker">{t("story.eyebrow")}</span>
-            <h2>
-              {t("story.title")}
-              <em>{t("story.highlight")}</em>
-            </h2>
-          </div>
-          <p>{t(scrollEnabled ? "story.scrollHint" : "story.clickHint")}</p>
-        </div>
-        <div className="lp-demo" data-lp-motion>
-          <div className="lp-demo-toolbar">
-            <Brand />
-            <span>
-              <i />
-              {t("story.demo")}
-            </span>
-            <span className="lp-demo-connected">
-              <CheckCircleOutlineRounded />
-              {t("story.connected")}
-            </span>
-          </div>
-          <div
-            className="lp-demo-stage"
-            id="lp-journey-panel"
-            role="region"
-            aria-label={steps[active].title}
-          >
-            <div className="lp-stage-content" key={active}>
-              {active === 0 && <Inbox />}
-              {active === 1 && (
-                <div className="lp-routing-demo">
-                  <div className="lp-route-message">
-                    <WhatsApp />
-                    <div>
-                      <small>{t("routing.newMessage")}</small>
-                      <strong>{t("routing.customer")}</strong>
-                    </div>
-                  </div>
-                  <div className="lp-route-connector" />
-                  <div className="lp-team-grid">
-                    {list("mock.teamMembers")
-                      .slice(0, 3)
-                      .map((member, index) => (
-                        <div
-                          className={index === 0 ? "is-selected" : ""}
-                          key={member.name}
-                        >
-                          <span className={`lp-avatar lp-avatar--${index}`}>
-                            {member.initials}
-                          </span>
-                          <strong>{member.name}</strong>
-                          <small>{member.role}</small>
-                          {index === 0 && (
-                            <span className="lp-assigned">
-                              <DoneAllRounded />
-                              {t("mock.open")}
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )}
-              {active === 2 && (
-                <div className="lp-context-demo">
-                  <div className="lp-profile">
-                    <span className="lp-avatar">MC</span>
-                    <h3>{list("mock.contacts")[0].name}</h3>
-                    <p>{t("mock.company")}</p>
-                    <span className="lp-tag">{t("mock.hotLead")}</span>
-                    <span className="lp-tag">{t("mock.returning")}</span>
-                  </div>
-                  <div className="lp-timeline">
-                    {["history", "salesQueue", "followUp"].map((key, index) => {
-                      const Icon = [
-                        HistoryRounded,
-                        GroupOutlined,
-                        ScheduleOutlined
-                      ][index];
-                      return (
-                        <div key={key}>
-                          <Icon />
-                          <span>
-                            <small>0{index + 1}</small>
-                            <strong>{t(`mock.${key}`)}</strong>
-                          </span>
-                          <CheckCircleOutlineRounded />
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="lp-demo-controls" aria-label={t("story.clickHint")}>
-            {steps.map((step, index) => {
-              const Icon = stageIcons[index];
-              return (
-                <button
-                  key={step.title}
-                  onClick={() => select(index)}
-                  aria-pressed={active === index}
-                  aria-controls="lp-journey-panel"
-                >
-                  <span>0{index + 1}</span>
-                  <Icon />
-                  {step.label}
-                  <ArrowForwardRounded />
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        <div className="lp-step-caption" key={`caption-${active}`}>
-          <span>0{active + 1} / 03</span>
-          <div>
-            <h3>{steps[active].title}</h3>
-            <p>{steps[active].description}</p>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-};
-
 const LandingPage = () => {
   const pageRef = useLandingMotion();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [reduced, setReduced] = useState(
+    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const change = () => setReduced(media.matches);
+    media.addEventListener("change", change);
+    return () => media.removeEventListener("change", change);
+  }, []);
   const [brand, setBrand] = useState({
     primaryColorLight: "#0000FF",
     primaryColorDark: "#39ACE7"
@@ -321,7 +76,7 @@ const LandingPage = () => {
   );
   const contactUrl = whatsappNumber
     ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(t("contact.whatsappMessage"))}`
-    : "/signup";
+    : "#planos";
   const featureIndexes = [0, 1, 3, 5, 7, 11];
   const featureIcons = [
     ForumOutlined,
@@ -363,7 +118,7 @@ const LandingPage = () => {
   const closeMenu = () => setMenuOpen(false);
   return (
     <div
-      className="landing-page"
+      className={`landing-page ${reduced ? "lp-reduced" : ""}`}
       ref={pageRef}
       style={{
         "--lp-primary": brand.primaryColorLight,
@@ -409,18 +164,22 @@ const LandingPage = () => {
           <a href="#recursos" onClick={closeMenu}>
             {t("nav.features")}
           </a>
-          <a href="#contato" onClick={closeMenu}>
-            {t("nav.contact")}
+          <a href="#conexao" onClick={closeMenu}>
+            {t("nav.connection")}
+          </a>
+          <a href="#planos" onClick={closeMenu}>
+            {t("nav.plans")}
           </a>
         </nav>
         <div className="lp-header-actions">
           <a href="/login">{t("story.login")}</a>
-          <a className="lp-button lp-button--small" href="/signup">
+          <a className="lp-button lp-button--small" href="#planos">
             {t("story.start")}
             <ArrowForwardRounded />
           </a>
         </div>
       </header>
+      <ExperienceNav />
       <main>
         <section className="lp-hero lp-wrap" id="inicio">
           <span className="lp-kicker">
@@ -429,11 +188,12 @@ const LandingPage = () => {
           </span>
           <div className="lp-hero-grid" data-lp-motion>
             <h1>
-              {t("story.heroTitle")}
+              <span>{t("motion.heroLine1")}</span>
+              <span>{t("motion.heroLine2")}</span>
               <em>
-                {t("story.heroHighlight")}
+                {t("motion.heroLine3")}
                 <span className="lp-title-arrow" aria-hidden="true">
-                  <BrandIcon />
+                  <ArrowForwardRounded />
                 </span>
               </em>
             </h1>
@@ -441,7 +201,7 @@ const LandingPage = () => {
               <span className="lp-kicker">{t("story.heroAside")}</span>
               <p>{t("story.heroDescription")}</p>
               <div className="lp-actions">
-                <a className="lp-button" href="/signup">
+                <a className="lp-button" href="#planos">
                   {t("story.start")}
                   <ArrowForwardRounded />
                 </a>
@@ -452,48 +212,12 @@ const LandingPage = () => {
               </div>
             </div>
           </div>
-          <div className="lp-hero-product" data-lp-motion>
-            <div className="lp-product-label">
-              <span>
-                <BrandIcon />
-                {t("mock.workspace")}
-              </span>
-              <span>{t("story.demo")}</span>
-            </div>
-            <Inbox preview />
-            <div className="lp-floating-note">
-              <CheckCircleOutlineRounded />
-              <span>
-                <small>{t("hero.queueLabel")}</small>
-                <strong>{t("hero.queueValue")}</strong>
-              </span>
-            </div>
-          </div>
-          <div className="lp-proof-row">
-            {list("hero.proofs").map(proof => (
-              <span key={proof}>
-                <CheckCircleOutlineRounded />
-                {proof}
-              </span>
-            ))}
-          </div>
         </section>
-        <section className="lp-intro lp-wrap" data-lp-motion>
-          <span className="lp-kicker">{t("story.introEyebrow")}</span>
-          <h2>
-            {t("story.introTitle")}
-            <em>{t("story.introHighlight")}</em>
-          </h2>
-          <p>{t("story.introDescription")}</p>
-          <a
-            href="#como-funciona"
-            className="lp-round-link"
-            aria-label={t("actions.seeHow")}
-          >
-            <ArrowDownwardRounded />
-          </a>
-        </section>
-        <Journey />
+        <Pieces reduced={reduced} />
+        <AskAgent reduced={reduced} />
+        {["journey", "crm", "automation", "campaign"].map(kind => (
+          <ProductExperience key={kind} kind={kind} reduced={reduced} />
+        ))}
         <section className="lp-features lp-wrap" id="recursos">
           <div className="lp-section-heading" data-lp-motion>
             <div>
@@ -523,6 +247,10 @@ const LandingPage = () => {
             })}
           </div>
         </section>
+        <CustomerContext />
+        <BrandLetter />
+        <ModesTrack reduced={reduced} />
+        <Plans />
         <section className="lp-faq lp-wrap" data-lp-motion>
           <div>
             <span className="lp-kicker">{t("faq.eyebrow")}</span>
@@ -549,7 +277,7 @@ const LandingPage = () => {
             </h2>
             <p>{t("story.ctaDescription")}</p>
             <div className="lp-actions">
-              <a className="lp-button" href="/signup">
+              <a className="lp-button" href="#planos">
                 {t("story.start")}
                 <ArrowForwardRounded />
               </a>
@@ -596,6 +324,14 @@ const LandingPage = () => {
         <small>
           © {new Date().getFullYear()} Espaço Whats. {t("footer.rights")}
         </small>
+        <button
+          type="button"
+          className="lp-motion-toggle"
+          onClick={() => setReduced(value => !value)}
+          aria-pressed={reduced}
+        >
+          {t(reduced ? "motion.restore" : "motion.reduce")}
+        </button>
       </footer>
     </div>
   );
