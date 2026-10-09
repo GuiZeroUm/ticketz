@@ -22,3 +22,8 @@ graphify-out/
 
 .env-backend-acme
 .env-backend-cloudflare
+.env-backend-local
+.env-cloudflared
+.env-frontend-acme
+.env-frontend-cloudflare
+.env-frontend-local
