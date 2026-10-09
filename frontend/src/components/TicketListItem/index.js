@@ -185,6 +185,7 @@ const TicketListItem = ({ ticket, groupActionButtons }) => {
                   className={classes.closedBadge}
                   badgeContent={"closed"}
                   color="primary"
+                  overlap="rectangular"
                 />
               )}
               {ticket.lastMessage && (
@@ -226,6 +227,7 @@ const TicketListItem = ({ ticket, groupActionButtons }) => {
               <Badge
                 className={classes.newMessagesCount}
                 badgeContent={ticket.unreadMessages}
+                overlap="rectangular"
                 classes={{
                   badge: classes.badgeStyle
                 }}

@@ -4,17 +4,21 @@ import Company from "../../models/Company";
 import Invoices from "../../models/Invoices";
 import { GetCompanySetting } from "../../helpers/CheckSettings";
 import { subscriptionDeadline } from "../../helpers/subscriptionDeadline";
+import { companyTrial } from "../../helpers/companyTrial";
 
 const SubscriptionNoticeService = async (companyId: number) => {
   const company = await Company.findByPk(companyId);
   const today = moment().startOf("day");
   const billingDay = today.format("YYYY-MM-DD");
-  const empty = { billingDay, notice: null };
+  const trial = companyTrial(company || {});
+  const empty = { billingDay, notice: null, trial };
   if (
     !company ||
     companyId === 1 ||
     company.platformBilling === "plataforma" ||
-    (company.trialEndsAt &&
+    trial.status === "active" ||
+    (!company.trialExpiresAt &&
+      company.trialEndsAt &&
       moment
         .utc()
         .startOf("day")
@@ -39,6 +43,7 @@ const SubscriptionNoticeService = async (companyId: number) => {
   const overdue = invoice.dueDate.slice(0, 10) < billingDay;
   return {
     billingDay,
+    trial,
     notice: {
       invoiceId: invoice.id,
       dueDate: invoice.dueDate.slice(0, 10),

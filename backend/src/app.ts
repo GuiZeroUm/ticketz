@@ -57,7 +57,10 @@ app.use(
 );
 app.use(Sentry.Handlers.requestHandler());
 app.get("/public/*", (req, res) => {
-  const filePath = path.join(uploadConfig.directory, req.params[0]);
+  const publicRoot = path.resolve(uploadConfig.directory);
+  const filePath = path.resolve(publicRoot, req.params[0]);
+  // Uploaded files cannot be used to reach private tenant context documents.
+  if (!filePath.startsWith(publicRoot + path.sep)) return res.status(404).end();
 
   if (filePath.endsWith(".aac")) {
     res.setHeader("Content-Type", "audio/aac");

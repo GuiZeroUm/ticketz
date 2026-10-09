@@ -27,7 +27,7 @@ import TableAttendantsStatus from "../../components/Dashboard/TableAttendantsSta
 import { isEmpty } from "lodash";
 import moment from "moment";
 import { i18n } from "../../translate/i18n";
-import useAuth from "../../hooks/useAuth.js";
+import { AuthContext } from "../../context/Auth/AuthContext";
 
 import { SmallPie } from "./SmallPie";
 import { TicketCountersChart } from "./TicketCountersChart";
@@ -58,15 +58,14 @@ const Dashboard = () => {
   const classes = useStyles();
   const identidade = useIdentidade();
   const [period, setPeriod] = useState(0);
-  const [currentUser, setCurrentUser] = useState({});
   const [reportOpen, setReportOpen] = useState(false);
+  const { user: currentUser } = useContext(AuthContext);
   const [dateFrom, setDateFrom] = useState(
     moment("1", "D").format("YYYY-MM-DDTHH") + ":00"
   );
   const [dateTo, setDateTo] = useState(
     moment().format("YYYY-MM-DDTHH") + ":59"
   );
-  const { getCurrentUserInfo } = useAuth();
 
   const [usersOnlineTotal, setUsersOnlineTotal] = useState(0);
   const [usersOfflineTotal, setUsersOfflineTotal] = useState(0);
@@ -94,14 +93,10 @@ const Dashboard = () => {
   }, [socketManager, companyId]);
 
   useEffect(() => {
-    getCurrentUserInfo().then(user => {
-      if (!canSeeScreen(user, "dashboard")) {
-        window.location.href = "/tickets";
-      }
-      setCurrentUser(user);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (currentUser?.id && !canSeeScreen(currentUser, "dashboard")) {
+      window.location.href = "/tickets";
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     fetchData();

@@ -10,6 +10,7 @@ volumes:
 services:
 
   backend:
+    command: node scripts/start-local.cjs
     build:
       context: ./backend
       dockerfile: ./Dockerfile
@@ -18,10 +19,16 @@ services:
       - backend_private:/usr/src/app/private
     env_file:
       - .env-backend-local
+      - backend/.env.mcp.local
+      - backend/.env.hermes.local
     restart: always
     depends_on:
       - postgres
       - redis
+      - agent-redis
+    environment:
+      - AGENT_REDIS_URI=redis://agent-redis:6379
+      - AGENT_TOOLS_BASE_URL=http://localhost:${BACKEND_PORT:-8080}
     ports:
       - ${BACKEND_PORT:-8080}:3000
     networks:
@@ -52,6 +59,8 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-ticketz}
       - POSTGRES_HOST_AUTH_METHOD=trust
       - TZ=${TZ:-America/Sao_Paulo}
+    ports:
+      - "5433:5432"
     expose:
       - 5432
     restart: always
@@ -66,6 +75,13 @@ services:
     restart: always
     volumes:
       - redis_data:/data
+    networks:
+      - ticketz
+
+  agent-redis:
+    image: redis:alpine
+    command: redis-server --save "" --appendonly no
+    restart: always
     networks:
       - ticketz
 

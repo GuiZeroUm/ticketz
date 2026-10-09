@@ -8,6 +8,10 @@
       href="https://fonts.googleapis.com/css?family=Inter:wght@400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap"
     />
     <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Bangers&family=Comic+Neue:wght@700&display=swap"
+    />
+    <link
       rel="apple-touch-icon"
       href="%PUBLIC_URL%/branding/espaco-whats-icon.png"
     />
@@ -312,7 +316,11 @@
       const configureSplash = async config => {
         const protocol = config.BACKEND_PROTOCOL || "https";
         const explicitBackendHost = config.BACKEND_HOST;
-        const hostname = explicitBackendHost || window.location.hostname;
+        const hostname =
+          explicitBackendHost === "localhost" &&
+          window.location.hostname.endsWith(".localhost")
+            ? window.location.hostname
+            : explicitBackendHost || window.location.hostname;
         // BACKEND_PORT is the container's internal port. In same-origin mode
         // the browser must use Traefik/Nginx on 443 and the /backend proxy.
         const port =
@@ -321,11 +329,12 @@
             : "";
         const path =
           config.BACKEND_PATH ||
-          (hostname === "localhost" || hostname !== window.location.hostname
-            ? ""
-            : "/backend");
+          (explicitBackendHost || hostname === "localhost" ? "" : "/backend");
 
-        const backendUrl = `${protocol}://${hostname}${port}${path}`;
+        const backendOrigin = explicitBackendHost
+          ? `${protocol}://${hostname}${port}`
+          : window.location.origin;
+        const backendUrl = `${backendOrigin}${path}`;
         const settingsBaseUrl = backendUrl + "/public-settings";
 
         // Deriva o slug (subdominio) da empresa para personalizar o splash.

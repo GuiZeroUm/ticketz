@@ -21,7 +21,11 @@ export const getSlugFromHost = (host?: string): string => {
     return "";
   }
 
-  const base = (process.env.APP_BASE_DOMAIN || "").toLowerCase().trim();
+  const base = (
+    process.env.APP_BASE_DOMAIN || (h.endsWith(".localhost") ? "localhost" : "")
+  )
+    .toLowerCase()
+    .trim();
   if (!base || h === base || !h.endsWith(`.${base}`)) {
     return "";
   }

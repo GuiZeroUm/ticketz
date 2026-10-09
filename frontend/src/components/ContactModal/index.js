@@ -113,28 +113,35 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
   const [showTags, setShowTags] = useState(false);
 
   useEffect(() => {
-    getSetting("tagsMode").then(res => {
-      setShowTags(["contact", "both"].includes(res));
-    });
+    let active = true;
+    getSetting("tagsMode")
+      .then(res => {
+        if (active) setShowTags(["contact", "both"].includes(res));
+      })
+      .catch(() => {});
 
     const fetchContact = async () => {
       if (initialValues) {
-        setContact(prevState => {
-          return { ...prevState, ...initialValues };
-        });
+        if (active)
+          setContact(prevState => {
+            return { ...prevState, ...initialValues };
+          });
       }
 
       if (!contactId) return;
 
       try {
         const { data } = await api.get(`/contacts/${contactId}`);
-        setContact(data);
+        if (active) setContact(data);
       } catch (err) {
-        toastError(err);
+        if (active) toastError(err);
       }
     };
 
     fetchContact();
+    return () => {
+      active = false;
+    };
   }, [contactId, open, initialValues]);
 
   const handleClose = () => {

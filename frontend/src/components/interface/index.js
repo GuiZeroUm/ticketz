@@ -75,22 +75,42 @@ export const Alternador = ({ rotulo, checked, onCheckedChange, disabled }) => (
   </label>
 );
 
-export const Janela = ({ aberta, aoMudar, titulo, descricao, children }) => {
+export const Janela = ({
+  aberta,
+  aoMudar,
+  titulo,
+  descricao,
+  classeOverlay = "",
+  classe = "",
+  tituloOculto = false,
+  focoInicial,
+  children
+}) => {
   const identidade = useIdentidade();
   return (
     <Dialog.Root open={aberta} onOpenChange={aoMudar}>
       <Dialog.Portal>
-        <Dialog.Overlay className="ew-overlay" />
-        <Dialog.Content className="ew-ui ew-dialog" style={identidade}>
-          <header className="ew-panel-head">
-            <Dialog.Title>{titulo}</Dialog.Title>
+        <Dialog.Overlay className={`ew-overlay ${classeOverlay}`} />
+        <Dialog.Content
+          className={`ew-ui ew-dialog ${classe}`}
+          style={identidade}
+          onOpenAutoFocus={focoInicial}
+        >
+          <header
+            className={`ew-panel-head ${tituloOculto ? "ew-panel-head--flutuante" : ""}`}
+          >
+            <Dialog.Title className={tituloOculto ? "ew-sr-only" : ""}>
+              {titulo}
+            </Dialog.Title>
             <Dialog.Close asChild>
               <BotaoIcone titulo={i18n.t("fluxos.fechar")}>
                 <X size={16} />
               </BotaoIcone>
             </Dialog.Close>
           </header>
-          <Dialog.Description className="ew-dialog-description">
+          <Dialog.Description
+            className={`ew-dialog-description ${tituloOculto ? "ew-sr-only" : ""}`}
+          >
             {descricao}
           </Dialog.Description>
           {children}

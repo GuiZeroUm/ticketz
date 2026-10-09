@@ -12,6 +12,9 @@ import ShowCompanyService from "../services/CompanyService/ShowCompanyService";
 import UpdateSchedulesService from "../services/CompanyService/UpdateSchedulesService";
 import DeleteCompanyService from "../services/CompanyService/DeleteCompanyService";
 import FindAllCompaniesService from "../services/CompanyService/FindAllCompaniesService";
+import CreateSelfServiceCompanyService from "../services/CompanyService/CreateSelfServiceCompanyService";
+import { SignupFiles } from "../services/CompanyService/SignupBrandingService";
+import { companyTrial } from "../helpers/companyTrial";
 import User from "../models/User";
 
 import CheckSettings from "../helpers/CheckSettings";
@@ -48,6 +51,7 @@ type CompanyData = {
   introValue?: number | null;
   introMonths?: number | null;
   platformCost?: number | null;
+  aiAddon?: string | null;
 };
 
 type SchedulesData = {
@@ -101,7 +105,10 @@ const companySchema = Yup.object()
     introMonths: Yup.number().integer().nullable(),
     platformCost: Yup.number().nullable(),
     captchaToken: Yup.string(),
-    passwordConfigured: Yup.boolean()
+    passwordConfigured: Yup.boolean(),
+    aiAddon: Yup.string()
+      .oneOf(["atendimento", "equipe", "gestao"], "ERR_INVALID_AI_ADDON")
+      .nullable()
   })
   .noUnknown(true, "ERR_UNKNOWN_FIELD")
   .strict(true);
@@ -118,7 +125,17 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 };
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
-  const newCompany: CompanyData = req.body;
+  const newCompany: CompanyData = {
+    ...req.body,
+    // Public checkout names are normalized to the provider values used by
+    // company administration and the immutable connection-mode checks.
+    whatsappMode:
+      req.body.whatsappMode === "official"
+        ? "meta"
+        : req.body.whatsappMode === "unofficial"
+          ? "normal"
+          : req.body.whatsappMode
+  };
 
   try {
     await companySchema.validate(newCompany);
@@ -152,11 +169,22 @@ export const signup = async (
     }
   }
 
-  req.body.dueDate = moment().add(3, "day").format();
-  req.body.trialDays = 3;
-  req.body.dueDay = moment().add(3, "day").date();
-
-  return store(req, res);
+  const company = await CreateSelfServiceCompanyService(
+    req.body,
+    req.files as SignupFiles
+  );
+  return res.status(201).json({
+    id: company.id,
+    name: company.name,
+    slug: company.slug,
+    signupSource: company.signupSource,
+    dueDay: company.dueDay,
+    dueDate: company.dueDate,
+    trialDays: company.trialDays,
+    trialStartedAt: company.trialStartedAt,
+    trialExpiresAt: company.trialExpiresAt,
+    trial: companyTrial(company)
+  });
 };
 
 export const show = async (req: Request, res: Response): Promise<Response> => {

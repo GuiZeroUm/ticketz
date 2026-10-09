@@ -56,6 +56,16 @@ class Company extends Model<Company> {
   @Column(DataType.DATEONLY)
   trialEndsAt: string;
 
+  @Default("admin")
+  @Column(DataType.STRING(30))
+  signupSource: "admin" | "self_service" | "partner";
+
+  @Column(DataType.DATE)
+  trialStartedAt: Date;
+
+  @Column(DataType.DATE)
+  trialExpiresAt: Date;
+
   @Column(DataType.SMALLINT)
   dueDay: number;
 
@@ -95,6 +105,10 @@ class Company extends Model<Company> {
 
   @Column
   platformBilling: string;
+
+  // AI package chosen at signup on plans where AI is billed separately.
+  @Column
+  aiAddon: string;
 
   @Column
   platformPartnerRef: string;

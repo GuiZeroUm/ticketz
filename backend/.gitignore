@@ -10,3 +10,4 @@
 /private/*
 !/private/index.html
 /src/generated
+/.hermes-chat-bridge*.log

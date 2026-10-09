@@ -1,6 +1,45 @@
 const messages = {
   en: {
     translations: {
+      agentPreview: {
+        launcher: "Espaço Agent",
+        subtitle: "An extra hand in your operation",
+        avatarTitle: "Kirby, the Espaço Agent character",
+        panel: "Espaço Agent · Luiza's Agent chat",
+        greeting: "Hello, {{name}}.",
+        chat: {
+          sources: "Sources consulted",
+          contextChanged:
+            "The context has changed. Continuing with current permissions and data.",
+          badge: "Luiza's Agent · by your side at work",
+          connected: "Reply from Luiza's Agent",
+          progress: "Thinking about your request…",
+          progressConnecting: "Connecting the dots…",
+          progressWorking: "Working on it, be right back…",
+          progressPreparing: "Putting care into your answer…",
+          progressContinuing: "Just a moment, I'm still with you…",
+          error: "Could not receive a reply. Please try again.",
+          unavailable:
+            "Luiza's Agent is unavailable right now. Please try again.",
+          timeout: "Luiza's Agent took too long to reply. Please try again.",
+          cancelled: "Reply stopped.",
+          invalidRequest:
+            "Could not send this message. Review the text and try again.",
+          sessionExpired:
+            "Your session has expired. Sign in again to continue.",
+          permissionDenied: "Your account does not have access to this chat.",
+          agentDisabled:
+            "Luiza’s is disabled for this company. The super admin can enable it in Settings → Administration → Luiza’s Agent.",
+          moduleBlocked:
+            "Luiza’s cannot access this feature. Ask the super admin to review the available modules.",
+          busy: "The agent is busy. Wait a moment and try again.",
+          notConfigured:
+            "The connection to Luiza's Agent has not been configured yet.",
+          emptyReply: "Luiza's Agent returned no reply. Please try again.",
+          retry: "Try again",
+          placeholder: "What shall we work on today?"
+        }
+      },
       visual: {
         visualizar: "View",
         centralAtendimento: "Support center",

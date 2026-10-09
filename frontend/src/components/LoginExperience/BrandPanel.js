@@ -8,7 +8,11 @@ import InteractiveBlurReveal from "../ui/interactive-blur-reveal";
 import "./login.css";
 
 export const publicBrandAsset = filename =>
-  filename ? `${getBackendURL()}/public/${filename}` : "";
+  filename
+    ? filename.startsWith("blob:")
+      ? filename
+      : `${getBackendURL()}/public/${filename}`
+    : "";
 
 export function BrandLogo({ logo, name = "Espaço Whats", compact = false }) {
   const [failed, setFailed] = useState("");

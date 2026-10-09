@@ -16,6 +16,7 @@ import Options from "../../components/Settings/Options";
 import Whitelabel from "../../components/Settings/Whitelabel";
 import PaymentGateway from "../../components/Settings/PaymentGateway";
 import I18nSettings from "../../components/Settings/I18nSettings";
+import AgentContextManager from "../../components/Settings/AgentContextManager";
 import VoiceSettings from "../../components/VoiceSettings";
 import api from "../../services/api";
 import { canSeeScreen } from "../../helpers/screenAccess";
@@ -300,6 +301,9 @@ const SettingsCustom = () => {
         user={currentUser}
         yes={() => (
           <>
+            <TabPanel className={classes.container} value={tab} name={"agent"}>
+              <AgentContextManager />
+            </TabPanel>
             <TabPanel
               className={classes.container}
               value={tab}

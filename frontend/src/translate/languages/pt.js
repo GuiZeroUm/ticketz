@@ -1,6 +1,46 @@
+import landingMotion from "./landingMotion";
 const messages = {
   pt: {
     translations: {
+      agentPreview: {
+        launcher: "Agente Espaço",
+        subtitle: "Uma mão extra na operação",
+        avatarTitle: "Kirby, personagem do Agente Espaço",
+        panel: "Agente Espaço · chat com Luiza's Agent",
+        greeting: "Olá, {{name}}.",
+        chat: {
+          sources: "Fontes consultadas",
+          contextChanged:
+            "O contexto foi atualizado. Vamos continuar com as permissões e os dados atuais.",
+          badge: "Luiza's Agent · do seu lado, na operação",
+          connected: "Resposta de Luiza's Agent",
+          progress: "Pensando no seu pedido…",
+          progressConnecting: "Ligando os pontos…",
+          progressWorking: "Trabalhando nisso, já volto…",
+          progressPreparing: "Caprichando na sua resposta…",
+          progressContinuing: "Mais um instante, estou com você…",
+          error: "Não foi possível receber a resposta. Tente novamente.",
+          unavailable:
+            "Luiza's Agent está indisponível no momento. Tente novamente.",
+          timeout: "Luiza's Agent demorou a responder. Tente novamente.",
+          cancelled: "Resposta interrompida.",
+          invalidRequest:
+            "Não foi possível enviar esta mensagem. Revise o texto e tente novamente.",
+          sessionExpired: "Sua sessão expirou. Entre novamente para continuar.",
+          permissionDenied: "Seu usuário não tem acesso a este chat.",
+          agentDisabled:
+            "O Luiza’s está desativado nesta empresa. O super admin pode ativá-lo em Configurações → Administração → Luiza’s Agent.",
+          moduleBlocked:
+            "O acesso a esta funcionalidade não foi liberado para o Luiza’s. Peça ao super admin para revisar os módulos disponíveis.",
+          busy: "O agente está ocupado. Aguarde um momento e tente novamente.",
+          notConfigured:
+            "A conexão com Luiza's Agent ainda não está configurada.",
+          emptyReply:
+            "Luiza's Agent não retornou uma resposta. Tente novamente.",
+          retry: "Tentar novamente",
+          placeholder: "O que vamos resolver hoje?"
+        }
+      },
       visual: {
         visualizar: "Visualizar",
         centralAtendimento: "Central de Atendimento",
@@ -344,6 +384,7 @@ const messages = {
         }
       },
       landing: {
+        motion: landingMotion,
         story: {
           skip: "Pular para o conteúdo",
           login: "Entrar",
@@ -408,7 +449,9 @@ const messages = {
           features: "Recursos",
           integrations: "Integrações",
           team: "Para sua equipe",
-          contact: "Contato"
+          contact: "Contato",
+          connection: "Oficial ou QR code",
+          plans: "Planos"
         },
         actions: {
           scheduleDemo: "Agendar demonstração",
@@ -989,6 +1032,425 @@ const messages = {
           rights: "Todos os direitos reservados.",
           privacy: "Política de Privacidade",
           terms: "Termos de Serviço"
+        },
+        pieces: {
+          eyebrow: "Um espaço, todas as peças",
+          title: "Tudo o que o seu atendimento precisa, já encaixado.",
+          description:
+            "Filas, IA, etiquetas, campanhas e relatórios funcionando juntos no mesmo número. Toque numa peça para ver o que ela faz.",
+          hint: "Toque numa peça do teclado para ver o que ela faz.",
+          items: {
+            inbox: {
+              title: "Caixa de entrada",
+              description:
+                "Todas as conversas do número num lugar só, com cada atendente vendo o que é seu."
+            },
+            queues: {
+              title: "Filas",
+              description:
+                "Vendas, Suporte, Financeiro: cada cliente cai no setor certo logo na primeira mensagem."
+            },
+            ai: {
+              title: "IA",
+              description:
+                "Sugere respostas, revisa o texto antes de enviar e resume conversas longas em segundos."
+            },
+            tags: {
+              title: "Etiquetas",
+              description:
+                "Marque clientes e conversas para encontrar tudo depois e acompanhar cada etapa."
+            },
+            campaigns: {
+              title: "Campanhas",
+              description:
+                "Avisos e promoções para listas de contatos, com envio agendado."
+            },
+            chatbot: {
+              title: "Chatbot",
+              description:
+                "Menus automáticos que respondem o básico e encaminham para uma pessoa quando precisa."
+            },
+            reports: {
+              title: "Relatórios",
+              description:
+                "Tempo de resposta, volume por fila e desempenho de cada atendente."
+            },
+            schedule: {
+              title: "Agendamentos",
+              description:
+                "Programe mensagens para a hora certa: lembretes, retornos e cobranças."
+            },
+            contacts: {
+              title: "Contatos",
+              description:
+                "Histórico completo de cada cliente, com todas as conversas anteriores."
+            },
+            transfer: {
+              title: "Transferir",
+              description:
+                "Passe a conversa para outro atendente ou setor sem o cliente repetir a história."
+            },
+            quick: {
+              title: "Respostas rápidas",
+              description:
+                "Atalhos para as respostas de sempre, iguais para a equipe inteira."
+            },
+            qrcode: {
+              title: "QR code",
+              description:
+                "Conecte o número lendo um QR code no celular, como no WhatsApp Web."
+            },
+            official: {
+              title: "API oficial",
+              description:
+                "Conexão direta com a Meta: mais segura e com perfil comercial verificado."
+            },
+            team: {
+              title: "Equipe",
+              description:
+                "Convide atendentes, defina permissões e acompanhe quem está online."
+            },
+            kanban: {
+              title: "Kanban",
+              description:
+                "Veja os atendimentos em colunas e arraste cada cliente para a próxima etapa."
+            },
+            hours: {
+              title: "Horários",
+              description:
+                "Mensagem automática fora do expediente, para ninguém ficar sem resposta."
+            }
+          }
+        },
+        ask: {
+          eyebrow: "Peça para a IA",
+          title: "Você pede.",
+          highlight: "O atendimento anda.",
+          description:
+            "Nos planos com IA, você descreve o que precisa em uma frase e o Espaço Whats organiza as conversas por você.",
+          cardLabel: "Agente Espaço",
+          cardTitle: "O que você precisa agora?",
+          prompts: [
+            {
+              chip: "Organizar o dia",
+              text: "Distribua as conversas de hoje entre Vendas e Suporte e me avise quem está esperando há mais tempo.",
+              results: [
+                "12 conversas distribuídas entre Vendas e Suporte",
+                "3 clientes esperando há mais de 10 minutos",
+                "Ana e Bruno avisados sobre as prioridades"
+              ]
+            },
+            {
+              chip: "Responder dúvidas",
+              text: "Sugira uma resposta para quem perguntou sobre prazo de entrega nesta manhã.",
+              results: [
+                "5 conversas sobre prazo de entrega encontradas",
+                "Resposta sugerida com o prazo da sua política",
+                "Sugestões prontas para a equipe revisar e enviar"
+              ]
+            },
+            {
+              chip: "Resumir conversas",
+              text: "Resuma as conversas do Financeiro de ontem e marque as que precisam de retorno.",
+              results: [
+                "8 conversas resumidas em tópicos",
+                "Etiqueta retorno aplicada em 3 clientes",
+                "Resumo enviado para o gestor da fila"
+              ]
+            }
+          ]
+        },
+        modes: {
+          eyebrow: "Oficial ou QR code",
+          title: "Escolha como conectar seu WhatsApp",
+          description:
+            "Os dois jeitos entregam os mesmos recursos do Espaço Whats. A diferença está em como o seu número fala com o WhatsApp.",
+          same: {
+            tag: "Mesmos recursos",
+            title: "Qualquer que seja a escolha, o Espaço Whats é o mesmo",
+            description:
+              "Filas, IA, etiquetas, campanhas e relatórios funcionam igual nas duas conexões. Você escolhe o jeito de conectar na assinatura.",
+            points: [
+              "Mesmo painel e mesmos recursos",
+              "Mesmo preço de plano nas duas conexões",
+              "Dá para trocar de conexão depois, falando com o nosso time"
+            ],
+            note: ""
+          },
+          official: {
+            tag: "API oficial",
+            title: "API oficial da Meta",
+            description:
+              "Conexão direta e autorizada pela Meta, dona do WhatsApp. É o caminho mais seguro e o que passa mais confiança para o seu cliente.",
+            points: [
+              "Conexão autorizada pela Meta, com menor risco de bloqueio",
+              "Perfil comercial verificado e mensagens com aparência profissional",
+              "Estável para grandes volumes de conversa"
+            ],
+            note: "As mensagens são cobradas pela Meta, direto na sua conta. Esse custo não tem vínculo com o Espaço Whats."
+          },
+          unofficial: {
+            tag: "QR code",
+            title: "Conexão por QR code",
+            description:
+              "Você lê um QR code com o celular, como no WhatsApp Web, e começa na hora. Não há ligação direta com a Meta.",
+            points: [
+              "Começa em minutos, com o número que você já usa",
+              "Sem custo por mensagem enviada",
+              "Nossa equipe monitora as conexões para manter seu número protegido"
+            ],
+            note: "Por não ser uma conexão oficial, existe mais risco de instabilidade ou bloqueio. Trabalhamos todos os dias para que isso não aconteça com você."
+          }
+        },
+        plans: {
+          eyebrow: "Planos",
+          title: "Planos para cada fase da sua empresa",
+          description:
+            "Todos os planos funcionam com a API oficial ou com QR code. Você escolhe a conexão no próximo passo.",
+          recommended: "Recomendado",
+          phases: {
+            basic: "Para começar",
+            ai: "Para crescer",
+            enterprise: "Para escalar",
+            custom: "Sob medida"
+          },
+          enterprise: {
+            badge: "Mais completo",
+            exclusiveTitle: "Só no Enterprise",
+            lockedTitle: "Disponível no Enterprise",
+            notIncluded: "Não incluso neste plano:",
+            exclusive: [
+              {
+                id: "custom",
+                title: "Desenvolvimento sob medida",
+                text: "Integrações e mini sistemas feitos para você."
+              },
+              {
+                id: "priority",
+                title: "Suporte prioritário",
+                text: "Seus chamados passam na frente."
+              },
+              {
+                id: "onboarding",
+                title: "Implantação assistida",
+                text: "Configuramos tudo com a sua equipe."
+              }
+            ],
+            perUser: "{{price}} por usuário/mês",
+            upgradeTitle:
+              "Por + {{price}}/mês em relação ao {{name}}, você também leva:",
+            plusCapacity: "+{{count}}",
+            trialNote:
+              "O teste é grátis em qualquer plano. Comece pelo mais completo.",
+            talk: "Falar com um especialista",
+            whatsappMessage:
+              "Olá! Quero conhecer o plano Enterprise do Espaço Whats."
+          },
+          nudge: {
+            cheaper:
+              "No Enterprise, cada usuário sai por {{price}}/mês, menos que neste plano.",
+            same: "No Enterprise, cada usuário custa o mesmo, com desenvolvimento sob medida incluso."
+          },
+          compare: {
+            title: "Compare os planos",
+            plan: "Plano",
+            groups: {
+              capacity: "Capacidade",
+              ai: "Inteligência artificial",
+              shared: "Em todos os planos",
+              service: "Só no Enterprise"
+            },
+            rows: {
+              users: "Usuários",
+              connections: "Conexões de WhatsApp",
+              queues: "Filas de atendimento",
+              ai: "IA para a equipe",
+              modes: "API oficial ou QR code",
+              attendance: "Atendimento com filas e vários atendentes",
+              flows: "Editor visual de fluxos",
+              campaigns: "Campanhas e agendamentos",
+              tasks: "Quadro de tarefas da equipe",
+              internalChat: "Chat interno",
+              custom: "Desenvolvimento sob medida",
+              priority: "Suporte prioritário",
+              onboarding: "Implantação assistida"
+            },
+            aiUnlimited: "Ilimitada",
+            aiFrom: "Pacotes a partir de {{price}}",
+            included: "Incluso",
+            notIncluded: "Não incluso"
+          },
+          perMonth: "/mês",
+          aiUnlimited: "IA ilimitada inclusa",
+          aiSeparate: "IA contratada à parte",
+          users: "{{count}} usuários",
+          connections: "{{count}} conexões",
+          queues: "{{count}} filas",
+          bothModes: "API oficial ou QR code",
+          choose: "Testar {{name}} grátis",
+          trialPromise:
+            "14 dias grátis. Sem cartão de crédito. É só criar a conta e usar.",
+          customPitch: "Plano sob medida para a sua operação.",
+          unavailable:
+            "Não conseguimos carregar os planos agora. Atualize a página ou fale com a gente.",
+          tiers: {
+            basic: {
+              name: "Básico",
+              pitch:
+                "Para organizar o atendimento. A IA você adiciona quando quiser."
+            },
+            ai: {
+              name: "IA",
+              pitch: "Tudo do Básico, com IA ilimitada para a equipe inteira."
+            },
+            enterprise: {
+              name: "Enterprise",
+              pitch:
+                "Para operações grandes, com mais usuários, filas e IA ilimitada."
+            }
+          }
+        },
+        addons: {
+          title: "Pacotes de IA para o plano Básico",
+          description:
+            "No Básico, a IA é contratada à parte. Escolha um pacote na assinatura ou depois, direto no painel.",
+          package: "Pacote",
+          monthly: "Mensal",
+          includes: "Recursos",
+          items: {
+            atendimento: {
+              name: "Atendimento",
+              includes: "Respostas, revisão de mensagens e resumos de conversas"
+            },
+            equipe: {
+              name: "Equipe",
+              includes:
+                "Acrescenta análise de filas, prioridades, habilidades e documentos"
+            },
+            gestao: {
+              name: "Gestão",
+              includes:
+                "Acrescenta especialistas, projetos, tarefas recorrentes e conexões"
+            }
+          }
+        },
+        checkout: {
+          metaTitle: "Assinar o Espaço Whats",
+          backToSite: "Voltar ao site",
+          steps: ["Plano", "Conexão", "Sua conta", "Sua marca"],
+          stepOf: "Passo {{current}} de {{total}}",
+          continue: "Continuar",
+          back: "Voltar",
+          loadingPlans: "Carregando planos…",
+          plan: {
+            title: "Qual plano combina com você?",
+            description:
+              "Todos funcionam com API oficial ou QR code. Dá para mudar de plano depois.",
+            aiTitle: "Quer adicionar IA agora?",
+            aiDescription:
+              "No Básico, a IA é um pacote à parte. Pode deixar para depois.",
+            aiNone: "Agora não",
+            upsell: {
+              title: "Por + {{price}}/mês, leve o Enterprise",
+              capacity: {
+                users: "+{{count}} usuários",
+                connections: "+{{count}} conexões de WhatsApp",
+                queues: "+{{count}} filas de atendimento"
+              },
+              aiIncluded: "IA ilimitada inclusa",
+              action: "Trocar para Enterprise",
+              note: "O teste continua grátis por 14 dias, sem cartão."
+            }
+          },
+          mode: {
+            title: "Como você quer conectar seu WhatsApp?",
+            description:
+              "Os recursos são os mesmos nos dois. Escolha o que faz mais sentido para o seu negócio.",
+            officialBadge: "Mais seguro",
+            unofficialBadge: "Começa na hora"
+          },
+          data: {
+            title: "Crie seu espaço",
+            description:
+              "Com esses dados criamos sua conta de administrador. Você convida a equipe depois.",
+            company: "Nome da empresa",
+            email: "E-mail",
+            phone: "WhatsApp para contato",
+            password: "Senha",
+            passwordHint: "Mínimo de 6 caracteres",
+            showPassword: "Mostrar senha",
+            hidePassword: "Ocultar senha",
+            termsPrefix: "Li e aceito os",
+            termsLink: "Termos de Serviço",
+            termsJoin: "e a",
+            privacyLink: "Política de Privacidade",
+            submit: "Começar meu teste grátis",
+            submitting: "Criando seu espaço…"
+          },
+          errors: {
+            company: "Informe o nome da empresa, com pelo menos 2 letras.",
+            email: "Informe um e-mail válido, como voce@empresa.com.br.",
+            phone: "Informe um WhatsApp com DDD.",
+            password: "A senha precisa ter pelo menos 6 caracteres.",
+            terms: "Aceite os termos para continuar.",
+            plan: "Escolha um plano para continuar.",
+            mode: "Escolha como conectar para continuar.",
+            generic:
+              "Não foi possível criar seu espaço. Confira os dados e tente de novo.",
+            captcha:
+              "Não conseguimos confirmar que você não é um robô. Recarregue a página e tente de novo.",
+            ERR_COMPANY_NAME_ALREADY_EXISTS:
+              "Já existe um espaço com esse nome de empresa. Use outro nome.",
+            ERR_SIGNUP_INVALID_DATA:
+              "Confira os dados, o endereço e o dia de vencimento.",
+            ERR_SIGNUP_INVALID_PLAN:
+              "Esse plano não está disponível. Volte e escolha outro.",
+            ERR_SIGNUP_INVALID_IMAGE:
+              "Uma das imagens é inválida. Use PNG, JPG ou WebP com até 5 MB.",
+            ERR_SIGNUP_RATE_LIMIT:
+              "Muitas tentativas de cadastro. Tente novamente mais tarde.",
+            ERR_COMPANY_INVALID_SLUG:
+              "Use um endereço com letras, números e hífens.",
+            ERR_COMPANY_SLUG_RESERVED:
+              "Esse endereço está reservado. Escolha outro.",
+            ERR_COMPANY_SLUG_ALREADY_EXISTS:
+              "Já existe um espaço com esse endereço. Escolha outro endereço."
+          },
+          summary: {
+            title: "Sua assinatura",
+            plan: "Plano",
+            mode: "Conexão",
+            ai: "IA",
+            aiIncluded: "Ilimitada, inclusa",
+            aiNone: "Não contratada",
+            total: "Mensalidade após o teste",
+            trial:
+              "Hoje: R$ 0,00. São 14 dias grátis, sem cartão. Você só paga se decidir continuar.",
+            metaCost:
+              "Na API oficial, as mensagens são cobradas pela Meta, à parte.",
+            change: "Alterar",
+            pending: "Escolha no próximo passo"
+          },
+          modeNames: {
+            official: "API oficial",
+            unofficial: "QR code"
+          },
+          success: {
+            title: "Seu espaço está pronto!",
+            description:
+              "Entre com {{email}} e a senha que você criou para conectar seu WhatsApp.",
+            official:
+              "Como você escolheu a API oficial, nossa equipe vai ajudar a conectar seu número à Meta.",
+            unofficial:
+              "No painel, abra Conexões e leia o QR code com o celular para começar.",
+            login: "Entrar no painel"
+          },
+          disabled: {
+            title: "Cadastro pelo site fechado no momento",
+            description:
+              "Não estamos abrindo novos espaços pelo site agora. Fale com a gente para assinar.",
+            talk: "Falar com a gente"
+          }
         }
       },
       date: {

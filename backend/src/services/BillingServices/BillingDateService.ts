@@ -65,4 +65,29 @@ export const nextRecurringDueDate = (
   return resolveDueDate(current.year(), current.month(), dueDay);
 };
 
+// Where the company's due date goes when an invoice is paid. The first
+// (prorated) invoice is charged on the last trial day and covers up to the
+// first due day, so paying it moves the due date to the end of that period.
+// Companies created before this rule already had their first invoice on the
+// due day itself; for them, and for every regular invoice, the monthly
+// anchor simply advances.
+export const dueDateAfterPayment = ({
+  billingType,
+  periodEnd,
+  currentDueDate,
+  dueDay,
+  recurrence
+}: {
+  billingType?: string | null;
+  periodEnd?: string | null;
+  currentDueDate: string;
+  dueDay: number;
+  recurrence?: string;
+}): string => {
+  const current = moment.utc(currentDueDate).format(FORMAT);
+  if (billingType === "initial_prorata" && periodEnd && periodEnd > current)
+    return civil(periodEnd).format(FORMAT);
+  return nextRecurringDueDate(current, dueDay, recurrence);
+};
+
 export const todayCivil = (): string => moment.utc().format(FORMAT);

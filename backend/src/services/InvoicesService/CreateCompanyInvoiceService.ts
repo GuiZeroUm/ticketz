@@ -8,6 +8,7 @@ import { priceForDueDate } from "../PartnerServices/PartnerPricing";
 import { enqueueWebhook } from "../PlatformServices/PlatformWebhookService";
 import { serializeInvoice } from "../PlatformServices/PlatformSerializers";
 import { calculateProrataCents } from "../BillingServices/ProrataService";
+import { firstBillableDueDate } from "../BillingServices/BillingDateService";
 
 const invoicePrice = (company: Company, plan: Plan, dueDate: string): number =>
   company.partnerId
@@ -50,6 +51,11 @@ const CreateCompanyInvoiceService = async (
       });
       const isInitial = Boolean(company.trialEndsAt && !initialIssued);
       if (isInitial && today < company.trialEndsAt) return null;
+      if (
+        company.trialExpiresAt &&
+        new Date() < new Date(company.trialExpiresAt)
+      )
+        return null;
 
       const existing = await Invoices.findOne({
         where: {
@@ -69,8 +75,15 @@ const CreateCompanyInvoiceService = async (
 
       const monthly = invoicePrice(company, plan, dueDate);
       const monthlyCents = Math.round(Number(monthly) * 100);
+      // The first invoice is due on the company's due date (the last trial
+      // day for new companies) and covers the days up to the first due day.
       const periodStart = isInitial ? company.trialEndsAt : null;
-      const periodEnd = isInitial ? dueDate : null;
+      const periodEnd = isInitial
+        ? firstBillableDueDate(
+            company.trialEndsAt,
+            company.dueDay || moment.utc(dueDate).date()
+          )
+        : null;
       const value = isInitial
         ? calculateProrataCents(monthlyCents, periodStart, periodEnd) / 100
         : monthly;

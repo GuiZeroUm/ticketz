@@ -11,6 +11,7 @@ import {
   Users,
   Plug,
   Building,
+  Bot,
   CreditCard,
   Languages,
   Handshake,
@@ -76,6 +77,7 @@ export default function CentralConfiguracoes({
             icone: Building,
             itens: [
               { chave: "empresas", icone: Building, aba: "companies" },
+              { chave: "luizaAgent", icone: Bot, aba: "agent" },
               { chave: "planos", icone: CreditCard, aba: "plans" },
               { chave: "parceiros", icone: Handshake, aba: "partners" },
               { chave: "pagamentos", icone: CreditCard, aba: "paymentGateway" },

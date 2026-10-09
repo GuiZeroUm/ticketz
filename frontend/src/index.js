@@ -18,18 +18,24 @@ function clearBackendRetryTimers() {
 function getBackendProbeUrl(config) {
   const protocol = config.BACKEND_PROTOCOL || "https";
   const explicitBackendHost = config.BACKEND_HOST;
-  const hostname = explicitBackendHost || window.location.hostname;
+  const hostname =
+    explicitBackendHost === "localhost" &&
+    window.location.hostname.endsWith(".localhost")
+      ? window.location.hostname
+      : explicitBackendHost || window.location.hostname;
   // BACKEND_PORT refers to the internal container endpoint. Same-origin
   // browser requests go through /backend on the current HTTPS origin.
   const port =
     explicitBackendHost && config.BACKEND_PORT ? `:${config.BACKEND_PORT}` : "";
   const path =
     config.BACKEND_PATH ||
-    (hostname === "localhost" || hostname !== window.location.hostname
-      ? ""
-      : "/backend");
+    (explicitBackendHost || hostname === "localhost" ? "" : "/backend");
 
-  return `${protocol}://${hostname}${port}${path}/`;
+  const backendOrigin = explicitBackendHost
+    ? `${protocol}://${hostname}${port}`
+    : window.location.origin;
+
+  return `${backendOrigin}${path}/`;
 }
 
 function getRetryMessage(error) {
@@ -75,9 +81,18 @@ async function renderApp() {
 
 async function renderPublicLanding() {
   document.getElementById("splash-background")?.remove();
-  document.documentElement.style.backgroundColor = "#f6f8fb";
+  document.documentElement.style.backgroundColor = "#f2f5fb";
   const { default: LandingPage } = await import("./pages/LandingPage");
   ReactDOM.render(<LandingPage />, document.getElementById("root"), () => {
+    window.finishProgress();
+  });
+}
+
+async function renderPublicCheckout() {
+  document.getElementById("splash-background")?.remove();
+  document.documentElement.style.backgroundColor = "#f2f5fb";
+  const { default: Checkout } = await import("./pages/Checkout");
+  ReactDOM.render(<Checkout />, document.getElementById("root"), () => {
     window.finishProgress();
   });
 }
@@ -100,12 +115,26 @@ async function probeBackendAndRender(config, attempt = 1) {
 }
 
 const config = loadJSON("/config.json");
+const isBrandingPreview = window.location.pathname === "/preview/branding";
 const isPublicLanding = window.location.pathname === "/" && !getCompanySlug();
+const isPublicCheckout =
+  /^\/(assinar|signup)\/?$/.test(window.location.pathname) &&
+  !getCompanySlug() &&
+  !new URLSearchParams(window.location.search).has("companyId");
 
 if (!config) {
   window.renderError(i18n.t("frontendErrors.ERR_CONFIG_ERROR"));
 } else if (isPublicLanding) {
   renderPublicLanding();
+} else if (isBrandingPreview) {
+  document.getElementById("splash-background")?.remove();
+  import("./pages/BrandingPreview").then(({ default: Preview }) => {
+    ReactDOM.render(<Preview />, document.getElementById("root"), () =>
+      window.finishProgress()
+    );
+  });
+} else if (isPublicCheckout) {
+  renderPublicCheckout();
 } else {
   probeBackendAndRender(config);
 }

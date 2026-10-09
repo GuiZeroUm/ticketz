@@ -6,6 +6,7 @@ import { SimpleObjectCache } from "./simpleObjectCache";
 import moment from "moment";
 import { subscriptionDeadline } from "./subscriptionDeadline";
 import Invoices from "../models/Invoices";
+import { companyTrial } from "./companyTrial";
 
 const companyComplianceCache = new SimpleObjectCache(60 * 1000, logger);
 const checkMutex = new Mutex();
@@ -36,11 +37,13 @@ export async function checkCompanyCompliant(
       Number(await GetCompanySetting(1, "gracePeriod", "0")) || 0;
 
     if (
-      company.trialEndsAt &&
-      moment
-        .utc()
-        .startOf("day")
-        .isBefore(moment.utc(company.trialEndsAt), "day")
+      companyTrial(company).status === "active" ||
+      (!company.trialExpiresAt &&
+        company.trialEndsAt &&
+        moment
+          .utc()
+          .startOf("day")
+          .isBefore(moment.utc(company.trialEndsAt), "day"))
     ) {
       companyComplianceCache.set(cacheKey, true);
       return true;

@@ -12,10 +12,7 @@ import {
   assertDueDay,
   assertTrialDays
 } from "../BillingServices/BillingConfigService";
-import {
-  firstBillableDueDate,
-  resolveTrialEndsAt
-} from "../BillingServices/BillingDateService";
+import { resolveTrialEndsAt } from "../BillingServices/BillingDateService";
 import { assertCompanyTimezone } from "./CompanyTimezoneService";
 
 interface CompanyData {
@@ -40,6 +37,8 @@ interface CompanyData {
   introMonths?: number | null;
   platformCost?: number | null;
   passwordConfigured?: boolean;
+  aiAddon?: string | null;
+  signupSource?: "admin" | "self_service" | "partner";
 }
 
 const CreateCompanyService = async (
@@ -76,12 +75,15 @@ const CreateCompanyService = async (
   const dueDay = assertDueDay(
     companyData.dueDay ?? moment.utc(effectiveDueDate).date()
   );
-  const anchor = moment.utc().format("YYYY-MM-DD");
+  const trialStartedAt = trialDays > 0 ? new Date() : null;
+  const anchor = moment.utc(trialStartedAt || new Date()).format("YYYY-MM-DD");
+  const trialExpiresAt = trialStartedAt
+    ? new Date(trialStartedAt.getTime() + trialDays * 86400000)
+    : null;
   const trialEndsAt = resolveTrialEndsAt(anchor, trialDays);
-  const billableDueDate =
-    trialDays > 0
-      ? firstBillableDueDate(trialEndsAt, dueDay)
-      : effectiveDueDate;
+  // With a trial, the first (prorated) invoice is due on the last trial day;
+  // the monthly cycle on `dueDay` starts once it is paid.
+  const billableDueDate = trialDays > 0 ? trialEndsAt : effectiveDueDate;
 
   const companySchema = Yup.object().shape({
     name: Yup.string()
@@ -138,6 +140,11 @@ const CreateCompanyService = async (
       dueDate: billableDueDate,
       trialDays,
       trialEndsAt,
+      trialStartedAt,
+      trialExpiresAt,
+      signupSource:
+        companyData.signupSource ||
+        (companyData.partnerId ? "partner" : "admin"),
       dueDay,
       recurrence: recurrence || "MENSAL",
       language,
@@ -153,7 +160,8 @@ const CreateCompanyService = async (
       saleValue: companyData.saleValue ?? null,
       introValue: companyData.introValue ?? null,
       introMonths: companyData.introMonths ?? null,
-      platformCost: companyData.platformCost ?? null
+      platformCost: companyData.platformCost ?? null,
+      aiAddon: companyData.aiAddon || null
     },
     { transaction }
   );
@@ -291,6 +299,15 @@ const CreateCompanyService = async (
       key: "voiceCallsEnabled",
       value: "false"
     },
+    transaction
+  });
+
+  // The first admin login offers a welcome dialog and the sidebar tour; the
+  // frontend stores "done" once it is answered. Existing companies have no
+  // row, so they are never interrupted.
+  await Setting.findOrCreate({
+    where: { companyId: company.id, key: "welcomeTour" },
+    defaults: { companyId: company.id, key: "welcomeTour", value: "pending" },
     transaction
   });
 

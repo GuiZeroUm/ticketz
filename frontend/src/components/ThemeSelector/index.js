@@ -57,6 +57,7 @@ const ThemeSelector = () => {
       <Tooltip title={i18n.t("themes.label")}>
         <IconButton
           color="inherit"
+          data-tour="theme"
           aria-label={i18n.t("themes.label")}
           aria-haspopup="menu"
           aria-controls={anchor ? "theme-selector" : undefined}

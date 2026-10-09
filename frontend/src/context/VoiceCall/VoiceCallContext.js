@@ -392,12 +392,7 @@ export function VoiceCallProvider({ children }) {
   return (
     <VoiceCallContext.Provider value={{ incoming, active }}>
       {children}
-      <Dialog
-        open={Boolean(incoming)}
-        maxWidth="xs"
-        fullWidth
-        disableBackdropClick
-      >
+      <Dialog open={Boolean(incoming)} maxWidth="xs" fullWidth>
         <DialogTitle>{i18n.t("voiceCalls.incoming")}</DialogTitle>
         <DialogContent>
           <CallIdentity call={incoming} />

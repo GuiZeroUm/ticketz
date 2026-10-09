@@ -29,10 +29,15 @@ export function getBackendURL() {
   if (!config.BACKEND_HOST) {
     return config.BACKEND_PATH ?? "/backend";
   }
+  const backendHost =
+    config.BACKEND_HOST === "localhost" &&
+    window.location.hostname.endsWith(".localhost")
+      ? window.location.hostname
+      : config.BACKEND_HOST;
   return (
     (config.BACKEND_PROTOCOL ?? "https") +
     "://" +
-    config.BACKEND_HOST +
+    backendHost +
     ":" +
     (config.BACKEND_PORT ?? 443) +
     (config.BACKEND_PATH ?? "")
@@ -46,10 +51,15 @@ export function getBackendSocketURL() {
   if (!config.BACKEND_HOST) {
     return window.location.origin;
   }
+  const backendHost =
+    config.BACKEND_HOST === "localhost" &&
+    window.location.hostname.endsWith(".localhost")
+      ? window.location.hostname
+      : config.BACKEND_HOST;
   return (
     (config.BACKEND_PROTOCOL ?? "https") +
     "://" +
-    config.BACKEND_HOST +
+    backendHost +
     ":" +
     (config.BACKEND_PORT ?? 443)
   );

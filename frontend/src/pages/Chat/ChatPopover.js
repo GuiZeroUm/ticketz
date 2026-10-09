@@ -230,7 +230,12 @@ export default function ChatPopover() {
         color={invisible ? "default" : "inherit"}
         onClick={handleClick}
       >
-        <Badge color="secondary" variant="dot" invisible={invisible}>
+        <Badge
+          color="secondary"
+          variant="dot"
+          overlap="rectangular"
+          invisible={invisible}
+        >
           <ForumIcon style={{ color: theme.palette.text.secondary }} />
         </Badge>
       </IconButton>

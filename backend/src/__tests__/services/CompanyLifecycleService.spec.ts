@@ -102,6 +102,43 @@ describe("CreateCompanyService", () => {
   });
 });
 
+describe("CreateCompanyService with a free trial", () => {
+  it("charges the first invoice on the last trial day and plans the welcome", async () => {
+    companyFindOne.mockResolvedValue(null);
+    companyCreate.mockResolvedValue({ id: 43 } as Company);
+    userFindOrCreate.mockResolvedValue([
+      { update: jest.fn() } as unknown as User,
+      true
+    ]);
+    settingFindOrCreate.mockResolvedValue([{} as Setting, true]);
+
+    await CreateCompanyService({
+      name: "Tenant Teste",
+      email: "teste@example.com",
+      slug: "tenant-teste",
+      planId: 1,
+      trialDays: 14,
+      dueDay: 30
+    });
+
+    // 2026-09-02 + 14 days; the monthly cycle on day 30 starts after it.
+    expect(companyCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trialEndsAt: "2026-09-16",
+        dueDate: "2026-09-16",
+        dueDay: 30
+      }),
+      { transaction: undefined }
+    );
+    expect(settingFindOrCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { companyId: 43, key: "welcomeTour" },
+        defaults: expect.objectContaining({ value: "pending" })
+      })
+    );
+  });
+});
+
 describe("DeleteCompanyService", () => {
   it("allows deleting a tenant that never created a media directory", async () => {
     const destroy = jest.fn().mockResolvedValue(undefined);

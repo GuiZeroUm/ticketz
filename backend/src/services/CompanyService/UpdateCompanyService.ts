@@ -110,7 +110,8 @@ const UpdateCompanyService = async (
       moment.utc().format("YYYY-MM-DD"),
       trialDays
     );
-    nextDueDate = firstBillableDueDate(trialEndsAt, dueDay);
+    // The first (prorated) invoice is due on the last trial day.
+    nextDueDate = trialEndsAt;
   } else if (
     hasDueDay &&
     trialEndsAt &&
@@ -120,7 +121,11 @@ const UpdateCompanyService = async (
       where: { companyId: company.id, billingType: "initial_prorata" },
       transaction
     });
-    if (initialIssued === 0)
+    // New companies keep the first charge on the last trial day, whatever the
+    // due day; companies created before that rule had it on the due day.
+    const chargedAtTrialEnd =
+      moment.utc(company.dueDate).format("YYYY-MM-DD") === trialEndsAt;
+    if (initialIssued === 0 && !chargedAtTrialEnd)
       nextDueDate = firstBillableDueDate(trialEndsAt, dueDay);
   }
 
