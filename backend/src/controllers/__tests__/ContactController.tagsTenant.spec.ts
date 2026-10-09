@@ -51,6 +51,7 @@ jest.mock("../../helpers/GetDefaultWhatsApp", () => ({
 jest.mock("../../helpers/CheckSettings", () => ({
   GetCompanySetting: jest.fn()
 }));
+jest.mock("../../database", () => ({ __esModule: true, default: {} }));
 jest.mock("../../libs/socket", () => ({ getIO: jest.fn() }));
 jest.mock("../../libs/wbot", () => ({ getWbot: jest.fn() }));
 jest.mock("../../utils/logger", () => ({
