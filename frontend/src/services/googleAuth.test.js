@@ -51,6 +51,32 @@ beforeEach(() => {
   });
 });
 
+test("mobile Google routes and intents are isolated from ordinary web authentication", async () => {
+  await startGoogleSignIn(config);
+  const webIntent = sessionStorage.getItem("espaco.google-login.intent");
+  await startGoogleSignIn(config, "mobile");
+  expect(clerk.client.signIn.authenticateWithRedirect).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      redirectUrl: `${window.location.origin}/login/mobile/google/callback`,
+      redirectUrlComplete: `${window.location.origin}/login/mobile/google/complete`
+    })
+  );
+  expect(requireGoogleIntent(config, "mobile").slug).toBe("acnorte");
+  expect(sessionStorage.getItem("espaco.google-login.intent")).toBe(webIntent);
+  await handleGoogleCallback(clerk, config, "mobile");
+  expect(clerk.handleRedirectCallback).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      continueSignUpUrl: "/login/mobile/google/continue",
+      signInForceRedirectUrl: "/login/mobile/google/complete"
+    })
+  );
+  clearGoogleIntent("mobile");
+  expect(() => requireGoogleIntent(config, "mobile")).toThrow(
+    "ERR_SOCIAL_LOGIN_EXPIRED"
+  );
+  expect(requireGoogleIntent(config).slug).toBe("acnorte");
+});
+
 test("provider configuration fails closed, including string booleans and missing keys", () => {
   expect(isGoogleConfigured(config)).toBe(true);
   expect(
@@ -146,12 +172,10 @@ test("explicit legal consent required; unknown requirements cannot be bypassed",
   clerk.client.signUp = {
     status: "missing_requirements",
     missingFields: ["legal_accepted"],
-    update: jest
-      .fn()
-      .mockResolvedValue({
-        status: "complete",
-        createdSessionId: "session-new"
-      })
+    update: jest.fn().mockResolvedValue({
+      status: "complete",
+      createdSessionId: "session-new"
+    })
   };
   expect(requiresOnlyLegalConsent(clerk)).toBe(true);
   await expect(acceptGoogleLegal(clerk, config, false)).rejects.toThrow(

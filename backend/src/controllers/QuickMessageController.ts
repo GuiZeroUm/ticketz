@@ -74,6 +74,10 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
 
   const record = await ShowService(id);
 
+  if (record.companyId !== req.user.companyId) {
+    throw new AppError("ERR_NO_QUICKMESSAGE_FOUND", 404);
+  }
+
   return res.status(200).json(record);
 };
 
@@ -120,7 +124,7 @@ export const remove = async (
   const { id } = req.params;
   const { companyId } = req.user;
 
-  await DeleteService(id);
+  await DeleteService(id, companyId);
 
   const io = getIO();
   io.emit(`company-${companyId}-quickmessage`, {

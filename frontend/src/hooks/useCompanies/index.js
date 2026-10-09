@@ -68,6 +68,17 @@ const useCompanies = () => {
     return responseData;
   };
 
+  // Modo WhatsApp (normal/meta): endpoint separado de proposito - e uma
+  // decisao travada permanentemente, nao um campo comum do formulario.
+  const updateWhatsappMode = async (id, whatsappMode) => {
+    const { data: responseData } = await api.request({
+      url: `/companies/${id}/whatsapp-mode`,
+      method: "PUT",
+      data: { whatsappMode }
+    });
+    return responseData;
+  };
+
   return {
     save,
     update,
@@ -76,7 +87,8 @@ const useCompanies = () => {
     find,
     finding,
     findAll,
-    updateSchedules
+    updateSchedules,
+    updateWhatsappMode
   };
 };
 

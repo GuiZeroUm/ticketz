@@ -18,6 +18,7 @@ import { subscriptionNoticeMessages } from "./subscriptionNotice";
 import { whatsappProvidersMessages } from "./whatsappProviders";
 import { agentContextManagementMessages } from "./agentContextManagement";
 import { welcomeTourMessages } from "./welcomeTour";
+import { mobileLoginMessages } from "./mobileLogin";
 
 const mergeTranslations = (base, extra) => {
   const result = { ...base };
@@ -51,7 +52,8 @@ const messages = {
   subscriptionNoticeMessages,
   whatsappProvidersMessages,
   agentContextManagementMessages,
-  welcomeTourMessages
+  welcomeTourMessages,
+  mobileLoginMessages
 ].forEach(overlay => {
   Object.entries(overlay).forEach(([language, extra]) => {
     messages[language].translations = mergeTranslations(

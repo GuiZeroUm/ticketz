@@ -18,8 +18,8 @@ jest.mock("../services/api", () => ({}));
 jest.mock("../helpers/getCompanySlug", () => () => "acnorte");
 jest.mock("../translate/i18n", () => ({ i18n: { t: key => key } }));
 const exchange = jest.fn();
-function Harness() {
-  const state = useGoogleLogin(exchange);
+function Harness({ flow = "web" }) {
+  const state = useGoogleLogin(exchange, flow);
   return (
     <>
       <button disabled={!state.ready || state.busy} onClick={state.start}>
@@ -30,10 +30,10 @@ function Harness() {
     </>
   );
 }
-const mount = (url = "/login") =>
+const mount = (url = "/login", flow = "web") =>
   render(
     <MemoryRouter initialEntries={[url]}>
-      <Harness />
+      <Harness flow={flow} />
     </MemoryRouter>
   );
 beforeEach(() => {
@@ -94,4 +94,32 @@ test("unknown provider errors are never rendered raw", () => {
       response: { data: { error: "ERR_COMPANY_INACTIVE" } }
     })
   ).toBe("socialLogin.inactive");
+});
+
+test("mobile callback reuses Google session validation with its isolated flow", async () => {
+  google.exchangeGoogleSession.mockResolvedValue(undefined);
+  mount("/login/mobile/google/complete", "mobile");
+  await waitFor(() =>
+    expect(google.exchangeGoogleSession).toHaveBeenCalledTimes(1)
+  );
+  expect(google.requireGoogleIntent).toHaveBeenCalledWith(
+    expect.anything(),
+    "mobile"
+  );
+  expect(google.exchangeGoogleSession).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.anything(),
+    expect.any(Function),
+    "mobile"
+  );
+});
+
+test("mobile login cannot load a production Clerk key", async () => {
+  google.getGoogleConfiguration.mockResolvedValue({
+    publishableKey: "pk_live_not_dev"
+  });
+  mount("/login/mobile", "mobile");
+  await screen.findByText("socialLogin.unavailable");
+  expect(google.loadGoogleClerk).not.toHaveBeenCalled();
+  expect(screen.getByText("Google")).toBeDisabled();
 });

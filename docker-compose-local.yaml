@@ -19,8 +19,10 @@ services:
       - backend_private:/usr/src/app/private
     env_file:
       - .env-backend-local
-      - backend/.env.mcp.local
-      - backend/.env.hermes.local
+      - path: backend/.env.mcp.local
+        required: false
+      - path: backend/.env.hermes.local
+        required: false
     restart: always
     depends_on:
       - postgres

@@ -22,6 +22,7 @@ import TicketTag from "../../models/TicketTag";
 import Whatsapp from "../../models/Whatsapp";
 import { GetCompanySetting } from "../../helpers/CheckSettings";
 import ContactTag from "../../models/ContactTag";
+import { shouldApplyQueueFilter } from "./TicketQueueAccess";
 
 interface Request {
   isSearch?: boolean;
@@ -104,14 +105,20 @@ const ListTicketsService = async ({
   ];
 
   let whereCondition: Filterable["where"] = {
-    [Op.and]: andedOrs,
-    queueId: {
-      [Op.or]: user.profile === "admin" ? [queueIds, null] : [queueIds]
-    }
+    [Op.and]: andedOrs
   };
 
+  if (shouldApplyQueueFilter(user.profile, queueIds)) {
+    whereCondition = {
+      ...whereCondition,
+      queueId: {
+        [Op.or]: user.profile === "admin" ? [queueIds, null] : [queueIds]
+      }
+    };
+  }
+
   if (groupsTab) {
-    whereCondition.isGroup = groups === "true";
+    whereCondition = { ...whereCondition, isGroup: groups === "true" };
   }
   let includeCondition: Includeable[];
 
@@ -147,11 +154,16 @@ const ListTicketsService = async ({
   if (showAll === "true" && user.profile === "admin") {
     andedOrs.length = 0;
     whereCondition = {
-      [Op.and]: andedOrs,
-      queueId: { [Op.or]: [queueIds, null] }
+      [Op.and]: andedOrs
     };
+    if (shouldApplyQueueFilter(user.profile, queueIds)) {
+      whereCondition = {
+        ...whereCondition,
+        queueId: { [Op.or]: [queueIds, null] }
+      };
+    }
     if (groupsTab) {
-      whereCondition.isGroup = groups === "true";
+      whereCondition = { ...whereCondition, isGroup: groups === "true" };
     }
   }
 
