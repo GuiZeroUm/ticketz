@@ -246,6 +246,7 @@ export default function AgentContextManager() {
       setPolicy(next);
       setBaseline(signature(next));
       setConflict(false);
+      window.dispatchEvent(new Event("agent-availability-changed"));
       setCompanies(current =>
         current.map(company =>
           company.id === selected.id

@@ -6,6 +6,7 @@ import HermesChatService, {
 import {
   loadActor,
   getPolicy,
+  getAgentAvailability,
   savePolicy,
   listAgentCompanies,
   auditAgent
@@ -32,6 +33,11 @@ const companyFrom = (req: Request) => {
   if (!Number.isSafeInteger(id) || id < 1)
     throw new AppError("ERR_AGENT_INVALID_REQUEST", 400);
   return id;
+};
+export const availability = async (req: Request, res: Response) => {
+  const enabled = await getAgentAvailability(req.user.companyId);
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ enabled });
 };
 export const session = async (req: Request, res: Response) => {
   const value = await createSession(await actorFrom(req));

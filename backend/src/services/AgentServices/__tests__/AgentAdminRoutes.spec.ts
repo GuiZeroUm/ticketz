@@ -21,6 +21,7 @@ jest.mock("../../../controllers/AgentController", () =>
   Object.fromEntries(
     [
       "session",
+      "availability",
       "heartbeat",
       "close",
       "chat",
@@ -39,6 +40,17 @@ app.use((error: AppError, _req, res, _next) =>
   res.status(error.statusCode || 500).json({ error: error.message })
 );
 describe("Agent administration authority", () => {
+  it("reads availability only from the authenticated company", async () => {
+    const response = await request(app).get("/agent/availability");
+    expect(response.status).toBe(200);
+    expect(AgentController.availability).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user: expect.objectContaining({ companyId: 1 })
+      }),
+      expect.anything(),
+      expect.anything()
+    );
+  });
   it.each(["get", "put", "post"])(
     "rejects %s requests despite a super claim when DB authority is absent",
     async method => {

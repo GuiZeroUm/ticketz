@@ -50,6 +50,13 @@ export const getPolicy = async (
   });
   return policy;
 };
+export const getAgentAvailability = async (companyId: number) => {
+  const policy = await AgentTenantPolicy.findOne({
+    where: { companyId },
+    attributes: ["enabled"]
+  });
+  return policy?.enabled === true;
+};
 export const loadActor = async (
   companyId: number,
   userId: number

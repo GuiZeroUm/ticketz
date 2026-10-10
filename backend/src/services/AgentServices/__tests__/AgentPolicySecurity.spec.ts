@@ -6,6 +6,7 @@ import AgentTenantPolicy from "../../../models/AgentTenantPolicy";
 import AgentContextAudit from "../../../models/AgentContextAudit";
 import { defaultModules } from "../AgentCatalog";
 import {
+  getAgentAvailability,
   getPolicy,
   listAgentCompanies,
   loadActor,
@@ -78,6 +79,20 @@ describe("Agent policies and revocation", () => {
         defaults: { companyId: 1, enabled: false, modules: defaultModules() }
       })
     );
+  });
+
+  it("shows availability only for an enabled policy in the authenticated tenant", async () => {
+    expect(await getAgentAvailability(1)).toBe(true);
+    expect(AgentTenantPolicy.findOne).toHaveBeenCalledWith({
+      where: { companyId: 1 },
+      attributes: ["enabled"]
+    });
+    (AgentTenantPolicy.findOne as jest.Mock).mockResolvedValueOnce({
+      enabled: false
+    });
+    expect(await getAgentAvailability(1)).toBe(false);
+    (AgentTenantPolicy.findOne as jest.Mock).mockResolvedValueOnce(null);
+    expect(await getAgentAvailability(1)).toBe(false);
   });
 
   it("reloads the authenticated user inside its own tenant", async () => {

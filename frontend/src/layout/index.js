@@ -18,7 +18,7 @@ import {
   useMediaQuery
 } from "@material-ui/core";
 
-import AgentPreview from "../components/AgentPreview";
+import AgentAvailability from "../components/AgentPreview/AgentAvailability";
 import WelcomeTour, { useTourNavegacao } from "../components/WelcomeTour";
 import SettingsEthernetIcon from "@material-ui/icons/SettingsEthernet";
 
@@ -600,8 +600,9 @@ const LoggedInLayout = ({ children, themeToggle }) => {
             />
           )}
         </div>
-        <AgentPreview
+        <AgentAvailability
           collapsed={!drawerOpen}
+          companyId={user?.companyId ?? user?.company?.id}
           companyName={user?.company?.name || theme.appName}
           userName={user?.name || ""}
         />

@@ -37,6 +37,12 @@ const chatLimiter = rateLimit({
     res.status(429).json({ error: "ERR_AGENT_RATE_LIMIT" })
 });
 
+routes.get(
+  "/agent/availability",
+  isAuth,
+  safeHandler(AgentController.availability)
+);
+
 routes.post(
   "/agent/chat",
   isAuth,
