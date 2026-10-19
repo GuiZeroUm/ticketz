@@ -29,6 +29,7 @@ interface CompanyData {
   planId?: number;
   campaignsEnabled?: boolean;
   voiceCallsEnabled?: boolean;
+  emailChannelEnabled?: boolean;
   dueDate?: string | null;
   trialDays?: number;
   dueDay?: number;
@@ -254,6 +255,27 @@ const UpdateCompanyService = async (
       } else {
         await disableCompanyVoiceConnections(company.id);
       }
+    }
+  }
+
+  if (companyData.emailChannelEnabled !== undefined) {
+    const [setting, created] = await Setting.findOrCreate({
+      where: {
+        companyId: company.id,
+        key: "emailChannelEnabled"
+      },
+      defaults: {
+        companyId: company.id,
+        key: "emailChannelEnabled",
+        value: `${companyData.emailChannelEnabled}`
+      },
+      transaction
+    });
+    if (!created) {
+      await setting.update(
+        { value: `${companyData.emailChannelEnabled}` },
+        { transaction }
+      );
     }
   }
 

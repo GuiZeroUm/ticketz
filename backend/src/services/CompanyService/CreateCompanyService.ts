@@ -24,6 +24,7 @@ interface CompanyData {
   status?: boolean;
   planId?: number;
   campaignsEnabled?: boolean;
+  emailChannelEnabled?: boolean;
   dueDate?: string | null;
   trialDays?: number;
   dueDay?: number;
@@ -286,6 +287,27 @@ const CreateCompanyService = async (
     });
     if (!settingCreated) {
       await setting.update({ value: `${campaignsEnabled}` }, { transaction });
+    }
+  }
+
+  if (companyData.emailChannelEnabled !== undefined) {
+    const [setting, emailSettingCreated] = await Setting.findOrCreate({
+      where: {
+        companyId: company.id,
+        key: "emailChannelEnabled"
+      },
+      defaults: {
+        companyId: company.id,
+        key: "emailChannelEnabled",
+        value: `${companyData.emailChannelEnabled}`
+      },
+      transaction
+    });
+    if (!emailSettingCreated) {
+      await setting.update(
+        { value: `${companyData.emailChannelEnabled}` },
+        { transaction }
+      );
     }
   }
 

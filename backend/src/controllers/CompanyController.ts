@@ -40,6 +40,7 @@ type CompanyData = {
   planId?: number;
   campaignsEnabled?: boolean;
   voiceCallsEnabled?: boolean;
+  emailChannelEnabled?: boolean;
   dueDate?: string | null;
   trialDays?: number;
   dueDay?: number;
@@ -72,6 +73,7 @@ const companySchema = Yup.object()
     planId: Yup.number().integer().positive().nullable(),
     campaignsEnabled: Yup.boolean(),
     voiceCallsEnabled: Yup.boolean(),
+    emailChannelEnabled: Yup.boolean(),
     dueDate: Yup.string()
       .nullable()
       .test(

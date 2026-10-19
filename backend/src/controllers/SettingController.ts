@@ -24,6 +24,8 @@ const publicFileValidators: Record<string, (mimetype: string) => boolean> = {
   linkPreviewImage: (mimetype: string) => mimetype.startsWith("image/")
 };
 
+export const SUPER_MANAGED_SETTING_KEYS = ["emailChannelEnabled"];
+
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const settings = await ListSettingsService(req.user);
 
@@ -38,7 +40,10 @@ export const update = async (
   const { value } = req.body;
   const { companyId } = req.user;
 
-  if (key.startsWith("_") && !req.user.isSuper) {
+  if (
+    (key.startsWith("_") || SUPER_MANAGED_SETTING_KEYS.includes(key)) &&
+    !req.user.isSuper
+  ) {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
 
