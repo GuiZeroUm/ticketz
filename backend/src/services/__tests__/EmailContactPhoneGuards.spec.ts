@@ -336,6 +336,97 @@ describe("contact updates for the email channel", () => {
     expect(contact.update.mock.calls[0][0].number ?? null).toBeNull();
   });
 
+  it("UpdateContactService turns an email contact that gains a phone into a WhatsApp contact", async () => {
+    const contact = makeContact({
+      channel: "email",
+      number: null,
+      email: "maria@example.com"
+    });
+    jest
+      .spyOn(Contact, "findOne")
+      .mockResolvedValue(contact as unknown as Contact);
+
+    await UpdateContactService({
+      contactData: { name: "Maria", number: "5511911111111" },
+      contactId: "12",
+      companyId: 2
+    });
+
+    expect(contact.update.mock.calls[0][0]).toMatchObject({
+      number: "5511911111111",
+      channel: "whatsapp"
+    });
+  });
+
+  it("UpdateContactService keeps an email contact when the number is only whitespace", async () => {
+    const contact = makeContact({ channel: "email", number: null });
+    jest
+      .spyOn(Contact, "findOne")
+      .mockResolvedValue(contact as unknown as Contact);
+
+    await UpdateContactService({
+      contactData: { name: "Maria", number: "   " },
+      contactId: "12",
+      companyId: 2
+    });
+
+    const updateArg = contact.update.mock.calls[0][0];
+    expect(updateArg).not.toHaveProperty("channel");
+    expect(updateArg).not.toHaveProperty("number");
+  });
+
+  it("UpdateContactService stores the trimmed number when an email contact gains a phone", async () => {
+    const contact = makeContact({ channel: "email", number: null });
+    jest
+      .spyOn(Contact, "findOne")
+      .mockResolvedValue(contact as unknown as Contact);
+
+    await UpdateContactService({
+      contactData: { name: "Maria", number: " 5511911111111 " },
+      contactId: "12",
+      companyId: 2
+    });
+
+    expect(contact.update.mock.calls[0][0]).toMatchObject({
+      number: "5511911111111",
+      channel: "whatsapp"
+    });
+  });
+
+  it("UpdateContactService reloads the channel so socket payloads carry it", async () => {
+    const contact = makeContact({ channel: "email", number: null });
+    jest
+      .spyOn(Contact, "findOne")
+      .mockResolvedValue(contact as unknown as Contact);
+
+    await UpdateContactService({
+      contactData: { name: "Maria" },
+      contactId: "12",
+      companyId: 2
+    });
+
+    expect(contact.update.mock.calls[0][0]).not.toHaveProperty("channel");
+    expect(contact.reload.mock.calls[0][0].attributes).toContain("channel");
+  });
+
+  it("UpdateContactService does not touch the channel of WhatsApp contacts", async () => {
+    const contact = makeContact({
+      channel: "whatsapp",
+      number: "5511900000000"
+    });
+    jest
+      .spyOn(Contact, "findOne")
+      .mockResolvedValue(contact as unknown as Contact);
+
+    await UpdateContactService({
+      contactData: { name: "Maria", number: "5511911111111" },
+      contactId: "12",
+      companyId: 2
+    });
+
+    expect(contact.update.mock.calls[0][0]).not.toHaveProperty("channel");
+  });
+
   it("UpdateContactService still writes the number of WhatsApp contacts", async () => {
     const contact = makeContact({
       channel: "whatsapp",

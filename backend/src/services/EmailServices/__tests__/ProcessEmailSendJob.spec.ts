@@ -207,6 +207,24 @@ describe("ProcessEmailSendJob", () => {
     expect(redis.del).not.toHaveBeenCalled();
   });
 
+  it("passes the stored Gmail thread id to the adapter", async () => {
+    EM.findByPk.mockResolvedValue(
+      queuedEmail({ providerThreadId: "thread-abc" })
+    );
+    Account.scoped.findOne.mockResolvedValue(
+      account({ provider: "gmail_api" })
+    );
+    await ProcessEmailSendJob(41);
+    const [, mail] = adapter.send.mock.calls[0];
+    expect(mail.providerThreadId).toBe("thread-abc");
+  });
+
+  it("sends without a thread id when the email has none", async () => {
+    await ProcessEmailSendJob(41);
+    const [, mail] = adapter.send.mock.calls[0];
+    expect(mail).not.toHaveProperty("providerThreadId");
+  });
+
   it("claims the send with a Redis marker before talking to the server", async () => {
     await ProcessEmailSendJob(41);
     // the attempt flag is written first and never released: a replay can
@@ -331,6 +349,27 @@ describe("ProcessEmailSendJob", () => {
       ack: -1,
       error: { code: "ERR_EMAIL_TRANSIENT" }
     });
+  });
+
+  it("fails at once with ERR_EMAIL_ENCRYPTION_NOT_CONFIGURED, without retrying", async () => {
+    adapter.send.mockRejectedValue(
+      new EmailTransientError("ERR_EMAIL_ENCRYPTION_NOT_CONFIGURED")
+    );
+    const scheduleRetry = jest.fn().mockResolvedValue(undefined);
+    await ProcessEmailSendJob(41, { attempt: 0, scheduleRetry });
+
+    expect(scheduleRetry).not.toHaveBeenCalled();
+    expect(emailUpdate()[0]).toEqual({
+      sendStatus: "failed",
+      sendError: { code: "ERR_EMAIL_ENCRYPTION_NOT_CONFIGURED" }
+    });
+    expect(messageUpdate()[0]).toEqual({
+      ack: -1,
+      error: { code: "ERR_EMAIL_ENCRYPTION_NOT_CONFIGURED" }
+    });
+    // nothing left the server: the marker is released, the account untouched
+    expect(redis.del).toHaveBeenCalledWith(sendInflightKey(41));
+    expect(markAccountError).not.toHaveBeenCalled();
   });
 
   it("fails with ERR_EMAIL_TRANSIENT when the retry cannot be scheduled", async () => {

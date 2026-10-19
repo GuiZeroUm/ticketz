@@ -29,6 +29,9 @@ export type NormalizedEmail = {
   htmlSanitized?: string;
   attachments: NormalizedAttachment[];
   receivedAt: Date;
+  // The provider's own arrival time (IMAP INTERNALDATE, Gmail internalDate),
+  // used when the Date header is missing, invalid or in the future.
+  providerDate?: Date;
   flags: string[];
   // Message-ID do envio original quando o e-mail é um aviso de não entrega
   bounceOf?: string;

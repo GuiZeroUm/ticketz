@@ -305,6 +305,20 @@ afterAll(() => {
 });
 
 describe("StartGmailOAuthService", () => {
+  it("refuses to start without ENCRYPTION_KEY, before calling Google", async () => {
+    const savedKey = process.env.ENCRYPTION_KEY;
+    delete process.env.ENCRYPTION_KEY;
+    try {
+      await expect(start()).rejects.toMatchObject({
+        message: "ERR_EMAIL_ENCRYPTION_NOT_CONFIGURED",
+        statusCode: 503
+      });
+    } finally {
+      if (savedKey === undefined) delete process.env.ENCRYPTION_KEY;
+      else process.env.ENCRYPTION_KEY = savedKey;
+    }
+  });
+
   it("start builds a URL with offline access, PKCE and exactly gmail.readonly + gmail.send", async () => {
     const { url } = await start();
     const parsed = new URL(url);
@@ -956,6 +970,28 @@ describe("FinishGmailOAuthService", () => {
 });
 
 describe("getGmailAuthClient", () => {
+  it("reports a missing ENCRYPTION_KEY as its own code, not as reauth", () => {
+    const account = makeAccount({}, REFRESH_TOKEN);
+    const savedKey = process.env.ENCRYPTION_KEY;
+    delete process.env.ENCRYPTION_KEY;
+    try {
+      const error = (() => {
+        try {
+          getGmailAuthClient(account);
+          return null;
+        } catch (err) {
+          return err;
+        }
+      })();
+      expect(error).toBeInstanceOf(EmailTransientError);
+      expect(error).not.toBeInstanceOf(EmailAuthError);
+      expect(error.message).toBe("ERR_EMAIL_ENCRYPTION_NOT_CONFIGURED");
+    } finally {
+      if (savedKey === undefined) delete process.env.ENCRYPTION_KEY;
+      else process.env.ENCRYPTION_KEY = savedKey;
+    }
+  });
+
   it("refreshes with the stored refresh token", async () => {
     const account = makeAccount({}, REFRESH_TOKEN);
     const client = getGmailAuthClient(account);

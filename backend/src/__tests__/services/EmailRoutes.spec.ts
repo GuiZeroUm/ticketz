@@ -210,8 +210,58 @@ describe("email routes", () => {
       const response = await request(app)
         .get("/email/availability")
         .set("x-test-user", asUser(1));
-      expect(response.body).toEqual({ enabled: false });
+      expect(response.body).toEqual({
+        enabled: false,
+        gmailConfigured: expect.any(Boolean)
+      });
       expect(assertEmailEnabled).not.toHaveBeenCalled();
+    });
+
+    describe("gmailConfigured", () => {
+      const KEYS = [
+        "GMAIL_OAUTH_CLIENT_ID",
+        "GMAIL_OAUTH_CLIENT_SECRET",
+        "GMAIL_OAUTH_REDIRECT_URI",
+        "FRONTEND_URL"
+      ];
+      const saved: Record<string, string | undefined> = {};
+      beforeEach(() => {
+        KEYS.forEach(key => {
+          saved[key] = process.env[key];
+        });
+      });
+      afterEach(() => {
+        KEYS.forEach(key => {
+          if (saved[key] === undefined) delete process.env[key];
+          else process.env[key] = saved[key];
+        });
+      });
+
+      const availability = () =>
+        request(app).get("/email/availability").set("x-test-user", asUser(1));
+
+      it("is true when the Gmail OAuth variables are set", async () => {
+        process.env.GMAIL_OAUTH_CLIENT_ID = "id";
+        process.env.GMAIL_OAUTH_CLIENT_SECRET = "secret";
+        process.env.GMAIL_OAUTH_REDIRECT_URI =
+          "https://dev.espacowhats.com.br/backend/email/oauth/google/callback";
+        process.env.FRONTEND_URL = "https://dev.espacowhats.com.br";
+        const response = await availability();
+        expect(response.body).toEqual({ enabled: true, gmailConfigured: true });
+        expect(JSON.stringify(response.body)).not.toContain("secret");
+      });
+
+      it("is false when any of them is missing", async () => {
+        process.env.GMAIL_OAUTH_CLIENT_ID = "id";
+        delete process.env.GMAIL_OAUTH_CLIENT_SECRET;
+        process.env.GMAIL_OAUTH_REDIRECT_URI = "https://x/cb";
+        process.env.FRONTEND_URL = "https://x";
+        const response = await availability();
+        expect(response.body).toEqual({
+          enabled: true,
+          gmailConfigured: false
+        });
+      });
     });
 
     it("returns 403 ERR_EMAIL_CHANNEL_DISABLED on every email route when disabled", async () => {
@@ -256,6 +306,90 @@ describe("email routes", () => {
         .send({ preset: "icloud", address: "a@icloud.com", password: "x" });
       expect(response.status).toBe(403);
       expect(testImapSmtp).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("account options for the inbox filter (GET /email/accounts/options)", () => {
+    const options = (user: string) =>
+      request(app).get("/email/accounts/options").set("x-test-user", user);
+
+    beforeEach(() => {
+      accounts = [
+        makeAccount({ id: 1, companyId: 1 }),
+        makeAccount({
+          id: 2,
+          companyId: 1,
+          provider: "gmail_api",
+          preset: "gmail",
+          address: "caixa@gmail.com",
+          name: "Gmail",
+          status: "reauth_required"
+        }),
+        makeAccount({ id: 3, companyId: 1, status: "disabled" }),
+        makeAccount({ id: 4, companyId: 2, address: "outra@b.com" })
+      ];
+    });
+
+    it("answers a non-admin user without the connections screen", async () => {
+      const response = await options(asUser(1, "user", 7));
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual([
+        {
+          id: 1,
+          name: "Suporte",
+          address: "suporte@empresa.com.br",
+          preset: "custom",
+          provider: "imap_smtp",
+          status: "active"
+        },
+        {
+          id: 2,
+          name: "Gmail",
+          address: "caixa@gmail.com",
+          preset: "gmail",
+          provider: "gmail_api",
+          status: "reauth_required"
+        }
+      ]);
+      const text = JSON.stringify(response.body);
+      ["ENCRYPTED", "imap.empresa", "lastError", "queueId", "INBOX"].forEach(
+        piece => expect(text).not.toContain(piece)
+      );
+      expect(assertEmailEnabled).toHaveBeenCalledWith(1);
+    });
+
+    it("selects only the public columns", async () => {
+      const findAll = EmailAccount.findAll as unknown as jest.Mock;
+      await options(asUser(1, "user", 7));
+      const { calls } = findAll.mock;
+      const query = calls[calls.length - 1][0];
+      expect(query.attributes).toEqual([
+        "id",
+        "name",
+        "address",
+        "preset",
+        "provider",
+        "status"
+      ]);
+      expect(query.where).toMatchObject({ companyId: 1 });
+    });
+
+    it("never shows another company's accounts", async () => {
+      const response = await options(asUser(2, "user", 7));
+      expect(response.status).toBe(200);
+      expect(response.body.map((item: { id: number }) => item.id)).toEqual([4]);
+    });
+
+    it("needs a logged-in user and an enabled channel", async () => {
+      const anonymous = await request(app).get("/email/accounts/options");
+      expect(anonymous.status).toBe(401);
+
+      (assertEmailEnabled as jest.Mock).mockRejectedValue(
+        new AppError("ERR_EMAIL_CHANNEL_DISABLED", 403)
+      );
+      const disabled = await options(asUser(1, "user", 7));
+      expect(disabled.status).toBe(403);
+      expect(disabled.body).toEqual({ error: "ERR_EMAIL_CHANNEL_DISABLED" });
     });
   });
 
@@ -458,6 +592,55 @@ describe("email routes", () => {
           account: expect.objectContaining({ id: 42 })
         })
       );
+    });
+
+    describe("without ENCRYPTION_KEY", () => {
+      const savedKey = process.env.ENCRYPTION_KEY;
+      beforeEach(() => {
+        delete process.env.ENCRYPTION_KEY;
+      });
+      afterEach(() => {
+        if (savedKey === undefined) delete process.env.ENCRYPTION_KEY;
+        else process.env.ENCRYPTION_KEY = savedKey;
+      });
+
+      it("refuses to create a mailbox with ERR_EMAIL_ENCRYPTION_NOT_CONFIGURED", async () => {
+        const response = await request(app)
+          .post("/email/accounts")
+          .set("x-test-user", asUser(1))
+          .send({
+            preset: "icloud",
+            address: "pessoa@icloud.com",
+            password: "app-password"
+          });
+        expect(response.status).toBe(503);
+        expect(response.body).toEqual({
+          error: "ERR_EMAIL_ENCRYPTION_NOT_CONFIGURED"
+        });
+        expect(testImapSmtp).not.toHaveBeenCalled();
+        expect(accounts).toHaveLength(0);
+      });
+
+      it("refuses a new password, but still saves name and queue changes", async () => {
+        const account = makeAccount();
+        accounts = [account];
+        const refused = await request(app)
+          .put("/email/accounts/1")
+          .set("x-test-user", asUser(1))
+          .send({ password: "new-password" });
+        expect(refused.status).toBe(503);
+        expect(refused.body).toEqual({
+          error: "ERR_EMAIL_ENCRYPTION_NOT_CONFIGURED"
+        });
+        expect(testImapSmtp).not.toHaveBeenCalled();
+        expect(account.setCredentials).not.toHaveBeenCalled();
+
+        const renamed = await request(app)
+          .put("/email/accounts/1")
+          .set("x-test-user", asUser(1))
+          .send({ name: "Novo nome" });
+        expect(renamed.status).toBe(200);
+      });
     });
 
     it("creates a custom account with the validated endpoints", async () => {
@@ -1183,6 +1366,33 @@ describe("email routes", () => {
       });
     });
 
+    it("keeps the Gmail API refusal codes (ERR_GMAIL_SEND_<status>)", async () => {
+      const messages = emailMessages();
+      messages[1].sendError = { code: "ERR_GMAIL_SEND_403" } as any;
+      setup({ emailMessages: messages });
+      const response = await request(app)
+        .get("/email/tickets/10/thread")
+        .set("x-test-user", asUser(1));
+      expect(response.body.messages[1].sendError).toEqual({
+        code: "ERR_GMAIL_SEND_403"
+      });
+    });
+
+    it.each(["ERR_GMAIL_SEND_40", "ERR_GMAIL_SEND_4031", "ERR_GMAIL_OTHER"])(
+      "still replaces the look-alike code %s",
+      async code => {
+        const messages = emailMessages();
+        messages[1].sendError = { code } as any;
+        setup({ emailMessages: messages });
+        const response = await request(app)
+          .get("/email/tickets/10/thread")
+          .set("x-test-user", asUser(1));
+        expect(response.body.messages[1].sendError).toEqual({
+          code: "ERR_EMAIL_SEND_FAILED"
+        });
+      }
+    );
+
     it("scopes every query to the company and the ticket", async () => {
       const { findEmailMessages, findMessages } = setup();
       await request(app)
@@ -1501,7 +1711,10 @@ describe("email routes", () => {
 });
 
 describe("GET /tickets channel filter (ListTicketsService)", () => {
-  const list = async (channel?: string) => {
+  const list = async (
+    channel?: string,
+    extra: Record<string, unknown> = {}
+  ) => {
     (ShowUserService as jest.Mock).mockResolvedValue({
       id: 3,
       profile: "admin"
@@ -1514,9 +1727,11 @@ describe("GET /tickets channel filter (ListTicketsService)", () => {
       queueIds: [],
       tags: [],
       users: [],
-      channel
+      channel,
+      ...extra
     });
-    return findAll.mock.calls[0][0] as {
+    const { calls } = findAll.mock;
+    return calls[calls.length - 1][0] as {
       where: Record<string | symbol, unknown>;
       include: { as?: string; attributes?: string[]; required?: boolean }[];
     };
@@ -1531,13 +1746,50 @@ describe("GET /tickets channel filter (ListTicketsService)", () => {
     expect(where).toMatchObject({ companyId: 10 });
   });
 
-  it("keeps null (legacy) tickets in the whatsapp listing", async () => {
+  it("lists every non-email ticket (null, voice, ...) under whatsapp", async () => {
     const { where } = await list("whatsapp");
     const text = shown(where);
-    expect(text).toContain("channel: 'whatsapp'");
+    expect(text).toContain("channel: { [Symbol(ne)]: 'email' }");
     expect(text).toContain("channel: null");
-    expect(text).not.toContain("channel: 'email'");
+    expect(text).not.toContain("channel: 'whatsapp'");
   });
+
+  it("keeps equality for any other channel value", async () => {
+    const { where } = await list("voice");
+    const text = shown(where);
+    expect(text).toContain("channel: 'voice'");
+    expect(text).not.toContain("Symbol(ne)");
+  });
+
+  it("filters by whatsappId and by emailAccountId, scoped to the company", async () => {
+    const byWhatsapp = await list(undefined, { whatsappId: 4 });
+    expect(shown(byWhatsapp.where)).toContain("whatsappId: 4");
+    expect(byWhatsapp.where).toMatchObject({ companyId: 10 });
+
+    const byAccount = await list(undefined, { emailAccountId: 9 });
+    expect(shown(byAccount.where)).toContain("emailAccountId: 9");
+    expect(byAccount.where).toMatchObject({ companyId: 10 });
+  });
+
+  it("combines the connection filter with the channel", async () => {
+    const { where } = await list("email", { emailAccountId: 9 });
+    const text = shown(where);
+    expect(text).toContain("channel: 'email'");
+    expect(text).toContain("emailAccountId: 9");
+  });
+
+  it.each([[0], [-1], [1.5], [Number.NaN], ["4"]])(
+    "ignores the invalid connection id %p",
+    async value => {
+      const { where } = await list(undefined, {
+        whatsappId: value,
+        emailAccountId: value
+      });
+      const text = shown(where);
+      expect(text).not.toContain("whatsappId");
+      expect(text).not.toContain("emailAccountId");
+    }
+  );
 
   it("does not filter by channel when the parameter is absent", async () => {
     const { where } = await list();
@@ -1602,6 +1854,40 @@ describe("GET /tickets?channel=email through TicketController", () => {
     const { findAll } = await run("?status=open");
     const { where } = findAll.mock.calls[0][0] as { where: unknown };
     expect(inspect(where, { depth: 12 })).not.toContain("channel");
+  });
+
+  it("passes whatsappId and emailAccountId filters, ignoring invalid ones", async () => {
+    const { findAll } = await run(
+      "?status=open&channel=email&emailAccountId=9&whatsappId=abc"
+    );
+    const text = inspect(
+      (findAll.mock.calls[0][0] as { where: unknown }).where,
+      { depth: 12 }
+    );
+    expect(text).toContain("emailAccountId: 9");
+    expect(text).toContain("channel: 'email'");
+    expect(text).not.toContain("whatsappId");
+
+    const second = await run("?status=open&whatsappId=4&emailAccountId=-2");
+    const { calls } = second.findAll.mock;
+    const text2 = inspect(
+      (calls[calls.length - 1][0] as { where: unknown }).where,
+      { depth: 12 }
+    );
+    expect(text2).toContain("whatsappId: 4");
+    expect(text2).not.toContain("emailAccountId");
+  });
+
+  it("ignores repeated connection filters instead of failing", async () => {
+    const { response, findAll } = await run(
+      "?status=open&whatsappId=4&whatsappId=5"
+    );
+    expect(response.status).toBe(200);
+    const text = inspect(
+      (findAll.mock.calls[0][0] as { where: unknown }).where,
+      { depth: 12 }
+    );
+    expect(text).not.toContain("whatsappId");
   });
 
   it("rejects a repeated channel parameter", async () => {

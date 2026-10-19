@@ -13,6 +13,7 @@ import {
 import { revokeGmailAccount } from "./GmailAuthClient";
 import { stopGmailWatch } from "./GmailWatchService";
 import { EMAIL_PRESETS } from "./presets";
+import { assertEncryptionConfigured } from "./encryption";
 
 type Endpoint = { host: string; port: number; secure: boolean };
 
@@ -215,6 +216,25 @@ export const listEmailAccounts = async (companyId: number) => {
   return accounts.map(serializeEmailAccount);
 };
 
+// Read-only list for any logged-in user of the company (inbox "Filtrar por
+// conexão"): only what identifies the mailbox, never credentials, cursor,
+// endpoints, queue or error details.
+export const listEmailAccountOptions = async (companyId: number) => {
+  const accounts = await EmailAccount.findAll({
+    attributes: ["id", "name", "address", "preset", "provider", "status"],
+    where: { companyId, status: { [Op.ne]: "disabled" } },
+    order: [["id", "ASC"]]
+  });
+  return accounts.map(({ id, name, address, preset, provider, status }) => ({
+    id,
+    name,
+    address,
+    preset,
+    provider,
+    status
+  }));
+};
+
 export const testEmailAccount = async (body: MailboxBody): Promise<void> => {
   await testMailbox(parseMailbox(body).mailbox);
 };
@@ -247,6 +267,7 @@ export const createEmailAccount = async (
   body: CreateEmailAccountInput
 ) => {
   const { preset, mailbox } = parseMailbox(body);
+  assertEncryptionConfigured();
   const name = parseName(body.name, mailbox.address);
   const queueId = await resolveQueueId(companyId, body.queueId);
 
@@ -337,6 +358,7 @@ export const updateEmailAccount = async (
       throw new AppError("ERR_EMAIL_PROVIDER_NOT_SUPPORTED", 400);
     }
     const password = parsePassword(body.password);
+    assertEncryptionConfigured();
     const endpoints =
       account.preset === "icloud"
         ? presetEndpoints("icloud")

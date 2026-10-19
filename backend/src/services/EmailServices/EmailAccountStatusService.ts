@@ -4,6 +4,7 @@ import serializeEmailAccount from "../../helpers/SerializeEmailAccount";
 import EmailAccount from "../../models/EmailAccount";
 import { logger } from "../../utils/logger";
 import { EmailAuthError, EmailTransientError } from "./adapters/errors";
+import { ENCRYPTION_NOT_CONFIGURED } from "./encryption";
 
 export const ERROR_THRESHOLD = 3;
 export const AUTH_ERROR_CODE = "ERR_EMAIL_AUTH";
@@ -94,10 +95,15 @@ export const markAccountError = async (
     };
   } else {
     const errorCount = (account.errorCount || 0) + 1;
+    const code = errorCodeOf(err);
+    // A missing ENCRYPTION_KEY will not fix itself between rounds: show it
+    // at once (still syncable, so it recovers once the key is set).
+    const failing =
+      errorCount >= ERROR_THRESHOLD || code === ENCRYPTION_NOT_CONFIGURED;
     changes = {
       errorCount,
-      lastError: { code: errorCodeOf(err), at },
-      ...(errorCount >= ERROR_THRESHOLD ? { status: "error" as const } : {})
+      lastError: { code, at },
+      ...(failing ? { status: "error" as const } : {})
     };
   }
   const applied = await applyChanges(account, changes);

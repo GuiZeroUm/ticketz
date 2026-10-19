@@ -131,7 +131,19 @@ const UpdateContactService = async ({
 
   // Contato do canal e-mail não tem telefone: um número em branco vindo do
   // formulário não pode sobrescrever o NULL, então a chave nem entra no update.
-  const numberChange = contact.channel === "email" && !number ? {} : { number };
+  // Um contato de e-mail que ganha telefone passa a ser de WhatsApp; os
+  // vínculos de e-mail (ContactIdentities) continuam ligados a ele.
+  // Só o contato de e-mail é aparado: "   " não é telefone e não troca o canal.
+  const emailNumber =
+    contact.channel === "email" && typeof number === "string"
+      ? number.trim()
+      : "";
+  const numberChange =
+    contact.channel === "email"
+      ? emailNumber
+        ? { number: emailNumber, channel: "whatsapp" }
+        : {}
+      : { number };
 
   try {
     await contact.update(
@@ -162,6 +174,7 @@ const UpdateContactService = async ({
       "id",
       "name",
       "nameLocked",
+      "channel",
       "number",
       "email",
       "profilePicUrl",

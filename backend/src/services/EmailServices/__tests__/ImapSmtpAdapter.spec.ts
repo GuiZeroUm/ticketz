@@ -1,4 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, no-restricted-syntax */
+// Credentials are stored encrypted; a configured key is the normal case.
+process.env.ENCRYPTION_KEY =
+  process.env.ENCRYPTION_KEY || "test-encryption-key";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -1681,6 +1684,22 @@ describe("ImapSmtpAdapter.fetchChanges", () => {
     expect(fakeServer.options).toHaveLength(0);
   });
 
+  it("reports a missing ENCRYPTION_KEY as its own code, not as an auth error", async () => {
+    const savedKey = process.env.ENCRYPTION_KEY;
+    delete process.env.ENCRYPTION_KEY;
+    try {
+      const error = await adapter
+        .fetchChanges(makeAccount(null, { getCredentials: () => null }))
+        .catch(e => e);
+      expect(error).toBeInstanceOf(EmailTransientError);
+      expect(error.message).toBe("ERR_EMAIL_ENCRYPTION_NOT_CONFIGURED");
+      expect(fakeServer.options).toHaveLength(0);
+    } finally {
+      if (savedKey === undefined) delete process.env.ENCRYPTION_KEY;
+      else process.env.ENCRYPTION_KEY = savedKey;
+    }
+  });
+
   it("reports missing credentials as an auth error", async () => {
     const account = makeAccount(null, { getCredentials: () => null });
     await expect(adapter.fetchChanges(account)).rejects.toBeInstanceOf(
@@ -1720,6 +1739,16 @@ describe("ImapSmtpAdapter.send", () => {
     expect(sent[0].to).toEqual([
       { name: "Carla", address: "carla@cliente.com" }
     ]);
+  });
+
+  it("lets a DNS outage reach the send job as a transient failure", async () => {
+    resolveMock.mockRejectedValueOnce(
+      new EmailTransientError(undefined, "DNS_EAI_AGAIN")
+    );
+    await expect(
+      adapter.send(makeAccount(), outgoing())
+    ).rejects.toBeInstanceOf(EmailTransientError);
+    expect(smtpState.transports).toHaveLength(0);
   });
 
   it("uses implicit TLS on 465", async () => {
@@ -2063,6 +2092,21 @@ describe("testImapSmtp", () => {
     expect(error).toBeInstanceOf(AppError);
     expect(error.message).toBe("ERR_EMAIL_CONNECTION_FAILED");
     expect(error.statusCode).toBe(400);
+  });
+
+  it("throws ERR_EMAIL_CONNECTION_FAILED when the SMTP host cannot be resolved right now", async () => {
+    resolveMock
+      .mockImplementationOnce(async () => ({
+        address: "203.0.113.10",
+        servername: "imap.empresa.com",
+        port: 993
+      }))
+      .mockRejectedValueOnce(
+        new EmailTransientError(undefined, "DNS_EAI_AGAIN")
+      );
+    const error = await testImapSmtp(config).catch(e => e);
+    expect(error).toBeInstanceOf(AppError);
+    expect(error.message).toBe("ERR_EMAIL_CONNECTION_FAILED");
   });
 
   it("throws AppError ERR_EMAIL_CONNECTION_FAILED when the SMTP server cannot be reached", async () => {

@@ -37,6 +37,15 @@ type IndexQuery = {
   tags: string;
   users: string;
   channel?: string;
+  whatsappId?: string;
+  emailAccountId?: string;
+};
+
+// A positive integer query value, else undefined (the filter is ignored).
+const queryId = (value: unknown): number | undefined => {
+  if (typeof value !== "string" || !/^\d{1,15}$/.test(value)) return undefined;
+  const id = Number(value);
+  return Number.isSafeInteger(id) && id > 0 ? id : undefined;
 };
 
 interface TicketData {
@@ -66,7 +75,9 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
     withUnreadMessages,
     notClosed,
     all,
-    channel
+    channel,
+    whatsappId,
+    emailAccountId
   } = req.query as IndexQuery;
 
   const userId = req.user.id;
@@ -107,7 +118,9 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
     notClosed: !!notClosed,
     all: !!all,
     companyId,
-    channel
+    channel,
+    whatsappId: queryId(whatsappId),
+    emailAccountId: queryId(emailAccountId)
   });
 
   return res.status(200).json({

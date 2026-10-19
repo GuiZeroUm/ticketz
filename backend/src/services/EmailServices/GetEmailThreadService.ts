@@ -14,7 +14,8 @@ import { logger } from "../../utils/logger";
 
 // Most recent messages of one thread; older ones are not loaded.
 const THREAD_MESSAGE_LIMIT = 300;
-const FIXED_CODE = /^ERR_EMAIL_\w+$/;
+// Same set as ProcessEmailSendJob stores (incl. the Gmail API refusals).
+const FIXED_CODE = /^ERR_EMAIL_[A-Z0-9_]+$|^ERR_GMAIL_SEND_\d{3}$/;
 const GENERIC_SEND_ERROR = "ERR_EMAIL_SEND_FAILED";
 
 const noTicket = () => new AppError("ERR_NO_TICKET_FOUND", 404);

@@ -46,6 +46,9 @@ interface Request {
   companyId: number;
   // optional Ticket.channel filter ("whatsapp", "email", ...)
   channel?: string;
+  // optional connection filters; anything but a positive integer is ignored
+  whatsappId?: number;
+  emailAccountId?: number;
 }
 
 interface Response {
@@ -72,7 +75,9 @@ const ListTicketsService = async ({
   notClosed,
   all,
   companyId,
-  channel
+  channel,
+  whatsappId,
+  emailAccountId
 }: Request): Promise<Response> => {
   let ticketId: number;
 
@@ -368,10 +373,20 @@ const ListTicketsService = async ({
     }
     andedOrs.push(
       channel === "whatsapp"
-        ? // tickets created before the column existed carry no channel
-          { [Op.or]: [{ channel }, { channel: null }] }
+        ? // every ticket that is not email: legacy rows without a channel
+          // and phone-based channels (voice, ...) live under the WhatsApp chip
+          { [Op.or]: [{ channel: { [Op.ne]: "email" } }, { channel: null }] }
         : { channel }
     );
+  }
+
+  const isId = (value: unknown): value is number =>
+    typeof value === "number" && Number.isSafeInteger(value) && value > 0;
+  if (isId(whatsappId)) {
+    andedOrs.push({ whatsappId });
+  }
+  if (isId(emailAccountId)) {
+    andedOrs.push({ emailAccountId });
   }
 
   whereCondition = {

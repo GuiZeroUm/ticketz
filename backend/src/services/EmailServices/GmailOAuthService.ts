@@ -4,7 +4,7 @@ import { UniqueConstraintError } from "sequelize";
 import AppError from "../../errors/AppError";
 import serializeEmailAccount from "../../helpers/SerializeEmailAccount";
 import { GMAIL_SCOPES, GmailConfig, getGmailConfig } from "../../config/gmail";
-import { isAllowedFrontendOrigin } from "../../helpers/corsOrigin";
+import { isAllowedRedirectOrigin } from "../../helpers/corsOrigin";
 import { cacheLayer } from "../../libs/cache";
 import EmailAccount from "../../models/EmailAccount";
 import Queue from "../../models/Queue";
@@ -41,6 +41,7 @@ export {
   persistRotatedRefreshToken,
   revokeGmailAccount
 } from "./GmailAuthClient";
+import { assertEncryptionConfigured } from "./encryption";
 export type { GmailAuthClient } from "./GmailAuthClient";
 
 export const GMAIL_STATE_PREFIX = "email:oauth:state:";
@@ -69,7 +70,7 @@ const MAX_ADDRESS_LENGTH = 254;
 const MAX_NAME_LENGTH = 255;
 
 // Stored server side only (Redis), consumed once. The origin was validated by
-// isAllowedFrontendOrigin when the flow started (ruling R14).
+// isAllowedRedirectOrigin when the flow started (ruling R14).
 type StateRecord = {
   companyId: number;
   userId: number;
@@ -149,7 +150,7 @@ export const requestFrontendOrigin = (
 };
 
 const frontendOrigin = (candidate: unknown, config: GmailConfig): string =>
-  isAllowedFrontendOrigin(candidate)
+  isAllowedRedirectOrigin(candidate)
     ? (candidate as string)
     : config.frontendUrl;
 
@@ -221,6 +222,7 @@ export const StartGmailOAuthService = async ({
 }: StartGmailOAuthInput): Promise<{ url: string }> => {
   const config = getGmailConfig();
   if (!config.enabled) throw new AppError(NOT_CONFIGURED, 503);
+  assertEncryptionConfigured();
 
   const reconnect = await resolveReconnectAccount(companyId, accountId);
   const record: StateRecord = {
@@ -602,6 +604,7 @@ export const FinishGmailOAuthService = async ({
 
   const config = getGmailConfig();
   if (!config.enabled) throw new AppError(NOT_CONFIGURED, 503);
+  assertEncryptionConfigured();
 
   let result: Awaited<ReturnType<typeof connectMailbox>>;
   try {

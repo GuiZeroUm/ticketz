@@ -242,6 +242,87 @@ describe("GmailApiAdapter.fetchChanges", () => {
     expect(result.hasMore).toBe(false);
   });
 
+  describe("SENT + INBOX from the mailbox itself (ruling R35 parity with IMAP)", () => {
+    const addSelf = (
+      id: string,
+      headers: { to: string; cc?: string; replyTo?: string },
+      labelIds = ["SENT", "INBOX"]
+    ) => {
+      const raw = [
+        "From: Site <box@gmail.com>",
+        `To: ${headers.to}`,
+        ...(headers.cc ? [`Cc: ${headers.cc}`] : []),
+        ...(headers.replyTo ? [`Reply-To: ${headers.replyTo}`] : []),
+        `Subject: Formulário ${id}`,
+        `Message-ID: <${id}@site.com>`,
+        "Date: Mon, 19 Oct 2026 10:00:00 +0000",
+        "Content-Type: text/plain; charset=utf-8",
+        "",
+        `Corpo ${id}`
+      ].join("\r\n");
+      store.set(id, {
+        threadId: `t-${id}`,
+        labelIds,
+        raw: Buffer.from(raw).toString("base64url"),
+        sizeEstimate: raw.length,
+        internalDate: "1792404000000",
+        headers: []
+      });
+    };
+
+    const directions = async (ids: string[]) => {
+      api.users.history.list.mockResolvedValue({
+        data: {
+          history: ids.map((id, i) =>
+            record(600 + i, id, store.get(id)!.labelIds)
+          ),
+          historyId: "700"
+        }
+      });
+      const result = await adapter.fetchChanges(
+        makeAccount({ historyId: "599" })
+      );
+      return Object.fromEntries(
+        result.emails.map(e => [e.providerMessageId, e.direction])
+      );
+    };
+
+    it("treats a contact form sent through the account's own SMTP as inbound", async () => {
+      addSelf("form", {
+        to: "BOX@gmail.com",
+        replyTo: "Visitante <visitante@site.com>"
+      });
+      expect(await directions(["form"])).toEqual({ form: "in" });
+    });
+
+    it("keeps every other SENT message outbound", async () => {
+      // self-test without Reply-To
+      addSelf("selftest", { to: "box@gmail.com" });
+      // Reply-To is only the mailbox
+      addSelf("ownReply", { to: "box@gmail.com", replyTo: "box@gmail.com" });
+      // mailbox only in Cc
+      addSelf("ccOnly", {
+        to: "cliente@fora.com",
+        cc: "box@gmail.com",
+        replyTo: "pessoal@outro.com"
+      });
+      // contact-form shape but SENT only (no INBOX copy)
+      addSelf(
+        "sentOnly",
+        { to: "box@gmail.com", replyTo: "visitante@site.com" },
+        ["SENT"]
+      );
+      expect(
+        await directions(["selftest", "ownReply", "ccOnly", "sentOnly"])
+      ).toEqual({
+        selftest: "out",
+        ownReply: "out",
+        ccOnly: "out",
+        sentOnly: "out"
+      });
+    });
+  });
+
   it("incremental sync maps SENT label to direction out and skips DRAFT/SPAM", async () => {
     addMessage("in1");
     addMessage("out1", { labelIds: ["SENT"] });

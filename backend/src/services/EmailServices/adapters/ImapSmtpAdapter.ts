@@ -14,6 +14,7 @@ import {
   SYNC_ROUND_MAX_BYTES,
   UIDVALIDITY_RESCAN_MAX_DAYS
 } from "../limits";
+import { assertCredentialsReadable } from "../encryption";
 import { resolveSafeMailEndpoint } from "../mailEndpoint";
 import normalizeParsedMail from "../normalizeParsedMail";
 import type { NormalizedEmail, OutgoingEmail } from "../types";
@@ -114,7 +115,11 @@ const reasonOf = (error: unknown): string | undefined => {
 
 const loadMailboxConfig = (account: EmailAccount): MailboxConfig => {
   const password = account.getCredentials()?.password;
-  if (!password) throw new EmailAuthError("ERR_EMAIL_CREDENTIALS_MISSING");
+  if (!password) {
+    // unreadable because the key is missing, not because the mailbox refused
+    assertCredentialsReadable();
+    throw new EmailAuthError("ERR_EMAIL_CREDENTIALS_MISSING");
+  }
 
   const { imapHost, imapPort, imapSecure, smtpHost, smtpPort, smtpSecure } =
     account;
@@ -638,7 +643,10 @@ const syncFolder = async (
           accountId,
           direction: folder.direction,
           providerMessageId: `${folder.path}:${uidValidity}:${message.uid}`,
-          flags
+          flags,
+          ...(message.internalDate
+            ? { internalDate: new Date(message.internalDate) }
+            : {})
         });
       });
 
@@ -1004,7 +1012,13 @@ export const testImapSmtp = async (config: MailboxConfig): Promise<void> => {
   }
   await closeImap(client);
 
-  const transport = await createSmtpTransport(config);
+  let transport: Awaited<ReturnType<typeof createSmtpTransport>>;
+  try {
+    transport = await createSmtpTransport(config);
+  } catch (error) {
+    if (error instanceof EmailTransientError) throw connectionFailed();
+    throw error;
+  }
   try {
     await transport.verify();
   } catch (error) {

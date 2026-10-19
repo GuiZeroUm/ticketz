@@ -5,6 +5,7 @@ import Ticket from "../../models/Ticket";
 import { CheckNumberAndCreateContact } from "../../services/WbotServices/CheckNumber";
 import CreateTicketService from "../../services/TicketServices/CreateTicketService";
 import AppError from "../../errors/AppError";
+import { Op } from "sequelize";
 
 // Sem isto o automock dos models remove os decorators e o addModels do
 // database quebra ao carregar a cadeia de imports do serviço.
@@ -171,5 +172,24 @@ describe("AbrirConversaDoLeadService", () => {
 
     expect(resultado.ticketId).toBe(777);
     expect(resultado.ticketUuid).toBe("uuid-existente");
+  });
+  it("não leva para uma conversa de e-mail quando o ticket não pode ser criado", async () => {
+    (ProspeccaoLead.findOne as jest.Mock).mockResolvedValue(leadFalso());
+    (CreateTicketService as jest.Mock).mockRejectedValue(
+      new AppError("ERR_OTHER_OPEN_TICKET")
+    );
+    (Ticket.findOne as jest.Mock).mockResolvedValue({
+      id: 777,
+      uuid: "uuid-existente"
+    });
+
+    await AbrirConversaDoLeadService({ leadId: 5, companyId: 1, userId: 3 });
+
+    const { where } = (Ticket.findOne as jest.Mock).mock.calls[0][0];
+    expect(where).toMatchObject({ contactId: 90, companyId: 1 });
+    expect(where[Op.or]).toEqual([
+      { channel: { [Op.ne]: "email" } },
+      { channel: null }
+    ]);
   });
 });

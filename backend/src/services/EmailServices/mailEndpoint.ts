@@ -1,6 +1,7 @@
 import dns from "dns";
 import net from "net";
 import AppError from "../../errors/AppError";
+import { EmailTransientError } from "./adapters/errors";
 
 export type MailEndpointKind = "imap" | "smtp";
 
@@ -16,6 +17,8 @@ const ALLOWED_PORTS: Record<MailEndpointKind, number[]> = {
 };
 
 const HOST_NOT_ALLOWED = "ERR_EMAIL_HOST_NOT_ALLOWED";
+// dns.lookup codes meaning the name has no address (NXDOMAIN / no records).
+const DNS_NAME_MISSING = new Set(["ENOTFOUND", "ENODATA", "ENONAME"]);
 const PORT_NOT_ALLOWED = "ERR_EMAIL_PORT_NOT_ALLOWED";
 
 // Exact CIDR checks (never string prefixes) for everything that must not be
@@ -121,7 +124,18 @@ export const resolveSafeMailEndpoint = async ({
   let records: { address: string; family: number }[];
   try {
     records = await dns.promises.lookup(servername, { all: true });
-  } catch {
+  } catch (error) {
+    // Only "this name does not exist" is the user's mistake. A resolver that
+    // is down or slow (EAI_AGAIN, ETIMEOUT, ESERVFAIL...) says nothing about
+    // the host: it is retried like any other network failure.
+    const code = (error as { code?: unknown })?.code;
+    if (
+      typeof code === "string" &&
+      !DNS_NAME_MISSING.has(code) &&
+      /^[A-Z0-9_]{1,32}$/.test(code)
+    ) {
+      throw new EmailTransientError(undefined, `DNS_${code}`);
+    }
     throw hostNotAllowed();
   }
 

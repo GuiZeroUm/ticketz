@@ -25,6 +25,33 @@ const NETWORK_CODES = new Set([
   "ENOTFOUND",
   "EAI_AGAIN"
 ]);
+// Disk full, quota, file-descriptor exhaustion, permissions, I/O: the
+// attachment storage failed, not the email.
+const SYSTEM_CODES = new Set([
+  "ENOSPC",
+  "EDQUOT",
+  "EMFILE",
+  "ENFILE",
+  "EACCES",
+  "EIO"
+]);
+// PostgreSQL SQLSTATE: 08 connection exception, 53 insufficient resources,
+// 57 operator intervention (shutdown, crash), plus serialization failure and
+// deadlock (retryable by definition). 57014 (query canceled: statement
+// timeout) is left out: a message whose ingestion always times out must
+// still reach the poison skip.
+const SQLSTATE_RE = /^[0-9A-Z]{5}$/;
+const INFRA_SQLSTATE_CLASSES = new Set(["08", "53", "57"]);
+const RETRYABLE_SQLSTATES = new Set(["40001", "40P01"]);
+const COUNTED_SQLSTATES = new Set(["57014"]);
+
+const isInfraSqlState = (code: unknown): boolean =>
+  typeof code === "string" &&
+  SQLSTATE_RE.test(code) &&
+  !COUNTED_SQLSTATES.has(code) &&
+  (INFRA_SQLSTATE_CLASSES.has(code.slice(0, 2)) ||
+    RETRYABLE_SQLSTATES.has(code));
+
 const REDIS_ERROR_NAMES = new Set([
   "ReplyError",
   "MaxRetriesPerRequestError",
@@ -33,14 +60,25 @@ const REDIS_ERROR_NAMES = new Set([
 ]);
 
 // Errors that say nothing about the email itself (database or Redis down,
-// timeouts): they always stop the round and are never counted against it.
+// timeouts, disk full, deadlocks): they always stop the round and are never
+// counted against it, so the poison policy (R22) cannot skip good mail.
 export const isInfrastructureError = (err: unknown): boolean => {
   if (err instanceof ConnectionError || err instanceof TimeoutError)
     return true;
-  const { name, code } = (err || {}) as { name?: string; code?: unknown };
+  const { name, code, parent, original } = (err || {}) as {
+    name?: string;
+    code?: unknown;
+    parent?: { code?: unknown };
+    original?: { code?: unknown };
+  };
   return (
     (typeof name === "string" && REDIS_ERROR_NAMES.has(name)) ||
-    (typeof code === "string" && NETWORK_CODES.has(code))
+    (typeof code === "string" &&
+      (NETWORK_CODES.has(code) || SYSTEM_CODES.has(code))) ||
+    // Sequelize keeps the driver error (with its SQLSTATE) in parent/original
+    isInfraSqlState(code) ||
+    isInfraSqlState(parent?.code) ||
+    isInfraSqlState(original?.code)
   );
 };
 

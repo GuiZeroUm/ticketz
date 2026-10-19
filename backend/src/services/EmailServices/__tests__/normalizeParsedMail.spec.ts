@@ -22,6 +22,32 @@ const build = (over: Record<string, unknown>): ParsedMail =>
   }) as unknown as ParsedMail;
 
 describe("normalizeParsedMail", () => {
+  it("falls back to the provider internal date and exposes it", () => {
+    const internalDate = new Date("2026-10-18T08:00:00Z");
+    const noHeader = normalizeParsedMail(
+      build({ from: addr({ address: "a@x.com" }) }),
+      { ...meta, internalDate }
+    );
+    expect(noHeader.receivedAt).toEqual(internalDate);
+    expect(noHeader.providerDate).toEqual(internalDate);
+
+    const withHeader = normalizeParsedMail(
+      build({
+        from: addr({ address: "a@x.com" }),
+        date: new Date("2026-10-18T07:59:00Z")
+      }),
+      { ...meta, internalDate }
+    );
+    expect(withHeader.receivedAt).toEqual(new Date("2026-10-18T07:59:00Z"));
+    expect(withHeader.providerDate).toEqual(internalDate);
+
+    const invalid = normalizeParsedMail(
+      build({ from: addr({ address: "a@x.com" }) }),
+      { ...meta, internalDate: new Date("nope") }
+    );
+    expect(invalid).not.toHaveProperty("providerDate");
+  });
+
   it("uses text part, falls back to html-to-text when text is empty, and sanitizes html", () => {
     const withText = normalizeParsedMail(
       build({

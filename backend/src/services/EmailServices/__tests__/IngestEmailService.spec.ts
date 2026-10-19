@@ -759,6 +759,307 @@ describe("IngestEmailService", () => {
     expect(tables.Ticket[0].subject).toBe("Pedido 123");
   });
 
+  it("joins the ticket of a forward when its Gmail thread gets a reply", async () => {
+    const ticket = seedTicket({ emailThreadKey: "g:t-1", status: "open" });
+    insert("EmailMessage", {
+      companyId: 1,
+      emailAccountId: 5,
+      ticketId: ticket.id,
+      messageId: "fwd",
+      direction: "out",
+      providerMessageId: "g-fwd",
+      providerThreadId: "t-fwd",
+      internetMessageId: "<fwd@empresa.com>",
+      toAddresses: [{ address: "parceiro@z.com" }]
+    });
+
+    const result = await IngestEmailService(
+      account,
+      mail({
+        providerMessageId: "g-reply",
+        providerThreadId: "t-fwd",
+        internetMessageId: "<r1@z.com>",
+        from: { address: "parceiro@z.com" },
+        subject: "Re: Fwd: Pedido 123"
+      })
+    );
+
+    expect(result).toMatchObject({ status: "created", ticketId: ticket.id });
+    expect(tables.Ticket).toHaveLength(1);
+  });
+
+  it("does not follow a Gmail thread id seen in another email account", async () => {
+    const ticket = seedTicket({
+      emailThreadKey: "g:t-1",
+      emailAccountId: 6,
+      status: "open"
+    });
+    insert("EmailMessage", {
+      companyId: 1,
+      emailAccountId: 6,
+      ticketId: ticket.id,
+      messageId: "fwd",
+      direction: "out",
+      providerMessageId: "g-fwd",
+      providerThreadId: "t-fwd"
+    });
+
+    const result = await IngestEmailService(
+      account,
+      mail({ providerMessageId: "g-reply", providerThreadId: "t-fwd" })
+    );
+
+    expect(result.ticketId).not.toBe(ticket.id);
+    expect(tables.Ticket[1].emailThreadKey).toBe("g:t-fwd");
+  });
+
+  describe("message timestamp clamp", () => {
+    const FIXED_NOW = new Date("2026-10-19T12:00:00Z").getTime();
+    beforeEach(() => {
+      jest.spyOn(Date, "now").mockReturnValue(FIXED_NOW);
+    });
+    afterEach(() => {
+      (Date.now as jest.Mock).mockRestore();
+    });
+
+    it("keeps a Date header up to 5 minutes ahead", async () => {
+      const ahead = new Date(FIXED_NOW + 4 * 60 * 1000);
+      await IngestEmailService(account, mail({ receivedAt: ahead }));
+      expect(tables.EmailMessage[0].receivedAt).toEqual(ahead);
+      expect(tables.Message[0].createdAt).toEqual(ahead);
+    });
+
+    it("uses the provider date for a Date header far in the future", async () => {
+      const providerDate = new Date(FIXED_NOW - 60 * 1000);
+      await IngestEmailService(
+        account,
+        mail({
+          receivedAt: new Date("2030-01-01T00:00:00Z"),
+          providerDate
+        })
+      );
+      expect(tables.EmailMessage[0].receivedAt).toEqual(providerDate);
+      expect(tables.Message[0].createdAt).toEqual(providerDate);
+    });
+
+    it("uses now when there is no usable date at all", async () => {
+      await IngestEmailService(
+        account,
+        mail({
+          receivedAt: new Date("2030-01-01T00:00:00Z"),
+          providerDate: new Date("2031-01-01T00:00:00Z")
+        })
+      );
+      expect(tables.EmailMessage[0].receivedAt).toEqual(new Date(FIXED_NOW));
+
+      await IngestEmailService(
+        account,
+        mail({
+          providerMessageId: "INBOX:1:2",
+          internetMessageId: "<a2@cliente.com>",
+          receivedAt: new Date("invalid")
+        })
+      );
+      expect(tables.EmailMessage[1].receivedAt).toEqual(new Date(FIXED_NOW));
+    });
+  });
+
+  describe("mail from the mailbox's own address in the inbox (self-address)", () => {
+    const fromSelf = (overrides: Partial<NormalizedEmail> = {}) =>
+      mail({
+        providerMessageId: "INBOX:1:9",
+        internetMessageId: "<self@empresa.com>",
+        from: { address: "Suporte@Empresa.com" },
+        to: [{ address: "suporte@empresa.com" }],
+        ...overrides
+      });
+
+    it("never creates a contact or ticket for the mailbox itself", async () => {
+      const result = await IngestEmailService(account, fromSelf());
+
+      expect(result).toEqual({ status: "ignored" });
+      expect(findContact).not.toHaveBeenCalled();
+      expect(tables.Ticket).toHaveLength(0);
+      expect(tables.EmailMessage).toHaveLength(0);
+    });
+
+    it("ingests a contact-form mail (From/To = mailbox) with the Reply-To visitor as contact (R35)", async () => {
+      findContact.mockResolvedValueOnce({ id: 77, name: "Visitante" });
+
+      const result = await IngestEmailService(
+        account,
+        fromSelf({
+          replyTo: [
+            { address: "suporte@empresa.com" },
+            { address: "Visitante@Site.com", name: "Visitante" }
+          ],
+          subject: "Formulário de contato"
+        })
+      );
+
+      expect(result).toMatchObject({ status: "created" });
+      expect(findContact).toHaveBeenCalledWith({
+        companyId: 1,
+        address: "visitante@site.com",
+        name: "Visitante",
+        emailAccountId: 5
+      });
+      expect(tables.Ticket).toHaveLength(1);
+      expect(tables.Ticket[0]).toMatchObject({ contactId: 77 });
+      expect(tables.EmailMessage[0]).toMatchObject({
+        direction: "in",
+        replyToAddresses: [
+          { address: "suporte@empresa.com" },
+          { address: "Visitante@Site.com", name: "Visitante" }
+        ]
+      });
+      expect(tables.Message[0]).toMatchObject({ fromMe: false, contactId: 77 });
+    });
+
+    it("threads the visitor's next contact-form mail by subject like any inbound", async () => {
+      findContact.mockResolvedValue({ id: 77, name: "Visitante" });
+      const replyTo = [{ address: "visitante@site.com" }];
+      const first = await IngestEmailService(
+        account,
+        fromSelf({ replyTo, subject: "Orçamento" })
+      );
+      const second = await IngestEmailService(
+        account,
+        fromSelf({
+          providerMessageId: "INBOX:1:10",
+          internetMessageId: "<self2@empresa.com>",
+          replyTo,
+          subject: "Re: Orçamento"
+        })
+      );
+      expect(second.ticketId).toBe(first.ticketId);
+    });
+
+    it("ignores a self-From copy where the mailbox is only in Cc (staff writing from another client)", async () => {
+      const result = await IngestEmailService(
+        account,
+        fromSelf({
+          to: [{ address: "cliente@fora.com" }],
+          cc: [{ address: "suporte@empresa.com" }],
+          replyTo: [{ address: "pessoal@gmail.com" }]
+        })
+      );
+      expect(result).toEqual({ status: "ignored" });
+      expect(findContact).not.toHaveBeenCalled();
+      expect(tables.Ticket).toHaveLength(0);
+    });
+
+    it("ignores a self-From copy that reached the mailbox only by Bcc", async () => {
+      const result = await IngestEmailService(
+        account,
+        fromSelf({
+          to: [{ address: "cliente@fora.com" }],
+          cc: [],
+          replyTo: [{ address: "pessoal@gmail.com" }]
+        })
+      );
+      expect(result).toEqual({ status: "ignored" });
+      expect(tables.Ticket).toHaveLength(0);
+    });
+
+    it("accepts the contact-form shape with the mailbox among several To addresses", async () => {
+      findContact.mockResolvedValueOnce({ id: 78 });
+      const result = await IngestEmailService(
+        account,
+        fromSelf({
+          to: [
+            { address: "vendas@empresa.com" },
+            { address: "SUPORTE@empresa.com" }
+          ],
+          replyTo: [{ address: "visitante@site.com" }]
+        })
+      );
+      expect(result).toMatchObject({ status: "created" });
+      expect(findContact).toHaveBeenCalledWith(
+        expect.objectContaining({ address: "visitante@site.com" })
+      );
+    });
+
+    it("ignores a self-test whose Reply-To is only the mailbox itself", async () => {
+      const result = await IngestEmailService(
+        account,
+        fromSelf({ replyTo: [{ address: "SUPORTE@empresa.com" }] })
+      );
+      expect(result).toEqual({ status: "ignored" });
+      expect(findContact).not.toHaveBeenCalled();
+      expect(tables.Ticket).toHaveLength(0);
+    });
+
+    it("ignores an unusable Reply-To", async () => {
+      const result = await IngestEmailService(
+        account,
+        fromSelf({ replyTo: [{ address: "not an address" }] })
+      );
+      expect(result).toEqual({ status: "ignored" });
+      expect(tables.Ticket).toHaveLength(0);
+    });
+
+    it("does not add a message to an existing thread either", async () => {
+      const ticket = seedTicket({
+        emailThreadKey: "m:<a1@cliente.com>",
+        status: "open"
+      });
+      insert("EmailMessage", {
+        companyId: 1,
+        emailAccountId: 5,
+        ticketId: ticket.id,
+        messageId: "first",
+        direction: "in",
+        providerMessageId: "INBOX:1:1",
+        internetMessageId: "<a1@cliente.com>",
+        fromAddress: { address: "ana@cliente.com" }
+      });
+
+      const result = await IngestEmailService(
+        account,
+        fromSelf({
+          inReplyTo: "<a1@cliente.com>",
+          references: ["<a1@cliente.com>"],
+          to: [{ address: "ana@cliente.com" }],
+          cc: [{ address: "suporte@empresa.com" }]
+        })
+      );
+
+      expect(result).toEqual({ status: "ignored" });
+      expect(tables.Message).toHaveLength(0);
+    });
+
+    it("confirms one of our own sends like the Sent copy does", async () => {
+      const ticket = seedTicket({ emailThreadKey: "m:<a1@cliente.com>" });
+      insert("Message", {
+        id: "out-msg",
+        ticketId: ticket.id,
+        companyId: 1,
+        ack: 0
+      });
+      insert("EmailMessage", {
+        companyId: 1,
+        emailAccountId: 5,
+        ticketId: ticket.id,
+        messageId: "out-msg",
+        direction: "out",
+        providerMessageId: null,
+        internetMessageId: "<self@empresa.com>",
+        sendStatus: "unknown"
+      });
+
+      const result = await IngestEmailService(account, fromSelf());
+
+      expect(result).toMatchObject({
+        status: "reconciled",
+        ticketId: ticket.id
+      });
+      expect(tables.EmailMessage[0].sendStatus).toBe("sent");
+      expect(tables.Message[0].ack).toBe(1);
+      expect(findContact).not.toHaveBeenCalled();
+    });
+  });
+
   it("threads a reply by In-Reply-To/References", async () => {
     const first = await IngestEmailService(account, mail());
 
@@ -1316,6 +1617,21 @@ describe("IngestEmailService", () => {
         ticket: expect.objectContaining({ id: tables.Ticket[0].id })
       })
     );
+  });
+
+  it("reloads the ticket with its email account for the live events", async () => {
+    await IngestEmailService(account, mail());
+
+    const reload = (Message.findOne as jest.Mock).mock.calls.find(
+      ([opts]: any[]) => opts.include
+    )[0];
+    const ticketInclude = reload.include.find(
+      (item: any) => item.association === "ticket"
+    );
+    expect(ticketInclude.include).toContainEqual({
+      association: "emailAccount",
+      attributes: ["id", "name", "address", "preset"]
+    });
   });
 
   it("skips every websocket event for a non-compliant company but still imports", async () => {

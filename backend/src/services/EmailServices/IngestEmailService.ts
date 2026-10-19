@@ -23,6 +23,7 @@ import {
 import FindOrCreateEmailContactService from "./FindOrCreateEmailContactService";
 import FindOrCreateEmailTicketService from "./FindOrCreateEmailTicketService";
 import { MAX_REFERENCES, SUBJECT_FALLBACK_DAYS } from "./limits";
+import { contactFormSender } from "./selfAddress";
 import { normalizeSubject } from "./threading";
 import { EmailAddress, NormalizedEmail } from "./types";
 
@@ -95,6 +96,23 @@ const findOutboundByInternetId = (
     },
     order: [["id", "DESC"]]
   });
+
+// How far ahead of our clock a Date header may be (clock skew).
+const FUTURE_SKEW_MS = 5 * 60 * 1000;
+
+// The time the message is shown at. A Date header missing, invalid or more
+// than FUTURE_SKEW_MS in the future (it would pin the mail at the top of the
+// inbox) gives way to the provider's arrival time, else to now.
+const messageTime = (email: NormalizedEmail): Date => {
+  const now = Date.now();
+  const usable = (value: unknown): value is Date =>
+    value instanceof Date &&
+    !Number.isNaN(value.getTime()) &&
+    value.getTime() <= now + FUTURE_SKEW_MS;
+  if (usable(email.receivedAt)) return email.receivedAt;
+  if (usable(email.providerDate)) return email.providerDate;
+  return new Date(now);
+};
 
 const SAME_MESSAGE_CANDIDATES = 5;
 
@@ -389,6 +407,35 @@ const threadKeyBySubject = async (
   return match?.emailThreadKey || null;
 };
 
+// A Gmail thread that already has a message in a ticket of this account
+// under another key: our forward started it (the send gets a new threadId),
+// so a reply to the forward joins the ticket it came from, as the
+// In-Reply-To/References match does for IMAP.
+const threadKeyOfProviderThread = async (
+  account: EmailAccount,
+  providerThreadId: string
+): Promise<string | null> => {
+  const known = await EmailMessage.findOne({
+    where: {
+      companyId: account.companyId,
+      emailAccountId: account.id,
+      providerThreadId
+    },
+    attributes: ["id", "ticketId"],
+    order: [["id", "ASC"]]
+  });
+  if (!known) return null;
+  const ticket = await Ticket.findOne({
+    where: {
+      id: known.ticketId,
+      companyId: account.companyId,
+      emailAccountId: account.id
+    },
+    attributes: ["id", "emailThreadKey"]
+  });
+  return ticket?.emailThreadKey || null;
+};
+
 const resolveThreadKey = async (
   account: EmailAccount,
   email: NormalizedEmail,
@@ -396,7 +443,10 @@ const resolveThreadKey = async (
   contactId: number | null
 ): Promise<string> => {
   if (email.providerThreadId) {
-    return fitColumn(`g:${email.providerThreadId}`);
+    return (
+      (await threadKeyOfProviderThread(account, email.providerThreadId)) ||
+      fitColumn(`g:${email.providerThreadId}`)
+    );
   }
   return (
     (await threadKeyOfParent(account, email, counterpart, contactId)) ||
@@ -421,7 +471,11 @@ const loadMessageForEmit = (
           "queue",
           "tags",
           "user",
-          { association: "whatsapp", attributes: ["id", "name", "apiMode"] }
+          { association: "whatsapp", attributes: ["id", "name", "apiMode"] },
+          {
+            association: "emailAccount",
+            attributes: ["id", "name", "address", "preset"]
+          }
         ]
       }
     ]
@@ -489,6 +543,30 @@ const IngestEmailService = async (
     return ignored(account, "bounce");
   }
 
+  // 1b'. mail in the inbox from the mailbox's own address (ruling R35):
+  //  (a) a copy of one of our sends is reconciled, like the Sent copy;
+  //  (b) a contact form (From = mailbox, mailbox in To, Reply-To = visitor)
+  //      is normal inbound mail whose counterpart is the visitor
+  //      (contactFormSender);
+  //  (c) anything else (a self-test, a copy of staff mail where the mailbox
+  //      is only in Cc/Bcc) is dropped: never a contact or a ticket for the
+  //      mailbox itself, and a From header is easy to forge, so it never
+  //      joins a thread as if we had sent it.
+  const ownAddress = normalizeEmailAddress(account.address);
+  let replyToCounterpart: EmailAddress | null = null;
+  if (
+    email.direction === "in" &&
+    ownAddress &&
+    normalizeEmailAddress(email.from?.address) === ownAddress
+  ) {
+    const reconciled = email.internetMessageId
+      ? await reconcileOutbound(account, email)
+      : null;
+    if (reconciled) return reconciled;
+    replyToCounterpart = contactFormSender(email, account.address);
+    if (!replyToCounterpart) return ignored(account, "self_address");
+  }
+
   // 1c. same inbound message under another provider id (see findSameInbound)
   if (email.direction === "in") {
     const same = await findSameInbound(account, email);
@@ -513,9 +591,11 @@ const IngestEmailService = async (
 
   // 4. counterpart: sender of inbound mail, first recipient of outbound mail
   const isInbound = email.direction === "in";
-  const counterpart = normalizeEmailAddress(
-    isInbound ? email.from?.address : email.to?.[0]?.address
-  );
+  const counterpart =
+    replyToCounterpart?.address ||
+    normalizeEmailAddress(
+      isInbound ? email.from?.address : email.to?.[0]?.address
+    );
   if (!counterpart) {
     return ignored(account, "no_counterpart");
   }
@@ -527,7 +607,7 @@ const IngestEmailService = async (
       contact = await FindOrCreateEmailContactService({
         companyId,
         address: counterpart,
-        name: email.from?.name,
+        name: replyToCounterpart ? replyToCounterpart.name : email.from?.name,
         emailAccountId
       });
     } catch (err) {
@@ -559,6 +639,7 @@ const IngestEmailService = async (
 
   // 5-7. ticket, EmailMessage, attachments and Message in one transaction
   const messageId = uuidv4();
+  const receivedAt = messageTime(email);
   const fromMe = !isInbound;
   let saved: EmailAttachment[] = [];
   let outcome: {
@@ -604,7 +685,7 @@ const IngestEmailService = async (
           toAddresses: email.to || [],
           ccAddresses: email.cc || [],
           htmlSanitized: email.htmlSanitized || null,
-          receivedAt: email.receivedAt,
+          receivedAt,
           flags: email.flags || [],
           sendStatus: fromMe ? "sent" : null
         },
@@ -621,12 +702,6 @@ const IngestEmailService = async (
       // e.g. "oversize": the provider message was too big to import whole;
       // the inbox renders a hint from dataJson
       const flags = email.flags || [];
-
-      const receivedAt =
-        email.receivedAt instanceof Date &&
-        !Number.isNaN(email.receivedAt.getTime())
-          ? email.receivedAt
-          : undefined;
 
       await Message.create(
         {
@@ -647,7 +722,7 @@ const IngestEmailService = async (
             flags,
             ...(flags.includes("oversize") ? { oversize: true } : {})
           }),
-          ...(receivedAt ? { createdAt: receivedAt } : {})
+          createdAt: receivedAt
         },
         { transaction }
       );
