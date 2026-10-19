@@ -309,6 +309,90 @@ describe("email routes", () => {
     });
   });
 
+  describe("account options for the inbox filter (GET /email/accounts/options)", () => {
+    const options = (user: string) =>
+      request(app).get("/email/accounts/options").set("x-test-user", user);
+
+    beforeEach(() => {
+      accounts = [
+        makeAccount({ id: 1, companyId: 1 }),
+        makeAccount({
+          id: 2,
+          companyId: 1,
+          provider: "gmail_api",
+          preset: "gmail",
+          address: "caixa@gmail.com",
+          name: "Gmail",
+          status: "reauth_required"
+        }),
+        makeAccount({ id: 3, companyId: 1, status: "disabled" }),
+        makeAccount({ id: 4, companyId: 2, address: "outra@b.com" })
+      ];
+    });
+
+    it("answers a non-admin user without the connections screen", async () => {
+      const response = await options(asUser(1, "user", 7));
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual([
+        {
+          id: 1,
+          name: "Suporte",
+          address: "suporte@empresa.com.br",
+          preset: "custom",
+          provider: "imap_smtp",
+          status: "active"
+        },
+        {
+          id: 2,
+          name: "Gmail",
+          address: "caixa@gmail.com",
+          preset: "gmail",
+          provider: "gmail_api",
+          status: "reauth_required"
+        }
+      ]);
+      const text = JSON.stringify(response.body);
+      ["ENCRYPTED", "imap.empresa", "lastError", "queueId", "INBOX"].forEach(
+        piece => expect(text).not.toContain(piece)
+      );
+      expect(assertEmailEnabled).toHaveBeenCalledWith(1);
+    });
+
+    it("selects only the public columns", async () => {
+      const findAll = EmailAccount.findAll as unknown as jest.Mock;
+      await options(asUser(1, "user", 7));
+      const { calls } = findAll.mock;
+      const query = calls[calls.length - 1][0];
+      expect(query.attributes).toEqual([
+        "id",
+        "name",
+        "address",
+        "preset",
+        "provider",
+        "status"
+      ]);
+      expect(query.where).toMatchObject({ companyId: 1 });
+    });
+
+    it("never shows another company's accounts", async () => {
+      const response = await options(asUser(2, "user", 7));
+      expect(response.status).toBe(200);
+      expect(response.body.map((item: { id: number }) => item.id)).toEqual([4]);
+    });
+
+    it("needs a logged-in user and an enabled channel", async () => {
+      const anonymous = await request(app).get("/email/accounts/options");
+      expect(anonymous.status).toBe(401);
+
+      (assertEmailEnabled as jest.Mock).mockRejectedValue(
+        new AppError("ERR_EMAIL_CHANNEL_DISABLED", 403)
+      );
+      const disabled = await options(asUser(1, "user", 7));
+      expect(disabled.status).toBe(403);
+      expect(disabled.body).toEqual({ error: "ERR_EMAIL_CHANNEL_DISABLED" });
+    });
+  });
+
   describe("screen access", () => {
     it("lets a user with the connections screen list accounts but not change them", async () => {
       accounts = [makeAccount()];

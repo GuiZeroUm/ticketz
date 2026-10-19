@@ -8,6 +8,8 @@ const emailRoutes = Router();
 emailRoutes.get("/email/availability", isAuth, EmailController.availability);
 
 emailRoutes.get("/email/accounts", isAuth, isAdmin, EmailController.index);
+// Not admin-only: the inbox connection filter of every user.
+emailRoutes.get("/email/accounts/options", isAuth, EmailController.options);
 emailRoutes.post("/email/accounts/test", isAuth, isAdmin, EmailController.test);
 emailRoutes.post("/email/accounts", isAuth, isAdmin, EmailController.store);
 emailRoutes.put("/email/accounts/:id", isAuth, isAdmin, EmailController.update);

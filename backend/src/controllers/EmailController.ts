@@ -8,6 +8,7 @@ import {
 import {
   createEmailAccount,
   deleteEmailAccount,
+  listEmailAccountOptions,
   listEmailAccounts,
   requestEmailAccountSync,
   testEmailAccount,
@@ -55,6 +56,16 @@ export const availability = async (
 export const index = async (req: Request, res: Response): Promise<Response> => {
   await assertEmailEnabled(req.user.companyId);
   return res.status(200).json(await listEmailAccounts(req.user.companyId));
+};
+
+export const options = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  await assertEmailEnabled(req.user.companyId);
+  return res
+    .status(200)
+    .json(await listEmailAccountOptions(req.user.companyId));
 };
 
 export const test = async (req: Request, res: Response): Promise<Response> => {
