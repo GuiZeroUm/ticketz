@@ -4,7 +4,7 @@ import {
   runtimeOwnsCompany
 } from "../../helpers/tenantRuntime";
 import EmailAccount from "../../models/EmailAccount";
-import { enqueueAccountSync } from "../../queues/email";
+import { enqueueAccountSync, markSyncDirtyIfActive } from "../../queues/email";
 import { logger } from "../../utils/logger";
 import { emailEnabledForCompany } from "./EmailAccessService";
 
@@ -82,6 +82,18 @@ export const dispatchGmailPush = async (address: string): Promise<number> => {
       logger.warn(
         { companyId: account.companyId, emailAccountId: account.id },
         "Could not enqueue email sync from Gmail push"
+      );
+      continue;
+    }
+    // The add is dropped while this account's round is running (same jobId),
+    // and that round may already have read the history: flag it so the
+    // round's completion queues another one (same as IMAP IDLE).
+    try {
+      await markSyncDirtyIfActive(account.id);
+    } catch {
+      logger.warn(
+        { companyId: account.companyId, emailAccountId: account.id },
+        "Could not flag email sync from Gmail push"
       );
     }
   }
