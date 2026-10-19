@@ -46,9 +46,8 @@ import {
   connectionOptions,
   connectionParams
 } from "../../helpers/inboxConnections";
-import { canSeeScreen } from "../../helpers/screenAccess";
 import { WhatsAppsContext } from "../../context/WhatsApp/WhatsAppsContext";
-import useEmailAccounts from "../../hooks/useEmailAccounts";
+import useEmailAccountOptions from "../../hooks/useEmailAccountOptions";
 
 const useStyles = makeStyles(theme => ({
   ticketsWrapper: {
@@ -214,6 +213,7 @@ const useStyles = makeStyles(theme => ({
 
   srOnly: {
     position: "absolute",
+    whiteSpace: "nowrap",
     width: 1,
     height: 1,
     overflow: "hidden",
@@ -284,13 +284,9 @@ const TicketsManagerTabs = () => {
   const [channelFilter, setChannelFilter] = useState("all");
   const [connectionFilter, setConnectionFilter] = useState(ALL_CONNECTIONS);
   const { whatsApps } = useContext(WhatsAppsContext) || {};
-  // GET /email/accounts is limited to admins and users who can see the
-  // Connections screen; others filter by their WhatsApp connections only.
-  const canListEmailAccounts =
-    profile === "admin" || canSeeScreen(user, "connections");
-  const { accounts: emailAccounts } = useEmailAccounts(
-    emailEnabled && canListEmailAccounts
-  );
+  // Every user gets the company's email accounts from the read-only options
+  // endpoint; if it fails the select offers WhatsApp connections only.
+  const emailAccounts = useEmailAccountOptions(emailEnabled);
   // Without the email channel the lists get no channel or connection filter
   // at all, so the inbox requests and behaves exactly as before.
   const channel =
@@ -314,9 +310,7 @@ const TicketsManagerTabs = () => {
     status: countStatus,
     showAll: countStatus === "open" ? showAllTickets : undefined,
     queueIds: JSON.stringify(selectedQueueIds),
-    userQueueIds: profile === "user" ? JSON.stringify(userQueueIds) : undefined,
-    whatsappId,
-    emailAccountId
+    userQueueIds: profile === "user" ? JSON.stringify(userQueueIds) : undefined
   });
 
   useEffect(() => {
