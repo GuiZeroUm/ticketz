@@ -185,6 +185,39 @@ describe("SyncEmailAccountService", () => {
     }
   });
 
+  it("runs the adapter's afterRound hook only after the round's status write", async () => {
+    const order: string[] = [];
+    const account = makeAccount({ provider: "gmail_api" });
+    Model.findByPk.mockResolvedValue(account);
+    fetchChanges.mockResolvedValue({
+      emails: [],
+      cursor: { historyId: "2" },
+      hasMore: false
+    });
+    Model.update.mockImplementation(async () => {
+      order.push("save");
+      return [1, [{ updatedAt: new Date(2000) }]];
+    });
+    const afterRound = jest.fn(async (a: any) => {
+      order.push(`after:${a.updatedAt.getTime()}`);
+    });
+    (getAdapter as jest.Mock).mockReturnValue({ fetchChanges, afterRound });
+
+    await SyncEmailAccountService(5);
+    expect(order).toEqual(["save", "after:2000"]);
+    expect(afterRound).toHaveBeenCalledWith(account);
+
+    // also after a failed round, and its own failure is swallowed
+    order.length = 0;
+    fetchChanges.mockRejectedValue(new EmailTransientError());
+    afterRound.mockRejectedValueOnce(new Error("db down"));
+    await expect(SyncEmailAccountService(5)).resolves.toEqual({
+      ingested: 0,
+      hasMore: false
+    });
+    expect(afterRound).toHaveBeenCalledTimes(2);
+  });
+
   it("saves cursor only after all emails are ingested, in order", async () => {
     const order: string[] = [];
     Model.findByPk.mockResolvedValue(makeAccount());

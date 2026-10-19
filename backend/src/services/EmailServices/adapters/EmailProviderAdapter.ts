@@ -19,4 +19,8 @@ export interface EmailProviderAdapter {
     // (count only, never the addresses).
     rejectedCount?: number;
   }>;
+  // Optional hook the sync worker runs after a round's final status write
+  // (never during the round, ruling R23), e.g. to persist a rotated OAuth
+  // refresh token. Must not throw.
+  afterRound?(account: EmailAccount): Promise<void>;
 }

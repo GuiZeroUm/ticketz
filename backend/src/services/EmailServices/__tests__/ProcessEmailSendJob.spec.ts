@@ -359,6 +359,32 @@ describe("ProcessEmailSendJob", () => {
     expect(redis.del).toHaveBeenCalledWith(sendInflightKey(41));
   });
 
+  it("keeps the Gmail API refusal code (ERR_GMAIL_SEND_<status>) as a failure", async () => {
+    adapter.send.mockRejectedValue(
+      new EmailSendRejectedError("ERR_GMAIL_SEND_403", "403")
+    );
+    await ProcessEmailSendJob(41);
+    expect(emailUpdate()[0]).toEqual({
+      sendStatus: "failed",
+      sendError: { code: "ERR_GMAIL_SEND_403" }
+    });
+    expect(messageUpdate()[0]).toEqual({
+      ack: -1,
+      error: { code: "ERR_GMAIL_SEND_403" }
+    });
+  });
+
+  it("never stores a free-form rejection code", async () => {
+    adapter.send.mockRejectedValue(
+      new EmailSendRejectedError("ERR_GMAIL_SEND_forbidden: text", "403")
+    );
+    await ProcessEmailSendJob(41);
+    expect(emailUpdate()[0]).toEqual({
+      sendStatus: "failed",
+      sendError: { code: "ERR_EMAIL_REJECTED" }
+    });
+  });
+
   it("fails and flags the account for re-authentication on EmailAuthError", async () => {
     const fresh = account({ updatedAt: new Date() });
     Account.findByPk.mockResolvedValue(fresh);

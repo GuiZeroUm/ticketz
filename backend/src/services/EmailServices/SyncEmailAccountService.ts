@@ -2,7 +2,7 @@ import { runtimeOwnsCompany } from "../../helpers/tenantRuntime";
 import EmailAccount from "../../models/EmailAccount";
 import { logger } from "../../utils/logger";
 import { withAccountLock } from "./accountLock";
-import { getAdapter } from "./adapters";
+import { EmailProviderAdapter, getAdapter } from "./adapters";
 import { emailEnabledForCompany } from "./EmailAccessService";
 import {
   SYNCABLE_STATUSES,
@@ -57,10 +57,10 @@ const SyncEmailAccountService = async (
       return SKIPPED;
     }
 
+    let adapter: EmailProviderAdapter | undefined;
     try {
-      const { emails, cursor, hasMore } = await getAdapter(
-        account.provider
-      ).fetchChanges(account);
+      adapter = getAdapter(account.provider);
+      const { emails, cursor, hasMore } = await adapter.fetchChanges(account);
 
       let ingested = 0;
       let skippedMessage = false;
@@ -124,6 +124,12 @@ const SyncEmailAccountService = async (
     } catch (err) {
       await markAccountError(account, err);
       return SKIPPED;
+    } finally {
+      // After the round's single status write (R23): e.g. the Gmail adapter
+      // persists a refresh token Google rotated during the round.
+      if (adapter?.afterRound) {
+        await adapter.afterRound(account).catch(() => undefined);
+      }
     }
   });
 

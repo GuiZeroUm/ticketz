@@ -22,8 +22,9 @@ export class EmailTransientError extends Error {
 }
 
 // Definitive refusal: the message was not and will not be accepted.
-// `code` is one of a fixed set (ERR_EMAIL_REJECTED, ERR_EMAIL_INVALID_MESSAGE);
-// `reason` carries the numeric SMTP code or a short local tag, never server text.
+// `code` is one of a fixed set (ERR_EMAIL_REJECTED, ERR_EMAIL_INVALID_MESSAGE,
+// and for the Gmail API ERR_GMAIL_SEND_400 / ERR_GMAIL_SEND_403); `reason`
+// carries the numeric SMTP/HTTP code or a short local tag, never server text.
 export class EmailSendRejectedError extends Error {
   constructor(
     public code: string,

@@ -54,7 +54,8 @@ const INVALID_MESSAGE = "ERR_EMAIL_INVALID_MESSAGE";
 const SEND_FAILED = "ERR_EMAIL_SEND_FAILED";
 
 // Only our own fixed codes are stored; anything else becomes `fallback`.
-const FIXED_CODE_RE = /^ERR_EMAIL_[A-Z0-9_]+$/;
+// ERR_GMAIL_SEND_<status> comes from the Gmail API adapter's refusals.
+const FIXED_CODE_RE = /^ERR_EMAIL_[A-Z0-9_]+$|^ERR_GMAIL_SEND_\d{3}$/;
 const fixedCode = (value: unknown, fallback: string): string =>
   typeof value === "string" && FIXED_CODE_RE.test(value) ? value : fallback;
 

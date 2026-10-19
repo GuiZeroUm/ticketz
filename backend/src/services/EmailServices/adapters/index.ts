@@ -1,6 +1,7 @@
 import AppError from "../../../errors/AppError";
 import type { EmailProvider } from "../../../models/EmailAccount";
 import type { EmailProviderAdapter } from "./EmailProviderAdapter";
+import GmailApiAdapter from "./GmailApiAdapter";
 import ImapSmtpAdapter from "./ImapSmtpAdapter";
 
 export * from "./errors";
@@ -8,7 +9,8 @@ export type { EmailCursor, EmailProviderAdapter } from "./EmailProviderAdapter";
 export { testImapSmtp } from "./ImapSmtpAdapter";
 
 const adapters: Partial<Record<EmailProvider, EmailProviderAdapter>> = {
-  imap_smtp: new ImapSmtpAdapter()
+  imap_smtp: new ImapSmtpAdapter(),
+  gmail_api: new GmailApiAdapter()
 };
 
 // Lets later providers (Gmail API) plug in without this module importing them.

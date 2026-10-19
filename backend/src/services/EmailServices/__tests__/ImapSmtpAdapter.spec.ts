@@ -1430,7 +1430,10 @@ describe("getAdapter", () => {
   });
 
   it("refuses an unregistered provider", () => {
-    expect(() => getAdapter("gmail_api")).toThrow();
+    // gmail_api is registered since Task 15; any other value is refused
+    expect(() => getAdapter("outlook" as any)).toThrow(
+      "ERR_EMAIL_PROVIDER_NOT_SUPPORTED"
+    );
   });
 });
 
