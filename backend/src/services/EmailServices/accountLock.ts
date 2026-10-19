@@ -1,7 +1,7 @@
 import { randomBytes } from "crypto";
-import Redis from "ioredis";
-import { REDIS_URI_CONNECTION } from "../../config/redis";
+import type Redis from "ioredis";
 import { logger } from "../../utils/logger";
+import emailRedis from "./emailRedis";
 
 // Per-account mutual exclusion across processes. IngestEmailService looks a
 // thread up before its transaction, so two concurrent rounds of the same
@@ -21,9 +21,14 @@ export const RENEW_SCRIPT =
 
 export type LockClient = Pick<Redis, "set" | "eval">;
 
-let connection: Redis | undefined;
-const defaultClient = (): LockClient =>
-  connection || (connection = new Redis(REDIS_URI_CONNECTION));
+// Handed to the guarded function so it can check, right before an irreversible
+// write, that the lock was not lost (expired or taken over) during the round.
+export type LockContext = {
+  // true once a heartbeat found the lock gone
+  isLost: () => boolean;
+  // Re-verifies (and extends) the lock now; false when it is no longer ours.
+  stillHeld: () => Promise<boolean>;
+};
 
 export const accountLockKey = (accountId: number): string =>
   `email:sync-lock:${accountId}`;
@@ -32,8 +37,8 @@ export const accountLockKey = (accountId: number): string =>
 // running `fn` when another worker holds it.
 export const withAccountLock = async <T>(
   accountId: number,
-  fn: () => Promise<T>,
-  client: LockClient = defaultClient()
+  fn: (lock: LockContext) => Promise<T>,
+  client: LockClient = emailRedis()
 ): Promise<{ acquired: true; result: T } | { acquired: false }> => {
   const key = accountLockKey(accountId);
   const token = randomBytes(16).toString("hex");
@@ -41,10 +46,14 @@ export const withAccountLock = async <T>(
   const taken = await client.set(key, token, "PX", LOCK_TTL_MS, "NX");
   if (taken !== "OK") return { acquired: false };
 
+  let lost = false;
+  const renew = async (): Promise<boolean> => {
+    const renewed = await client.eval(RENEW_SCRIPT, 1, key, token, LOCK_TTL_MS);
+    if (Number(renewed) !== 1) lost = true;
+    return Number(renewed) === 1;
+  };
   const timer = setInterval(() => {
-    Promise.resolve(
-      client.eval(RENEW_SCRIPT, 1, key, token, LOCK_TTL_MS)
-    ).catch(() =>
+    renew().catch(() =>
       logger.warn(
         { emailAccountId: accountId },
         "Could not extend email sync lock"
@@ -53,8 +62,21 @@ export const withAccountLock = async <T>(
   }, LOCK_RENEW_MS);
   timer.unref?.();
 
+  const context: LockContext = {
+    isLost: () => lost,
+    stillHeld: async () => {
+      if (lost) return false;
+      try {
+        return await renew();
+      } catch {
+        // Unknown state (Redis unreachable): do not claim to hold the lock.
+        return false;
+      }
+    }
+  };
+
   try {
-    return { acquired: true, result: await fn() };
+    return { acquired: true, result: await fn(context) };
   } finally {
     clearInterval(timer);
     try {

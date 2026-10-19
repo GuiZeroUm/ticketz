@@ -22,18 +22,25 @@ export const SYNC_CONCURRENCY = 5;
 
 const BACKOFF_BASE_MS = 60 * 1000;
 const BACKOFF_MAX_MS = 15 * 60 * 1000;
+const BACKOFF_TOLERANCE_MS = 5 * 1000;
 
 export const syncJobId = (accountId: number): string => `sync-${accountId}`;
 
-// Waiting time after `errorCount` consecutive failures: 1, 2, 4, 8, 15 min cap.
+// Waiting time after `errorCount` consecutive failures: 1, 2, 4, 8 min, then
+// capped at 15 (the 5th would be 16). The tick only runs once a minute, so the
+// check below allows BACKOFF_TOLERANCE_MS of slack: without it a retry due at
+// 59.9s would wait for the following tick and double the delay.
 export const backoffMs = (errorCount: number): number =>
   errorCount <= 0
     ? 0
     : Math.min(BACKOFF_BASE_MS * 2 ** (errorCount - 1), BACKOFF_MAX_MS);
 
 // Single-flight per account, part 1: a deterministic jobId makes Bull drop an
-// add while a job with that id is waiting, delayed or active. Failed and
-// completed jobs are removed so they never pin the id. Part 2 is the Redis lock
+// add while a job with that id is waiting, delayed or active. Bull's addJob
+// script (node_modules/bull/lib/commands/addJob-6.lua) skips the add whenever
+// the job hash EXISTS, in any state, so finished jobs must not be kept:
+// removeOnComplete/removeOnFail delete them, otherwise one failed or completed
+// job would pin `sync-<id>` and block every later sync of that account. Part 2 is the Redis lock
 // inside SyncEmailAccountService, which also covers stalled-job re-runs and
 // callers outside this queue.
 export const enqueueAccountSync = async (accountId: number): Promise<void> => {
@@ -51,7 +58,7 @@ export const enqueueAccountSync = async (accountId: number): Promise<void> => {
 const inBackoff = (account: EmailAccount, now: number): boolean => {
   const at = account.lastError?.at ? Date.parse(account.lastError.at) : NaN;
   if (Number.isNaN(at)) return false;
-  return now - at < backoffMs(account.errorCount || 0);
+  return now - at < backoffMs(account.errorCount || 0) - BACKOFF_TOLERANCE_MS;
 };
 
 // Runs every minute. Extension point (Task 17): ImapIdleManager.refresh() is

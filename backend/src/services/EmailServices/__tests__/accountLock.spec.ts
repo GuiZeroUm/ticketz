@@ -131,4 +131,59 @@ describe("withAccountLock", () => {
       LOCK_TTL_MS
     ]);
   });
+
+  it("reports the lock as lost when a heartbeat finds it gone, and stillHeld says no", async () => {
+    jest.useFakeTimers();
+    const redis = fakeRedis();
+    let ctx: any;
+    const run = withAccountLock(
+      4,
+      async lock => {
+        ctx = lock;
+        expect(lock.isLost()).toBe(false);
+        expect(await lock.stillHeld()).toBe(true);
+        redis.store.delete(accountLockKey(4)); // expired / taken over
+        await new Promise<void>(resolve =>
+          setTimeout(resolve, LOCK_RENEW_MS + 1)
+        );
+        return "done";
+      },
+      redis as any
+    );
+    for (let i = 0; i < 3; i += 1) {
+      for (let tick = 0; tick < 20; tick += 1) {
+        await Promise.resolve();
+      }
+      jest.advanceTimersByTime(LOCK_RENEW_MS);
+    }
+    await run;
+    expect(ctx.isLost()).toBe(true);
+    await expect(ctx.stillHeld()).resolves.toBe(false);
+  });
+
+  it("stillHeld re-verifies the token immediately, before any heartbeat", async () => {
+    const redis = fakeRedis();
+    await withAccountLock(
+      4,
+      async lock => {
+        redis.store.set(accountLockKey(4), "new-owner");
+        expect(lock.isLost()).toBe(false);
+        expect(await lock.stillHeld()).toBe(false);
+        expect(lock.isLost()).toBe(true);
+      },
+      redis as any
+    );
+  });
+
+  it("stillHeld is false when Redis cannot be reached", async () => {
+    const redis = fakeRedis();
+    await withAccountLock(
+      4,
+      async lock => {
+        redis.eval.mockRejectedValueOnce(new Error("down"));
+        expect(await lock.stillHeld()).toBe(false);
+      },
+      redis as any
+    );
+  });
 });

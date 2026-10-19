@@ -180,15 +180,19 @@ describe("EmailSyncTick", () => {
 
   it("waits out the failure backoff before retrying an account", async () => {
     const recent = new Date(Date.now() - 30 * 1000).toISOString();
+    const almost = new Date(Date.now() - 58 * 1000).toISOString();
     const old = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     Model.findAll.mockResolvedValue([
       acct(1, 10, { errorCount: 1, lastError: { code: "X", at: recent } }),
       acct(2, 10, { errorCount: 1, lastError: { code: "X", at: old } }),
+      // due within the tick's slack: retried now instead of a minute later
+      acct(4, 10, { errorCount: 1, lastError: { code: "X", at: almost } }),
       acct(3, 10, { errorCount: 0, lastError: null })
     ]);
     await runEmailSyncTick();
     expect(queue.add.mock.calls.map((c: any[]) => c[2].jobId)).toEqual([
       "sync-2",
+      "sync-4",
       "sync-3"
     ]);
   });

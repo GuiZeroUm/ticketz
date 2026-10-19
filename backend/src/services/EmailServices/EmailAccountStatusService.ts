@@ -8,6 +8,7 @@ import { EmailAuthError, EmailTransientError } from "./adapters/errors";
 export const ERROR_THRESHOLD = 3;
 export const AUTH_ERROR_CODE = "ERR_EMAIL_AUTH";
 export const SYNC_ERROR_CODE = "ERR_EMAIL_SYNC_FAILED";
+export const MESSAGE_SKIPPED_CODE = "ERR_EMAIL_MESSAGE_SKIPPED";
 
 // A concurrent disconnect/disable/reauth must never be overwritten by a sync
 // round that started before it: status writes only land on syncable accounts.
@@ -44,23 +45,43 @@ export const emitEmailAccount = (account: EmailAccount): void => {
   }
 };
 
-// Returns false when the account left the syncable states meanwhile.
+// Every write is conditional on BOTH:
+//  - the account still being active/error (a concurrent disable/disconnect/
+//    reauth is not overwritten), and
+//  - `updatedAt` still equal to the value read when the round started. A
+//    reconnect (new credentials, reset cursor) or any other edit bumps
+//    updatedAt, so a round that began with the old credentials/cursor can
+//    neither write its stale cursor over the new one nor flag the freshly
+//    reconnected account with an auth error. The cost is that an unrelated edit
+//    mid-round also discards that round's write; ingestion is idempotent, so
+//    the next round simply redoes it. (There is no dedicated credentials
+//    version column; updatedAt is what the model has. Sequelize writes
+//    millisecond-precision timestamps from JS, so equality is exact.)
+// `account` must be the instance read at the start of the round, and a single
+// write per instance: after it succeeds the instance carries the new
+// updatedAt returned by the database.
+// Returns false when nothing was written.
 const applyChanges = async (
   account: EmailAccount,
   changes: AccountChanges
 ): Promise<boolean> => {
-  const [affected] = await EmailAccount.update(changes, {
-    where: { id: account.id, status: { [Op.in]: [...SYNCABLE_STATUSES] } }
-  });
+  const [affected, rows] = (await EmailAccount.update(changes, {
+    where: {
+      id: account.id,
+      status: { [Op.in]: [...SYNCABLE_STATUSES] },
+      updatedAt: account.updatedAt
+    },
+    returning: ["updatedAt"]
+  })) as unknown as [number, Pick<EmailAccount, "updatedAt">[]?];
   if (!affected) return false;
-  account.set({ ...changes, updatedAt: new Date() });
+  account.set({ ...changes, updatedAt: rows?.[0]?.updatedAt ?? new Date() });
   return true;
 };
 
 export const markAccountError = async (
   account: EmailAccount,
   err: unknown
-): Promise<void> => {
+): Promise<boolean> => {
   const at = new Date().toISOString();
   let changes: AccountChanges;
   if (err instanceof EmailAuthError) {
@@ -76,7 +97,8 @@ export const markAccountError = async (
       ...(errorCount >= ERROR_THRESHOLD ? { status: "error" as const } : {})
     };
   }
-  if (await applyChanges(account, changes)) {
+  const applied = await applyChanges(account, changes);
+  if (applied) {
     // Only the technical class goes to the log, never message or server text.
     logger.warn(
       {
@@ -89,20 +111,30 @@ export const markAccountError = async (
     );
     emitEmailAccount(account);
   }
+  return applied;
 };
 
 // Success after the cursor moved: clears the failure state. Emits only when
 // something the UI shows changed (status/lastError), not on every routine round.
+// `skippedMessage`: the round dropped a message that kept failing to ingest
+// (R22); the account stays active but lastError carries the fixed code (the
+// next clean round clears it).
 export const markAccountActive = async (
   account: EmailAccount,
-  extra: Pick<AccountChanges, "syncCursor" | "lastSyncAt"> = {}
-): Promise<void> => {
-  const changed = account.status !== "active" || Boolean(account.lastError);
+  extra: Pick<AccountChanges, "syncCursor" | "lastSyncAt"> = {},
+  skippedMessage = false
+): Promise<boolean> => {
+  const lastError = skippedMessage
+    ? { code: MESSAGE_SKIPPED_CODE, at: new Date().toISOString() }
+    : null;
+  const changed =
+    account.status !== "active" || Boolean(account.lastError) || skippedMessage;
   const applied = await applyChanges(account, {
     ...extra,
     status: "active",
     errorCount: 0,
-    lastError: null
+    lastError
   });
   if (applied && changed) emitEmailAccount(account);
+  return applied;
 };
