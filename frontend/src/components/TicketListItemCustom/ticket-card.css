@@ -167,3 +167,35 @@
     transition: none;
   }
 }
+.ticket-card-avatar {
+  position: relative;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+}
+.ticket-card-avatar > .MuiAvatar-root {
+  width: 40px;
+  height: 40px;
+}
+.ticket-card-channel-badge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 18px;
+  height: 18px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid var(--ew-surface);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ticket-card-subject {
+  margin-top: -4px;
+  font-size: 12.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

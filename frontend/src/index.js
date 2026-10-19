@@ -4,6 +4,9 @@ import { loadJSON } from "./helpers/loadJSON";
 import { i18n } from "./translate/i18n";
 import getCompanySlug from "./helpers/getCompanySlug";
 import { isDocumentationPath } from "./pages/Documentation/examples";
+import { captureEmailOAuthReturn } from "./helpers/emailOAuthReturn";
+
+captureEmailOAuthReturn();
 
 const BACKEND_RETRY_INTERVAL_SECONDS = 30;
 const BACKEND_PROBE_TIMEOUT_MS = 10000;

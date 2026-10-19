@@ -9,7 +9,7 @@ import {
   formatWhatsappContactNumber
 } from "../../helpers/formatWhatsappDisplay";
 import { getInitials } from "../../helpers/getInitials";
-import { corAvatar as generateColor } from "../../helpers/coresAvatar";
+import { corAvatarContato as generateColor } from "../../helpers/coresAvatar";
 
 const TicketInfo = ({ contact, ticket, onClick }) => {
   const { user } = ticket;
@@ -36,7 +36,7 @@ const TicketInfo = ({ contact, ticket, onClick }) => {
         avatar={
           <AvatarContato
             style={{
-              backgroundColor: generateColor(contact?.number),
+              backgroundColor: generateColor(contact),
               color: "white",
               fontWeight: "bold"
             }}
@@ -48,7 +48,11 @@ const TicketInfo = ({ contact, ticket, onClick }) => {
           </AvatarContato>
         }
         title={contactName}
-        subheader={formatWhatsappContactNumber(contact) || userName}
+        subheader={
+          (ticket.channel === "email" && contact?.email) ||
+          formatWhatsappContactNumber(contact) ||
+          userName
+        }
       />
     </>
   );

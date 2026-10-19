@@ -34,6 +34,7 @@ import NotificationsVolume from "../components/NotificationsVolume";
 import UserModal from "../components/UserModal";
 import AboutModal from "../components/AboutModal";
 import { AuthContext } from "../context/Auth/AuthContext";
+import useEmailOAuthReturnRedirect from "../hooks/useEmailOAuthReturnRedirect";
 import BackdropLoading from "../components/BackdropLoading";
 import { i18n } from "../translate/i18n";
 import { messages } from "../translate/languages";
@@ -340,7 +341,8 @@ const LoggedInLayout = ({ children, themeToggle }) => {
   const [aboutModalOpen, setAboutModalOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const { handleLogout, loading, user } = useContext(AuthContext);
+  const { handleLogout, loading, user, isAuth } = useContext(AuthContext);
+  useEmailOAuthReturnRedirect(Boolean(isAuth && !loading && user?.id));
   const [drawerOpen, setDrawerOpen] = useState(() => {
     const isDesktop = window.matchMedia("(min-width:600px)").matches;
 

@@ -1,0 +1,199 @@
+import { i18n } from "../translate/i18n";
+import { toast } from "react-toastify";
+import toastError from "../errors/toastError";
+
+// Mirrors MAX_OUTBOUND_ATTACHMENTS_BYTES on the backend (EmailServices/limits.ts).
+export const MAX_OUTBOUND_ATTACHMENTS_BYTES = 25 * 1024 * 1024;
+
+// Account states that cannot send: the composer shows the reconnect warning.
+export const EMAIL_ACCOUNT_BLOCKED_STATUSES = ["reauth_required", "disabled"];
+
+export const isEmailTicket = ticket => ticket?.channel === "email";
+
+// Interpolated values are names, addresses and subjects rendered by React,
+// which already escapes them; i18next escaping would show "&amp;".
+export const ti = (key, options) =>
+  i18n.t(
+    `emailChannel.inbox.${key}`,
+    options ? { ...options, interpolation: { escapeValue: false } } : undefined
+  );
+
+export const tiCount = (key, count) =>
+  ti(`${key}.${count === 1 ? "one" : "other"}`, { count });
+
+const asAddress = value => {
+  if (!value) return null;
+  if (typeof value === "string") return { address: value };
+  if (typeof value === "object" && value.address) return value;
+  return null;
+};
+
+// Thread entries carry addresses as { address, name? } objects; be lenient and
+// also accept plain strings or arrays.
+export const addressList = value =>
+  (Array.isArray(value) ? value : [value]).map(asAddress).filter(Boolean);
+
+export const firstAddress = value => addressList(value)[0] || null;
+
+export const addressLabel = value => {
+  const item = asAddress(value);
+  if (!item) return "";
+  return item.name || item.address;
+};
+
+export const joinAddresses = list =>
+  addressList(list)
+    .map(item => item.address)
+    .join(", ");
+
+const sameAddress = (a, b) =>
+  String(a || "")
+    .trim()
+    .toLowerCase() ===
+  String(b || "")
+    .trim()
+    .toLowerCase();
+
+const locale = () => {
+  const language = String(i18n.language || "pt").replace("_", "-");
+  return language === "pt" ? "pt-BR" : language;
+};
+
+const isSameDay = (a, b) =>
+  a.getFullYear() === b.getFullYear() &&
+  a.getMonth() === b.getMonth() &&
+  a.getDate() === b.getDate();
+
+// "Hoje, 17:40" / "Ontem, 09:20" / "15 out., 10:12", as in the design board.
+export const formatEmailDate = value => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  let time;
+  let day;
+  try {
+    time = date.toLocaleTimeString(locale(), {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+    day = date.toLocaleDateString(locale(), {
+      day: "numeric",
+      month: "short",
+      ...(date.getFullYear() !== new Date().getFullYear()
+        ? { year: "numeric" }
+        : {})
+    });
+  } catch (_) {
+    time = date.toTimeString().slice(0, 5);
+    day = date.toDateString();
+  }
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  if (isSameDay(date, today)) return `${ti("thread.today")}, ${time}`;
+  if (isSameDay(date, yesterday)) return `${ti("thread.yesterday")}, ${time}`;
+  return `${day}, ${time}`;
+};
+
+export const formatFileSize = bytes => {
+  const size = Number(bytes);
+  if (!Number.isFinite(size) || size < 0) return "";
+  if (size < 1024) return `${size} B`;
+  const units = ["KB", "MB", "GB"];
+  let value = size / 1024;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  const digits = value < 10 ? 1 : 0;
+  return `${value.toLocaleString(locale(), {
+    maximumFractionDigits: digits
+  })} ${units[unit]}`;
+};
+
+// Same prefixes as threading.ts on the backend (Re/Res/AW/SV, Fwd/Fw/Enc/WG).
+const REPLY_PREFIX = /^\s*(?:re|res|aw|sv)(?:\s*\[\d+\])?\s*:/i;
+const FORWARD_PREFIX = /^\s*(?:fwd|fw|enc|wg)\s*:/i;
+
+// Same rule as replySubject on the backend: add the prefix once, never stack.
+export const replySubject = (subject, mode) => {
+  const base = String(subject || "").trim();
+  const forward = mode === "forward";
+  if ((forward ? FORWARD_PREFIX : REPLY_PREFIX).test(base)) return base;
+  const prefix = ti(
+    forward ? "composer.forwardPrefix" : "composer.replyPrefix"
+  );
+  return `${prefix} ${base}`.trim();
+};
+
+const lastInbound = messages => {
+  const list = Array.isArray(messages) ? messages : [];
+  for (let i = list.length - 1; i >= 0; i -= 1) {
+    if (list[i]?.direction === "in") return list[i];
+  }
+  return list[list.length - 1] || null;
+};
+
+// Recipients shown in the composer for each mode, following the backend
+// defaults: reply → Reply-To/From of the last inbound email; reply all → that
+// plus its To/Cc without the account address and duplicates; forward → empty.
+export const defaultRecipients = (thread, mode) => {
+  if (mode === "forward") return { to: "", cc: "" };
+  const own = thread?.account?.address;
+  const last = lastInbound(thread?.messages);
+  if (!last) return { to: "", cc: "" };
+  // first Reply-To that is not the account itself, else the sender
+  const replyTo =
+    addressList(last.replyTo).find(item => !sameAddress(item.address, own)) ||
+    firstAddress(last.from);
+  const to = replyTo && !sameAddress(replyTo.address, own) ? [replyTo] : [];
+  if (mode !== "replyAll") return { to: joinAddresses(to), cc: "" };
+  const seen = new Set(to.map(item => item.address.toLowerCase()));
+  if (own) seen.add(own.toLowerCase());
+  const cc = [...addressList(last.to), ...addressList(last.cc)].filter(item => {
+    const key = item.address.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return { to: joinAddresses(to), cc: joinAddresses(cc) };
+};
+
+export const isEmailErrorCode = code =>
+  typeof code === "string" && /^ERR_(EMAIL|GMAIL)_/.test(code);
+
+// Error codes stay as keys on the API and are translated from backendErrors.
+// Unknown codes get a generic sentence: the raw key is never shown.
+export const translateEmailSendError = code => {
+  if (!code) return ti("status.failed");
+  if (i18n.exists(`backendErrors.${code}`))
+    return i18n.t(`backendErrors.${code}`);
+  return ti("errors.generic");
+};
+
+const errorCodeOf = async err => {
+  if (typeof err === "string") return err;
+  const data = err?.response?.data;
+  // Blob responses (attachment downloads) hide the JSON error body.
+  if (typeof Blob !== "undefined" && data instanceof Blob) {
+    try {
+      return JSON.parse(await data.text())?.error || null;
+    } catch (_) {
+      return null;
+    }
+  }
+  return data?.error || null;
+};
+
+// Email codes go through translateEmailSendError; anything else falls back to
+// the app-wide toastError.
+export const toastEmailApiError = async err => {
+  const code = await errorCodeOf(err);
+  if (isEmailErrorCode(code)) {
+    toast.error(translateEmailSendError(code), { toastId: code });
+    return;
+  }
+  // A code read from a Blob body is not visible to toastError itself.
+  toastError(code || err);
+};

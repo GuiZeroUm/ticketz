@@ -172,7 +172,8 @@ const TicketsListCustom = props => {
     updateCount,
     style,
     setTabOpen,
-    showTabGroups
+    showTabGroups,
+    channel
   } = props;
   const classes = useStyles();
   const [paginationCursor, setPaginationCursor] = useState({
@@ -203,7 +204,8 @@ const TicketsListCustom = props => {
     tags,
     users,
     selectedQueueIds,
-    groupMode
+    groupMode,
+    channel
   ]);
 
   const {
@@ -226,7 +228,8 @@ const TicketsListCustom = props => {
     contactId,
     tags: JSON.stringify(tags),
     users: JSON.stringify(users),
-    queueIds: JSON.stringify(selectedQueueIds)
+    queueIds: JSON.stringify(selectedQueueIds),
+    channel
   });
 
   useEffect(() => {
@@ -258,7 +261,8 @@ const TicketsListCustom = props => {
           )) &&
         (!users?.length || users.some(u => u === ticket.userId)) &&
         (!ticket.userId || ticket.userId === user?.id || showAll) &&
-        (!ticket.queueId || selectedQueueIds.indexOf(ticket.queueId) > -1)
+        (!ticket.queueId || selectedQueueIds.indexOf(ticket.queueId) > -1) &&
+        (!channel || (ticket.channel || "whatsapp") === channel)
       );
     };
 
@@ -429,7 +433,8 @@ const TicketsListCustom = props => {
     profile,
     queues,
     socketManager,
-    refetchTickets
+    refetchTickets,
+    channel
   ]);
 
   useEffect(() => {

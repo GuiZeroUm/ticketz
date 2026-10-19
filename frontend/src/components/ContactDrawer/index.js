@@ -33,7 +33,7 @@ import { CardHeader } from "@material-ui/core";
 import ContactModal from "../ContactModal";
 import ExtraInfoDialog from "./ExtraInfoDialog";
 import { TicketNotes } from "../TicketNotes";
-import { corAvatar as generateColor } from "../../helpers/coresAvatar";
+import { corAvatarContato as generateColor } from "../../helpers/coresAvatar";
 import { getInitials } from "../../helpers/getInitials";
 import { TagsContainer } from "../TagsContainer";
 import useSettings from "../../hooks/useSettings";
@@ -284,7 +284,7 @@ const ContactDrawer = ({
                         style={{
                           width: 44,
                           height: 44,
-                          backgroundColor: generateColor(contact?.number),
+                          backgroundColor: generateColor(contact),
                           color: "white",
                           fontWeight: "bold"
                         }}
@@ -471,7 +471,12 @@ const ContactDrawer = ({
                   </div>
                   <div>
                     <dt>{i18n.t("conversa.conexao")}</dt>
-                    <dd>{ticket.whatsapp?.name || "—"}</dd>
+                    <dd>
+                      {ticket.whatsapp?.name ||
+                        (ticket.channel === "email" &&
+                          ticket.emailAccount?.name) ||
+                        "—"}
+                    </dd>
                   </div>
                   <div>
                     <dt>{i18n.t("conversa.abertoEm")}</dt>

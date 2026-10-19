@@ -4,7 +4,7 @@ import { useParams, useHistory } from "react-router-dom";
 import { toast } from "react-toastify";
 import clsx from "clsx";
 
-import { Paper, makeStyles } from "@material-ui/core";
+import { Paper, makeStyles, useTheme } from "@material-ui/core";
 
 import ContactDrawer from "../ContactDrawer";
 import CompositorAtendimento from "../Conversa/CompositorAtendimento";
@@ -17,6 +17,16 @@ import TicketHeader from "../TicketHeader";
 import TicketInfo from "../TicketInfo";
 import TicketActionButtons from "../TicketActionButtonsCustom";
 import MessagesList from "../MessagesList";
+import EmailThreadView from "../EmailThreadView";
+import EmailComposer from "../EmailComposer";
+import useEmailThread from "../../hooks/useEmailThread";
+import {
+  CONNECTION_PROVIDERS,
+  ChannelIcon,
+  emailProviderKey,
+  providerColors
+} from "../../helpers/emailConnections";
+import { isEmailTicket } from "../../helpers/emailInbox";
 import api from "../../services/api";
 import { ReplyMessageProvider } from "../../context/ReplyingMessage/ReplyingMessageContext";
 import { EditMessageProvider } from "../../context/EditingMessage/EditingMessageContext";
@@ -72,6 +82,68 @@ const useStyles = makeStyles(theme => ({
     }
   }
 }));
+
+// Email tickets get the thread view and the email composer instead of the
+// chat timeline; WhatsApp tickets keep MessagesList + CompositorAtendimento.
+const EmailConversation = ({ ticket }) => {
+  const { thread, loading, error, reload } = useEmailThread(ticket.id);
+  return (
+    <>
+      <EmailThreadView
+        ticket={ticket}
+        thread={thread}
+        loading={loading}
+        error={error}
+        onRetry={reload}
+      />
+      <EmailComposer ticket={ticket} thread={thread} onSent={reload} />
+    </>
+  );
+};
+
+const EmailAccountChip = ({ account }) => {
+  const theme = useTheme();
+  const provider = CONNECTION_PROVIDERS[emailProviderKey(account)];
+  const { color } = providerColors(theme, provider);
+  return (
+    <span style={{ color, fontWeight: 600 }}>
+      <ChannelIcon name={provider.icon} size={12} strokeWidth={2} />
+      {account.name}
+      {account.address && (
+        <span style={{ color: "var(--ew-muted)", fontWeight: 400 }}>
+          · {account.address}
+        </span>
+      )}
+    </span>
+  );
+};
+
+const EmailChannelPill = ({ account }) => {
+  const theme = useTheme();
+  const provider = CONNECTION_PROVIDERS[emailProviderKey(account)];
+  const { color, tint } = providerColors(theme, provider);
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        alignSelf: "center",
+        gap: 6,
+        height: 28,
+        padding: "0 10px",
+        borderRadius: 8,
+        background: tint,
+        color,
+        fontSize: 12,
+        fontWeight: 600,
+        whiteSpace: "nowrap"
+      }}
+    >
+      <ChannelIcon name={provider.icon} size={14} strokeWidth={2} />
+      {i18n.t(`emailChannel.connections.providers.${provider.labelKey}`)}
+    </span>
+  );
+};
 
 const Ticket = () => {
   const { ticketId } = useParams();
@@ -210,6 +282,9 @@ const Ticket = () => {
   };
 
   const renderMessagesList = () => {
+    if (isEmailTicket(ticket)) {
+      return <EmailConversation key={ticket.id} ticket={ticket} />;
+    }
     return (
       <>
         <MessagesList
@@ -250,6 +325,9 @@ const Ticket = () => {
         <TicketHeader loading={loading}>
           {renderTicketInfo()}
           <div className="conversa-cabecalho-acoes">
+            {!loading && isEmailTicket(ticket) && ticket.emailAccount && (
+              <EmailChannelPill account={ticket.emailAccount} />
+            )}
             <BotaoIcone
               titulo={`${i18n.t("conversa.voltar")} (Esc)`}
               aria-keyshortcuts="Escape"
@@ -292,6 +370,9 @@ const Ticket = () => {
                 <Radio size={12} />
                 {ticket.whatsapp.name}
               </span>
+            )}
+            {isEmailTicket(ticket) && ticket.emailAccount?.name && (
+              <EmailAccountChip account={ticket.emailAccount} />
             )}
             {ticket.user?.name && <span>{ticket.user.name}</span>}
           </div>

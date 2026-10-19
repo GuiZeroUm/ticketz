@@ -125,19 +125,23 @@ const TicketActionButtonsCustom = ({
     <div className={lateral ? "conversa-acoes" : classes.actionButtons}>
       {ticket.status === "closed" && !isGroupConversation && (
         <>
-          <Tooltip title={i18n.t("ticketsManager.buttons.newTicket")}>
-            <IconButton
-              onClick={() =>
-                window.mentionClick({
-                  contactId: ticket.contactId,
-                  name: ticket.contact?.name,
-                  number: ticket.contact?.number
-                })
-              }
-            >
-              <AddBoxIcon />
-            </IconButton>
-          </Tooltip>
+          {/* WhatsApp tickets need a phone number: email-only contacts
+              cannot get one (ERR_CONTACT_HAS_NO_PHONE). */}
+          {ticket.contact?.number && (
+            <Tooltip title={i18n.t("ticketsManager.buttons.newTicket")}>
+              <IconButton
+                onClick={() =>
+                  window.mentionClick({
+                    contactId: ticket.contactId,
+                    name: ticket.contact?.name,
+                    number: ticket.contact?.number
+                  })
+                }
+              >
+                <AddBoxIcon />
+              </IconButton>
+            </Tooltip>
+          )}
           {canReopenTicket(user, ticket) && (
             <Tooltip title={i18n.t("messagesList.header.buttons.reopen")}>
               <IconButton
@@ -168,7 +172,7 @@ const TicketActionButtonsCustom = ({
             phoneContext &&
             phoneContext.currentCall &&
             phoneContext.currentCall.contact.id === ticket.contact.id &&
-            phoneContext.currentCall.whatsapp.id === ticket.whatsapp.id && (
+            phoneContext.currentCall.whatsapp?.id === ticket.whatsapp?.id && (
               <Tooltip title={i18n.t("messagesList.header.buttons.endCall")}>
                 <IconButton onClick={phoneContext.disconnect}>
                   <CallEnd />
@@ -274,7 +278,7 @@ const TicketActionButtonsCustom = ({
                   >
                     <History size={18} />
                   </BotaoIcone>
-                  {!ticket.isGroup && (
+                  {!ticket.isGroup && ticket.contact?.number && (
                     <BotaoIcone
                       titulo={i18n.t("ticketOptionsMenu.schedule")}
                       onClick={acoes.agendar}

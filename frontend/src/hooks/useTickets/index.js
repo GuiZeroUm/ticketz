@@ -20,7 +20,8 @@ const useTickets = ({
   queueIds,
   withUnreadMessages,
   notClosed,
-  all
+  all,
+  channel
 }) => {
   const [loading, setLoading] = useState(true);
   const [tickets, setTickets] = useState([]);
@@ -50,7 +51,8 @@ const useTickets = ({
               queueIds,
               withUnreadMessages,
               notClosed,
-              all
+              all,
+              channel
             }
           });
           setTickets(groups ? data.groups : data.tickets);
@@ -81,6 +83,7 @@ const useTickets = ({
     isSearch,
     notClosed,
     all,
+    channel,
     refreshTrigger
   ]);
 
@@ -108,6 +111,7 @@ const useTickets = ({
           withUnreadMessages,
           notClosed,
           all,
+          channel,
           minUpdatedAt
         }
       });
@@ -128,7 +132,8 @@ const useTickets = ({
       queueIds,
       withUnreadMessages,
       notClosed,
-      all
+      all,
+      channel
     ]
   );
 

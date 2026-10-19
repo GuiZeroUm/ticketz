@@ -108,7 +108,7 @@ const TicketOptionsMenu = ({
             {i18n.t("whatsappGroups.configure")}
           </MenuItem>
         )}
-        {!ticket.isGroup && (
+        {!ticket.isGroup && ticket.contact?.number && (
           <MenuItem onClick={handleOpenScheduleModal}>
             {i18n.t("ticketOptionsMenu.schedule")}
           </MenuItem>

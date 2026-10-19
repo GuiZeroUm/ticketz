@@ -7,6 +7,10 @@ const cores = [
   "#646c85"
 ];
 
+export function corAvatarContato(contact) {
+  return corAvatar(contact?.number || contact?.email || contact?.name);
+}
+
 export function corAvatar(identificador) {
   const codigo = Array.from(String(identificador || "")).reduce(
     (total, letra) => (total * 31 + letra.charCodeAt(0)) >>> 0,
