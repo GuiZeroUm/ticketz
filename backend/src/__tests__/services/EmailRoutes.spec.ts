@@ -1627,7 +1627,10 @@ describe("email routes", () => {
 });
 
 describe("GET /tickets channel filter (ListTicketsService)", () => {
-  const list = async (channel?: string) => {
+  const list = async (
+    channel?: string,
+    extra: Record<string, unknown> = {}
+  ) => {
     (ShowUserService as jest.Mock).mockResolvedValue({
       id: 3,
       profile: "admin"
@@ -1640,9 +1643,11 @@ describe("GET /tickets channel filter (ListTicketsService)", () => {
       queueIds: [],
       tags: [],
       users: [],
-      channel
+      channel,
+      ...extra
     });
-    return findAll.mock.calls[0][0] as {
+    const { calls } = findAll.mock;
+    return calls[calls.length - 1][0] as {
       where: Record<string | symbol, unknown>;
       include: { as?: string; attributes?: string[]; required?: boolean }[];
     };
@@ -1657,13 +1662,50 @@ describe("GET /tickets channel filter (ListTicketsService)", () => {
     expect(where).toMatchObject({ companyId: 10 });
   });
 
-  it("keeps null (legacy) tickets in the whatsapp listing", async () => {
+  it("lists every non-email ticket (null, voice, ...) under whatsapp", async () => {
     const { where } = await list("whatsapp");
     const text = shown(where);
-    expect(text).toContain("channel: 'whatsapp'");
+    expect(text).toContain("channel: { [Symbol(ne)]: 'email' }");
     expect(text).toContain("channel: null");
-    expect(text).not.toContain("channel: 'email'");
+    expect(text).not.toContain("channel: 'whatsapp'");
   });
+
+  it("keeps equality for any other channel value", async () => {
+    const { where } = await list("voice");
+    const text = shown(where);
+    expect(text).toContain("channel: 'voice'");
+    expect(text).not.toContain("Symbol(ne)");
+  });
+
+  it("filters by whatsappId and by emailAccountId, scoped to the company", async () => {
+    const byWhatsapp = await list(undefined, { whatsappId: 4 });
+    expect(shown(byWhatsapp.where)).toContain("whatsappId: 4");
+    expect(byWhatsapp.where).toMatchObject({ companyId: 10 });
+
+    const byAccount = await list(undefined, { emailAccountId: 9 });
+    expect(shown(byAccount.where)).toContain("emailAccountId: 9");
+    expect(byAccount.where).toMatchObject({ companyId: 10 });
+  });
+
+  it("combines the connection filter with the channel", async () => {
+    const { where } = await list("email", { emailAccountId: 9 });
+    const text = shown(where);
+    expect(text).toContain("channel: 'email'");
+    expect(text).toContain("emailAccountId: 9");
+  });
+
+  it.each([[0], [-1], [1.5], [Number.NaN], ["4"]])(
+    "ignores the invalid connection id %p",
+    async value => {
+      const { where } = await list(undefined, {
+        whatsappId: value,
+        emailAccountId: value
+      });
+      const text = shown(where);
+      expect(text).not.toContain("whatsappId");
+      expect(text).not.toContain("emailAccountId");
+    }
+  );
 
   it("does not filter by channel when the parameter is absent", async () => {
     const { where } = await list();
@@ -1728,6 +1770,40 @@ describe("GET /tickets?channel=email through TicketController", () => {
     const { findAll } = await run("?status=open");
     const { where } = findAll.mock.calls[0][0] as { where: unknown };
     expect(inspect(where, { depth: 12 })).not.toContain("channel");
+  });
+
+  it("passes whatsappId and emailAccountId filters, ignoring invalid ones", async () => {
+    const { findAll } = await run(
+      "?status=open&channel=email&emailAccountId=9&whatsappId=abc"
+    );
+    const text = inspect(
+      (findAll.mock.calls[0][0] as { where: unknown }).where,
+      { depth: 12 }
+    );
+    expect(text).toContain("emailAccountId: 9");
+    expect(text).toContain("channel: 'email'");
+    expect(text).not.toContain("whatsappId");
+
+    const second = await run("?status=open&whatsappId=4&emailAccountId=-2");
+    const { calls } = second.findAll.mock;
+    const text2 = inspect(
+      (calls[calls.length - 1][0] as { where: unknown }).where,
+      { depth: 12 }
+    );
+    expect(text2).toContain("whatsappId: 4");
+    expect(text2).not.toContain("emailAccountId");
+  });
+
+  it("ignores repeated connection filters instead of failing", async () => {
+    const { response, findAll } = await run(
+      "?status=open&whatsappId=4&whatsappId=5"
+    );
+    expect(response.status).toBe(200);
+    const text = inspect(
+      (findAll.mock.calls[0][0] as { where: unknown }).where,
+      { depth: 12 }
+    );
+    expect(text).not.toContain("whatsappId");
   });
 
   it("rejects a repeated channel parameter", async () => {
