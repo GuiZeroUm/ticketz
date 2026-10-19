@@ -17,7 +17,12 @@ export const CHANNEL_ICON_PATHS = {
   unplug:
     "M18 6 6 18 M7 7l-2 2a4 4 0 0 0 0 5.7l.3.3 M17 17l2-2a4 4 0 0 0 0-5.7l-.3-.3",
   retry: "M21 12a9 9 0 1 1-2.6-6.4L21 8 M21 3v5h-5",
-  info: "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M12 8h.01 M11 12h1v4h1"
+  info: "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M12 8h.01 M11 12h1v4h1",
+  on: "M2 20h.01M7 20v-4M12 20v-8M17 20V8M22 4v16",
+  off: "M2 20h.01M7 20v-4 M14 9l6 6M20 9l-6 6",
+  warn: "M12 3 2 20h20z M12 10v4 M12 17h.01",
+  clock: "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M12 7v5l3 2",
+  error: "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M15 9l-6 6 M9 9l6 6"
 };
 
 // Provider colors from the design board. `labelKey` is under

@@ -33,10 +33,7 @@ import {
   Lock,
   Refresh,
   Replay,
-  SettingsBackupRestore,
-  HourglassEmpty,
-  ReportProblemOutlined,
-  ErrorOutline
+  SettingsBackupRestore
 } from "@material-ui/icons";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -533,6 +530,7 @@ const Connections = () => {
     setConfirmModalOpen(true);
   };
 
+  // Status labels, colors and icons follow the design board's status map.
   const emailStatusInfo = account => {
     const isGmail = emailProviderKey(account) === "gmail";
     switch (account.status) {
@@ -540,33 +538,29 @@ const Connections = () => {
         return {
           key: "active",
           color: theme.isStardew ? theme.stardew.green : "#16A34A",
-          Icon: SignalCellular4Bar
+          icon: "on"
         };
       case "connecting":
         return {
           key: "connecting",
           color: theme.palette.text.secondary,
-          Icon: HourglassEmpty
+          icon: "clock"
         };
       case "reauth_required":
         return {
           key: isGmail ? "authExpired" : "invalidPassword",
           color: "#B45309",
-          Icon: ReportProblemOutlined
+          icon: "warn"
         };
       case "disabled":
-        return {
-          key: "disabled",
-          color: "#DC2626",
-          Icon: SignalCellularConnectedNoInternet0Bar
-        };
+        return { key: "disabled", color: "#DC2626", icon: "off" };
       default:
-        return { key: "error", color: "#DC2626", Icon: ErrorOutline };
+        return { key: "error", color: "#DC2626", icon: "error" };
     }
   };
 
   const renderEmailStatus = account => {
-    const { key, color, Icon } = emailStatusInfo(account);
+    const { key, color, icon } = emailStatusInfo(account);
     const description =
       (key === "error" && translateEmailError(account.lastError?.code)) ||
       te(`status.${key}.title`);
@@ -574,7 +568,7 @@ const Connections = () => {
       <div className={classes.customTableCell}>
         <CustomToolTip title={te(`status.${key}.label`)} content={description}>
           <span className={classes.emailStatus} style={{ color }}>
-            <Icon fontSize="small" />
+            <ChannelIcon name={icon} strokeWidth={1.8} />
             {te(`status.${key}.label`)}
           </span>
         </CustomToolTip>
@@ -959,15 +953,24 @@ const Connections = () => {
         <Table size="small">
           <TableHead>
             <TableRow>
-              {emailEnabled && (
-                <TableCell align="center">{te("table.channel")}</TableCell>
+              {emailEnabled ? (
+                <>
+                  <TableCell align="center">{te("table.channel")}</TableCell>
+                  <TableCell align="center">
+                    {i18n.t("connections.table.name")}
+                  </TableCell>
+                  <TableCell align="center">{te("table.account")}</TableCell>
+                </>
+              ) : (
+                <>
+                  <TableCell align="center">
+                    {i18n.t("connections.table.contact")}
+                  </TableCell>
+                  <TableCell align="center">
+                    {i18n.t("connections.table.name")}
+                  </TableCell>
+                </>
               )}
-              <TableCell align="center">
-                {i18n.t("connections.table.contact")}
-              </TableCell>
-              <TableCell align="center">
-                {i18n.t("connections.table.name")}
-              </TableCell>
               <TableCell align="center">
                 {i18n.t("connections.table.status")}
               </TableCell>
@@ -978,7 +981,9 @@ const Connections = () => {
                 {i18n.t("connections.table.lastUpdate")}
               </TableCell>
               <TableCell align="center">
-                {i18n.t("connections.table.default")}
+                {emailEnabled
+                  ? te("table.default")
+                  : i18n.t("connections.table.default")}
               </TableCell>
               <TableCell align="center">
                 {i18n.t("connections.table.actions")}
@@ -994,19 +999,35 @@ const Connections = () => {
                   whatsApps?.length > 0 &&
                   whatsApps.map(whatsApp => (
                     <TableRow key={whatsApp.id}>
-                      {emailEnabled && (
-                        <TableCell align="center">
-                          <ChannelChip
-                            providerKey={
-                              whatsApp.apiMode === "official" ? "waapi" : "wa"
-                            }
-                          />
-                        </TableCell>
+                      {emailEnabled ? (
+                        <>
+                          <TableCell align="center">
+                            <ChannelChip
+                              providerKey={
+                                whatsApp.apiMode === "official" ? "waapi" : "wa"
+                              }
+                            />
+                          </TableCell>
+                          <TableCell align="center">
+                            <div>{whatsApp.name}</div>
+                            {whatsApp.apiMode === "official" && (
+                              <div className={classes.rowNote}>
+                                {te("note.metaCloudApi")}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell align="center">
+                            {formatWhatsappDigits(whatsApp.number) || "—"}
+                          </TableCell>
+                        </>
+                      ) : (
+                        <>
+                          <TableCell align="center">
+                            {formatWhatsappDigits(whatsApp.number) || "—"}
+                          </TableCell>
+                          <TableCell align="center">{whatsApp.name}</TableCell>
+                        </>
                       )}
-                      <TableCell align="center">
-                        {formatWhatsappDigits(whatsApp.number) || "—"}
-                      </TableCell>
-                      <TableCell align="center">{whatsApp.name}</TableCell>
                       <TableCell align="center">
                         {renderStatusToolTips(whatsApp)}
                       </TableCell>
@@ -1094,9 +1115,6 @@ const Connections = () => {
                         <ChannelChip providerKey={emailProviderKey(account)} />
                       </TableCell>
                       <TableCell align="center">
-                        {account.address || "—"}
-                      </TableCell>
-                      <TableCell align="center">
                         <div>{account.name}</div>
                         {emailProviderKey(account) === "custom" &&
                           account.imapHost && (
@@ -1104,6 +1122,9 @@ const Connections = () => {
                               {te("note.imap", { host: account.imapHost })}
                             </div>
                           )}
+                      </TableCell>
+                      <TableCell align="center">
+                        {account.address || "—"}
                       </TableCell>
                       <TableCell align="center">
                         {renderEmailStatus(account)}

@@ -15,46 +15,42 @@ const upsertAccount = (list, account) => {
  * Email accounts of the current company, kept live through the
  * `company-${companyId}-emailAccount` socket event (admin room).
  *
- * @param {boolean} enabled - when false nothing is fetched (email channel
- *   disabled for the company) and the list stays empty.
+ * @param {boolean} [enabled=true] - pass `useEmailAvailability().enabled`;
+ *   when false nothing is fetched or subscribed (the email routes answer
+ *   ERR_EMAIL_CHANNEL_DISABLED) and the list stays empty.
  * @returns {{ accounts: object[], loading: boolean, reload: function }}
  */
 const useEmailAccounts = (enabled = true) => {
   const { user } = useContext(AuthContext) || {};
   const socketManager = useContext(SocketContext);
   const companyId = user?.companyId ?? user?.company?.id ?? null;
-  const [accounts, setAccounts] = useState([]);
-  const [loading, setLoading] = useState(Boolean(enabled));
-  const requestRef = useRef(0);
-  const loadedRef = useRef(false);
+  // Identifies what the list belongs to; null while nothing should load.
+  const sourceKey = enabled && companyId ? String(companyId) : null;
 
-  // Only the first load of a company shows the loading state; later reloads
-  // (after a save or disconnect) refresh the list in place.
+  const [accounts, setAccounts] = useState([]);
+  const [loadedKey, setLoadedKey] = useState(null);
+  const requestRef = useRef(0);
+
+  // The loading state only covers the first load for a company; later
+  // reloads (after a save, a disconnect or a socket reconnect) refresh the
+  // list in place.
   const reload = useCallback(async () => {
     const requestId = ++requestRef.current;
-    if (!enabled || !companyId) {
-      setAccounts([]);
-      setLoading(false);
-      return;
-    }
-    if (!loadedRef.current) setLoading(true);
+    if (!sourceKey) return;
     try {
       const { data } = await api.get("/email/accounts");
-      if (requestId === requestRef.current) {
+      if (requestId === requestRef.current)
         setAccounts(Array.isArray(data) ? data : []);
-        loadedRef.current = true;
-      }
     } catch (_) {
-      if (requestId === requestRef.current && !loadedRef.current)
-        setAccounts([]);
+      // keep whatever is on screen; the page still works without the list
     } finally {
-      if (requestId === requestRef.current) setLoading(false);
+      if (requestId === requestRef.current) setLoadedKey(sourceKey);
     }
-  }, [enabled, companyId]);
+  }, [sourceKey]);
 
   useEffect(() => {
-    loadedRef.current = false;
     setAccounts([]);
+    setLoadedKey(null);
     reload();
     return () => {
       // drop any in-flight response from a previous company / toggle state
@@ -63,7 +59,7 @@ const useEmailAccounts = (enabled = true) => {
   }, [reload]);
 
   useEffect(() => {
-    if (!enabled || !companyId || !socketManager?.GetSocket) return undefined;
+    if (!sourceKey || !socketManager?.GetSocket) return undefined;
     const socket = socketManager.GetSocket(companyId);
 
     const onEmailAccount = data => {
@@ -81,13 +77,22 @@ const useEmailAccounts = (enabled = true) => {
       }
     };
 
+    const onRefreshRequired = refreshRequired => {
+      if (refreshRequired) reload();
+    };
+
     socket.on(`company-${companyId}-emailAccount`, onEmailAccount);
+    socket.on("wsRefreshRequired", onRefreshRequired);
     return () => {
       socket.disconnect();
     };
-  }, [enabled, companyId, socketManager]);
+  }, [sourceKey, companyId, socketManager, reload]);
 
-  return { accounts: enabled ? accounts : [], loading, reload };
+  return {
+    accounts: sourceKey ? accounts : [],
+    loading: Boolean(sourceKey) && loadedKey !== sourceKey,
+    reload
+  };
 };
 
 export default useEmailAccounts;

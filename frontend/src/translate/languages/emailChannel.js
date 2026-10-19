@@ -6,7 +6,9 @@ const ptConnections = {
     email: "E-mail"
   },
   table: {
-    channel: "Canal"
+    channel: "Canal",
+    account: "Conta",
+    default: "Padrão do canal"
   },
   providers: {
     whatsapp: "WhatsApp",
@@ -37,7 +39,8 @@ const ptConnections = {
     }
   },
   note: {
-    imap: "IMAP/SMTP · {{host}}"
+    imap: "IMAP/SMTP · {{host}}",
+    metaCloudApi: "Meta Cloud API"
   },
   actions: {
     add: "Adicionar conexão",
@@ -182,7 +185,9 @@ const enConnections = {
     email: "Email"
   },
   table: {
-    channel: "Channel"
+    channel: "Channel",
+    account: "Account",
+    default: "Channel default"
   },
   providers: {
     whatsapp: "WhatsApp",
@@ -213,7 +218,8 @@ const enConnections = {
     }
   },
   note: {
-    imap: "IMAP/SMTP · {{host}}"
+    imap: "IMAP/SMTP · {{host}}",
+    metaCloudApi: "Meta Cloud API"
   },
   actions: {
     add: "Add connection",
