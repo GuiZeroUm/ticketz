@@ -125,6 +125,7 @@ const NewTicketModal = ({ modalOpen, onClose, contact }) => {
               ) : (
                 <ContactSelect
                   onSelected={handleSelectedContact}
+                  requirePhone
                   allowCreate={true}
                   onCreateContact={handleCreateContact}
                 />

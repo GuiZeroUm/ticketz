@@ -138,16 +138,19 @@ export default function TabelaContatos({
           <MenuAcoes
             rotulo={i18n.t("visual.acoesContato", { nome: contato.name })}
             itens={[
-              !contato.isGroup && {
-                rotulo: i18n.t("redesign.abrirAtendimento"),
-                icone: MessageCircle,
-                aoSelecionar: () =>
-                  window.mentionClick({
-                    contactId: contato.id,
-                    name: contato.name,
-                    number: contato.number
-                  })
-              },
+              // Email-only contacts have no phone and cannot get a
+              // WhatsApp ticket (ERR_CONTACT_HAS_NO_PHONE).
+              !contato.isGroup &&
+                contato.number && {
+                  rotulo: i18n.t("redesign.abrirAtendimento"),
+                  icone: MessageCircle,
+                  aoSelecionar: () =>
+                    window.mentionClick({
+                      contactId: contato.id,
+                      name: contato.name,
+                      number: contato.number
+                    })
+                },
               {
                 rotulo: i18n.t("visual.editar"),
                 icone: Pencil,

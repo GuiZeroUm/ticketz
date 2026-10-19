@@ -274,6 +274,12 @@ const ScheduleModal = ({
     if (values.audienceMode === "SELECTED" && !selectedContacts.length) {
       return i18n.t("scheduleModal.validation.selectContact");
     }
+    if (
+      values.audienceMode === "SELECTED" &&
+      selectedContacts.some(contact => !contact.number)
+    ) {
+      return i18n.t("backendErrors.ERR_CONTACT_HAS_NO_PHONE");
+    }
     if (values.kind === "ONCE" && !values.sendDate)
       return i18n.t("scheduleModal.validation.dateRequired");
     const time = values.kind === "ONCE" ? values.sendClock : values.sendTime;
@@ -403,7 +409,16 @@ const ScheduleModal = ({
                   value={selectedContacts}
                   onInputChange={(_event, value) => setContactSearch(value)}
                   onChange={(_event, value) => setSelectedContacts(value)}
-                  getOptionLabel={option => `${option.name} · ${option.number}`}
+                  getOptionLabel={option =>
+                    option.number
+                      ? `${option.name} · ${option.number}`
+                      : `${option.name} · ${i18n.t(
+                          "emailChannel.inbox.contacts.noPhone"
+                        )}`
+                  }
+                  // Schedules are delivered over WhatsApp: email-only
+                  // contacts (no phone) cannot be recipients.
+                  getOptionDisabled={option => !option.number}
                   getOptionSelected={(option, value) => option.id === value.id}
                   renderInput={params => (
                     <TextField

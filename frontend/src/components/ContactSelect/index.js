@@ -15,7 +15,8 @@ export function ContactSelect({
   allowCreate = false,
   onCreateContact,
   excludeId,
-  margin
+  margin,
+  requirePhone = false
 }) {
   const [contacts, setContacts] = useState([]);
   const [searchParam, setSearchParam] = useState("");
@@ -78,10 +79,17 @@ export function ContactSelect({
       onChange={handleChange}
       filterOptions={filterOptions}
       noOptionsText=""
-      getOptionLabel={option =>
-        option.inputValue
-          ? option.name
-          : `${option.name}${option.number ? ` - ${option.number}` : ""}`
+      getOptionLabel={option => {
+        if (option.inputValue) return option.name;
+        if (option.number) return `${option.name} - ${option.number}`;
+        return requirePhone
+          ? `${option.name} (${i18n.t("emailChannel.inbox.contacts.noPhone")})`
+          : option.name;
+      }}
+      // Email-only contacts cannot get a WhatsApp ticket
+      // (ERR_CONTACT_HAS_NO_PHONE): list them, but not selectable.
+      getOptionDisabled={option =>
+        requirePhone && !option.inputValue && !option.number
       }
       renderTags={(value, getTagProps) =>
         value
