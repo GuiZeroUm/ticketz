@@ -24,6 +24,15 @@ emailRoutes.post(
   EmailController.sync
 );
 
+emailRoutes.post(
+  "/email/oauth/google/start",
+  isAuth,
+  isAdmin,
+  EmailController.googleStart
+);
+// No isAuth: the browser comes back from Google; the state identifies the flow.
+emailRoutes.get("/email/oauth/google/callback", EmailController.googleCallback);
+
 emailRoutes.get(
   "/email/tickets/:ticketId/thread",
   isAuth,

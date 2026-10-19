@@ -16,6 +16,12 @@ import {
   openAttachment,
   safeInlineContentType
 } from "../services/EmailServices/EmailAttachmentStorage";
+import {
+  CompleteGmailOAuthService,
+  StartGmailOAuthService,
+  gmailFallbackRedirect,
+  requestFrontendOrigin
+} from "../services/EmailServices/GmailOAuthService";
 import GetEmailThreadService, {
   assertAttachmentVisible
 } from "../services/EmailServices/GetEmailThreadService";
@@ -130,4 +136,43 @@ export const attachment = async (
     res.destroy();
   });
   stream.pipe(res);
+};
+
+export const googleStart = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { companyId, id: userId } = req.user;
+  await assertEmailEnabled(companyId);
+  const { name, queueId } = body(req);
+  const { url } = await StartGmailOAuthService({
+    companyId,
+    userId: Number(userId),
+    name,
+    queueId,
+    origin: requestFrontendOrigin(req.get("origin"), req.get("referer"))
+  });
+  res.setHeader("Cache-Control", "no-store");
+  return res.status(200).json({ url });
+};
+
+// Unauthenticated: Google redirects the browser here. The company and user
+// come only from the server side state; the answer is always a redirect.
+export const googleCallback = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  let redirectTo: string;
+  try {
+    ({ redirectTo } = await CompleteGmailOAuthService({
+      code: req.query.code,
+      state: req.query.state,
+      error: req.query.error
+    }));
+  } catch {
+    redirectTo = gmailFallbackRedirect();
+  }
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.redirect(302, redirectTo);
 };

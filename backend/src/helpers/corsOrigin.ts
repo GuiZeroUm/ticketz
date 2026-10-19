@@ -1,3 +1,56 @@
+// Canonical form of a configured URL ("https://app.com/" -> "https://app.com").
+const configuredOrigin = (value: string | undefined): string | null => {
+  if (!value || !value.trim()) return null;
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === "https:" || url.protocol === "http:"
+      ? url.origin
+      : null;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * The single source of truth for "is this one of our frontends": FRONTEND_URL,
+ * any FRONTEND_CUSTOM_URL entry, or a FRONTEND_URL_REGEX match. Used by CORS
+ * and by redirects back to the frontend (Gmail OAuth callback), so it only
+ * accepts an exact, canonical http(s) origin: no path, query, fragment,
+ * userinfo or trailing slash. That also keeps a loose regex from being
+ * satisfied by "https://evil.com/.example.com" or "https://x.example.com@evil.com".
+ * Reads the environment on every call.
+ */
+export const isAllowedFrontendOrigin = (origin: unknown): boolean => {
+  if (typeof origin !== "string" || !origin) return false;
+  let url: URL;
+  try {
+    url = new URL(origin);
+  } catch {
+    return false;
+  }
+  if (
+    (url.protocol !== "https:" && url.protocol !== "http:") ||
+    url.origin !== origin
+  ) {
+    return false;
+  }
+
+  const allowed = [
+    process.env.FRONTEND_URL,
+    ...(process.env.FRONTEND_CUSTOM_URL || "").split(",")
+  ].map(configuredOrigin);
+  if (allowed.includes(origin)) return true;
+
+  if (process.env.FRONTEND_URL_REGEX) {
+    try {
+      return new RegExp(process.env.FRONTEND_URL_REGEX).test(origin);
+    } catch {
+      return false;
+    }
+  }
+  return false;
+};
+
 /**
  * Determines allowed CORS origins based on environment variables.
  *
@@ -18,21 +71,7 @@
 export const corsOrigin =
   process.env.FRONTEND_CUSTOM_URL || process.env.FRONTEND_URL_REGEX
     ? (origin: string, callback: (arg0: Error, arg1?: boolean) => void) => {
-        const allowedOrigins = [process.env.FRONTEND_URL];
-
-        if (process.env.FRONTEND_CUSTOM_URL) {
-          const customUrls = process.env.FRONTEND_CUSTOM_URL.split(",");
-          customUrls.forEach(url => allowedOrigins.push(url.trim()));
-        }
-
-        if (process.env.FRONTEND_URL_REGEX) {
-          const regex = new RegExp(process.env.FRONTEND_URL_REGEX);
-          if (regex.test(origin)) {
-            allowedOrigins.push(origin);
-          }
-        }
-
-        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+        if (!origin || isAllowedFrontendOrigin(origin)) {
           callback(null, true);
         } else {
           callback(new Error(`Origin ${origin} is not allowed by CORS`));

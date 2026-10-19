@@ -30,6 +30,11 @@ jest.mock("../../services/EmailServices/adapters", () => ({
   ...jest.requireActual("../../services/EmailServices/adapters/errors"),
   testImapSmtp: jest.fn()
 }));
+jest.mock("../../services/EmailServices/GmailOAuthService", () => ({
+  ...jest.requireActual("../../services/EmailServices/GmailOAuthService"),
+  StartGmailOAuthService: jest.fn(),
+  CompleteGmailOAuthService: jest.fn()
+}));
 jest.mock("../../services/EmailServices/EmailAttachmentStorage", () => ({
   ...jest.requireActual("../../services/EmailServices/EmailAttachmentStorage"),
   openAttachment: jest.fn()
@@ -57,6 +62,10 @@ import {
   testImapSmtp
 } from "../../services/EmailServices/adapters";
 import { openAttachment } from "../../services/EmailServices/EmailAttachmentStorage";
+import {
+  CompleteGmailOAuthService,
+  StartGmailOAuthService
+} from "../../services/EmailServices/GmailOAuthService";
 import { EMAIL_PRESETS } from "../../services/EmailServices/presets";
 import ShowUserService from "../../services/UserServices/ShowUserService";
 import ListTicketsService from "../../services/TicketServices/ListTicketsService";
@@ -794,6 +803,106 @@ describe("email routes", () => {
         .set("x-test-user", asUser(1))
         .send({});
       expect(response.status).toBe(404);
+    });
+  });
+
+  describe("gmail oauth", () => {
+    beforeEach(() => {
+      (StartGmailOAuthService as jest.Mock).mockResolvedValue({
+        url: "https://accounts.google.com/o/oauth2/v2/auth?state=s"
+      });
+      (CompleteGmailOAuthService as jest.Mock).mockResolvedValue({
+        redirectTo:
+          "https://teste.espacowhats.com.br/connections?email=connected"
+      });
+    });
+
+    it("POST start asserts the channel and answers only the Google URL", async () => {
+      const response = await request(app)
+        .post("/email/oauth/google/start")
+        .set("x-test-user", asUser(1))
+        .set("Origin", "https://teste.espacowhats.com.br")
+        .send({ name: "Suporte", queueId: 5 });
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        url: "https://accounts.google.com/o/oauth2/v2/auth?state=s"
+      });
+      expect(response.headers["cache-control"]).toBe("no-store");
+      expect(assertEmailEnabled).toHaveBeenCalledWith(1);
+      expect(StartGmailOAuthService).toHaveBeenCalledWith({
+        companyId: 1,
+        userId: 100,
+        name: "Suporte",
+        queueId: 5,
+        origin: "https://teste.espacowhats.com.br"
+      });
+    });
+
+    it("POST start falls back to the Referer origin", async () => {
+      await request(app)
+        .post("/email/oauth/google/start")
+        .set("x-test-user", asUser(1))
+        .set("Referer", "https://teste.espacowhats.com.br/connections?x=1")
+        .send({});
+      expect(StartGmailOAuthService).toHaveBeenCalledWith(
+        expect.objectContaining({ origin: "https://teste.espacowhats.com.br" })
+      );
+    });
+
+    it("POST start is refused when the channel is disabled or the user is not an admin", async () => {
+      (assertEmailEnabled as jest.Mock).mockRejectedValue(
+        new AppError("ERR_EMAIL_CHANNEL_DISABLED", 403)
+      );
+      const disabled = await request(app)
+        .post("/email/oauth/google/start")
+        .set("x-test-user", asUser(1))
+        .send({});
+      expect(disabled.status).toBe(403);
+      expect(disabled.body).toEqual({ error: "ERR_EMAIL_CHANNEL_DISABLED" });
+
+      (assertEmailEnabled as jest.Mock).mockResolvedValue(undefined);
+      const notAdmin = await request(app)
+        .post("/email/oauth/google/start")
+        .set("x-test-user", asUser(1, "user", 9))
+        .send({});
+      expect(notAdmin.status).toBe(403);
+      const anonymous = await request(app)
+        .post("/email/oauth/google/start")
+        .send({});
+      expect(anonymous.status).toBe(401);
+      expect(StartGmailOAuthService).not.toHaveBeenCalled();
+    });
+
+    it("GET callback needs no auth and answers a 302 to the service redirect", async () => {
+      const response = await request(app).get(
+        "/email/oauth/google/callback?code=c0de&state=st4te&scope=x"
+      );
+      expect(response.status).toBe(302);
+      expect(response.headers.location).toBe(
+        "https://teste.espacowhats.com.br/connections?email=connected"
+      );
+      expect(response.headers["cache-control"]).toBe("no-store");
+      expect(response.headers["referrer-policy"]).toBe("no-referrer");
+      expect(CompleteGmailOAuthService).toHaveBeenCalledWith({
+        code: "c0de",
+        state: "st4te",
+        error: undefined
+      });
+      expect(assertEmailEnabled).not.toHaveBeenCalled();
+    });
+
+    it("GET callback still redirects when the service throws", async () => {
+      (CompleteGmailOAuthService as jest.Mock).mockRejectedValue(
+        new Error("boom")
+      );
+      process.env.FRONTEND_URL = "https://app.espacowhats.com.br";
+      const response = await request(app).get(
+        "/email/oauth/google/callback?error=access_denied&state=s"
+      );
+      expect(response.status).toBe(302);
+      expect(response.headers.location).toBe(
+        "https://app.espacowhats.com.br/connections?email=error&code=ERR_GMAIL_OAUTH_FAILED"
+      );
     });
   });
 
