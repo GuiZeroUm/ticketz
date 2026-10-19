@@ -7,6 +7,7 @@ import Tag from "../../models/Tag";
 import Whatsapp from "../../models/Whatsapp";
 import UserSocketSession from "../../models/UserSocketSession";
 import Company from "../../models/Company";
+import EmailAccount from "../../models/EmailAccount";
 
 const ShowTicketService = async (
   id: string | number,
@@ -68,6 +69,12 @@ const ShowTicketService = async (
           "complationMessage",
           "language"
         ]
+      },
+      {
+        model: EmailAccount,
+        as: "emailAccount",
+        required: false,
+        attributes: ["id", "name", "address", "preset"]
       },
       {
         model: Company,

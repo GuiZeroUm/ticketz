@@ -22,6 +22,7 @@ import TicketTag from "../../models/TicketTag";
 import Whatsapp from "../../models/Whatsapp";
 import { GetCompanySetting } from "../../helpers/CheckSettings";
 import ContactTag from "../../models/ContactTag";
+import EmailAccount from "../../models/EmailAccount";
 import { shouldApplyQueueFilter } from "./TicketQueueAccess";
 
 interface Request {
@@ -43,6 +44,8 @@ interface Request {
   tags: number[];
   users: number[];
   companyId: number;
+  // optional Ticket.channel filter ("whatsapp", "email", ...)
+  channel?: string;
 }
 
 interface Response {
@@ -68,7 +71,8 @@ const ListTicketsService = async ({
   withUnreadMessages,
   notClosed,
   all,
-  companyId
+  companyId,
+  channel
 }: Request): Promise<Response> => {
   let ticketId: number;
 
@@ -151,6 +155,12 @@ const ListTicketsService = async ({
       // não pode eliminar a linha.
       required: false,
       attributes: ["id", "name", "apiMode"]
+    },
+    {
+      model: EmailAccount,
+      as: "emailAccount",
+      required: false,
+      attributes: ["id", "name", "address", "preset"]
     }
   ];
 
@@ -350,6 +360,18 @@ const ListTicketsService = async ({
       ...whereCondition,
       status: { [Op.ne]: "closed" }
     };
+  }
+
+  if (channel) {
+    if (typeof channel !== "string" || !/^[a-z_]{1,32}$/.test(channel)) {
+      throw new AppError("ERR_INVALID_CHANNEL", 400);
+    }
+    andedOrs.push(
+      channel === "whatsapp"
+        ? // tickets created before the column existed carry no channel
+          { [Op.or]: [{ channel }, { channel: null }] }
+        : { channel }
+    );
   }
 
   whereCondition = {

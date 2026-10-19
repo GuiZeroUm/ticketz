@@ -20,7 +20,9 @@ const routeScreen = (path: string): ScreenId | null => {
     path.startsWith("/whatsapp") ||
     path.startsWith("/meta-whatsapp") ||
     path.startsWith("/wavoip") ||
-    path.startsWith("/voice")
+    path.startsWith("/voice") ||
+    path.startsWith("/email/accounts") ||
+    path.startsWith("/email/oauth")
   )
     return "connections";
   if (
