@@ -15,3 +15,6 @@ export const MAX_RAW_MESSAGE_BYTES =
 export const SYNC_ROUND_MAX_BYTES = 64 * 1024 * 1024;
 // Prefix requested to read the headers of a message that is too large to import.
 export const MAX_HEADERS_FETCH_BYTES = 64 * 1024;
+// After an IMAP UIDVALIDITY change, recent mail is read again (see
+// ImapSmtpAdapter); the rescan window never reaches further back than this.
+export const UIDVALIDITY_RESCAN_MAX_DAYS = 30;

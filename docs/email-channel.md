@@ -390,7 +390,7 @@ Tudo foi feito pela API HTTP, logado como o admin de cada empresa e como o super
 | H | Desligar e religar o canal. | OK. Desligado: rotas e envio respondem 403, `lastSyncAt` para e a outra empresa continua normal. Religado: o e-mail recebido no intervalo entra no tick seguinte e o IDLE volta. |
 | I | Regressão do WhatsApp. | OK. As suítes de WhatsApp (QR e Meta) passam. Nenhum ponto do canal de e-mail decide nada por `whatsappMode` ou `apiMode`. |
 
-Limitação conhecida (IMAP): se uma pasta for recriada no servidor (o `UIDVALIDITY` muda, o que é raro: migração de servidor ou caixa apagada e criada de novo), o cursor recomeça do fim da pasta. Os e-mails que chegaram entre a última sincronização e a recriação não são importados. Trocar a senha não muda o `UIDVALIDITY`.
+Pasta recriada no servidor (IMAP): quando o `UIDVALIDITY` muda (raro: migração de servidor ou caixa apagada e criada de novo; trocar a senha não muda), a pasta é relida a partir do último momento em que estava em dia, com no mínimo as últimas 24 h e no máximo 30 dias. A releitura usa os mesmos limites por rodada (100 mensagens, 64 MB, mensagens grandes só com cabeçalhos) e continua na rodada seguinte até terminar. Assim, o e-mail que chegou entre a última sincronização e a recriação entra normalmente. Os e-mails já importados voltam com outro UID e são reconhecidos pelo `Message-ID` e pelo remetente, sem criar mensagem nem ticket novo. Um e-mail sem `Message-ID` não tem como ser reconhecido e pode aparecer duas vezes. Isso é aceito porque é raro. Vale também para a pasta de enviados.
 
 Pendentes, para o responsável, porque dependem de contas reais (os itens do Gmail também precisam do projeto no Google Cloud):
 
