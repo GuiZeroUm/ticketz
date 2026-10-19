@@ -70,6 +70,7 @@ jest.mock("../../../utils/logger", () => ({
 
 import ProcessEmailSendJob, {
   SEND_RETRY_DELAYS_MS,
+  sendAttemptedKey,
   sendInflightKey,
   sendTimings
 } from "../ProcessEmailSendJob";
@@ -208,6 +209,14 @@ describe("ProcessEmailSendJob", () => {
 
   it("claims the send with a Redis marker before talking to the server", async () => {
     await ProcessEmailSendJob(41);
+    // the attempt flag is written first and never released: a replay can
+    // then tell a lost job from one waiting for its retry
+    expect(redis.set.mock.calls[0]).toEqual([
+      sendAttemptedKey(41),
+      "1",
+      "EX",
+      expect.any(Number)
+    ]);
     expect(redis.set).toHaveBeenCalledWith(
       sendInflightKey(41),
       expect.any(String),
@@ -310,6 +319,7 @@ describe("ProcessEmailSendJob", () => {
     // still queued while retries are pending, marker released for the retry
     expect(EM.update).not.toHaveBeenCalled();
     expect(redis.del).toHaveBeenCalledTimes(3);
+    expect(redis.del).not.toHaveBeenCalledWith(sendAttemptedKey(41));
 
     await ProcessEmailSendJob(41, { attempt: 3, scheduleRetry });
     expect(scheduleRetry).toHaveBeenCalledTimes(3);

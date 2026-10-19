@@ -24,7 +24,7 @@ import {
 } from "./EmailAttachmentStorage";
 import { MAX_OUTBOUND_ATTACHMENTS_BYTES, MAX_RECIPIENTS } from "./limits";
 import {
-  isSendInFlight,
+  hasSendAttempt,
   recordSendOutcome,
   SEND_INFLIGHT_TTL_SECONDS,
   TRANSIENT
@@ -291,10 +291,10 @@ const isIdempotencyDuplicate = (error: unknown): boolean => {
 
 // The message already created for this key, on this ticket only.
 // A replayed email still "queued" may have lost its job (process stopped
-// between the commit and the enqueue): it is queued again, unless a send
-// attempt holds the marker or the row is older than the marker's lifetime (a
-// crashed attempt could have sent it). The job id dedupes a job that still
-// exists, and the job itself only sends rows still queued.
+// between the commit and the enqueue): it is queued again only when no send
+// try ever started (no in-flight marker, no attempt flag), so a chain waiting
+// for a transient retry is never doubled, and only while younger than the
+// flags' lifetime. The job id dedupes a job that is still waiting.
 const requeueIfLost = async (existing: EmailMessage): Promise<void> => {
   const age = Date.now() - new Date(existing.createdAt).getTime();
   if (
@@ -304,7 +304,7 @@ const requeueIfLost = async (existing: EmailMessage): Promise<void> => {
     return;
   }
   try {
-    if (await isSendInFlight(existing.id)) return;
+    if (await hasSendAttempt(existing.id)) return;
     await enqueueEmailSend(existing.id);
   } catch {
     logger.warn(

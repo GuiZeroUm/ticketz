@@ -33,6 +33,12 @@ export const SEND_INFLIGHT_TTL_SECONDS = 24 * 60 * 60;
 export const sendInflightKey = (emailMessageId: number): string =>
   `email:send-inflight:${emailMessageId}`;
 
+// Flag written before the first try and never released (same lifetime): an
+// email with this flag already has a send chain (running, or waiting for a
+// transient retry), so a replay must not start a second one.
+export const sendAttemptedKey = (emailMessageId: number): string =>
+  `email:send-attempted:${emailMessageId}`;
+
 // An account in "error" (sync failing, e.g. IMAP down) may still send over
 // SMTP; reauth_required/disabled/connecting accounts cannot.
 const SENDABLE_ACCOUNT_STATUSES = ["active", "error"];
@@ -207,14 +213,25 @@ const buildOutgoing = async (
   };
 };
 
-// true while a send attempt holds (or a finished/crashed one left) the marker
-export const isSendInFlight = async (
+// true once any send try started for this email (it holds the in-flight
+// marker or left the attempt flag): only a job that never ran was lost.
+export const hasSendAttempt = async (
   emailMessageId: number
 ): Promise<boolean> =>
-  (await emailRedis().exists(sendInflightKey(emailMessageId))) > 0;
+  (await emailRedis().exists(
+    sendInflightKey(emailMessageId),
+    sendAttemptedKey(emailMessageId)
+  )) > 0;
 
 // true when this run now owns the send; false when another run already did.
+// The attempt flag goes first: if writing it fails nothing is claimed yet.
 const claimSend = async (emailMessageId: number): Promise<boolean> => {
+  await emailRedis().set(
+    sendAttemptedKey(emailMessageId),
+    "1",
+    "EX",
+    SEND_INFLIGHT_TTL_SECONDS
+  );
   const taken = await emailRedis().set(
     sendInflightKey(emailMessageId),
     randomBytes(8).toString("hex"),

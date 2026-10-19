@@ -538,7 +538,10 @@ describe("SendEmailService", () => {
     redis.exists.mockResolvedValue(0);
     await send();
     expect(enqueueEmailSend).toHaveBeenCalledWith(40);
-    expect(redis.exists).toHaveBeenCalledWith("email:send-inflight:40");
+    expect(redis.exists).toHaveBeenCalledWith(
+      "email:send-inflight:40",
+      "email:send-attempted:40"
+    );
     expect(EM.create).not.toHaveBeenCalled();
 
     // never while a send attempt holds the marker, for old rows (marker
@@ -558,6 +561,29 @@ describe("SendEmailService", () => {
     existingByKey.sendStatus = "queued";
     (enqueueEmailSend as jest.Mock).mockRejectedValueOnce(new Error("redis"));
     await expect(send()).resolves.toMatchObject({ id: "old-msg" });
+  });
+
+  it("does not re-queue a replay during a transient-retry backoff", async () => {
+    existingByKey = {
+      id: 40,
+      ticketId: 90,
+      messageId: "old-msg",
+      sendStatus: "queued",
+      createdAt: new Date()
+    };
+    // a try already ran and failed transiently: the in-flight marker was
+    // released for the delayed retry, the attempt flag stays
+    const present = new Set(["email:send-attempted:40"]);
+    redis.exists.mockImplementation(
+      async (...keys: string[]) => keys.filter(key => present.has(key)).length
+    );
+    await expect(send()).resolves.toMatchObject({ id: "old-msg" });
+    expect(enqueueEmailSend).not.toHaveBeenCalled();
+
+    // the lost-enqueue case (no try ever ran) is still re-queued
+    present.clear();
+    await send();
+    expect(enqueueEmailSend).toHaveBeenCalledWith(40);
   });
 
   it("returns the winner when a concurrent request with the same key commits first", async () => {
