@@ -29,12 +29,15 @@ export const errorCodeOf = (err: unknown): string => {
   return SYNC_ERROR_CODE;
 };
 
-export const emitEmailAccount = (account: EmailAccount): void => {
+export const emitEmailAccount = (
+  account: EmailAccount,
+  action: "create" | "update" | "delete" = "update"
+): void => {
   try {
     getIO()
       .to(`company-${account.companyId}-admin`)
       .emit(`company-${account.companyId}-emailAccount`, {
-        action: "update",
+        action,
         account: serializeEmailAccount(account)
       });
   } catch {
