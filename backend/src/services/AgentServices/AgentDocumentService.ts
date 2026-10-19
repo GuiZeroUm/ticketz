@@ -40,6 +40,8 @@ export const systemHelp = () =>
       module => `## ${module.title}\n${module.description}\n${module.usage}`
     )
   ].join("\n\n");
+const publicHelpScope =
+  'FROM "Helps" h JOIN "HelpGroups" g ON g.id=h."groupId" WHERE h."isActive"=true AND h."adminOnly"=false AND g."isActive"=true AND g."isGlobal"=true AND g."adminOnly"=false AND g.audience=\'company\'';
 export const getPublicHelp = async () => {
   const records = await sequelize.query<{
     id: number;
@@ -47,7 +49,7 @@ export const getPublicHelp = async () => {
     content: string;
     description: string;
   }>(
-    'SELECT h.id,h.title,h.content,h.description FROM "Helps" h JOIN "HelpGroups" g ON g.id=h."groupId" WHERE h."isActive"=true AND h."adminOnly"=false AND g."isActive"=true AND g."isGlobal"=true AND g."adminOnly"=false AND g.audience=\'company\' ORDER BY g."order",h."order",h.id',
+    `SELECT h.id,h.title,h.content,h.description ${publicHelpScope} ORDER BY g."order",h."order",h.id`,
     { type: QueryTypes.SELECT }
   );
   return { text: systemHelp(), records, observedAt: new Date().toISOString() };
@@ -215,6 +217,9 @@ export const rebuildTenantDocuments = async (companyId: number) => {
 
 let queue: Bull.Queue | undefined;
 let reconciliation: NodeJS.Timeout;
+let reconcileTimer: NodeJS.Timeout | undefined;
+let reconcileInFlight: Promise<void> | undefined;
+let publicHelpRevision: string | undefined;
 export const enqueueContextRebuild = async (companyId: number) => {
   if (!runtimeOwnsCompany(companyId)) return;
   if (!queue) return;
@@ -251,11 +256,25 @@ export const startAgentContextWorker = async () => {
     }
   });
   const reconcile = async () => {
-    const help = await getPublicHelp();
-    await writeAtomic(
-      checkedPath("global", "ajuda.md"),
-      `${help.text}\n\n${help.records.map(record => `## ${record.title}\n${record.description || ""}\n${record.content || ""}`).join("\n\n")}\n`
+    // The public help contains large articles. Check small metadata first so
+    // the five-minute reconciliation does not reload unchanged article bodies.
+    const [revision] = await sequelize.query<{
+      count: string;
+      helpUpdated: string | null;
+      groupUpdated: string | null;
+    }>(
+      `SELECT COUNT(*)::text AS count, MAX(h."updatedAt")::text AS "helpUpdated", MAX(g."updatedAt")::text AS "groupUpdated" ${publicHelpScope}`,
+      { type: QueryTypes.SELECT }
     );
+    const nextRevision = JSON.stringify(revision);
+    if (nextRevision !== publicHelpRevision) {
+      const help = await getPublicHelp();
+      await writeAtomic(
+        checkedPath("global", "ajuda.md"),
+        `${help.text}\n\n${help.records.map(record => `## ${record.title}\n${record.description || ""}\n${record.content || ""}`).join("\n\n")}\n`
+      );
+      publicHelpRevision = nextRevision;
+    }
     const companies = await Company.findAll({
       where: runtimeCompanyWhere("id"),
       attributes: ["id"]
@@ -263,6 +282,21 @@ export const startAgentContextWorker = async () => {
     await Promise.all(
       companies.map(company => enqueueContextRebuild(company.id))
     );
+  };
+  const runReconcile = (): Promise<void> => {
+    if (!reconcileInFlight) {
+      reconcileInFlight = reconcile().finally(() => {
+        reconcileInFlight = undefined;
+      });
+    }
+    return reconcileInFlight;
+  };
+  const scheduleReconcile = () => {
+    if (reconcileTimer) return;
+    reconcileTimer = setTimeout(() => {
+      reconcileTimer = undefined;
+      void runReconcile().catch(() => undefined);
+    }, 2000);
   };
   const tables = new Set(
     AGENT_MODULES.flatMap(module =>
@@ -287,6 +321,9 @@ export const startAgentContextWorker = async () => {
       ].includes(String(model.getTableName()))
     )
       continue;
+    const isHelpModel = ["Helps", "HelpGroups"].includes(
+      String(model.getTableName())
+    );
     const notify = (_values: unknown, supplied: unknown = {}) => {
       const options = supplied as {
         where?: { companyId?: unknown };
@@ -298,10 +335,18 @@ export const startAgentContextWorker = async () => {
           (value as { get?: (key: string) => unknown })?.get?.("companyId") ||
           options.where?.companyId
       );
-      const run = () =>
-        (companyId > 0 ? enqueueContextRebuild(companyId) : reconcile()).catch(
-          () => undefined
-        );
+      const run = () => {
+        if (isHelpModel) {
+          scheduleReconcile();
+          return;
+        }
+        if (companyId > 0) {
+          void enqueueContextRebuild(companyId).catch(() => undefined);
+        }
+        // Unscoped bulk writes are covered by the periodic reconciliation.
+        // Running it for every message acknowledgement loaded all public help
+        // articles many times in parallel and exhausted the Node heap.
+      };
       if (options.transaction) options.transaction.afterCommit(run);
       else void run();
     };
@@ -314,15 +359,17 @@ export const startAgentContextWorker = async () => {
   }
   reconciliation = setInterval(
     () => {
-      void reconcile().catch(() => undefined);
+      void runReconcile().catch(() => undefined);
     },
     5 * 60 * 1000
   );
   reconciliation.unref();
-  await reconcile();
+  await runReconcile();
 };
 export const stopAgentContextWorker = async () => {
   clearInterval(reconciliation);
+  if (reconcileTimer) clearTimeout(reconcileTimer);
+  await reconcileInFlight?.catch(() => undefined);
   await queue?.close();
   queue = undefined;
 };
