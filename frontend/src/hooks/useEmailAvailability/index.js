@@ -2,18 +2,47 @@ import { useContext, useEffect, useRef, useState } from "react";
 import api from "../../services/api";
 import { AuthContext } from "../../context/Auth/AuthContext";
 
+// Last known answer per company, so a later visit renders the right layout
+// at once while the fresh answer loads in the background.
+const cacheKey = companyId => `emailAvailability:${companyId}`;
+
+const readCache = companyId => {
+  if (!companyId) return undefined;
+  try {
+    const value = window.sessionStorage.getItem(cacheKey(companyId));
+    if (value === "true") return true;
+    if (value === "false") return false;
+  } catch (_) {
+    // storage unavailable
+  }
+  return undefined;
+};
+
+const writeCache = (companyId, enabled) => {
+  try {
+    window.sessionStorage.setItem(cacheKey(companyId), String(enabled));
+  } catch (_) {
+    // storage unavailable
+  }
+};
+
+const initialState = companyId => {
+  const cached = readCache(companyId);
+  return {
+    companyId,
+    enabled: cached === true,
+    loading: Boolean(companyId) && cached === undefined
+  };
+};
+
 const useEmailAvailability = () => {
   const { user } = useContext(AuthContext) || {};
   const companyId = user?.companyId ?? user?.company?.id ?? null;
-  const [state, setState] = useState({
-    companyId: null,
-    enabled: false,
-    loading: true
-  });
+  const [state, setState] = useState(() => initialState(companyId));
   const requestRef = useRef(0);
 
   useEffect(() => {
-    setState({ companyId, enabled: false, loading: Boolean(companyId) });
+    setState(initialState(companyId));
     if (!companyId) return undefined;
 
     let active = true;
@@ -21,15 +50,19 @@ const useEmailAvailability = () => {
       const requestId = ++requestRef.current;
       try {
         const { data } = await api.get("/email/availability");
-        if (active && requestId === requestRef.current)
-          setState({
-            companyId,
-            enabled: data?.enabled === true,
-            loading: false
-          });
+        if (active && requestId === requestRef.current) {
+          const enabled = data?.enabled === true;
+          writeCache(companyId, enabled);
+          setState({ companyId, enabled, loading: false });
+        }
       } catch (_) {
         if (active && requestId === requestRef.current)
-          setState({ companyId, enabled: false, loading: false });
+          setState(current => ({
+            companyId,
+            // keep a cached answer on a transient failure
+            enabled: current.companyId === companyId && current.enabled,
+            loading: false
+          }));
       }
     };
 
@@ -43,11 +76,11 @@ const useEmailAvailability = () => {
     };
   }, [companyId]);
 
-  const current = state.companyId === companyId;
-  return {
-    enabled: current && state.enabled,
-    loading: current ? state.loading : Boolean(companyId)
-  };
+  if (state.companyId === companyId) {
+    return { enabled: state.enabled, loading: state.loading };
+  }
+  const fallback = initialState(companyId);
+  return { enabled: fallback.enabled, loading: fallback.loading };
 };
 
 export default useEmailAvailability;
