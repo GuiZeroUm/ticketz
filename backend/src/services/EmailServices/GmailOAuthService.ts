@@ -19,7 +19,10 @@ import {
   gmailGrantInUse,
   revokeGoogleToken
 } from "./GmailAuthClient";
-import { watchGmailAccount } from "./GmailWatchService";
+import {
+  GMAIL_WATCH_CONNECT_TIMEOUT_MS,
+  watchGmailAccount
+} from "./GmailWatchService";
 
 // Dedicated Gmail OAuth (connect a mailbox), separate from the Clerk login.
 // Flow (ruling R27):
@@ -27,7 +30,8 @@ import { watchGmailAccount } from "./GmailWatchService";
 //  2. GET /email/oauth/google/callback (no session: the browser comes back
 //     from Google) consumes the state but does NOT exchange the code; it parks
 //     {state record, code} under a fresh single-use handle and redirects to
-//     <tenant>/connections?email=pending&handle=<handle>;
+//     <tenant>/connections#email=pending&handle=<handle> (fragment, ruling
+//     R32: never sent to servers, access logs or Referer);
 //  3. POST /email/oauth/google/finish {handle} (logged-in admin) exchanges the
 //     code only when the caller is the same user of the same company that
 //     started the flow. A consent URL sent to someone else (phishing) can never
@@ -122,7 +126,7 @@ const isPositiveInteger = (value: unknown): value is number =>
 const connectionsUrl = (
   origin: string,
   params: Record<string, string>
-): string => `${origin}/connections?${new URLSearchParams(params).toString()}`;
+): string => `${origin}/connections#${new URLSearchParams(params).toString()}`;
 
 const errorUrl = (origin: string, code: string): string =>
   connectionsUrl(origin, { email: "error", code });
@@ -536,8 +540,8 @@ const connectMailbox = async (
 // /connections. The state is validated (and consumed) before anything else.
 // The code is NOT exchanged here (R27): it is parked with the state record
 // under a fresh single-use handle, and the redirect carries only that handle
-// (?email=pending&handle=...), never the code or any token. Errors redirect
-// with ?email=error&code=<fixed code>.
+// (#email=pending&handle=...), never the code or any token. Errors redirect
+// with #email=error&code=<fixed code>.
 export const CompleteGmailOAuthService = async ({
   code,
   state,
@@ -618,9 +622,12 @@ export const FinishGmailOAuthService = async ({
   }
 
   const { account, action } = result;
-  // Push watch (Task 16, only with GMAIL_PUBSUB_TOPIC). Best effort: it never
-  // throws, and without it the minute tick keeps syncing the account.
-  await watchGmailAccount(account);
+  // Push watch (Task 16, only with push configured). Best effort and short
+  // (5 s): it never throws, the minute tick keeps syncing the account, and a
+  // missed watch is set by the startup/daily renewal.
+  await watchGmailAccount(account, {
+    timeoutMs: GMAIL_WATCH_CONNECT_TIMEOUT_MS
+  });
   try {
     await enqueueAccountSync(account.id);
   } catch {

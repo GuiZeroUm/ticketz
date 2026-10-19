@@ -1,6 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 jest.mock("../../utils/logger", () => ({
-  logger: { warn: jest.fn(), info: jest.fn(), error: jest.fn() }
+  logger: {
+    warn: jest.fn(),
+    info: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn()
+  }
 }));
 jest.mock("bull", () => {
   const queues: Record<string, unknown> = {};
@@ -168,6 +173,11 @@ describe("POST /webhooks/gmail/push", () => {
     expect((await post(notification())).status).toBe(401);
 
     expect(verify).toHaveBeenCalledWith({ idToken: TOKEN, audience: AUDIENCE });
+    // rejections are debug only: unauthenticated callers cannot flood the logs
+    expect(logger.warn).not.toHaveBeenCalled();
+    expect(logger.debug).toHaveBeenCalledWith(
+      "Rejected Gmail push: invalid or missing OIDC token"
+    );
     await settle();
     expect(Model.findAll).not.toHaveBeenCalled();
     expect(queue.add).not.toHaveBeenCalled();
@@ -213,6 +223,18 @@ describe("POST /webhooks/gmail/push", () => {
     // company 3 is dropped even when the database returns it
     expect(enqueuedJobIds()).toEqual(["sync-11", "sync-14"]);
     expect(emailEnabledForCompany).not.toHaveBeenCalledWith(3);
+  });
+
+  it("a company whose channel check fails does not stop the others", async () => {
+    (emailEnabledForCompany as jest.Mock).mockImplementation(
+      async (companyId: number) => {
+        if (companyId === 1) throw new Error("db down");
+        return true;
+      }
+    );
+    expect((await post(notification())).status).toBe(204);
+    await settle();
+    expect(enqueuedJobIds()).toEqual(["sync-12", "sync-13", "sync-14"]);
   });
 
   it("duplicate notifications enqueue the same jobId", async () => {
@@ -269,6 +291,9 @@ describe("POST /webhooks/gmail/push", () => {
     expect((await post(notification())).status).toBe(404);
     process.env.GMAIL_PUBSUB_TOPIC = "projects/espaco/topics/gmail-push";
     delete process.env.GMAIL_PUBSUB_AUDIENCE;
+    expect((await post(notification())).status).toBe(404);
+    process.env.GMAIL_PUBSUB_AUDIENCE = AUDIENCE;
+    delete process.env.GMAIL_PUBSUB_SERVICE_ACCOUNT;
     expect((await post(notification())).status).toBe(404);
     await settle();
     expect(verify).not.toHaveBeenCalled();

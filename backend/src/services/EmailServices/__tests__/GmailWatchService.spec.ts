@@ -10,6 +10,7 @@ import {
   persistRotatedRefreshToken
 } from "../GmailAuthClient";
 import {
+  GMAIL_WATCH_CONNECT_TIMEOUT_MS,
   WATCH_RENEW_WINDOW_MS,
   renewExpiringWatches,
   stopGmailWatch,
@@ -90,6 +91,10 @@ beforeEach(() => {
   jest.clearAllMocks();
   jest.spyOn(Date, "now").mockReturnValue(NOW);
   process.env.GMAIL_PUBSUB_TOPIC = TOPIC;
+  process.env.GMAIL_PUBSUB_AUDIENCE =
+    "https://app.example.com/webhooks/gmail/push";
+  process.env.GMAIL_PUBSUB_SERVICE_ACCOUNT =
+    "push@espaco.iam.gserviceaccount.com";
   delete process.env.TENANT_RUNTIME_EXCLUDED_COMPANY_IDS;
   delete process.env.TENANT_RUNTIME_COMPANY_ID;
   client = { rotatedRefreshToken: null };
@@ -107,6 +112,8 @@ beforeEach(() => {
 afterEach(() => {
   (Date.now as jest.Mock).mockRestore();
   delete process.env.GMAIL_PUBSUB_TOPIC;
+  delete process.env.GMAIL_PUBSUB_AUDIENCE;
+  delete process.env.GMAIL_PUBSUB_SERVICE_ACCOUNT;
 });
 
 describe("watchGmailAccount", () => {
@@ -144,6 +151,24 @@ describe("watchGmailAccount", () => {
     expect(getGmailAuthClient).not.toHaveBeenCalled();
     expect(watch).not.toHaveBeenCalled();
     expect(Model.update).not.toHaveBeenCalled();
+  });
+
+  it("does nothing with only the topic set (the webhook could not authenticate Pub/Sub)", async () => {
+    delete process.env.GMAIL_PUBSUB_AUDIENCE;
+    await expect(watchGmailAccount(account())).resolves.toBe(false);
+    process.env.GMAIL_PUBSUB_AUDIENCE = "https://app.example.com/push";
+    delete process.env.GMAIL_PUBSUB_SERVICE_ACCOUNT;
+    await expect(watchGmailAccount(account())).resolves.toBe(false);
+    expect(watch).not.toHaveBeenCalled();
+  });
+
+  it("uses the default timeout, or the shorter one given by the finish step", async () => {
+    await watchGmailAccount(account());
+    expect(watch.mock.calls[0][1]).toEqual({ timeout: 15000, retry: false });
+    await watchGmailAccount(account(), {
+      timeoutMs: GMAIL_WATCH_CONNECT_TIMEOUT_MS
+    });
+    expect(watch.mock.calls[1][1]).toEqual({ timeout: 5000, retry: false });
   });
 
   it("ignores IMAP accounts", async () => {
@@ -322,6 +347,13 @@ describe("renewExpiringWatches", () => {
     await expect(renewExpiringWatches()).resolves.toBe(0);
     expect(findAll()).not.toHaveBeenCalled();
     expect(watch).not.toHaveBeenCalled();
+  });
+
+  it("does nothing when push is only partly configured", async () => {
+    delete process.env.GMAIL_PUBSUB_SERVICE_ACCOUNT;
+    fixtures.push(account());
+    await expect(renewExpiringWatches()).resolves.toBe(0);
+    expect(findAll()).not.toHaveBeenCalled();
   });
 
   it("one failing account does not stop the others", async () => {

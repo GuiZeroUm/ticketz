@@ -4,11 +4,13 @@ import {
   runtimeCompanyWhere,
   runtimeQueueOptions
 } from "../helpers/tenantRuntime";
-import { getGmailConfig } from "../config/gmail";
 import EmailAccount from "../models/EmailAccount";
 import { emailEnabledForCompany } from "../services/EmailServices/EmailAccessService";
 import emailRedis from "../services/EmailServices/emailRedis";
-import { renewExpiringWatches } from "../services/EmailServices/GmailWatchService";
+import {
+  gmailPushConfigured,
+  renewExpiringWatches
+} from "../services/EmailServices/GmailWatchService";
 import ImapIdleManager from "../services/EmailServices/ImapIdleManager";
 import ProcessEmailSendJob from "../services/EmailServices/ProcessEmailSendJob";
 import SyncEmailAccountService from "../services/EmailServices/SyncEmailAccountService";
@@ -218,13 +220,13 @@ export const handleMaintenanceJob = async (
 
 // Idempotent across restarts and replicas: Bull keys a repeatable job by
 // name + cron, so adding the same one again changes nothing. Stale entries
-// (another cron from an older version) are removed, and without
-// GMAIL_PUBSUB_TOPIC the repeatable is removed altogether. With the topic, a
-// one-off run is also queued at startup (fixed jobId, dropped while one is
-// pending), so accounts connected before push was configured get a watch
-// without waiting for 04:00.
+// (another cron from an older version) are removed, and unless push is fully
+// configured (topic, audience and service account) the repeatable is removed
+// altogether. With push configured, a one-off run is also queued at startup
+// (fixed jobId, dropped while one is pending), so accounts connected before
+// push was configured get a watch without waiting for 04:00.
 export const scheduleGmailWatchRenew = async (): Promise<void> => {
-  const enabled = Boolean(getGmailConfig().pubsubTopic);
+  const enabled = gmailPushConfigured();
   const repeatables = await emailQueue.getRepeatableJobs();
   // eslint-disable-next-line no-restricted-syntax
   for (const job of repeatables) {

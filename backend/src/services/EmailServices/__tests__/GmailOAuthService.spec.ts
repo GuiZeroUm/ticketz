@@ -186,6 +186,17 @@ const start = (overrides: Record<string, any> = {}) =>
     ...overrides
   });
 
+const configurePush = () => {
+  process.env.GMAIL_PUBSUB_TOPIC = "projects/espaco/topics/gmail-push";
+  process.env.GMAIL_PUBSUB_AUDIENCE = "https://app.espacowhats.com.br/push";
+  process.env.GMAIL_PUBSUB_SERVICE_ACCOUNT =
+    "push@espaco.iam.gserviceaccount.com";
+};
+
+// Callback redirect params travel in the fragment (ruling R32).
+const fragmentOf = (url: string) =>
+  new URLSearchParams(new URL(url).hash.slice(1));
+
 const stateOf = (url: string) => new URL(url).searchParams.get("state");
 
 const recordOf = (state: string) =>
@@ -232,6 +243,8 @@ beforeEach(() => {
   };
   stopResponse = { status: 204, body: {} };
   delete process.env.GMAIL_PUBSUB_TOPIC;
+  delete process.env.GMAIL_PUBSUB_AUDIENCE;
+  delete process.env.GMAIL_PUBSUB_SERVICE_ACCOUNT;
   jest.spyOn(EmailAccount, "update").mockResolvedValue([1] as any);
 
   jest
@@ -428,7 +441,7 @@ describe("CompleteGmailOAuthService (callback)", () => {
       state: crypto.randomBytes(32).toString("base64url")
     });
     expect(unknown.redirectTo).toBe(
-      `${FRONTEND}/connections?email=error&code=ERR_GMAIL_STATE`
+      `${FRONTEND}/connections#email=error&code=ERR_GMAIL_STATE`
     );
 
     // expired: the record outlived its 600 s TTL
@@ -439,16 +452,16 @@ describe("CompleteGmailOAuthService (callback)", () => {
       state: expiredState
     });
     expect(expired.redirectTo).toBe(
-      `${FRONTEND}/connections?email=error&code=ERR_GMAIL_STATE`
+      `${FRONTEND}/connections#email=error&code=ERR_GMAIL_STATE`
     );
 
     // reused: the first callback consumes it
     const state = stateOf((await start()).url)!;
     const first = await CompleteGmailOAuthService({ code: AUTH_CODE, state });
-    expect(new URL(first.redirectTo).searchParams.get("email")).toBe("pending");
+    expect(fragmentOf(first.redirectTo).get("email")).toBe("pending");
     const replay = await CompleteGmailOAuthService({ code: AUTH_CODE, state });
     expect(replay.redirectTo).toBe(
-      `${FRONTEND}/connections?email=error&code=ERR_GMAIL_STATE`
+      `${FRONTEND}/connections#email=error&code=ERR_GMAIL_STATE`
     );
     expect(sent).toHaveLength(0);
   });
@@ -464,7 +477,7 @@ describe("CompleteGmailOAuthService (callback)", () => {
       state
     });
     expect(redirectTo).toBe(
-      `${FRONTEND}/connections?email=error&code=ERR_GMAIL_STATE`
+      `${FRONTEND}/connections#email=error&code=ERR_GMAIL_STATE`
     );
     expect(cacheLayer.consume).not.toHaveBeenCalled();
   });
@@ -476,11 +489,11 @@ describe("CompleteGmailOAuthService (callback)", () => {
       state
     });
     expect(denied.redirectTo).toBe(
-      `${TENANT}/connections?email=error&code=ERR_GMAIL_STATE`
+      `${TENANT}/connections#email=error&code=ERR_GMAIL_STATE`
     );
     const again = await CompleteGmailOAuthService({ code: AUTH_CODE, state });
     expect(again.redirectTo).toBe(
-      `${FRONTEND}/connections?email=error&code=ERR_GMAIL_STATE`
+      `${FRONTEND}/connections#email=error&code=ERR_GMAIL_STATE`
     );
     expect(sent).toHaveLength(0);
   });
@@ -508,11 +521,14 @@ describe("CompleteGmailOAuthService (callback)", () => {
     });
     const target = new URL(redirectTo);
     expect(target.origin + target.pathname).toBe(`${TENANT}/connections`);
-    expect(target.searchParams.get("email")).toBe("pending");
-    const handle = target.searchParams.get("handle")!;
+    // R32: everything in the fragment, nothing in the query
+    expect(target.search).toBe("");
+    const params = fragmentOf(redirectTo);
+    expect(params.get("email")).toBe("pending");
+    const handle = params.get("handle")!;
     expect(handle).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(handle).not.toBe(state);
-    expect([...target.searchParams.keys()].sort()).toEqual(["email", "handle"]);
+    expect([...params.keys()].sort()).toEqual(["email", "handle"]);
     [AUTH_CODE, state, REFRESH_TOKEN, ACCESS_TOKEN].forEach(secret =>
       expect(redirectTo).not.toContain(secret)
     );
@@ -541,7 +557,7 @@ describe("CompleteGmailOAuthService (callback)", () => {
       state
     });
     expect(redirectTo).toBe(
-      `${TENANT}/connections?email=error&code=ERR_GMAIL_NOT_CONFIGURED`
+      `${TENANT}/connections#email=error&code=ERR_GMAIL_NOT_CONFIGURED`
     );
   });
 });
@@ -555,7 +571,7 @@ describe("FinishGmailOAuthService", () => {
       code: AUTH_CODE,
       state: stateOf(url)
     });
-    return new URL(redirectTo).searchParams.get("handle");
+    return fragmentOf(redirectTo).get("handle");
   };
 
   const finish = (handle: unknown, who: Who = {}) =>
@@ -774,7 +790,7 @@ describe("FinishGmailOAuthService", () => {
       code: AUTH_CODE,
       state: stateOf(url)
     });
-    await finish(new URL(redirectTo).searchParams.get("handle"));
+    await finish(fragmentOf(redirectTo).get("handle"));
 
     expect(accounts).toHaveLength(1);
     expect(existing).toMatchObject({
@@ -872,7 +888,7 @@ describe("FinishGmailOAuthService", () => {
   });
 
   it("starts the Gmail push watch after the upsert when GMAIL_PUBSUB_TOPIC is set", async () => {
-    process.env.GMAIL_PUBSUB_TOPIC = "projects/espaco/topics/gmail-push";
+    configurePush();
     await connect();
     const [account] = accounts;
     const watches = sentTo("users/me/watch");
@@ -893,7 +909,7 @@ describe("FinishGmailOAuthService", () => {
   });
 
   it("a failed watch does not fail the connection and logs only a reason", async () => {
-    process.env.GMAIL_PUBSUB_TOPIC = "projects/espaco/topics/gmail-push";
+    configurePush();
     watchResponse = {
       status: 403,
       body: { error: { code: 403, message: "topic SECRET-ish text" } }
@@ -917,7 +933,7 @@ describe("FinishGmailOAuthService", () => {
       code: AUTH_CODE,
       state
     });
-    const handle = new URL(redirectTo).searchParams.get("handle")!;
+    const handle = fragmentOf(redirectTo).get("handle")!;
     await finish(handle);
     tokenResponse.body.scope = READONLY;
     await connect().catch(() => undefined);

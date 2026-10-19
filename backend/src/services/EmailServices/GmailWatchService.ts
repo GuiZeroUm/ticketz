@@ -38,8 +38,20 @@ const context = (account: EmailAccount) => ({
   emailAccountId: account.id
 });
 
-export const gmailPushConfigured = (): boolean =>
-  Boolean(getGmailConfig().pubsubTopic);
+// Push needs all three variables: with only the topic, Gmail would publish
+// to a webhook that answers 404 (it cannot authenticate Pub/Sub without the
+// audience and service account), and Pub/Sub would keep redelivering.
+export const gmailPushConfigured = (): boolean => {
+  const { pubsubTopic, pubsubAudience, pubsubServiceAccount } =
+    getGmailConfig();
+  return Boolean(pubsubTopic && pubsubAudience && pubsubServiceAccount);
+};
+
+// Finish step (OAuth connect): a short wait, the user is looking at the
+// screen. A watch missed there is set by the startup/daily renewal.
+export const GMAIL_WATCH_CONNECT_TIMEOUT_MS = 5_000;
+
+export type WatchOptions = { timeoutMs?: number };
 
 // Never throws. A rotated refresh token is saved only through the guarded
 // helper (current updatedAt, non-disabled row).
@@ -69,18 +81,22 @@ const parseExpiration = (value: unknown): Date | null => {
 // watch of a Gmail account. `account` must carry its credentials (loaded with
 // EmailAccount.scope("withSecrets"), or the instance just saved by the OAuth
 // finish step). Best effort: never throws and logs only ids and a short
-// reason; returns whether the watch is in place. Does nothing without
-// GMAIL_PUBSUB_TOPIC.
+// reason; returns whether the watch is in place. Does nothing unless push is
+// fully configured (gmailPushConfigured). `timeoutMs` bounds the watch call
+// (default GMAIL_HTTP_TIMEOUT_MS).
 //
 // watchExpiresAt is written with `silent` (updatedAt untouched), so an
 // in-flight sync round keeps its final write (R23), and only while the row is
 // still an active gmail_api account: a disconnect or a reauth that happened
 // during the call is never undone, and no other column is touched.
 export const watchGmailAccount = async (
-  account: EmailAccount
+  account: EmailAccount,
+  { timeoutMs = GMAIL_HTTP_TIMEOUT_MS }: WatchOptions = {}
 ): Promise<boolean> => {
+  if (!gmailPushConfigured() || account.provider !== "gmail_api") {
+    return false;
+  }
   const topicName = getGmailConfig().pubsubTopic;
-  if (!topicName || account.provider !== "gmail_api") return false;
 
   let client: ReturnType<typeof getGmailAuthClient>;
   try {
@@ -103,7 +119,7 @@ export const watchGmailAccount = async (
           labelFilterBehavior: "include"
         }
       },
-      { timeout: GMAIL_HTTP_TIMEOUT_MS, retry: false }
+      { timeout: timeoutMs, retry: false }
     );
     const expiresAt = parseExpiration(data?.expiration);
     if (!expiresAt) {
@@ -148,6 +164,11 @@ export const watchGmailAccount = async (
 // cut that company's push. Best effort: never throws.
 export const stopGmailWatch = async (account: EmailAccount): Promise<void> => {
   if (account.provider !== "gmail_api") return;
+  // watchExpiresAt is set only after Google confirmed a watch for this row
+  // (and cleared on disable/reconnect from disabled). Null or past means this
+  // row never started a watch or it already expired at Google, so there is
+  // nothing of ours to stop, and calling users.stop anyway could cut a watch
+  // that another company's row of the same mailbox started.
   const expiresAt = account.watchExpiresAt
     ? new Date(account.watchExpiresAt).getTime()
     : NaN;
@@ -178,7 +199,7 @@ export const stopGmailWatch = async (account: EmailAccount): Promise<void> => {
 // Daily job: renews the watch of every active Gmail account whose watch is
 // unknown or ends within 48 h, in companies this runtime owns and where the
 // email channel is enabled. Returns how many watches were renewed. Does
-// nothing without GMAIL_PUBSUB_TOPIC.
+// nothing unless push is fully configured (gmailPushConfigured).
 export const renewExpiringWatches = async (): Promise<number> => {
   if (!gmailPushConfigured()) return 0;
 

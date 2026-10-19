@@ -64,6 +64,9 @@ jest.mock("../../services/EmailServices/ImapIdleManager", () => ({
   default: { start: jest.fn(), refresh: jest.fn(), stop: jest.fn() }
 }));
 jest.mock("../../services/EmailServices/GmailWatchService", () => ({
+  gmailPushConfigured: jest.requireActual(
+    "../../services/EmailServices/GmailWatchService"
+  ).gmailPushConfigured,
   renewExpiringWatches: jest.fn()
 }));
 jest.mock("../../services/EmailServices/ProcessEmailSendJob", () => ({
@@ -409,12 +412,21 @@ describe("EmailSyncTick", () => {
 describe("Gmail watch renewal job", () => {
   const TOPIC = "projects/espaco/topics/gmail-push";
 
+  const configurePush = () => {
+    process.env.GMAIL_PUBSUB_TOPIC = TOPIC;
+    process.env.GMAIL_PUBSUB_AUDIENCE = "https://app.example.com/push";
+    process.env.GMAIL_PUBSUB_SERVICE_ACCOUNT =
+      "push@espaco.iam.gserviceaccount.com";
+  };
+
   beforeEach(() => {
     queue.getRepeatableJobs.mockResolvedValue([]);
   });
 
   afterEach(() => {
     delete process.env.GMAIL_PUBSUB_TOPIC;
+    delete process.env.GMAIL_PUBSUB_AUDIENCE;
+    delete process.env.GMAIL_PUBSUB_SERVICE_ACCOUNT;
   });
 
   it("the maintenance loop runs the tick and the daily renewal by job name", async () => {
@@ -432,7 +444,7 @@ describe("Gmail watch renewal job", () => {
   });
 
   it("schedules the daily repeatable at 04:00 only with GMAIL_PUBSUB_TOPIC, plus one startup run", async () => {
-    process.env.GMAIL_PUBSUB_TOPIC = TOPIC;
+    configurePush();
     await scheduleGmailWatchRenew();
     expect(queue.add).toHaveBeenCalledWith(
       "GmailWatchRenew",
@@ -448,7 +460,7 @@ describe("Gmail watch renewal job", () => {
   });
 
   it("re-registering keeps a single repeatable: stale crons are removed, the current one is kept", async () => {
-    process.env.GMAIL_PUBSUB_TOPIC = TOPIC;
+    configurePush();
     queue.getRepeatableJobs.mockResolvedValue([
       {
         key: "GmailWatchRenew:::0 4 * * *",
@@ -491,6 +503,22 @@ describe("Gmail watch renewal job", () => {
       "GmailWatchRenew:::0 4 * * *"
     );
     expect(queue.removeRepeatableByKey).toHaveBeenCalledTimes(1);
+    expect(queue.add).not.toHaveBeenCalled();
+  });
+
+  it("with only the topic set (push not fully configured) removes the repeatable too", async () => {
+    process.env.GMAIL_PUBSUB_TOPIC = TOPIC;
+    queue.getRepeatableJobs.mockResolvedValue([
+      {
+        key: "GmailWatchRenew:::0 4 * * *",
+        name: "GmailWatchRenew",
+        cron: "0 4 * * *"
+      }
+    ]);
+    await scheduleGmailWatchRenew();
+    expect(queue.removeRepeatableByKey).toHaveBeenCalledWith(
+      "GmailWatchRenew:::0 4 * * *"
+    );
     expect(queue.add).not.toHaveBeenCalled();
   });
 

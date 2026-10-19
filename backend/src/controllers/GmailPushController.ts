@@ -1,21 +1,19 @@
 import express, { Request, RequestHandler, Response } from "express";
 import { OAuth2Client } from "google-auth-library";
-import { Op } from "sequelize";
 import { getGmailConfig } from "../config/gmail";
-import {
-  runtimeCompanyWhere,
-  runtimeOwnsCompany
-} from "../helpers/tenantRuntime";
-import EmailAccount from "../models/EmailAccount";
-import { enqueueAccountSync } from "../queues/email";
-import { emailEnabledForCompany } from "../services/EmailServices/EmailAccessService";
 import { GMAIL_HTTP_TIMEOUT_MS } from "../services/EmailServices/GmailAuthClient";
+import {
+  dispatchGmailPush,
+  pushedAddress
+} from "../services/EmailServices/GmailPushService";
+import { gmailPushConfigured } from "../services/EmailServices/GmailWatchService";
 import { logger } from "../utils/logger";
 
 // POST /webhooks/gmail/push: Pub/Sub push subscription of the Gmail watch
 // topic (Task 16, setup in docs/email-channel.md). No session: the caller is
 // Google, authenticated by the OIDC token Pub/Sub signs for the subscription's
-// service account.
+// service account. This file only checks config and the token and answers;
+// the notification is handled by GmailPushService.
 //
 // Answers:
 //  - 404 when push is not configured (GMAIL_PUBSUB_TOPIC, _AUDIENCE and
@@ -31,22 +29,15 @@ export const GMAIL_PUSH_PATH = "/webhooks/gmail/push";
 // envelope). Anything near this limit is not one.
 export const GMAIL_PUSH_BODY_LIMIT = "64kb";
 
-const MAX_ADDRESS_LENGTH = 254;
-const ADDRESS_PATTERN = /^[^\s@<>"',;()]+@[^\s@<>"',;()]+\.[^\s@<>"',;()]+$/;
-const MAX_DATA_LENGTH = 4096;
-
 type PushConfig = {
-  topic: string;
   audience: string;
   serviceAccount: string;
 };
 
 const pushConfig = (): PushConfig | null => {
-  const { pubsubTopic, pubsubAudience, pubsubServiceAccount } =
-    getGmailConfig();
-  if (!pubsubTopic || !pubsubAudience || !pubsubServiceAccount) return null;
+  if (!gmailPushConfigured()) return null;
+  const { pubsubAudience, pubsubServiceAccount } = getGmailConfig();
   return {
-    topic: pubsubTopic,
     audience: pubsubAudience,
     serviceAccount: pubsubServiceAccount.toLowerCase()
   };
@@ -95,69 +86,6 @@ export const verifyPushToken = async (
   }
 };
 
-// { message: { data: base64(JSON { emailAddress, historyId }) } } -> address,
-// or null when the body is not a Gmail notification.
-export const pushedAddress = (body: unknown): string | null => {
-  const data = (body as { message?: { data?: unknown } } | null)?.message?.data;
-  if (typeof data !== "string" || !data || data.length > MAX_DATA_LENGTH) {
-    return null;
-  }
-  try {
-    const decoded = JSON.parse(Buffer.from(data, "base64").toString("utf8"));
-    const address =
-      typeof decoded?.emailAddress === "string"
-        ? decoded.emailAddress.trim().toLowerCase()
-        : "";
-    return address &&
-      address.length <= MAX_ADDRESS_LENGTH &&
-      ADDRESS_PATTERN.test(address)
-      ? address
-      : null;
-  } catch {
-    return null;
-  }
-};
-
-// Every active Gmail account with that address (the same mailbox can be
-// connected by several companies), in companies this runtime owns with the
-// email channel enabled. Returns how many syncs were enqueued. The jobId of
-// enqueueAccountSync (`sync-<id>`) collapses duplicate notifications.
-export const dispatchGmailPush = async (address: string): Promise<number> => {
-  const accounts = await EmailAccount.findAll({
-    attributes: ["id", "companyId"],
-    where: {
-      [Op.and]: [
-        { provider: "gmail_api", status: "active", address },
-        runtimeCompanyWhere()
-      ]
-    }
-  });
-
-  const enabled = new Map<number, boolean>();
-  let enqueued = 0;
-  // eslint-disable-next-line no-restricted-syntax
-  for (const account of accounts) {
-    if (!runtimeOwnsCompany(account.companyId)) continue;
-    if (!enabled.has(account.companyId)) {
-      enabled.set(
-        account.companyId,
-        await emailEnabledForCompany(account.companyId)
-      );
-    }
-    if (!enabled.get(account.companyId)) continue;
-    try {
-      await enqueueAccountSync(account.id);
-      enqueued += 1;
-    } catch {
-      logger.warn(
-        { companyId: account.companyId, emailAccountId: account.id },
-        "Could not enqueue email sync from Gmail push"
-      );
-    }
-  }
-  return enqueued;
-};
-
 // Small JSON parser for this route only. app.ts mounts it before the global
 // 10 MB parser (which then skips the already-read body). Too large -> 413
 // right away; invalid JSON -> body undefined, answered 204 after the token
@@ -183,7 +111,9 @@ export const push = async (req: Request, res: Response): Promise<void> => {
     return;
   }
   if (!(await verifyPushToken(req.headers.authorization, config))) {
-    logger.warn("Rejected Gmail push: invalid or missing OIDC token");
+    // debug, not warn: anyone on the internet can call this URL, and a
+    // warn per request would let them flood the logs.
+    logger.debug("Rejected Gmail push: invalid or missing OIDC token");
     res.status(401).end();
     return;
   }
