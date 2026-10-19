@@ -40,4 +40,27 @@ describe("sanitizeEmailHtml", () => {
   it("returns empty string for empty input", () => {
     expect(sanitizeEmailHtml("")).toBe("");
   });
+
+  it("blocks entity-obfuscated javascript: schemes", () => {
+    expect(sanitizeEmailHtml('<a href="java&#x09;script:alert(1)">d</a>')).toBe(
+      "<a>d</a>"
+    );
+    expect(sanitizeEmailHtml('<a href="&#106;avascript:alert(1)">d</a>')).toBe(
+      "<a>d</a>"
+    );
+    expect(
+      sanitizeEmailHtml('<a href="&#x6A;&#x61;vascript&colon;alert(1)">d</a>')
+    ).toBe("<a>d</a>");
+  });
+
+  it("drops svg handlers and mXSS chains", () => {
+    const svg = sanitizeEmailHtml('<svg onload="alert(1)"><circle/></svg>ok');
+    expect(svg).not.toMatch(/svg|onload|alert|<circle/i);
+    expect(svg).toContain("ok");
+
+    const chain = sanitizeEmailHtml(
+      "<math><mtext><table><mglyph><style><img src=x onerror=alert(1)>"
+    );
+    expect(chain).not.toMatch(/<img|onerror|<style|<math|<mglyph/i);
+  });
 });

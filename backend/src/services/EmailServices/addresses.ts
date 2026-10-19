@@ -1,7 +1,17 @@
+import { domainToASCII } from "url";
 import { EmailAddress } from "./types";
 
 const ADDRESS_RE =
   /^[^\s@<>()[\],;:"\\]+@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i;
+
+// Lowercases and converts the domain to its ASCII (punycode) form, so that IDN
+// addresses (as decoded by mailparser) validate and compare consistently.
+const toAsciiAddress = (value: string): string => {
+  const at = value.lastIndexOf("@");
+  if (at <= 0) return value;
+  const domain = domainToASCII(value.slice(at + 1).toLowerCase());
+  return domain ? `${value.slice(0, at).toLowerCase()}@${domain}` : value;
+};
 
 const isValidAddress = (value: string): boolean =>
   value.length <= 254 &&
@@ -54,12 +64,12 @@ type ParsedEntry = { address: string; name?: string } | null;
 const parseEntry = (entry: string): ParsedEntry => {
   const match = entry.match(/^(.*)<([^<>]*)>\s*$/s);
   if (match) {
-    const address = match[2].trim().toLowerCase();
+    const address = toAsciiAddress(match[2].trim());
     if (!isValidAddress(address)) return null;
     const name = cleanName(match[1]);
     return name ? { address, name } : { address };
   }
-  const address = entry.trim().toLowerCase();
+  const address = toAsciiAddress(entry.trim());
   return isValidAddress(address) ? { address } : null;
 };
 

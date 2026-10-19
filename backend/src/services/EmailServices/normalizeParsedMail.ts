@@ -2,6 +2,7 @@ import { extension } from "mime-types";
 import { convert } from "html-to-text";
 import type { AddressObject, Attachment, ParsedMail } from "mailparser";
 import { normalizeEmailAddress } from "./addresses";
+import { MAX_HTML_BYTES } from "./limits";
 import sanitizeEmailHtml from "./sanitizeEmailHtml";
 import { EmailAddress, NormalizedAttachment, NormalizedEmail } from "./types";
 
@@ -14,7 +15,7 @@ type Meta = {
 };
 
 const BOUNCE_SENDER_RE = /^(?:mailer-daemon|mailerdaemon|postmaster)$/i;
-const MESSAGE_ID_RE = /^message-id:[ \t]*\r?\n?[ \t]*(<[^>\r\n]+>)/im;
+const MESSAGE_ID_RE = /^message-id:[ \t]*\r?\n?[ \t]*(<[^<>\s]+>)/im;
 
 const toAddresses = (
   field: AddressObject | AddressObject[] | undefined
@@ -35,11 +36,22 @@ const toAddresses = (
   return result;
 };
 
-const toReferences = (references: string | string[] | undefined): string[] => {
-  if (!references) return [];
-  const list = Array.isArray(references) ? references : references.split(/\s+/);
-  return list.map(ref => ref.trim()).filter(Boolean);
+const MESSAGE_ID_TOKEN_RE = /<[^<>\s]+>/g;
+
+// Reduces a header value (string or array) to its <id> tokens, tolerating
+// comma-separated lists and legacy text such as "Your message of ... <id>".
+const messageIdTokens = (value: string | string[] | undefined): string[] => {
+  if (!value) return [];
+  const list = Array.isArray(value) ? value : [value];
+  return list.flatMap(item => String(item).match(MESSAGE_ID_TOKEN_RE) || []);
 };
+
+const toReferences = (references: string | string[] | undefined): string[] =>
+  messageIdTokens(references);
+
+const firstMessageId = (
+  value: string | string[] | undefined
+): string | undefined => messageIdTokens(value)[0];
 
 const htmlToPlainText = (html: string): string =>
   convert(html, {
@@ -128,8 +140,11 @@ export function normalizeParsedMail(
 
   const rawText = (parsed.text || "").replace(/\r\n?/g, "\n").trim();
   const html = typeof parsed.html === "string" ? parsed.html : "";
-  const text = rawText || (html ? htmlToPlainText(html) : "");
-  const htmlSanitized = html ? sanitizeEmailHtml(html) : "";
+  const htmlTooLarge = html.length > MAX_HTML_BYTES;
+  const text =
+    rawText || (html ? htmlToPlainText(html.slice(0, MAX_HTML_BYTES)) : "");
+  const htmlSanitized = html && !htmlTooLarge ? sanitizeEmailHtml(html) : "";
+  const inReplyTo = firstMessageId(parsed.inReplyTo);
 
   const flags = [...(meta.flags || [])];
   const bounce =
@@ -139,7 +154,7 @@ export function normalizeParsedMail(
 
   let bounceOf: string | undefined;
   if (flags.includes("bounce")) {
-    bounceOf = findEmbeddedMessageId(parsed) || parsed.inReplyTo || undefined;
+    bounceOf = findEmbeddedMessageId(parsed) || inReplyTo;
   }
 
   const date =
@@ -155,7 +170,7 @@ export function normalizeParsedMail(
       ? { providerThreadId: meta.providerThreadId }
       : {}),
     ...(parsed.messageId ? { internetMessageId: parsed.messageId } : {}),
-    ...(parsed.inReplyTo ? { inReplyTo: parsed.inReplyTo } : {}),
+    ...(inReplyTo ? { inReplyTo } : {}),
     references: toReferences(parsed.references),
     from,
     replyTo: toAddresses(parsed.replyTo),

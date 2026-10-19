@@ -1,5 +1,6 @@
 import { ParsedMail, simpleParser } from "mailparser";
 import normalizeParsedMail from "../normalizeParsedMail";
+import { MAX_HTML_BYTES } from "../limits";
 
 const meta = {
   accountId: 7,
@@ -202,5 +203,99 @@ describe("normalizeParsedMail", () => {
     );
     expect(out.flags).toEqual([]);
     expect(out.bounceOf).toBeUndefined();
+  });
+
+  it("keeps IDN senders in ASCII form (punycode From through mailparser)", async () => {
+    const raw = [
+      "From: =?UTF-8?Q?Jo=C3=A3o?= <joao@xn--po-sia.com.br>",
+      "To: loja@y.com",
+      "Subject: oi",
+      "",
+      "corpo",
+      ""
+    ].join("\r\n");
+    const out = normalizeParsedMail(await simpleParser(Buffer.from(raw)), meta);
+    expect(out.from.address).toBe("joao@xn--po-sia.com.br");
+    expect(out.from.name).toBe("João");
+
+    const unicode = normalizeParsedMail(
+      build({ from: addr({ address: "Joao@Pão.com.br" }) }),
+      meta
+    );
+    expect(unicode.from.address).toBe("joao@xn--po-sia.com.br");
+  });
+
+  it("yields an empty from.address when From is missing or unparseable", async () => {
+    expect(normalizeParsedMail(build({ text: "oi" }), meta).from).toEqual({
+      address: ""
+    });
+    expect(
+      normalizeParsedMail(build({ from: addr({ address: "garbage" }) }), meta)
+        .from.address
+    ).toBe("");
+    const parsed = await simpleParser(
+      Buffer.from("To: loja@y.com\r\nSubject: sem from\r\n\r\ncorpo\r\n")
+    );
+    expect(normalizeParsedMail(parsed, meta).from.address).toBe("");
+  });
+
+  it("reduces In-Reply-To and References to <id> tokens", () => {
+    const multi = normalizeParsedMail(
+      build({
+        from: addr({ address: "a@x.com" }),
+        inReplyTo: "<b@x> <c@x>",
+        references: ["<r1@x>, <r2@x>", "<r3@x>"]
+      }),
+      meta
+    );
+    expect(multi.inReplyTo).toBe("<b@x>");
+    expect(multi.references).toEqual(["<r1@x>", "<r2@x>", "<r3@x>"]);
+
+    const legacy = normalizeParsedMail(
+      build({
+        from: addr({ address: "a@x.com" }),
+        inReplyTo: "Your message of Mon, 19 Oct 2026 <b@x>",
+        references: "<a@x>,<b@x>"
+      }),
+      meta
+    );
+    expect(legacy.inReplyTo).toBe("<b@x>");
+    expect(legacy.references).toEqual(["<a@x>", "<b@x>"]);
+
+    const none = normalizeParsedMail(
+      build({ from: addr({ address: "a@x.com" }), inReplyTo: "garbage" }),
+      meta
+    );
+    expect(none.inReplyTo).toBeUndefined();
+  });
+
+  it("applies the token reduction to bounceOf fallback", () => {
+    const out = normalizeParsedMail(
+      build({
+        from: addr({ address: "mailer-daemon@x.com" }),
+        inReplyTo: "re: <orig@y.com> <other@y.com>"
+      }),
+      meta
+    );
+    expect(out.bounceOf).toBe("<orig@y.com>");
+  });
+
+  it("skips sanitizing oversized html and truncates the html-to-text input", () => {
+    const big = `<p>início</p>${"<p>x</p>".repeat(MAX_HTML_BYTES / 8 + 10)}<p>FIM-FORA</p>`;
+    expect(big.length).toBeGreaterThan(MAX_HTML_BYTES);
+    const out = normalizeParsedMail(
+      build({ from: addr({ address: "a@x.com" }), html: big }),
+      meta
+    );
+    expect(out.htmlSanitized).toBeUndefined();
+    expect(out.text).toContain("início");
+    expect(out.text).not.toContain("FIM-FORA");
+
+    const withText = normalizeParsedMail(
+      build({ from: addr({ address: "a@x.com" }), html: big, text: "plain" }),
+      meta
+    );
+    expect(withText.text).toBe("plain");
+    expect(withText.htmlSanitized).toBeUndefined();
   });
 });

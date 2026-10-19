@@ -17,6 +17,9 @@ export type NormalizedEmail = {
   internetMessageId?: string;
   inReplyTo?: string;
   references: string[];
+  // An empty from.address ("") means the sender is missing or unparseable,
+  // i.e. there is no usable counterpart (ruling R16); callers must not create
+  // contacts or tickets from it.
   from: EmailAddress;
   replyTo: EmailAddress[];
   to: EmailAddress[];

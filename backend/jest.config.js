@@ -76,9 +76,10 @@ module.exports = {
   // ],
 
   // A map from regular expressions to module names or to arrays of module names that allow to stub out resources with a single module
-  // sanitize-html 2.17.x pulls htmlparser2@12 (ESM only), which jest's CommonJS
-  // runtime cannot load. Tests use the hoisted CommonJS htmlparser2@8 instead;
-  // production (Node 24) loads the real one through require(esm).
+  // sanitize-html 2.17.x and html-to-text (hence mailparser) nest htmlparser2
+  // (v12 / v10, ESM only), which jest's CommonJS runtime cannot load. Tests use
+  // the hoisted CommonJS htmlparser2@8 for all of them instead; production
+  // (Node 24) loads the real ones through require(esm).
   moduleNameMapper: {
     "^htmlparser2$": "<rootDir>/node_modules/htmlparser2"
   },

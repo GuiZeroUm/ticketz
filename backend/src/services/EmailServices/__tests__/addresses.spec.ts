@@ -1,3 +1,4 @@
+import { domainToASCII } from "url";
 import { normalizeEmailAddress, parseAddressList } from "../addresses";
 
 describe("normalizeEmailAddress", () => {
@@ -8,6 +9,18 @@ describe("normalizeEmailAddress", () => {
     expect(normalizeEmailAddress("  USER@Example.COM ")).toBe(
       "user@example.com"
     );
+  });
+
+  it("converts IDN domains to ASCII punycode", () => {
+    expect(normalizeEmailAddress("João <Joao@Pão.com.br>")).toBe(
+      `joao@${domainToASCII("pão.com.br")}`
+    );
+    expect(normalizeEmailAddress("joao@xn--po-sia.com.br")).toBe(
+      "joao@xn--po-sia.com.br"
+    );
+    expect(parseAddressList("x@münchen.de").valid).toEqual([
+      { address: "x@xn--mnchen-3ya.de" }
+    ]);
   });
 
   it("returns null for invalid input", () => {

@@ -7,3 +7,4 @@ export const INITIAL_IMPORT_HOURS = 24;
 export const INITIAL_IMPORT_MAX = 50;
 export const SUBJECT_FALLBACK_DAYS = 30;
 export const MAX_REFERENCES = 20;
+export const MAX_HTML_BYTES = 2 * 1024 * 1024;

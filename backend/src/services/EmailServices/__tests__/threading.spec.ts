@@ -9,6 +9,10 @@ describe("normalizeSubject", () => {
     );
     expect(normalizeSubject("Reunião Re: x")).toBe("reunião re: x");
     expect(normalizeSubject("")).toBe("");
+    expect(
+      normalizeSubject("Re[2]: AW: WG: SV: RES: ENC: Fwd[3]: Orçamento")
+    ).toBe("orçamento");
+    expect(normalizeSubject("AW: Re: Pedido")).toBe("pedido");
   });
 });
 
@@ -18,6 +22,12 @@ describe("replySubject", () => {
     expect(replySubject("RES: Proposta", "replyAll")).toBe("RES: Proposta");
     expect(replySubject("Fwd: Proposta", "forward")).toBe("Fwd: Proposta");
     expect(replySubject("ENC: Proposta", "forward")).toBe("ENC: Proposta");
+  });
+
+  it("recognizes localized prefixes", () => {
+    expect(replySubject("AW: Pedido", "reply")).toBe("AW: Pedido");
+    expect(replySubject("Re[2]: Pedido", "reply")).toBe("Re[2]: Pedido");
+    expect(replySubject("WG: Pedido", "forward")).toBe("WG: Pedido");
   });
 
   it("adds the prefix when missing", () => {

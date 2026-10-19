@@ -1,8 +1,9 @@
 import { MAX_REFERENCES } from "./limits";
 
-const PREFIXES_RE = /^\s*(?:(?:re|res|fwd|fw|enc)\s*:\s*)+/i;
-const REPLY_RE = /^\s*(?:re|res)\s*:/i;
-const FORWARD_RE = /^\s*(?:fwd|fw|enc)\s*:/i;
+const PREFIXES_RE =
+  /^\s*(?:(?:re|res|aw|sv|fwd|fw|enc|wg)(?:\s*\[\d+\])?\s*:\s*)+/i;
+const REPLY_RE = /^\s*(?:re|res|aw|sv)(?:\s*\[\d+\])?\s*:/i;
+const FORWARD_RE = /^\s*(?:fwd|fw|enc|wg)\s*:/i;
 
 export function normalizeSubject(subject: string): string {
   return (subject || "")
