@@ -6,6 +6,7 @@ import {
 } from "../helpers/tenantRuntime";
 import EmailAccount from "../models/EmailAccount";
 import { emailEnabledForCompany } from "../services/EmailServices/EmailAccessService";
+import ProcessEmailSendJob from "../services/EmailServices/ProcessEmailSendJob";
 import SyncEmailAccountService from "../services/EmailServices/SyncEmailAccountService";
 import { logger } from "../utils/logger";
 
@@ -19,6 +20,8 @@ export const emailQueue = new Queue(
 export const SYNC_JOB = "EmailSyncAccount";
 export const TICK_JOB = "EmailSyncTick";
 export const SYNC_CONCURRENCY = 5;
+export const SEND_JOB = "EmailSend";
+export const SEND_CONCURRENCY = 5;
 
 const BACKOFF_BASE_MS = 60 * 1000;
 const BACKOFF_MAX_MS = 15 * 60 * 1000;
@@ -115,15 +118,59 @@ export const handleSyncCompleted = async (
   }
 };
 
-// Task 12 adds the "EmailSend" processor here.
+export const sendJobId = (emailMessageId: number, attempt = 0): string =>
+  attempt
+    ? `send-${emailMessageId}-retry-${attempt}`
+    : `send-${emailMessageId}`;
+
+type SendJobData = { emailMessageId: number; attempt?: number };
+
+// One job per outgoing email (`send-<id>`), never retried by Bull (attempts:
+// 1): a retry could send the email twice. ProcessEmailSendJob schedules its
+// own retries of transient failures, each under its own job id
+// (`send-<id>-retry-<n>`), because the running job still holds `send-<id>`
+// and Bull would drop an add with that id. removeOnComplete/removeOnFail as
+// for sync jobs (see enqueueAccountSync): a kept job hash would pin its id.
+// A duplicate run is harmless: the job only sends rows still "queued", behind
+// a Redis marker.
+export const enqueueEmailSend = async (
+  emailMessageId: number,
+  attempt = 0,
+  delayMs = 0
+): Promise<void> => {
+  await emailQueue.add(
+    SEND_JOB,
+    { emailMessageId, attempt },
+    {
+      jobId: sendJobId(emailMessageId, attempt),
+      attempts: 1,
+      ...(delayMs > 0 ? { delay: delayMs } : {}),
+      removeOnComplete: true,
+      removeOnFail: true
+    }
+  );
+};
+
+export const handleSendJob = async (
+  job: Pick<Job<SendJobData>, "data">
+): Promise<void> => {
+  const { emailMessageId } = job.data;
+  await ProcessEmailSendJob(emailMessageId, {
+    attempt: job.data.attempt || 0,
+    scheduleRetry: (nextAttempt, delayMs) =>
+      enqueueEmailSend(emailMessageId, nextAttempt, delayMs)
+  });
+};
+
 export const startEmailQueue = (): void => {
   emailQueue.process(TICK_JOB, async () => {
     await runEmailSyncTick();
   });
   emailQueue.process(SYNC_JOB, SYNC_CONCURRENCY, handleSyncAccountJob);
+  emailQueue.process(SEND_JOB, SEND_CONCURRENCY, handleSendJob);
   emailQueue.on("completed", handleSyncCompleted);
   emailQueue.on("failed", (job, err) => {
-    logger.warn({ job: job?.name, error: err?.name }, "Email sync job failed");
+    logger.warn({ job: job?.name, error: err?.name }, "Email queue job failed");
   });
 
   emailQueue

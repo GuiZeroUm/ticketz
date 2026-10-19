@@ -2,10 +2,13 @@
 import EmailAccount from "../../models/EmailAccount";
 import { emailEnabledForCompany } from "../../services/EmailServices/EmailAccessService";
 import SyncEmailAccountService from "../../services/EmailServices/SyncEmailAccountService";
+import ProcessEmailSendJob from "../../services/EmailServices/ProcessEmailSendJob";
 import {
   backoffMs,
   emailQueue,
   enqueueAccountSync,
+  enqueueEmailSend,
+  handleSendJob,
   handleSyncAccountJob,
   handleSyncCompleted,
   runEmailSyncTick,
@@ -31,6 +34,10 @@ jest.mock("../../services/EmailServices/EmailAccessService", () => ({
   emailEnabledForCompany: jest.fn()
 }));
 jest.mock("../../services/EmailServices/SyncEmailAccountService", () => ({
+  __esModule: true,
+  default: jest.fn()
+}));
+jest.mock("../../services/EmailServices/ProcessEmailSendJob", () => ({
   __esModule: true,
   default: jest.fn()
 }));
@@ -85,7 +92,7 @@ describe("EmailSync queue", () => {
   it("registers the repeatable tick and the processors", () => {
     startEmailQueue();
     const names = queue.process.mock.calls.map((c: any[]) => c[0]);
-    expect(names).toEqual(["EmailSyncTick", "EmailSyncAccount"]);
+    expect(names).toEqual(["EmailSyncTick", "EmailSyncAccount", "EmailSend"]);
     const syncProcess = queue.process.mock.calls.find(
       (c: any[]) => c[0] === "EmailSyncAccount"
     );
@@ -123,6 +130,57 @@ describe("EmailSync queue", () => {
     await expect(
       handleSyncCompleted({ data: { accountId: 3 } }, { hasMore: true })
     ).resolves.toBeUndefined();
+  });
+});
+
+describe("EmailSend jobs", () => {
+  it("queues one send job per email message, never retried by Bull", async () => {
+    await enqueueEmailSend(41);
+    expect(queue.add).toHaveBeenCalledWith(
+      "EmailSend",
+      { emailMessageId: 41, attempt: 0 },
+      {
+        jobId: "send-41",
+        attempts: 1,
+        removeOnComplete: true,
+        removeOnFail: true
+      }
+    );
+  });
+
+  it("queues a delayed retry under its own job id", async () => {
+    await enqueueEmailSend(41, 2, 120000);
+    expect(queue.add).toHaveBeenCalledWith(
+      "EmailSend",
+      { emailMessageId: 41, attempt: 2 },
+      {
+        jobId: "send-41-retry-2",
+        attempts: 1,
+        delay: 120000,
+        removeOnComplete: true,
+        removeOnFail: true
+      }
+    );
+  });
+
+  it("runs the send job with its attempt and a retry scheduler", async () => {
+    (ProcessEmailSendJob as jest.Mock).mockResolvedValue(undefined);
+    await handleSendJob({ data: { emailMessageId: 41, attempt: 1 } });
+    const [id, options] = (ProcessEmailSendJob as jest.Mock).mock.calls[0];
+    expect(id).toBe(41);
+    expect(options.attempt).toBe(1);
+    await options.scheduleRetry(2, 120000);
+    expect(queue.add.mock.calls[0][2].jobId).toBe("send-41-retry-2");
+    expect(queue.add.mock.calls[0][2].delay).toBe(120000);
+  });
+
+  it("registers the send processor with its own concurrency", () => {
+    startEmailQueue();
+    const sendProcess = queue.process.mock.calls.find(
+      (c: any[]) => c[0] === "EmailSend"
+    );
+    expect(sendProcess[1]).toBe(5);
+    expect(sendProcess[2]).toBe(handleSendJob);
   });
 });
 

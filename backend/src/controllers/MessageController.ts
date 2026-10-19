@@ -33,6 +33,9 @@ import ShowContactService from "../services/ContactServices/ShowContactService";
 import { verifyContact } from "../services/WbotServices/verifyContact";
 import normalizeMediaCaption from "../helpers/normalizeMediaCaption";
 import ResolveQuotedMessageService from "../services/MessageServices/ResolveQuotedMessageService";
+import SendEmailService, {
+  EmailSendMode
+} from "../services/EmailServices/SendEmailService";
 
 type IndexQuery = {
   nextId?: string;
@@ -148,6 +151,33 @@ export const historyByMessageId = async (
   return res.json({ oldMessages });
 };
 
+// Email tickets: reply, reply all or forward through the ticket's mailbox.
+// ShowTicketService already confined the ticket to the user's company; none
+// of the WhatsApp steps (read receipts, contact check, Meta 24h window) apply.
+const storeEmail = async (
+  req: Request,
+  res: Response,
+  ticket: Ticket,
+  medias: Express.Multer.File[] | undefined
+): Promise<Response> => {
+  const { body, mode, to, cc, subject, idempotencyKey } = req.body as Record<
+    string,
+    string
+  >;
+  const message = await SendEmailService({
+    ticket,
+    userId: Number(req.user.id),
+    mode: mode as EmailSendMode,
+    to,
+    cc,
+    subject,
+    body,
+    files: medias,
+    idempotencyKey
+  });
+  return res.json(message);
+};
+
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const { ticketId } = req.params;
   const { body, quotedMsg, quotedMsgId } = req.body as MessageData & {
@@ -158,6 +188,9 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   const userId = Number(req.user.id) || null;
 
   const ticket = await ShowTicketService(ticketId, companyId);
+  if (ticket.channel === "email") {
+    return storeEmail(req, res, ticket, medias);
+  }
   if (ticket.isGroup) {
     await assertGroupAccess(ticketId, req.user);
     if (ticket.contact?.groupMode !== "ticket") {

@@ -232,3 +232,82 @@ export const openAttachment = async (
 
   return { attachment, stream: fs.createReadStream(filePath) };
 };
+
+// Absolute path of a stored attachment, or null when the key does not belong
+// to `companyId` (or does not have the storage shape).
+export const storedAttachmentPath = (
+  companyId: number,
+  storageKey: string
+): string | null => resolveStoragePath(companyId, storageKey);
+
+export type OutboundAttachmentSource = {
+  filename: string;
+  contentType?: string | null;
+  // file to copy: a fresh upload, or another stored attachment (forward)
+  sourcePath: string;
+};
+
+// Copies the files of an outgoing email into private storage and records them.
+// The caller validates the size limits before; sizes are taken from the copy.
+// Like saveInboundAttachments, whatever this call wrote is removed when it
+// fails; on a later rollback the caller must call removeStoredAttachments.
+export const saveOutboundAttachments = async (
+  companyId: number,
+  emailMessageId: number,
+  sources: OutboundAttachmentSource[],
+  opts: { transaction?: Transaction } = {}
+): Promise<EmailAttachment[]> => {
+  const saved: EmailAttachment[] = [];
+  const writtenKeys: string[] = [];
+  const relativeDir = `${STORAGE_ROOT}/${companyId}/${emailMessageId}`;
+  const absoluteDir = path.join(
+    privateFiles.directory,
+    STORAGE_ROOT,
+    String(companyId),
+    String(emailMessageId)
+  );
+  const createOptions = opts.transaction
+    ? { transaction: opts.transaction }
+    : undefined;
+
+  try {
+    // eslint-disable-next-line no-restricted-syntax
+    for (const source of sources) {
+      const name = uuidv4();
+      const storageKey = `${relativeDir}/${name}`;
+      const target = path.join(absoluteDir, name);
+
+      await fs.promises.mkdir(absoluteDir, { recursive: true, mode: 0o700 });
+      writtenKeys.push(storageKey);
+      await fs.promises.copyFile(
+        source.sourcePath,
+        target,
+        fs.constants.COPYFILE_EXCL
+      );
+      await fs.promises.chmod(target, 0o600);
+      const { size } = await fs.promises.stat(target);
+
+      saved.push(
+        await EmailAttachment.create(
+          {
+            companyId,
+            emailMessageId,
+            filename: sanitizeFilename(source.filename),
+            contentType: limited(source.contentType),
+            size,
+            storageKey,
+            contentId: null,
+            inline: false,
+            skippedReason: null
+          },
+          createOptions
+        )
+      );
+    }
+  } catch (err) {
+    await removeStoredAttachments(writtenKeys);
+    throw err;
+  }
+
+  return saved;
+};
