@@ -216,6 +216,22 @@ describe("SyncEmailAccountService", () => {
       hasMore: false
     });
     expect(afterRound).toHaveBeenCalledTimes(2);
+
+    // a hook that throws synchronously is contained as well
+    (getAdapter as jest.Mock).mockReturnValue({
+      fetchChanges,
+      afterRound: () => {
+        throw new Error("sync throw");
+      }
+    });
+    await expect(SyncEmailAccountService(5)).resolves.toEqual({
+      ingested: 0,
+      hasMore: false
+    });
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ errorName: "Error" }),
+      "Email adapter afterRound hook failed"
+    );
   });
 
   it("saves cursor only after all emails are ingested, in order", async () => {

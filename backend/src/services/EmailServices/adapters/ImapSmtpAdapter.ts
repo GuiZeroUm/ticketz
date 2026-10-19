@@ -1,4 +1,3 @@
-import fs from "fs";
 import net from "net";
 import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
@@ -24,6 +23,7 @@ import {
   EmailSendRejectedError,
   EmailTransientError
 } from "./errors";
+import { assertAttachmentsReadable, toMailOptions } from "./outgoingMail";
 
 type Endpoint = { host: string; port: number; secure: boolean };
 
@@ -751,23 +751,6 @@ const createSmtpTransport = async (
   });
 };
 
-const assertAttachmentsReadable = async (mail: OutgoingEmail) => {
-  const results = await Promise.all(
-    mail.attachments.map(attachment =>
-      fs.promises.access(attachment.path, fs.constants.R_OK).then(
-        () => true,
-        () => false
-      )
-    )
-  );
-  if (results.some(readable => !readable)) {
-    throw new EmailSendRejectedError(
-      "ERR_EMAIL_INVALID_MESSAGE",
-      "attachment_missing"
-    );
-  }
-};
-
 // ---------------------------------------------------------------- the adapter
 
 export class ImapSmtpAdapter implements EmailProviderAdapter {
@@ -830,22 +813,7 @@ export class ImapSmtpAdapter implements EmailProviderAdapter {
     const tracker = createSmtpTracker();
     const transport = await createSmtpTransport(config, tracker);
     try {
-      const info = await transport.sendMail({
-        from: { name: mail.from.name || "", address: mail.from.address },
-        to: mail.to.map(a => ({ name: a.name || "", address: a.address })),
-        cc: mail.cc.map(a => ({ name: a.name || "", address: a.address })),
-        subject: mail.subject,
-        text: mail.text,
-        html: mail.html,
-        messageId: mail.messageId,
-        ...(mail.inReplyTo ? { inReplyTo: mail.inReplyTo } : {}),
-        references: mail.references,
-        attachments: mail.attachments.map(a => ({
-          filename: a.filename,
-          contentType: a.contentType,
-          path: a.path
-        }))
-      });
+      const info = await transport.sendMail(toMailOptions(mail));
       // SMTP gives no provider id nor thread id; the Message-ID is ours.
       const rejected = Array.isArray(info?.rejected) ? info.rejected.length : 0;
       return rejected > 0 ? { rejectedCount: rejected } : {};

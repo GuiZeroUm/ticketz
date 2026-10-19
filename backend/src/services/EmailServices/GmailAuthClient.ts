@@ -4,6 +4,7 @@ import { GmailConfig, getGmailConfig } from "../../config/gmail";
 import EmailAccount from "../../models/EmailAccount";
 import { logger } from "../../utils/logger";
 import { EmailAuthError, EmailTransientError } from "./adapters/errors";
+import { gmailFailureReason, isInvalidGrant } from "./gmailErrors";
 
 // Kept apart from GmailOAuthService (which pulls the sync queue) so the Gmail
 // adapter (Task 15) can import it from adapters/index.ts without an import cycle.
@@ -11,34 +12,9 @@ import { EmailAuthError, EmailTransientError } from "./adapters/errors";
 export const GMAIL_HTTP_TIMEOUT_MS = 15_000;
 const REVOKE_URL = "https://oauth2.googleapis.com/revoke";
 
-type HttpFailure = {
-  code?: unknown;
-  message?: unknown;
-  response?: { status?: unknown; data?: unknown };
-};
-
-// Short, secret-free reason for logs/diagnostics. Never the error itself: a
-// GaxiosError carries the request config (refresh token, client secret,
-// Authorization header) and Google's response text.
-export const gmailFailureReason = (err: unknown): string => {
-  const failure = (err || {}) as HttpFailure;
-  if (typeof failure.response?.status === "number") {
-    return `HTTP_${failure.response.status}`;
-  }
-  if (
-    typeof failure.code === "string" &&
-    /^[A-Z][A-Z0-9_]{1,40}$/.test(failure.code)
-  ) {
-    return failure.code;
-  }
-  return err instanceof Error ? err.name.slice(0, 40) : "UNKNOWN";
-};
-
-const oauthErrorOf = (err: unknown): string | undefined => {
-  const data = ((err || {}) as HttpFailure).response?.data as
-    { error?: unknown } | undefined;
-  return data && typeof data.error === "string" ? data.error : undefined;
-};
+// Error reading lives in gmailErrors.ts (shared with the Gmail API adapter);
+// gmailFailureReason stays importable from here.
+export { gmailFailureReason };
 
 // invalid_grant = the refresh token was revoked/expired/the password changed:
 // only a new consent fixes it. Anything else (network, 5xx, a misconfigured
@@ -47,10 +23,7 @@ const toGmailFailure = (err: unknown): Error => {
   if (err instanceof EmailAuthError || err instanceof EmailTransientError) {
     return err;
   }
-  if (
-    oauthErrorOf(err) === "invalid_grant" ||
-    ((err || {}) as HttpFailure).message === "invalid_grant"
-  ) {
+  if (isInvalidGrant(err)) {
     return new EmailAuthError();
   }
   return new EmailTransientError(

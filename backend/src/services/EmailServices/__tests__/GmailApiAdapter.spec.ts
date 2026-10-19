@@ -18,7 +18,8 @@ import {
 } from "../adapters/errors";
 import GmailApiAdapter, {
   GMAIL_INITIAL_QUERY,
-  GMAIL_RAW_JSON_MAX_BYTES
+  GMAIL_RAW_JSON_MAX_BYTES,
+  gmailSendTimeoutMs
 } from "../adapters/GmailApiAdapter";
 import { getAdapter } from "../adapters";
 import {
@@ -477,15 +478,183 @@ describe("GmailApiAdapter.fetchChanges", () => {
         historyId: "4"
       }
     });
-    jest
+    const parser = jest
       .spyOn(jest.requireActual("mailparser"), "simpleParser")
       .mockImplementationOnce(async () => {
         throw new Error("parse");
       });
 
-    const result = await adapter.fetchChanges(makeAccount({ historyId: "1" }));
+    try {
+      const result = await adapter.fetchChanges(
+        makeAccount({ historyId: "1" })
+      );
+      expect(result.emails.map(e => e.providerMessageId)).toEqual(["ok"]);
+    } finally {
+      parser.mockRestore();
+    }
+  });
 
-    expect(result.emails.map(e => e.providerMessageId)).toEqual(["ok"]);
+  it("stops on a repeated page token and resumes from the last handled record", async () => {
+    addMessage("p1");
+    api.users.history.list.mockResolvedValue({
+      data: {
+        history: [record(61, "p1")],
+        nextPageToken: "same",
+        historyId: "70"
+      }
+    });
+
+    const result = await adapter.fetchChanges(makeAccount({ historyId: "60" }));
+
+    // page 1 (no token), page 2 ("same"), then "same" again → stop
+    expect(api.users.history.list).toHaveBeenCalledTimes(2);
+    expect(result.cursor).toEqual({ historyId: "61" });
+    expect(result.hasMore).toBe(true);
+  });
+
+  it("caps the history pages read in one round", async () => {
+    let n = 0;
+    api.users.history.list.mockImplementation(async () => {
+      n += 1;
+      return {
+        data: { history: [], nextPageToken: `t${n}`, historyId: "900" }
+      };
+    });
+
+    const result = await adapter.fetchChanges(makeAccount({ historyId: "60" }));
+
+    expect(api.users.history.list).toHaveBeenCalledTimes(20);
+    expect(result.cursor).toEqual({ historyId: "60" });
+    expect(result.hasMore).toBe(true);
+  });
+
+  it("ends on the first page's historyId, or the last record when it is newer", async () => {
+    addMessage("q1");
+    addMessage("q2");
+    api.users.history.list
+      .mockResolvedValueOnce({
+        data: {
+          history: [record(81, "q1")],
+          nextPageToken: "n",
+          historyId: "85"
+        }
+      })
+      // later pages report a newer historyId that this round never read
+      .mockResolvedValueOnce({
+        data: { history: [record(82, "q2")], historyId: "99" }
+      });
+    const first = await adapter.fetchChanges(makeAccount({ historyId: "80" }));
+    expect(first.cursor).toEqual({ historyId: "85" });
+
+    api.users.history.list
+      .mockResolvedValueOnce({
+        data: {
+          history: [record(181, "q1")],
+          nextPageToken: "n",
+          historyId: "180"
+        }
+      })
+      .mockResolvedValueOnce({
+        data: { history: [record(10000000000182, "q2")], historyId: "190" }
+      });
+    const second = await adapter.fetchChanges(
+      makeAccount({ historyId: "170" })
+    );
+    expect(second.cursor).toEqual({ historyId: "10000000000182" });
+  });
+
+  describe("ruling R31: only INBOX or SENT mail", () => {
+    it("skips archived mail (no INBOX/SENT) on the incremental path, by its current labels", async () => {
+      addMessage("inbox1", { labelIds: ["INBOX", "CATEGORY_UPDATES"] });
+      addMessage("sent1", { labelIds: ["SENT"] });
+      // the record still says INBOX, but a filter archived it meanwhile
+      addMessage("archived1", { labelIds: ["Label_7", "UNREAD"] });
+      addMessage("archived2", { labelIds: ["CATEGORY_PROMOTIONS"] });
+      api.users.history.list.mockResolvedValue({
+        data: {
+          history: [
+            record(101, "inbox1"),
+            record(102, "archived1", ["INBOX"]),
+            record(103, "sent1", ["SENT"]),
+            record(104, "archived2", [])
+          ],
+          historyId: "104"
+        }
+      });
+
+      const result = await adapter.fetchChanges(
+        makeAccount({ historyId: "100" })
+      );
+
+      expect(
+        result.emails.map(e => [e.providerMessageId, e.direction])
+      ).toEqual([
+        ["inbox1", "in"],
+        ["sent1", "out"]
+      ]);
+      // decided from the minimal read: never downloaded
+      expect(formatsRequested("archived1")).toEqual(["minimal"]);
+      expect(formatsRequested("archived2")).toEqual(["minimal"]);
+      expect(result.cursor).toEqual({ historyId: "104" });
+    });
+
+    it("skips archived mail on the initial path", async () => {
+      api.users.getProfile.mockResolvedValue({ data: { historyId: "50" } });
+      addMessage("keep", { labelIds: ["INBOX"] });
+      addMessage("archived", { labelIds: ["Label_1"] });
+      addMessage("sentToo", { labelIds: ["SENT", "INBOX"] });
+      api.users.messages.list.mockResolvedValue({
+        data: {
+          messages: [{ id: "sentToo" }, { id: "archived" }, { id: "keep" }]
+        }
+      });
+      api.users.history.list.mockResolvedValue({ data: { historyId: "51" } });
+
+      const result = await adapter.fetchChanges(makeAccount(null));
+
+      expect(result.emails.map(e => e.providerMessageId)).toEqual([
+        "keep",
+        "sentToo"
+      ]);
+      expect(formatsRequested("archived")).toEqual(["minimal"]);
+    });
+
+    it("moves the resume point past a skipped record", async () => {
+      const fill = Array.from({ length: SYNC_BATCH_MAX - 2 }, (_, i) => {
+        addMessage(`f${i}`);
+        return record(110 + i, `f${i}`);
+      });
+      addMessage("archived", { labelIds: ["Label_1"] });
+      addMessage("a2");
+      addMessage("a3");
+      api.users.history.list.mockResolvedValue({
+        data: {
+          history: [
+            ...fill,
+            record(301, "archived"),
+            // two messages: only one left in the round, so it waits
+            {
+              id: "302",
+              messagesAdded: [
+                { message: { id: "a2", labelIds: ["INBOX"] } },
+                { message: { id: "a3", labelIds: ["INBOX"] } }
+              ]
+            }
+          ],
+          historyId: "302"
+        }
+      });
+
+      const result = await adapter.fetchChanges(
+        makeAccount({ historyId: "100" })
+      );
+
+      expect(result.emails).toHaveLength(SYNC_BATCH_MAX - 2);
+      expect(formatsRequested("archived")).toEqual(["minimal"]);
+      expect(formatsRequested("a2")).toEqual([]);
+      expect(result.cursor).toEqual({ historyId: "301" });
+      expect(result.hasMore).toBe(true);
+    });
   });
 
   it("maps 401 to EmailAuthError", async () => {
@@ -606,6 +775,12 @@ describe("GmailApiAdapter.send", () => {
     expect(mime).toMatch(/^To: Cliente <cliente@example\.com>\r?$/im);
     expect(mime).toMatch(/^From: Loja <box@gmail\.com>\r?$/im);
     expect(mime).not.toMatch(/^Bcc:/im);
+  });
+
+  it("scales the send timeout with the message size, capped", () => {
+    expect(gmailSendTimeoutMs(1000)).toBe(128_000);
+    expect(gmailSendTimeoutMs(34 * 1024 * 1024)).toBe(392_000);
+    expect(gmailSendTimeoutMs(500 * 1024 * 1024)).toBe(600_000);
   });
 
   it("sends without threadId for a new conversation", async () => {

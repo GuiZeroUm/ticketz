@@ -127,8 +127,14 @@ const SyncEmailAccountService = async (
     } finally {
       // After the round's single status write (R23): e.g. the Gmail adapter
       // persists a refresh token Google rotated during the round.
-      if (adapter?.afterRound) {
-        await adapter.afterRound(account).catch(() => undefined);
+      try {
+        await adapter?.afterRound?.(account);
+      } catch (err) {
+        // also catches a synchronous throw; only the class name is logged
+        logger.warn(
+          { emailAccountId: account.id, errorName: (err as Error)?.name },
+          "Email adapter afterRound hook failed"
+        );
       }
     }
   });

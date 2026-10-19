@@ -1,4 +1,3 @@
-import fs from "fs";
 import { Readable } from "stream";
 import { gmail as createGmailApi, gmail_v1 } from "@googleapis/gmail";
 import { simpleParser } from "mailparser";
@@ -8,9 +7,17 @@ import { logger } from "../../../utils/logger";
 import {
   GmailAuthClient,
   getGmailAuthClient,
-  gmailFailureReason,
   persistRotatedRefreshToken
 } from "../GmailAuthClient";
+import {
+  HttpFailure,
+  gmailFailureReason,
+  gmailReasonsOf,
+  gmailStatusOf,
+  isAbortFailure,
+  isInvalidGrant,
+  networkCodeOf
+} from "../gmailErrors";
 import {
   INITIAL_IMPORT_MAX,
   MAX_RAW_MESSAGE_BYTES,
@@ -26,6 +33,7 @@ import {
   EmailSendRejectedError,
   EmailTransientError
 } from "./errors";
+import { assertAttachmentsReadable, toMailOptions } from "./outgoingMail";
 
 // Gmail API provider (OAuth, scopes gmail.readonly + gmail.send only).
 //
@@ -70,12 +78,28 @@ const SKIP_LABELS = ["DRAFT", "SPAM", "TRASH", "CHAT"];
 // A message body can be up to MAX_RAW_MESSAGE_BYTES (base64url in JSON): the
 // default 15 s client timeout is for small calls only.
 const RAW_TIMEOUT_MS = 120_000;
-const SEND_TIMEOUT_MS = 120_000;
+// Upload time grows with the message: base + time per MiB (about 1 Mbit/s),
+// capped, so a large send on a slow uplink is not cut and marked ambiguous.
+const SEND_TIMEOUT_BASE_MS = 120_000;
+const SEND_TIMEOUT_PER_MIB_MS = 8_000;
+const SEND_TIMEOUT_MAX_MS = 10 * 60_000;
+export const gmailSendTimeoutMs = (bytes: number): number =>
+  Math.min(
+    SEND_TIMEOUT_MAX_MS,
+    SEND_TIMEOUT_BASE_MS +
+      Math.ceil(bytes / (1024 * 1024)) * SEND_TIMEOUT_PER_MIB_MS
+  );
+// Passed as maxContentLength on the raw download. gaxios only enforces it when
+// the response has a Content-Length header (Google's gzip responses usually do
+// not), so it is a backstop: the real bound is sizeEstimate, checked before
+// downloading, and the decoded size, checked after.
 const RAW_RESPONSE_MAX_BYTES =
   Math.ceil((MAX_RAW_MESSAGE_BYTES * 4) / 3) + 1024 * 1024;
 // Above this the MIME goes through the upload endpoint (multipart, up to
 // 35 MB at Google) instead of a base64url string in the JSON body.
 export const GMAIL_RAW_JSON_MAX_BYTES = 4 * 1024 * 1024;
+// history.list pages read per round (each up to SYNC_BATCH_MAX records).
+const HISTORY_PAGES_MAX = 20;
 // Weight charged for a message imported as headers only.
 const HEADERS_ONLY_WEIGHT_BYTES = 64 * 1024;
 
@@ -117,85 +141,6 @@ const PROGRAMMING_ERRORS = [
   "SyntaxError"
 ];
 
-// ------------------------------------------------------------ error reading
-
-type HttpFailure = {
-  name?: unknown;
-  code?: unknown;
-  message?: unknown;
-  stack?: unknown;
-  cause?: unknown;
-  error?: unknown;
-  response?: { status?: unknown; data?: unknown };
-};
-
-// HTTP status only when Google actually answered.
-const statusOf = (err: unknown): number | undefined => {
-  const status = ((err || {}) as HttpFailure).response?.status;
-  return typeof status === "number" ? status : undefined;
-};
-
-// Machine reasons of a Google error body (errors[].reason, status,
-// details[].reason). Never the message text.
-const reasonsOf = (err: unknown): string[] => {
-  const data = ((err || {}) as HttpFailure).response?.data as
-    { error?: unknown } | undefined;
-  const body = data?.error as
-    | {
-        status?: unknown;
-        errors?: { reason?: unknown }[];
-        details?: { reason?: unknown }[];
-      }
-    | string
-    | undefined;
-  if (!body || typeof body !== "object") return [];
-  const found = [
-    body.status,
-    ...(Array.isArray(body.errors) ? body.errors.map(e => e?.reason) : []),
-    ...(Array.isArray(body.details) ? body.details.map(d => d?.reason) : [])
-  ];
-  return found.filter((r): r is string => typeof r === "string");
-};
-
-const isInvalidGrant = (err: unknown): boolean => {
-  const failure = (err || {}) as HttpFailure;
-  const data = failure.response?.data as { error?: unknown } | undefined;
-  return data?.error === "invalid_grant" || failure.message === "invalid_grant";
-};
-
-// System error code of a network failure (on the error or its causes).
-const networkCodeOf = (err: unknown): string | undefined => {
-  let current: unknown = err;
-  for (let depth = 0; depth < 4 && current; depth += 1) {
-    const { code } = current as HttpFailure;
-    if (typeof code === "string" && /^[A-Z][A-Z0-9_]{1,40}$/.test(code)) {
-      return code;
-    }
-    const next = current as HttpFailure;
-    current = next.cause || next.error;
-  }
-  return undefined;
-};
-
-// A timeout/abort (gaxios timeout signal): the request may have been sent.
-const isAbort = (err: unknown): boolean => {
-  let current: unknown = err;
-  for (let depth = 0; depth < 4 && current; depth += 1) {
-    const { name, code } = current as HttpFailure;
-    if (
-      name === "AbortError" ||
-      name === "TimeoutError" ||
-      code === "TimeoutError" ||
-      code === "AbortError"
-    ) {
-      return true;
-    }
-    const next = current as HttpFailure;
-    current = next.cause || next.error;
-  }
-  return false;
-};
-
 const isOurError = (err: unknown): boolean =>
   err instanceof EmailAuthError ||
   err instanceof EmailTransientError ||
@@ -220,11 +165,11 @@ const logUnexpected = (accountId: number, err: unknown) => {
 };
 
 const isAuthFailure = (err: unknown): boolean => {
-  const status = statusOf(err);
+  const status = gmailStatusOf(err);
   return (
     status === 401 ||
     isInvalidGrant(err) ||
-    (status === 403 && reasonsOf(err).some(r => SCOPE_REASONS.includes(r)))
+    (status === 403 && gmailReasonsOf(err).some(r => SCOPE_REASONS.includes(r)))
   );
 };
 
@@ -233,8 +178,8 @@ const isAuthFailure = (err: unknown): boolean => {
 export const mapGmailFetchError = (err: unknown, accountId: number): Error => {
   if (isOurError(err)) return err as Error;
   if (isAuthFailure(err)) return new EmailAuthError();
-  const status = statusOf(err);
-  if (status === undefined && !networkCodeOf(err) && !isAbort(err)) {
+  const status = gmailStatusOf(err);
+  if (status === undefined && !networkCodeOf(err) && !isAbortFailure(err)) {
     logUnexpected(accountId, err);
   }
   return new EmailTransientError(undefined, gmailFailureReason(err));
@@ -250,12 +195,12 @@ export const mapGmailFetchError = (err: unknown, accountId: number): Error => {
 export const mapGmailSendError = (err: unknown, accountId: number): Error => {
   if (isOurError(err)) return err as Error;
   if (isAuthFailure(err)) return new EmailAuthError();
-  const status = statusOf(err);
+  const status = gmailStatusOf(err);
   if (status !== undefined) {
     const tag = `${status}`;
     if (
       status === 403 &&
-      reasonsOf(err).some(r => RATE_LIMIT_REASONS.includes(r))
+      gmailReasonsOf(err).some(r => RATE_LIMIT_REASONS.includes(r))
     ) {
       return new EmailTransientError(undefined, `HTTP_${tag}`);
     }
@@ -274,7 +219,7 @@ export const mapGmailSendError = (err: unknown, accountId: number): Error => {
   if (code && PRE_SEND_CODES.includes(code)) {
     return new EmailTransientError(undefined, code);
   }
-  if (!code && !isAbort(err)) logUnexpected(accountId, err);
+  if (!code && !isAbortFailure(err)) logUnexpected(accountId, err);
   return new EmailSendAmbiguousError();
 };
 
@@ -301,8 +246,17 @@ const parseCursor = (raw: unknown): GmailCursor | null => {
   return cursor;
 };
 
+// History ids are uint64 decimal strings.
+const maxHistoryId = (a: string | undefined, b: string): string =>
+  a !== undefined && /^\d{1,20}$/.test(a) && BigInt(a) > BigInt(b) ? a : b;
+
 const hasSkipLabel = (labels: string[]): boolean =>
   labels.some(label => SKIP_LABELS.includes(label));
+
+// Ruling R31: the same mailboxes IMAP reads (INBOX and Sent).
+const isIngestible = (labels: string[]): boolean =>
+  !hasSkipLabel(labels) &&
+  (labels.includes("INBOX") || labels.includes("SENT"));
 
 const isOversize = (size: number) => size > MAX_RAW_MESSAGE_BYTES;
 
@@ -333,41 +287,12 @@ const headersFromMetadata = (
   return Buffer.from(`${lines.join("\r\n")}\r\n\r\n`, "utf8");
 };
 
-const assertAttachmentsReadable = async (mail: OutgoingEmail) => {
-  const results = await Promise.all(
-    mail.attachments.map(attachment =>
-      fs.promises.access(attachment.path, fs.constants.R_OK).then(
-        () => true,
-        () => false
-      )
-    )
-  );
-  if (results.some(readable => !readable)) {
-    throw new EmailSendRejectedError(
-      "ERR_EMAIL_INVALID_MESSAGE",
-      "attachment_missing"
-    );
-  }
-};
-
 // The RFC 5322 message, as nodemailer's SMTP path would send it. Bcc is never
 // set (OutgoingEmail has none).
 export const buildGmailMime = async (mail: OutgoingEmail): Promise<Buffer> => {
   const composer = new MailComposer({
-    from: { name: mail.from.name || "", address: mail.from.address },
-    to: mail.to.map(a => ({ name: a.name || "", address: a.address })),
-    cc: mail.cc.map(a => ({ name: a.name || "", address: a.address })),
-    subject: mail.subject,
-    text: mail.text,
-    html: mail.html,
-    messageId: mail.messageId,
-    ...(mail.inReplyTo ? { inReplyTo: mail.inReplyTo } : {}),
-    references: mail.references,
-    attachments: mail.attachments.map(a => ({
-      filename: a.filename,
-      contentType: a.contentType,
-      path: a.path
-    })),
+    ...toMailOptions(mail),
+    // never fetch a URL while composing (attachments are local files)
     disableUrlAccess: true
   });
   try {
@@ -431,7 +356,7 @@ class GmailSyncRound {
         return await this.followHistory(state.historyId);
       } catch (err) {
         // The stored historyId is too old for Gmail: start over from now.
-        if (statusOf(err) !== 404 || resynced) throw err;
+        if (gmailStatusOf(err) !== 404 || resynced) throw err;
         resynced = true;
         logger.warn(
           { accountId: this.accountId },
@@ -494,8 +419,22 @@ class GmailSyncRound {
     // Last history record whose messages were all handled: the resume point.
     let resumeAt = startHistoryId;
     let pageToken: string | undefined;
+    // Mailbox historyId when the first page was read: records added while
+    // paginating may be missing from later pages, so never move past it
+    // without having seen them.
+    let firstPageHistoryId: string | undefined;
+    const seenTokens = new Set<string>();
 
-    while (true) {
+    for (let page = 0; ; page += 1) {
+      // A misbehaving pagination (endless or repeated tokens) cannot hold
+      // the round: continue from what was handled in the next one.
+      if (
+        page >= HISTORY_PAGES_MAX ||
+        (pageToken && seenTokens.has(pageToken))
+      ) {
+        return { cursor: { historyId: resumeAt }, hasMore: true };
+      }
+      if (pageToken) seenTokens.add(pageToken);
       const { data } = await this.api.users.history.list({
         userId: "me",
         startHistoryId,
@@ -503,6 +442,9 @@ class GmailSyncRound {
         maxResults: SYNC_BATCH_MAX,
         ...(pageToken ? { pageToken } : {})
       });
+      if (firstPageHistoryId === undefined && data?.historyId) {
+        firstPageHistoryId = String(data.historyId);
+      }
       const units: Unit[] = (data?.history || []).map(record => ({
         recordId: record.id ? String(record.id) : undefined,
         ids: (record.messagesAdded || [])
@@ -527,8 +469,10 @@ class GmailSyncRound {
       }
 
       if (!data?.nextPageToken) {
-        const latest = data?.historyId ? String(data.historyId) : resumeAt;
-        return { cursor: { historyId: latest }, hasMore: false };
+        return {
+          cursor: { historyId: maxHistoryId(firstPageHistoryId, resumeAt) },
+          hasMore: false
+        };
       }
       if (this.exhausted()) {
         return { cursor: { historyId: resumeAt }, hasMore: true };
@@ -548,7 +492,9 @@ class GmailSyncRound {
     // eslint-disable-next-line no-restricted-syntax
     for (const id of unit.ids) {
       const meta = await this.getMeta(id);
-      if (meta && !hasSkipLabel(meta.labelIds)) metas.push(meta);
+      // Current labels (R31): only INBOX or SENT mail, never drafts/spam/
+      // trash/chats; mail archived by a filter stays out, as with IMAP.
+      if (meta && isIngestible(meta.labelIds)) metas.push(meta);
     }
     const weight = metas.reduce((sum, m) => sum + weightOf(m.sizeEstimate), 0);
     if (!first && weight > this.budget.bytes) return false;
@@ -581,7 +527,7 @@ class GmailSyncRound {
         internalDate: data?.internalDate || undefined
       };
     } catch (err) {
-      if (statusOf(err) === 404) return null;
+      if (gmailStatusOf(err) === 404) return null;
       throw err;
     }
   }
@@ -645,7 +591,7 @@ class GmailSyncRound {
         format: "metadata"
       }));
     } catch (err) {
-      if (statusOf(err) === 404) return null;
+      if (gmailStatusOf(err) === 404) return null;
       throw err;
     }
     return this.parseOrSkip(
@@ -667,9 +613,9 @@ class GmailSyncRound {
         { timeout: RAW_TIMEOUT_MS, maxContentLength: RAW_RESPONSE_MAX_BYTES }
       ));
     } catch (err) {
-      if (statusOf(err) === 404) return null;
+      if (gmailStatusOf(err) === 404) return null;
       // Google answered 2xx but the body is over our cap (understated size).
-      const status = statusOf(err);
+      const status = gmailStatusOf(err);
       if (status !== undefined && status >= 200 && status < 300) {
         return this.importHeadersOnly(meta);
       }
@@ -696,7 +642,7 @@ class GmailSyncRound {
 // ---------------------------------------------------------------- the adapter
 
 const sendRaw = (api: GmailApi, raw: Buffer, threadId: string | undefined) => {
-  const options = { timeout: SEND_TIMEOUT_MS, retry: false };
+  const options = { timeout: gmailSendTimeoutMs(raw.length), retry: false };
   if (raw.length <= GMAIL_RAW_JSON_MAX_BYTES) {
     return api.users.messages.send(
       {
@@ -765,7 +711,7 @@ export class GmailApiAdapter implements EmailProviderAdapter {
       } catch (err) {
         // The thread was deleted in Gmail: 404 means nothing was accepted,
         // so send it once more as a new Gmail thread (headers still thread it).
-        if (!mail.providerThreadId || statusOf(err) !== 404) throw err;
+        if (!mail.providerThreadId || gmailStatusOf(err) !== 404) throw err;
         response = await sendRaw(api, raw, undefined);
       }
       return {
