@@ -93,6 +93,10 @@ describe("resolveSafeMailEndpoint", () => {
     "::ffff:0.0.0.0",
     "::ffff:169.254.169.254",
     "::ffff:93.184.216.34",
+    "::7f00:1",
+    "::a00:1",
+    "::ffff:0:7f00:1",
+    "64:ff9b:1::7f00:1",
     "64:ff9b::a00:1",
     "2002:a00:1::1",
     "240.0.0.1",
@@ -127,6 +131,62 @@ describe("resolveSafeMailEndpoint", () => {
         kind: "imap"
       })
     ).resolves.toMatchObject({ address });
+  });
+
+  it.each([
+    "2130706433",
+    "0x7f.1",
+    "017700000001",
+    "0x7f.0x1",
+    "127.0x0.0.1",
+    "0x5d.0xb8.0xd8.0x22",
+    "[::FFFF:127.0.0.1]",
+    "::FFFF:7F00:1",
+    "FE80::1",
+    "fe80::1%eth0",
+    "[fe80::1%eth0]"
+  ])("rejects literal-looking host %s without resolving", async host => {
+    const lookup = mockLookup(["93.184.216.34"]);
+    await expectCode(
+      resolveSafeMailEndpoint({ host, port: 993, kind: "imap" }),
+      "ERR_EMAIL_HOST_NOT_ALLOWED"
+    );
+    expect(lookup).not.toHaveBeenCalled();
+  });
+
+  it("prefers an IPv4 record, else the first IPv6", async () => {
+    mockLookup(["2001:4860:4860::8888", "93.184.216.34"]);
+    await expect(
+      resolveSafeMailEndpoint({
+        host: "mail.example.com",
+        port: 993,
+        kind: "imap"
+      })
+    ).resolves.toEqual({
+      address: "93.184.216.34",
+      servername: "mail.example.com",
+      port: 993
+    });
+    mockLookup(["2001:4860:4860::8888", "2606:4700::1111"]);
+    await expect(
+      resolveSafeMailEndpoint({
+        host: "mail.example.com",
+        port: 993,
+        kind: "imap"
+      })
+    ).resolves.toMatchObject({ address: "2001:4860:4860::8888" });
+  });
+
+  it("does not prefer a blocked IPv4 record: any blocked record rejects", async () => {
+    mockLookup(["2001:4860:4860::8888", "10.0.0.1"]);
+    await expectCode(
+      resolveSafeMailEndpoint({
+        host: "mail.example.com",
+        port: 993,
+        kind: "imap"
+      }),
+      "ERR_EMAIL_HOST_NOT_ALLOWED"
+    );
   });
 
   it("rejects hosts without a dot and empty hosts", async () => {

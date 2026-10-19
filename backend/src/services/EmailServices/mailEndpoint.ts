@@ -38,9 +38,10 @@ blockV4("198.18.0.0", 15); // benchmarking
 blockV4("224.0.0.0", 4); // multicast
 blockV4("240.0.0.0", 4); // reserved + broadcast
 
-blockV6("::", 128); // unspecified
-blockV6("::1", 128); // loopback
+blockV6("::", 96); // unspecified, loopback and IPv4-compatible (::7f00:1, ::a00:1)
+blockV6("::ffff:0:0:0", 96); // IPv4-translated (SIIT)
 blockV6("64:ff9b::", 96); // NAT64, embeds an IPv4 address
+blockV6("64:ff9b:1::", 48); // local-use NAT64
 blockV6("2002::", 16); // 6to4, embeds an IPv4 address
 blockV6("fc00::", 7); // unique local
 blockV6("fe80::", 10); // link-local
@@ -75,9 +76,10 @@ const normalizeHostname = (host: string, allowPrivate: boolean): string => {
   if (net.isIP(name) || name.startsWith("[") || name.includes(":")) {
     throw hostNotAllowed();
   }
-  // Dotted v4-looking strings that are not valid literals (e.g. "127.1",
-  // "0x7f.1") are resolved by inet_aton-style parsers, so refuse all-numeric.
-  if (/^[0-9.]+$/.test(name) || /^0x[0-9a-f.]+$/.test(name)) {
+  // Legacy inet_aton-style IPv4 notations that net.isIP does not recognise
+  // (2130706433, 0x7f.1, 017700000001, 0x7f.0x1, 127.0x0.0.1): refuse any host
+  // whose labels are all decimal/octal numbers or 0x hex numbers.
+  if (name.split(".").every(label => /^(0x[0-9a-f]*|[0-9]+)$/i.test(label))) {
     throw hostNotAllowed();
   }
 
@@ -133,7 +135,11 @@ export const resolveSafeMailEndpoint = async ({
     throw hostNotAllowed();
   }
 
+  // Prefer an IPv4 record (every record was validated above); otherwise the
+  // first IPv6 one.
+  const chosen = records.find(r => net.isIPv4(r.address)) ?? records[0];
+
   // Connect to this IP (not the name) and use servername for TLS/SNI: the
   // validated address is the one used, so DNS rebinding cannot swap it.
-  return { address: records[0].address, servername, port: Number(port) };
+  return { address: chosen.address, servername, port: Number(port) };
 };
