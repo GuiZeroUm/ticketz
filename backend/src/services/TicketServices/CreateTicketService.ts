@@ -24,6 +24,13 @@ const CreateTicketService = async ({
   companyId,
   whatsappId
 }: Request): Promise<Ticket> => {
+  // Ticket manual é sempre WhatsApp. Contato do canal e-mail não tem telefone
+  // (number NULL) e só ganha ticket pelo recebimento de e-mail.
+  const contact = await ShowContactService(contactId, companyId);
+  if (!contact.number) {
+    throw new AppError("ERR_CONTACT_HAS_NO_PHONE", 400);
+  }
+
   const defaultWhatsapp = whatsappId
     ? await Whatsapp.findOne({ where: { id: whatsappId, companyId } })
     : await GetDefaultWhatsApp(companyId);
@@ -61,7 +68,7 @@ const CreateTicketService = async ({
     throw new AppError("ERR_OTHER_OPEN_TICKET");
   }
 
-  const { isGroup } = await ShowContactService(contactId, companyId);
+  const { isGroup } = contact;
 
   ticket = await Ticket.create({
     contactId,

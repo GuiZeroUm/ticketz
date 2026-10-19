@@ -24,6 +24,10 @@ import OutOfTicketMessage from "../models/OutOfTicketMessages";
 import { Session } from "../libs/wbot";
 import { getJidOf } from "../services/WbotServices/getJidOf";
 import {
+  campaignRecipientWhere,
+  filterCampaignRecipients
+} from "../services/CampaignService/recipients";
+import {
   runtimeOwnsCompany,
   runtimeQueueOptions
 } from "../helpers/tenantRuntime";
@@ -98,7 +102,7 @@ async function getCampaign(id: number) {
             model: ContactListItem,
             as: "contacts",
             attributes: ["id", "name", "number", "email", "isWhatsappValid"],
-            where: { isWhatsappValid: true }
+            where: campaignRecipientWhere()
           }
         ]
       },
@@ -332,7 +336,9 @@ async function handleProcessCampaign(job) {
     if (!campaign || !runtimeOwnsCompany(campaign.companyId)) return;
     const settings = await getSettings(campaign);
     if (campaign) {
-      const { contacts } = campaign.contactList;
+      const contacts = filterCampaignRecipients(
+        campaign.contactList?.contacts || []
+      );
       const messages = getCampaignValidMessages(campaign);
       const confirmationMessages = campaign.confirmation
         ? getCampaignValidConfirmationMessages(campaign)

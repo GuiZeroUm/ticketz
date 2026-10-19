@@ -299,7 +299,9 @@ export const update = async (
   }
 
   let checked: IOnWhatsapp;
-  if (!contactData.isGroup && contactData.number.match(/^\d+$/)) {
+  // Contato do canal e-mail pode ficar sem número: sem número não há o que
+  // verificar no WhatsApp.
+  if (!contactData.isGroup && contactData.number?.match(/^\d+$/)) {
     // Em conexao oficial nao ha como verificar o numero, e o retorno e null:
     // o cadastro segue sem normalizar o JID em vez de falhar.
     checked = await CheckContactNumber(contactData.number, companyId);

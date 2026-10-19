@@ -6,6 +6,7 @@ import Schedule from "../../models/Schedule";
 import ScheduleAudienceContact from "../../models/ScheduleAudienceContact";
 import ScheduleDelivery from "../../models/ScheduleDelivery";
 import {
+  assertContactsHavePhone,
   AudienceMode,
   customFieldNames,
   resolveAudience,
@@ -101,6 +102,9 @@ const CreateService = async (input: SchedulePayload): Promise<Schedule> => {
     payload.body,
     await customFieldNames(payload.companyId)
   );
+  if (payload.audienceMode === "SELECTED") {
+    await assertContactsHavePhone(payload.companyId, payload.contactIds);
+  }
   const contacts = await resolveAudience({
     companyId: payload.companyId,
     kind: payload.kind,

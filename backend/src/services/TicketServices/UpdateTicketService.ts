@@ -137,6 +137,10 @@ const UpdateTicketService = async ({
 
     const ticket = await ShowTicketService(ticketId, companyId);
     const isGroup = ticket.contact?.isGroup || ticket.isGroup;
+    // Ticket de e-mail não tem conexão WhatsApp nem telefone: avaliação,
+    // encerramento, aceite, transferência e chatbot são mensagens de WhatsApp e
+    // não rodam nele. Só "email" é excluído, para não mudar tickets legados.
+    const isEmailTicket = ticket.channel === "email";
     const transferTarget =
       ticketData.whatsappId !== undefined || queueId !== undefined
         ? await ResolveTicketTransferService({
@@ -211,6 +215,7 @@ const UpdateTicketService = async ({
       }
 
       if (
+        !isEmailTicket &&
         userRatingSetting === "enabled" &&
         ticket.whatsapp?.status === "CONNECTED" &&
         ticket.userId &&
@@ -265,6 +270,7 @@ const UpdateTicketService = async ({
       }
 
       if (
+        !isEmailTicket &&
         !isGroup &&
         !ticket.contact.disableBot &&
         !justClose &&
@@ -401,6 +407,7 @@ const UpdateTicketService = async ({
 
     try {
       if (
+        !isEmailTicket &&
         !isGroup &&
         !dontRunChatbot &&
         !ticket.userId &&
@@ -418,6 +425,7 @@ const UpdateTicketService = async ({
       }
 
       if (
+        !isEmailTicket &&
         !isGroup &&
         !ticket.chatbot &&
         !ticket.contact.disableBot &&

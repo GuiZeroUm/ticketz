@@ -4,7 +4,11 @@ import sequelize from "../../database";
 import AppError from "../../errors/AppError";
 import ScheduleAudienceContact from "../../models/ScheduleAudienceContact";
 import ScheduleDelivery from "../../models/ScheduleDelivery";
-import { customFieldNames, resolveAudience } from "./audience";
+import {
+  assertContactsHavePhone,
+  customFieldNames,
+  resolveAudience
+} from "./audience";
 import {
   calculateNextRun,
   normalizePayload,
@@ -37,6 +41,9 @@ const UpdateService = async ({ scheduleData, id, companyId }: Request) => {
     throw new AppError("ERR_SCHEDULE_INVALID_MESSAGE", 400);
   }
   validateScheduleVariables(payload.body, await customFieldNames(companyId));
+  if (payload.audienceMode === "SELECTED") {
+    await assertContactsHavePhone(companyId, payload.contactIds);
+  }
   const contacts = await resolveAudience({
     companyId,
     kind: payload.kind,

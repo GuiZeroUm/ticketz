@@ -25,6 +25,22 @@ export const eligibleContactWhere = (
   ...(contactIds?.length ? { id: { [Op.in]: contactIds } } : {})
 });
 
+// Contato do canal e-mail não tem telefone (number NULL) e o agendamento só
+// entrega por WhatsApp. Recusar na criação/edição devolve um erro claro em vez
+// do genérico "destinatário inválido" que o filtro de elegíveis produziria.
+export const assertContactsHavePhone = async (
+  companyId: number,
+  contactIds: number[] = []
+): Promise<void> => {
+  if (!contactIds.length) return;
+  const withoutPhone = await Contact.count({
+    where: { companyId, id: { [Op.in]: contactIds }, number: null }
+  });
+  if (withoutPhone > 0) {
+    throw new AppError("ERR_CONTACT_HAS_NO_PHONE", 400);
+  }
+};
+
 export const resolveAudience = async ({
   companyId,
   kind,

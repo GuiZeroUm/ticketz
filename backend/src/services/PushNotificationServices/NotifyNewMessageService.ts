@@ -76,7 +76,7 @@ const resolveRecipients = async (message: Message): Promise<number[]> => {
   return listCompanyAdminIds(message.companyId);
 };
 
-const formatPhoneNumber = (number: string): string => {
+const formatPhoneNumber = (number: string | null | undefined): string => {
   const digits = (number || "").replace(/\D/g, "");
   if (digits.length === 13 && digits.startsWith("55")) {
     return `(${digits.slice(2, 4)}) ${digits.slice(4, 9)}-${digits.slice(9)}`;
@@ -89,13 +89,19 @@ const formatPhoneNumber = (number: string): string => {
 
 // Contato que nunca definiu um pushname fica com o identificador do WhatsApp
 // (um LID de 15 dígitos) no lugar do nome. Mostrar o telefone formatado é bem
-// mais útil na notificação do que esse número interno.
+// mais útil na notificação do que esse número interno. Contato do canal e-mail
+// não tem telefone (number NULL): nesse caso vale o e-mail, depois o nome.
 const resolveDisplayName = (contact: Contact): string => {
   const name = contact?.name?.trim();
   if (name && !/^\d+$/.test(name)) {
     return name;
   }
-  return formatPhoneNumber(contact?.number) || name || "Contato";
+  return (
+    formatPhoneNumber(contact?.number) ||
+    contact?.email?.trim() ||
+    name ||
+    "Contato"
+  );
 };
 
 // Sem essa linha a notificação não diz se o atendimento já tem dono, que é a

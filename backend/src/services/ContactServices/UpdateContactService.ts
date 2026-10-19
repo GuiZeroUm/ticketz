@@ -76,6 +76,7 @@ const UpdateContactService = async ({
       "name",
       "nameLocked",
       "isGroup",
+      "channel",
       "number",
       "email",
       "companyId",
@@ -124,13 +125,17 @@ const UpdateContactService = async ({
     );
   }
 
+  // Contato do canal e-mail não tem telefone: um número em branco vindo do
+  // formulário não pode sobrescrever o NULL, então a chave nem entra no update.
+  const numberChange = contact.channel === "email" && !number ? {} : { number };
+
   try {
     await contact.update(
       protectContactNameUpdate(
         contact,
         {
           name,
-          number,
+          ...numberChange,
           email,
           disableBot,
           language,

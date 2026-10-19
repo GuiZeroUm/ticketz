@@ -5,6 +5,7 @@ import { Op, WhereOptions } from "sequelize";
 import { CronJob } from "cron";
 import { subDays, subMinutes } from "date-fns";
 import { SendMessage } from "./helpers/SendMessage";
+import { failDeliveryWithoutPhone } from "./services/ScheduleServices/deliveryGuards";
 import Whatsapp from "./models/Whatsapp";
 import { logger } from "./utils/logger";
 import Schedule from "./models/Schedule";
@@ -382,6 +383,11 @@ async function handleSendScheduledMessage(job) {
       status: "SKIPPED",
       errorMessage: "CONTACT_REMOVED"
     });
+    await updateScheduleProgress(schedule, delivery.occurrenceKey);
+    return;
+  }
+
+  if (await failDeliveryWithoutPhone(delivery)) {
     await updateScheduleProgress(schedule, delivery.occurrenceKey);
     return;
   }

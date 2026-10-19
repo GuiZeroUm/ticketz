@@ -1,3 +1,4 @@
+import { campaignRecipientWhere } from "./recipients";
 import { Op } from "sequelize";
 import Campaign from "../../models/Campaign";
 import AppError from "../../errors/AppError";
@@ -29,7 +30,7 @@ const ShowService = async (
   const valids = await ContactListItem.count({
     where: {
       contactListId: campaign.contactListId,
-      isWhatsappValid: true
+      ...campaignRecipientWhere()
     }
   });
 
