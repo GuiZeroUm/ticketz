@@ -96,6 +96,37 @@ const findOutboundByInternetId = (
     order: [["id", "DESC"]]
   });
 
+const SAME_MESSAGE_CANDIDATES = 5;
+
+// The same inbound message already imported under another provider id: an
+// IMAP folder read again after a UIDVALIDITY change gives every message a new
+// UID, and a message can be delivered twice. Matched by Message-ID AND sender
+// within the same account, never by Message-ID alone, so a forged Message-ID
+// cannot hide another sender's mail. Mail without a Message-ID cannot be
+// recognised and may be imported twice (accepted).
+const findSameInbound = async (
+  account: EmailAccount,
+  email: NormalizedEmail
+): Promise<EmailMessage | null> => {
+  const sender = normalizeEmailAddress(email.from?.address);
+  if (!email.internetMessageId || !sender) return null;
+  const candidates = await EmailMessage.findAll({
+    where: {
+      companyId: account.companyId,
+      emailAccountId: account.id,
+      direction: "in",
+      internetMessageId: fitColumn(email.internetMessageId)
+    },
+    order: [["id", "ASC"]],
+    limit: SAME_MESSAGE_CANDIDATES
+  });
+  return (
+    candidates.find(
+      row => normalizeEmailAddress(row.fromAddress?.address) === sender
+    ) || null
+  );
+};
+
 const emitMessageUpdate = (message: Message | null): void => {
   if (!message) return;
   try {
@@ -168,6 +199,21 @@ const reconcileOutbound = async (
 ): Promise<IngestResult | null> => {
   const sent = await findOutboundByInternetId(account, email.internetMessageId);
   if (!sent) return null;
+
+  // Already reconciled under another provider id (e.g. the Sent folder read
+  // again after a UIDVALIDITY change) and nothing left to confirm.
+  if (
+    sent.providerMessageId &&
+    sent.sendStatus !== "unknown" &&
+    sent.sendStatus !== "queued" &&
+    (sent.providerThreadId || !email.providerThreadId)
+  ) {
+    return {
+      status: "duplicate",
+      ticketId: sent.ticketId,
+      messageId: sent.messageId
+    };
+  }
 
   let message: Message | null;
   try {
@@ -441,6 +487,22 @@ const IngestEmailService = async (
   if ((email.flags || []).includes("bounce")) {
     await applyBounce(account, email);
     return ignored(account, "bounce");
+  }
+
+  // 1c. same inbound message under another provider id (see findSameInbound)
+  if (email.direction === "in") {
+    const same = await findSameInbound(account, email);
+    if (same) {
+      logger.info(
+        { companyId, emailAccountId, emailMessageId: same.id },
+        "Email already imported under another provider id"
+      );
+      return {
+        status: "duplicate",
+        ticketId: same.ticketId,
+        messageId: same.messageId
+      };
+    }
   }
 
   // 2. copy of one of our own sends

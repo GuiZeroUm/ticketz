@@ -11,7 +11,8 @@ import {
   MAX_HEADERS_FETCH_BYTES,
   MAX_RAW_MESSAGE_BYTES,
   SYNC_BATCH_MAX,
-  SYNC_ROUND_MAX_BYTES
+  SYNC_ROUND_MAX_BYTES,
+  UIDVALIDITY_RESCAN_MAX_DAYS
 } from "../limits";
 import { resolveSafeMailEndpoint } from "../mailEndpoint";
 import normalizeParsedMail from "../normalizeParsedMail";
@@ -36,7 +37,23 @@ type MailboxConfig = {
   smtp: Endpoint;
 };
 
-type FolderCursor = { uidValidity: string; lastUid: number };
+type FolderCursor = {
+  uidValidity: string;
+  lastUid: number;
+  // Date.now() (ms) of the last round that left the folder caught up: every
+  // message present when the folder was opened was settled.
+  syncedAt?: number;
+  // Present while recent mail is read again after a UIDVALIDITY change: only
+  // messages with an internal date from this instant (ms) on are imported.
+  rescanSince?: number;
+  // When the initial import of the folder ran (ms): a rescan never reaches
+  // before it, so it cannot import mail the initial import left out.
+  importedAt?: number;
+  // Last UIDVALIDITY change (ms), kept for VALIDITY_STABLE_MS, and whether
+  // changes kept repeating (rescan disabled, error logged once).
+  validityChangedAt?: number;
+  validityUnstable?: boolean;
+};
 type ImapCursor = { folders: Record<string, FolderCursor> };
 
 type FolderToSync = { path: string; direction: "in" | "out" };
@@ -201,6 +218,9 @@ const closeImap = async (client: ImapFlow): Promise<void> => {
   }
 };
 
+const isInstant = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value) && value > 0;
+
 const parseCursor = (raw: unknown): ImapCursor => {
   const folders: Record<string, FolderCursor> = {};
   const source = (raw as { folders?: unknown } | null)?.folders;
@@ -213,7 +233,20 @@ const parseCursor = (raw: unknown): ImapCursor => {
         Number.isInteger(entry.lastUid) &&
         entry.lastUid >= 0
       ) {
-        folders[p] = { uidValidity: entry.uidValidity, lastUid: entry.lastUid };
+        const folder: FolderCursor = {
+          uidValidity: entry.uidValidity,
+          lastUid: entry.lastUid
+        };
+        if (isInstant(entry.syncedAt)) folder.syncedAt = entry.syncedAt;
+        if (isInstant(entry.rescanSince)) {
+          folder.rescanSince = entry.rescanSince;
+        }
+        if (isInstant(entry.importedAt)) folder.importedAt = entry.importedAt;
+        if (isInstant(entry.validityChangedAt)) {
+          folder.validityChangedAt = entry.validityChangedAt;
+          if (entry.validityUnstable === true) folder.validityUnstable = true;
+        }
+        folders[p] = folder;
       }
     });
   }
@@ -345,18 +378,58 @@ const withFallbackDate = (
   }
 };
 
+const HOUR_MS = 60 * 60 * 1000;
+// Clock skew allowance between our clock and the server's internal dates.
+const RESCAN_MARGIN_MS = HOUR_MS;
+// A UIDVALIDITY change within this time of the previous one (or during a
+// rescan) is a server that keeps changing it, e.g. Dovecot with in-memory
+// indexes: rescanning on each change would re-read the same window forever.
+const VALIDITY_STABLE_MS = HOUR_MS;
+
+// Start of the window read again after a UIDVALIDITY change: from the last
+// moment the folder was known to be caught up (per folder, or the account's
+// last sync for cursors written before that was recorded), and never less
+// than the initial import window. It never reaches before the folder's
+// initial import once that import finished, and is capped at
+// UIDVALIDITY_RESCAN_MAX_DAYS.
+const rescanStart = (
+  previous: FolderCursor,
+  accountLastSyncAt: Date | string | null | undefined,
+  now: number
+): number => {
+  const accountSynced = accountLastSyncAt
+    ? new Date(accountLastSyncAt).getTime()
+    : NaN;
+  const reference =
+    previous.syncedAt ?? (isInstant(accountSynced) ? accountSynced : undefined);
+  let since = now - INITIAL_IMPORT_HOURS * HOUR_MS;
+  if (reference !== undefined) {
+    since = Math.min(since, reference - RESCAN_MARGIN_MS);
+  }
+  // syncedAt is only recorded once the folder was caught up, i.e. after the
+  // initial import was fully read.
+  if (previous.importedAt !== undefined && previous.syncedAt !== undefined) {
+    since = Math.max(since, previous.importedAt - RESCAN_MARGIN_MS);
+  }
+  return Math.max(since, now - UIDVALIDITY_RESCAN_MAX_DAYS * 24 * HOUR_MS);
+};
+
 const syncFolder = async (
   client: ImapFlow,
   accountId: number,
   folder: FolderToSync,
   previous: FolderCursor | undefined,
-  budget: RoundBudget
+  budget: RoundBudget,
+  accountLastSyncAt?: Date | string | null
 ): Promise<FolderResult> => {
   // The round is already full: leave this folder for the next one.
   if (budget.messages <= 0 || (budget.taken > 0 && budget.bytes <= 0)) {
     return { emails: [], cursor: previous, hasMore: true };
   }
 
+  // Taken before the mailbox is opened (and uidNext read): mail that arrives
+  // later has a higher UID and an internal date after this instant.
+  const startedAt = Date.now();
   const lock = await client.getMailboxLock(folder.path, { readOnly: true });
   try {
     const mailbox = client.mailbox as {
@@ -366,16 +439,93 @@ const syncFolder = async (
     const uidValidity = String(mailbox.uidValidity);
     const lastKnownUid = Math.max(0, Number(mailbox.uidNext) - 1);
 
-    // The folder was recreated: UIDs of the old cursor mean nothing. Do not
-    // import the whole history again, continue from what exists now.
-    if (previous && previous.uidValidity !== uidValidity) {
+    // Cursor of the current UIDVALIDITY (undefined before the first sync).
+    let current = previous;
+
+    // The folder was recreated: UIDs of the old cursor mean nothing, and mail
+    // that arrived since the last sync may only exist under the new UIDs.
+    // Read the recent window again (never the whole history); messages
+    // already imported come back with new provider ids and are recognised by
+    // their Message-ID at ingestion.
+    // A change while a rescan is still running or soon after the previous
+    // change: fall back to restarting at the end of the folder (mail since
+    // the last sync may be missed), never a rescan loop.
+    const repeatedChange =
+      !!previous &&
+      previous.uidValidity !== uidValidity &&
+      (previous.rescanSince !== undefined ||
+        (previous.validityChangedAt !== undefined &&
+          startedAt - previous.validityChangedAt < VALIDITY_STABLE_MS));
+
+    if (previous && repeatedChange) {
+      if (!previous.validityUnstable) {
+        logger.error(
+          { accountId, folder: folder.path },
+          "email imap: UIDVALIDITY keeps changing; rescan disabled, cursor reset to the end of the folder"
+        );
+      }
+      current = {
+        uidValidity,
+        lastUid: lastKnownUid,
+        validityChangedAt: startedAt,
+        validityUnstable: true,
+        ...(previous.importedAt !== undefined
+          ? { importedAt: previous.importedAt }
+          : {})
+      };
+    } else if (previous && previous.uidValidity !== uidValidity) {
+      const rescanSince = rescanStart(previous, accountLastSyncAt, startedAt);
       logger.warn(
-        { accountId, folder: folder.path },
-        "email imap: UIDVALIDITY changed, cursor reset"
+        {
+          accountId,
+          folder: folder.path,
+          since: new Date(rescanSince).toISOString()
+        },
+        "email imap: UIDVALIDITY changed, rescanning recent mail"
       );
+      current = {
+        uidValidity,
+        lastUid: 0,
+        rescanSince,
+        validityChangedAt: startedAt,
+        ...(previous.syncedAt !== undefined
+          ? { syncedAt: previous.syncedAt }
+          : {}),
+        ...(previous.importedAt !== undefined
+          ? { importedAt: previous.importedAt }
+          : {})
+      };
+    }
+
+    // caughtUp: every message present when the folder was opened is settled,
+    // which also ends a rescan.
+    const cursorAt = (lastUid: number, caughtUp: boolean): FolderCursor => {
+      const next: FolderCursor = { uidValidity, lastUid };
+      if (caughtUp) {
+        next.syncedAt = startedAt;
+      } else {
+        if (current?.syncedAt !== undefined) next.syncedAt = current.syncedAt;
+        if (current?.rescanSince !== undefined) {
+          next.rescanSince = current.rescanSince;
+        }
+      }
+      // the first sync of the folder is its initial import
+      const importedAt = current ? current.importedAt : startedAt;
+      if (importedAt !== undefined) next.importedAt = importedAt;
+      if (
+        current?.validityChangedAt !== undefined &&
+        startedAt - current.validityChangedAt < VALIDITY_STABLE_MS
+      ) {
+        next.validityChangedAt = current.validityChangedAt;
+        if (current.validityUnstable) next.validityUnstable = true;
+      }
+      return next;
+    };
+
+    if (repeatedChange) {
       return {
         emails: [],
-        cursor: { uidValidity, lastUid: lastKnownUid },
+        cursor: cursorAt(lastKnownUid, true),
         hasMore: false
       };
     }
@@ -385,45 +535,61 @@ const syncFolder = async (
     let candidatesEnd: number;
     let moreBeyondCandidates = false;
 
-    if (!previous) {
+    // First sync: the initial import window. Rescan: the window recorded when
+    // UIDVALIDITY changed, resumed after the cursor's UID across rounds.
+    if (!current || current.rescanSince !== undefined) {
+      const windowStart =
+        current?.rescanSince ?? startedAt - INITIAL_IMPORT_HOURS * HOUR_MS;
+      const afterUid = current?.lastUid ?? 0;
       // IMAP SINCE only has day granularity: filter by the exact date. The
       // search criteria is the range, so no UID list goes over the wire.
-      const since = new Date(
-        Date.now() - INITIAL_IMPORT_HOURS * 60 * 60 * 1000
-      );
+      const since = new Date(windowStart);
       const meta = await client.fetchAll(
-        { since },
+        afterUid > 0 ? { since, uid: `${afterUid + 1}:*` } : { since },
         { uid: true, size: true, internalDate: true },
         { uid: true }
       );
-      candidates = meta
+      const inWindow = meta
         .filter(m => {
           const time = new Date(m.internalDate as Date | string).getTime();
-          return Number.isFinite(time) && time >= since.getTime();
+          // "N:*" always returns the highest UID even when it is below N.
+          return (
+            m.uid > afterUid && Number.isFinite(time) && time >= windowStart
+          );
         })
         .map(m => ({ uid: m.uid, size: Number(m.size) || 0 }))
-        .sort((a, b) => a.uid - b.uid)
+        .sort((a, b) => a.uid - b.uid);
+      if (!current) {
         // Only the most recent messages of the window are imported.
-        .slice(-INITIAL_IMPORT_MAX);
-      // After the first import only newer mail is read, never the history.
-      candidatesEnd = Math.max(
-        lastKnownUid,
-        candidates.length ? candidates[candidates.length - 1].uid : 0
-      );
+        candidates = inWindow.slice(-INITIAL_IMPORT_MAX);
+      } else {
+        // A rescan imports the whole window, a bounded slice per round.
+        candidates = inWindow.slice(0, Math.max(1, budget.messages));
+        moreBeyondCandidates = inWindow.length > candidates.length;
+      }
+      const lastCandidate = candidates.length
+        ? candidates[candidates.length - 1].uid
+        : 0;
+      // Once the window is read only newer mail is, never the history.
+      candidatesEnd = moreBeyondCandidates
+        ? lastCandidate
+        : Math.max(lastKnownUid, lastCandidate, afterUid);
       if (!candidates.length) {
         return {
           emails: [],
-          cursor: { uidValidity, lastUid: candidatesEnd },
+          cursor: cursorAt(candidatesEnd, true),
           hasMore: false
         };
       }
     } else {
+      const { lastUid: fromUid } = current;
       // "N:*" always returns the highest UID even when it is below N.
       const found = sortedUnique(
-        await client.search({ uid: `${previous.lastUid + 1}:*` }, { uid: true })
-      ).filter(uid => uid > previous.lastUid);
-      if (!found.length)
-        return { emails: [], cursor: previous, hasMore: false };
+        await client.search({ uid: `${fromUid + 1}:*` }, { uid: true })
+      ).filter(uid => uid > fromUid);
+      if (!found.length) {
+        return { emails: [], cursor: cursorAt(fromUid, true), hasMore: false };
+      }
       const window = found.slice(0, Math.max(1, budget.messages));
       moreBeyondCandidates = found.length > window.length;
       candidatesEnd = window[window.length - 1];
@@ -444,15 +610,16 @@ const syncFolder = async (
     if (!candidates.length) {
       return {
         emails: [],
-        cursor: { uidValidity, lastUid: candidatesEnd },
+        cursor: cursorAt(candidatesEnd, !moreBeyondCandidates),
         hasMore: moreBeyondCandidates
       };
     }
 
     const { selected, cut } = takeWithinBudget(candidates, budget);
     if (!selected.length) {
-      // The round budget was spent by an earlier folder: try again next round.
-      return { emails: [], cursor: previous, hasMore: true };
+      // The round budget was spent by an earlier folder: try again next round
+      // (a rescan that just started is kept, so its window does not move).
+      return { emails: [], cursor: current, hasMore: true };
     }
 
     const sizeOf = new Map(selected.map(m => [m.uid, m.size]));
@@ -641,11 +808,8 @@ const syncFolder = async (
     else if (cut) lastUid = selected[selected.length - 1].uid;
     else lastUid = candidatesEnd;
 
-    return {
-      emails,
-      cursor: { uidValidity, lastUid },
-      hasMore: cut || stoppedEarly || moreBeyondCandidates
-    };
+    const hasMore = cut || stoppedEarly || moreBeyondCandidates;
+    return { emails, cursor: cursorAt(lastUid, !hasMore), hasMore };
   } finally {
     lock.release();
   }
@@ -784,7 +948,8 @@ export class ImapSmtpAdapter implements EmailProviderAdapter {
           account.id,
           folder,
           previous.folders[folder.path],
-          budget
+          budget,
+          account.lastSyncAt
         );
         emails.push(...result.emails);
         if (result.cursor) nextFolders[folder.path] = result.cursor;

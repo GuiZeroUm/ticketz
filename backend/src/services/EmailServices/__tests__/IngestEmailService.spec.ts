@@ -526,6 +526,154 @@ describe("IngestEmailService", () => {
     });
   });
 
+  describe("same message under a new provider id (IMAP UIDVALIDITY rescan, R34)", () => {
+    it("dedupes an inbound message by Message-ID and sender within the account", async () => {
+      const first = await IngestEmailService(account, mail());
+      // the ticket was handled meanwhile; the re-seen copy must not reopen it
+      tables.Ticket[0].status = "closed";
+      emitMessage.mockClear();
+
+      const again = await IngestEmailService(
+        account,
+        mail({ providerMessageId: "INBOX:2:7" })
+      );
+
+      expect(again).toEqual({
+        status: "duplicate",
+        ticketId: first.ticketId,
+        messageId: first.messageId
+      });
+      expect(tables.Ticket).toHaveLength(1);
+      expect(tables.Ticket[0]).toMatchObject({
+        status: "closed",
+        unreadMessages: 1
+      });
+      expect(tables.Message).toHaveLength(1);
+      expect(tables.EmailMessage).toHaveLength(1);
+      expect(emitMessage).not.toHaveBeenCalled();
+      expect(findContact).toHaveBeenCalledTimes(1);
+    });
+
+    it("matches the sender case-insensitively and over-long Message-IDs by their stored form", async () => {
+      const longId = `<${"x".repeat(300)}@cliente.com>`;
+      await IngestEmailService(account, mail({ internetMessageId: longId }));
+      const again = await IngestEmailService(
+        account,
+        mail({
+          providerMessageId: "INBOX:2:1",
+          internetMessageId: longId,
+          from: { address: "ANA@Cliente.com", name: "Ana" }
+        })
+      );
+      expect(again.status).toBe("duplicate");
+      expect(tables.EmailMessage).toHaveLength(1);
+    });
+
+    it("does not let a forged Message-ID from another sender hide a mail", async () => {
+      await IngestEmailService(account, mail());
+      findContact.mockResolvedValueOnce({ id: 77, name: "Bruno" });
+
+      const other = await IngestEmailService(
+        account,
+        mail({
+          providerMessageId: "INBOX:1:2",
+          from: { address: "bruno@outro.com", name: "Bruno" }
+        })
+      );
+
+      expect(other.status).toBe("created");
+      expect(tables.EmailMessage).toHaveLength(2);
+    });
+
+    it("does not dedupe across email accounts", async () => {
+      await IngestEmailService(account, mail());
+      const second = { ...account, id: 6 };
+      const result = await IngestEmailService(
+        second,
+        mail({ accountId: 6, providerMessageId: "INBOX:9:1" })
+      );
+      expect(result.status).toBe("created");
+      expect(tables.EmailMessage).toHaveLength(2);
+    });
+
+    it("imports a message without Message-ID again under a new provider id (accepted) without failing", async () => {
+      const first = await IngestEmailService(
+        account,
+        mail({ internetMessageId: undefined })
+      );
+      const again = await IngestEmailService(
+        account,
+        mail({ internetMessageId: undefined, providerMessageId: "INBOX:2:1" })
+      );
+      expect(first.status).toBe("created");
+      expect(again.status).toBe("created");
+      expect(tables.EmailMessage).toHaveLength(2);
+    });
+
+    it("treats an already reconciled outbound copy seen under a new provider id as a duplicate", async () => {
+      const ticket = seedTicket({
+        emailThreadKey: "m:<a1@cliente.com>",
+        status: "open"
+      });
+      const sent = insert("EmailMessage", {
+        companyId: 1,
+        emailAccountId: 5,
+        ticketId: ticket.id,
+        messageId: "msg-9",
+        direction: "out",
+        providerMessageId: "Sent:1:1",
+        internetMessageId: "<o1@empresa.com>",
+        sendStatus: "sent"
+      });
+      transactionMock.mockClear();
+
+      const result = await IngestEmailService(
+        account,
+        outbound({ providerMessageId: "Sent:2:4" })
+      );
+
+      expect(result).toEqual({
+        status: "duplicate",
+        ticketId: ticket.id,
+        messageId: "msg-9"
+      });
+      expect(sent.providerMessageId).toBe("Sent:1:1");
+      expect(tables.EmailMessage).toHaveLength(1);
+      expect(transactionMock).not.toHaveBeenCalled();
+      expect(events).toEqual([]);
+    });
+
+    it("dedupes an outbound copy from the mailbox that joined a thread, re-seen with a new UID", async () => {
+      seedTicket({ emailThreadKey: "m:<a1@cliente.com>", status: "open" });
+      insert("EmailMessage", {
+        companyId: 1,
+        emailAccountId: 5,
+        ticketId: tables.Ticket[0].id,
+        messageId: "first",
+        direction: "in",
+        providerMessageId: "INBOX:1:1",
+        internetMessageId: "<a1@cliente.com>",
+        fromAddress: { address: "ana@cliente.com" }
+      });
+      const copy = outbound({ inReplyTo: "<a1@cliente.com>" });
+      const first = await IngestEmailService(account, copy);
+      expect(first.status).toBe("created");
+
+      const again = await IngestEmailService(account, {
+        ...copy,
+        providerMessageId: "Sent:2:9"
+      });
+      expect(again).toMatchObject({
+        status: "duplicate",
+        ticketId: first.ticketId,
+        messageId: first.messageId
+      });
+      expect(tables.Message).toHaveLength(1);
+      // the parent inbound row and one outbound copy
+      expect(tables.EmailMessage).toHaveLength(2);
+    });
+  });
+
   it("returns duplicate when another process wins the unique index, rolling back the new ticket and files", async () => {
     // committed by "another process" after our pre-check ran
     const winner = insert("EmailMessage", {

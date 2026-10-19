@@ -162,9 +162,16 @@ jest.mock("imapflow", () => ({
     private select(range: unknown) {
       const { messages } = this.folder();
       if (typeof range === "object" && range) {
-        const { since } = range as { since: Date };
+        const { since, uid } = range as { since: Date; uid?: string };
         const floor = dayStart(since);
-        return messages.filter(m => m.internalDate.getTime() >= floor);
+        const from = uid ? Number(uid.split(":")[0]) : 0;
+        // A real "N:*" range always includes the highest UID in the mailbox.
+        const highest = messages.length ? messages[messages.length - 1].uid : 0;
+        return messages.filter(
+          m =>
+            m.internalDate.getTime() >= floor &&
+            (m.uid >= from || m.uid === highest)
+        );
       }
       const wanted = new Set<number>();
       String(range)
@@ -238,6 +245,8 @@ const resolveMock = resolveSafeMailEndpoint as jest.Mock;
 
 const NOW = new Date("2026-10-19T12:00:00Z");
 const hoursAgo = (h: number) => new Date(NOW.getTime() - h * 3600 * 1000);
+// syncedAt recorded on a folder cursor when a round leaves the folder caught up
+const SYNCED = NOW.getTime();
 
 const raw = (id: string, from = "carla@cliente.com", extra = "") =>
   Buffer.from(
@@ -337,7 +346,14 @@ describe("ImapSmtpAdapter.fetchChanges", () => {
       result.emails.some(e => /^INBOX:777:[123]$/.test(e.providerMessageId))
     ).toBe(false);
     expect(result.cursor).toEqual({
-      folders: { INBOX: { uidValidity: "777", lastUid: 99 } }
+      folders: {
+        INBOX: {
+          uidValidity: "777",
+          lastUid: 99,
+          syncedAt: SYNCED,
+          importedAt: SYNCED
+        }
+      }
     });
     expect(result.hasMore).toBe(false);
   });
@@ -351,7 +367,14 @@ describe("ImapSmtpAdapter.fetchChanges", () => {
     const result = await adapter.fetchChanges(makeAccount());
     expect(result.emails).toHaveLength(0);
     expect(result.cursor).toEqual({
-      folders: { INBOX: { uidValidity: "9", lastUid: 39 } }
+      folders: {
+        INBOX: {
+          uidValidity: "9",
+          lastUid: 39,
+          syncedAt: SYNCED,
+          importedAt: SYNCED
+        }
+      }
     });
   });
 
@@ -374,7 +397,7 @@ describe("ImapSmtpAdapter.fetchChanges", () => {
     const next = await adapter.fetchChanges(makeAccount(result.cursor));
     expect(next.emails).toHaveLength(20);
     expect(next.cursor.folders).toEqual({
-      INBOX: { uidValidity: "777", lastUid: 130 }
+      INBOX: { uidValidity: "777", lastUid: 130, syncedAt: SYNCED }
     });
     expect(next.hasMore).toBe(false);
   });
@@ -428,7 +451,14 @@ describe("ImapSmtpAdapter.fetchChanges", () => {
     };
     const stale = await adapter.fetchChanges(makeAccount());
     expect(stale.cursor).toEqual({
-      folders: { INBOX: { uidValidity: "1", lastUid: 21 } }
+      folders: {
+        INBOX: {
+          uidValidity: "1",
+          lastUid: 21,
+          syncedAt: SYNCED,
+          importedAt: SYNCED
+        }
+      }
     });
 
     // old history below uidNext - 1 is never read afterwards
@@ -439,7 +469,14 @@ describe("ImapSmtpAdapter.fetchChanges", () => {
     };
     const ahead = await adapter.fetchChanges(makeAccount());
     expect(ahead.cursor).toEqual({
-      folders: { INBOX: { uidValidity: "1", lastUid: 499 } }
+      folders: {
+        INBOX: {
+          uidValidity: "1",
+          lastUid: 499,
+          syncedAt: SYNCED,
+          importedAt: SYNCED
+        }
+      }
     });
   });
 
@@ -607,7 +644,7 @@ describe("ImapSmtpAdapter.fetchChanges", () => {
     expect(result.emails).toHaveLength(0);
     expect(result.hasMore).toBe(false);
     expect(result.cursor).toEqual({
-      folders: { INBOX: { uidValidity: "1", lastUid: 2 } }
+      folders: { INBOX: { uidValidity: "1", lastUid: 2, syncedAt: SYNCED } }
     });
   });
 
@@ -697,7 +734,7 @@ describe("ImapSmtpAdapter.fetchChanges", () => {
       "INBOX:1:3"
     ]);
     expect(result.cursor).toEqual({
-      folders: { INBOX: { uidValidity: "1", lastUid: 3 } }
+      folders: { INBOX: { uidValidity: "1", lastUid: 3, syncedAt: SYNCED } }
     });
   });
 
@@ -806,7 +843,7 @@ describe("ImapSmtpAdapter.fetchChanges", () => {
     expect(result.emails).toHaveLength(11);
     expect(result.hasMore).toBe(false);
     expect(result.cursor).toEqual({
-      folders: { INBOX: { uidValidity: "1", lastUid: 11 } }
+      folders: { INBOX: { uidValidity: "1", lastUid: 11, syncedAt: SYNCED } }
     });
   }, 60000);
 
@@ -925,33 +962,555 @@ describe("ImapSmtpAdapter.fetchChanges", () => {
     const cursor = { folders: { INBOX: { uidValidity: "1", lastUid: 7 } } };
     const result = await adapter.fetchChanges(makeAccount(cursor));
     expect(result.emails).toHaveLength(0);
-    expect(result.cursor).toEqual(cursor);
+    expect(result.cursor).toEqual({
+      folders: { INBOX: { uidValidity: "1", lastUid: 7, syncedAt: SYNCED } }
+    });
     expect(result.hasMore).toBe(false);
   });
 
-  it("resets a folder cursor when UIDVALIDITY changes without reimporting history", async () => {
-    const messages: FakeMessage[] = [];
-    for (let i = 1; i <= 30; i += 1) messages.push(msg(i, 1));
-    fakeServer.folders.INBOX = { uidValidity: 2n, uidNext: 31, messages };
-    const cursor = { folders: { INBOX: { uidValidity: "1", lastUid: 500 } } };
+  describe("UIDVALIDITY change (ruling R34)", () => {
+    const sinceCalls = () =>
+      fakeServer.calls.filter(
+        c =>
+          c.method === "fetchAll" &&
+          typeof c.range === "object" &&
+          (c.range as any).since
+      );
 
-    const result = await adapter.fetchChanges(makeAccount(cursor));
+    it("rescans mail newer than the last sync under the new UIDVALIDITY, then goes back to incremental", async () => {
+      fakeServer.folders.INBOX = {
+        uidValidity: 2n,
+        uidNext: 4,
+        messages: [
+          msg(1, 72), // history: never read again
+          msg(2, 20), // imported before the change, comes back with a new UID
+          msg(3, 0.5) // arrived after the last sync: must not be lost
+        ]
+      };
+      const cursor = {
+        folders: {
+          INBOX: { uidValidity: "1", lastUid: 500, syncedAt: SYNCED - 7200000 }
+        }
+      };
 
-    expect(result.emails).toHaveLength(0);
-    expect(result.cursor).toEqual({
-      folders: { INBOX: { uidValidity: "2", lastUid: 30 } }
+      const result = await adapter.fetchChanges(makeAccount(cursor));
+
+      expect(result.emails.map(e => e.providerMessageId)).toEqual([
+        "INBOX:2:2",
+        "INBOX:2:3"
+      ]);
+      expect(result.emails[0].internetMessageId).toBe("<m2@cliente.com>");
+      // the rescan finished in this round: plain cursor of the new validity
+      expect(result.cursor).toEqual({
+        folders: {
+          INBOX: {
+            uidValidity: "2",
+            lastUid: 3,
+            syncedAt: SYNCED,
+            validityChangedAt: SYNCED
+          }
+        }
+      });
+      expect(result.hasMore).toBe(false);
+      // window = min(last sync - margin, now - 24h)
+      expect((sinceCalls()[0].range as any).since).toEqual(hoursAgo(24));
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({ accountId: 5, folder: "INBOX" }),
+        expect.stringContaining("UIDVALIDITY")
+      );
+
+      // next round: incremental only, no second rescan
+      fakeServer.calls = [];
+      fakeServer.folders.INBOX.messages.push(msg(4, 0));
+      fakeServer.folders.INBOX.uidNext = 5;
+      const next = await adapter.fetchChanges(makeAccount(result.cursor));
+      expect(next.emails.map(e => e.providerMessageId)).toEqual(["INBOX:2:4"]);
+      expect(sinceCalls()).toHaveLength(0);
+      expect(next.hasMore).toBe(false);
+
+      // and a quiet round after that reads nothing
+      const quiet = await adapter.fetchChanges(makeAccount(next.cursor));
+      expect(quiet.emails).toHaveLength(0);
+      expect(quiet.hasMore).toBe(false);
+      expect(sinceCalls()).toHaveLength(0);
     });
-    expect(result.hasMore).toBe(false);
-    expect(logger.warn).toHaveBeenCalledWith(
-      expect.objectContaining({ accountId: 5, folder: "INBOX" }),
-      expect.stringContaining("UIDVALIDITY")
-    );
 
-    // mail that arrives afterwards is picked up with the new validity
-    fakeServer.folders.INBOX.messages.push(msg(31, 0));
-    fakeServer.folders.INBOX.uidNext = 32;
-    const next = await adapter.fetchChanges(makeAccount(result.cursor));
-    expect(next.emails.map(e => e.providerMessageId)).toEqual(["INBOX:2:31"]);
+    it("reaches back to the folder's last caught-up sync when it is older than 24h, capped at 30 days", async () => {
+      fakeServer.folders.INBOX = {
+        uidValidity: 2n,
+        uidNext: 4,
+        messages: [msg(1, 100), msg(2, 50.5), msg(3, 30)]
+      };
+      // caught up 50h ago: the window starts 51h ago (1h margin)
+      const cursor = {
+        folders: {
+          INBOX: {
+            uidValidity: "1",
+            lastUid: 9,
+            syncedAt: SYNCED - 50 * 3600000
+          }
+        }
+      };
+      const result = await adapter.fetchChanges(makeAccount(cursor));
+      expect(result.emails.map(e => e.providerMessageId)).toEqual([
+        "INBOX:2:2",
+        "INBOX:2:3"
+      ]);
+
+      // a very old reference never reaches more than 30 days back
+      fakeServer.calls = [];
+      fakeServer.folders.INBOX.messages = [msg(1, 31 * 24), msg(2, 29 * 24)];
+      const old = {
+        folders: {
+          INBOX: {
+            uidValidity: "1",
+            lastUid: 9,
+            syncedAt: SYNCED - 90 * 24 * 3600000
+          }
+        }
+      };
+      const capped = await adapter.fetchChanges(makeAccount(old));
+      expect(capped.emails.map(e => e.providerMessageId)).toEqual([
+        "INBOX:2:2"
+      ]);
+      expect((sinceCalls()[0].range as any).since).toEqual(hoursAgo(30 * 24));
+    });
+
+    it("uses the account's lastSyncAt for cursors written before syncedAt existed", async () => {
+      fakeServer.folders.INBOX = {
+        uidValidity: 2n,
+        uidNext: 3,
+        messages: [msg(1, 40), msg(2, 30)]
+      };
+      const cursor = { folders: { INBOX: { uidValidity: "1", lastUid: 9 } } };
+      const result = await adapter.fetchChanges(
+        makeAccount(cursor, { lastSyncAt: hoursAgo(35) })
+      );
+      // 35h + 1h margin: the 30h message is read, the 40h one is not
+      expect(result.emails.map(e => e.providerMessageId)).toEqual([
+        "INBOX:2:2"
+      ]);
+
+      // without any reference the window is the initial import window
+      fakeServer.calls = [];
+      const plain = await adapter.fetchChanges(makeAccount(cursor));
+      expect(plain.emails).toHaveLength(0);
+      expect((sinceCalls()[0].range as any).since).toEqual(hoursAgo(24));
+    });
+
+    it("resumes a rescan cut by the message budget inside the same window, even when the clock moves on", async () => {
+      const messages: FakeMessage[] = [];
+      for (let i = 1; i <= 130; i += 1) messages.push(msg(i, 2));
+      // an old message with a high UID (e.g. moved in) stays out of the rescan
+      messages.push(msg(200, 100));
+      fakeServer.folders.INBOX = { uidValidity: 2n, uidNext: 201, messages };
+      const syncedAt = SYNCED - 3 * 3600000;
+      const cursor = {
+        folders: { INBOX: { uidValidity: "1", lastUid: 900, syncedAt } }
+      };
+
+      const first = await adapter.fetchChanges(makeAccount(cursor));
+      expect(first.emails).toHaveLength(SYNC_BATCH_MAX);
+      expect(first.emails[0].providerMessageId).toBe("INBOX:2:1");
+      expect(first.emails[99].providerMessageId).toBe("INBOX:2:100");
+      expect(first.hasMore).toBe(true);
+      const rescanSince = hoursAgo(24).getTime();
+      // in progress: the window and the old caught-up time are kept
+      expect(first.cursor).toEqual({
+        folders: {
+          INBOX: {
+            uidValidity: "2",
+            lastUid: 100,
+            rescanSince,
+            syncedAt,
+            validityChangedAt: SYNCED
+          }
+        }
+      });
+
+      // 30h later (and a fresh account.lastSyncAt) the window does not move:
+      // a recomputed 24h window would now miss all of these messages
+      (Date.now as jest.Mock).mockReturnValue(SYNCED + 30 * 3600000);
+      fakeServer.calls = [];
+      const second = await adapter.fetchChanges(
+        makeAccount(first.cursor, { lastSyncAt: new Date() })
+      );
+      expect(second.emails.map(e => e.providerMessageId)).toEqual(
+        Array.from({ length: 30 }, (_, i) => `INBOX:2:${101 + i}`)
+      );
+      // resumed after the cursor's UID, with the recorded window
+      expect(sinceCalls()[0].range).toEqual({
+        since: new Date(rescanSince),
+        uid: "101:*"
+      });
+      expect(second.hasMore).toBe(false);
+      expect(second.cursor).toEqual({
+        folders: {
+          INBOX: {
+            uidValidity: "2",
+            lastUid: 200,
+            syncedAt: SYNCED + 30 * 3600000
+          }
+        }
+      });
+
+      // finished: the next round does not rescan again
+      fakeServer.calls = [];
+      const third = await adapter.fetchChanges(makeAccount(second.cursor));
+      expect(third.emails).toHaveLength(0);
+      expect(third.hasMore).toBe(false);
+      expect(sinceCalls()).toHaveLength(0);
+    });
+
+    it("resumes a rescan cut by the byte budget without losing or repeating messages", async () => {
+      const MB = 1024 * 1024;
+      const messages: FakeMessage[] = [];
+      for (let i = 1; i <= 4; i += 1) {
+        messages.push({ ...msg(i, 1), size: 30 * MB });
+      }
+      fakeServer.folders.INBOX = { uidValidity: 2n, uidNext: 5, messages };
+      const cursor = { folders: { INBOX: { uidValidity: "1", lastUid: 70 } } };
+
+      const first = await adapter.fetchChanges(makeAccount(cursor));
+      expect(first.emails.map(e => e.providerMessageId)).toEqual([
+        "INBOX:2:1",
+        "INBOX:2:2"
+      ]);
+      expect(first.hasMore).toBe(true);
+      expect(first.cursor.folders).toEqual({
+        INBOX: {
+          uidValidity: "2",
+          lastUid: 2,
+          rescanSince: hoursAgo(24).getTime(),
+          validityChangedAt: SYNCED
+        }
+      });
+
+      const second = await adapter.fetchChanges(makeAccount(first.cursor));
+      expect(second.emails.map(e => e.providerMessageId)).toEqual([
+        "INBOX:2:3",
+        "INBOX:2:4"
+      ]);
+      expect(second.hasMore).toBe(false);
+      expect(second.cursor.folders).toEqual({
+        INBOX: {
+          uidValidity: "2",
+          lastUid: 4,
+          syncedAt: SYNCED,
+          validityChangedAt: SYNCED
+        }
+      });
+    });
+
+    it("falls back to a plain reset when UIDVALIDITY changes again during a rescan", async () => {
+      fakeServer.folders.INBOX = {
+        uidValidity: 3n,
+        uidNext: 3,
+        messages: [msg(1, 40), msg(2, 1)]
+      };
+      const cursor = {
+        folders: {
+          INBOX: {
+            uidValidity: "2",
+            lastUid: 50,
+            rescanSince: hoursAgo(48).getTime(),
+            validityChangedAt: SYNCED - 3 * 3600000
+          }
+        }
+      };
+      const result = await adapter.fetchChanges(makeAccount(cursor));
+      expect(result.emails).toHaveLength(0);
+      expect(result.hasMore).toBe(false);
+      expect(result.cursor.folders).toEqual({
+        INBOX: {
+          uidValidity: "3",
+          lastUid: 2,
+          syncedAt: SYNCED,
+          validityChangedAt: SYNCED,
+          validityUnstable: true
+        }
+      });
+      expect(logger.error).toHaveBeenCalledTimes(1);
+      expect(logger.error).toHaveBeenCalledWith(
+        { accountId: 5, folder: "INBOX" },
+        expect.stringContaining("UIDVALIDITY keeps changing")
+      );
+    });
+
+    it("falls back to a plain reset when UIDVALIDITY changes within an hour of a finished rescan", async () => {
+      fakeServer.folders.INBOX = {
+        uidValidity: 4n,
+        uidNext: 6,
+        messages: [msg(5, 1)]
+      };
+      const cursor = {
+        folders: {
+          INBOX: {
+            uidValidity: "3",
+            lastUid: 9,
+            syncedAt: SYNCED - 60000,
+            validityChangedAt: SYNCED - 30 * 60000
+          }
+        }
+      };
+      const result = await adapter.fetchChanges(makeAccount(cursor));
+      expect(result.emails).toHaveLength(0);
+      expect(result.cursor.folders).toEqual({
+        INBOX: {
+          uidValidity: "4",
+          lastUid: 5,
+          syncedAt: SYNCED,
+          validityChangedAt: SYNCED,
+          validityUnstable: true
+        }
+      });
+    });
+
+    it("rescans again after an hour without changes", async () => {
+      fakeServer.folders.INBOX = {
+        uidValidity: 5n,
+        uidNext: 3,
+        messages: [msg(1, 40), msg(2, 1)]
+      };
+      const cursor = {
+        folders: {
+          INBOX: {
+            uidValidity: "4",
+            lastUid: 9,
+            syncedAt: SYNCED - 2 * 3600000,
+            validityChangedAt: SYNCED - 2 * 3600000,
+            validityUnstable: true
+          }
+        }
+      };
+      const result = await adapter.fetchChanges(makeAccount(cursor));
+      expect(result.emails.map(e => e.providerMessageId)).toEqual([
+        "INBOX:5:2"
+      ]);
+      expect(result.cursor.folders).toEqual({
+        INBOX: {
+          uidValidity: "5",
+          lastUid: 2,
+          syncedAt: SYNCED,
+          validityChangedAt: SYNCED
+        }
+      });
+      expect(logger.error).not.toHaveBeenCalled();
+    });
+
+    it("never loops when the server changes UIDVALIDITY on every session", async () => {
+      const noMessageId = (uid: number): FakeMessage => ({
+        uid,
+        internalDate: hoursAgo(2),
+        source: Buffer.from(
+          `From: Carla <carla@cliente.com>\r\nTo: loja@empresa.com\r\n` +
+            `Subject: sem id ${uid}\r\n\r\ncorpo ${uid}\r\n`
+        )
+      });
+      const messages: FakeMessage[] = [];
+      for (let i = 1; i <= 150; i += 1) {
+        messages.push(i % 10 === 0 ? noMessageId(i) : msg(i, 2));
+      }
+      fakeServer.folders.INBOX = { uidValidity: 1n, uidNext: 151, messages };
+      let cursor: unknown = {
+        folders: {
+          INBOX: { uidValidity: "1", lastUid: 150, syncedAt: SYNCED - 3600000 }
+        }
+      };
+
+      // what the queue does: re-run at once while hasMore, then once per tick
+      const delivered: string[] = [];
+      const hasMoreRounds: boolean[] = [];
+      for (let round = 0; round < 8; round += 1) {
+        fakeServer.folders.INBOX.uidValidity += 1n;
+        (Date.now as jest.Mock).mockReturnValue(SYNCED + round * 60000);
+
+        const result = await adapter.fetchChanges(makeAccount(cursor));
+        delivered.push(...result.emails.map(e => e.subject));
+        hasMoreRounds.push(result.hasMore);
+        cursor = result.cursor;
+      }
+
+      // only the first change rescans (one slice); every later change resets
+      expect(hasMoreRounds).toEqual([
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]);
+      expect(delivered).toHaveLength(SYNC_BATCH_MAX);
+      // a message without Message-ID is emitted at most once
+      const noIdSubjects = delivered.filter(subject =>
+        subject.startsWith("sem id")
+      );
+      expect(new Set(noIdSubjects).size).toBe(noIdSubjects.length);
+      expect(noIdSubjects.length).toBe(10);
+      // logged once, not on every round
+      expect(logger.error).toHaveBeenCalledTimes(1);
+    });
+
+    it("never rescans before the folder's initial import", async () => {
+      // initial import: the 50 most recent of 60 messages of the last 24h
+      const messages: FakeMessage[] = [];
+      for (let i = 1; i <= 60; i += 1) messages.push(msg(i, 20 - i * 0.3));
+      fakeServer.folders.INBOX = { uidValidity: 1n, uidNext: 61, messages };
+      const first = await adapter.fetchChanges(makeAccount());
+      expect(first.emails).toHaveLength(INITIAL_IMPORT_MAX);
+      expect((first.cursor.folders as any).INBOX).toMatchObject({
+        importedAt: SYNCED,
+        syncedAt: SYNCED
+      });
+
+      // 2h later the mailbox is recreated, with one new message
+      (Date.now as jest.Mock).mockReturnValue(SYNCED + 2 * 3600000);
+      fakeServer.folders.INBOX = {
+        uidValidity: 2n,
+        uidNext: 62,
+        messages: [...messages, msg(61, -1)]
+      };
+      const second = await adapter.fetchChanges(makeAccount(first.cursor));
+      // the 10 messages the initial import capped stay out
+      expect(second.emails.map(e => e.providerMessageId)).toEqual([
+        "INBOX:2:61"
+      ]);
+      expect((second.cursor.folders as any).INBOX).toMatchObject({
+        uidValidity: "2",
+        lastUid: 61,
+        importedAt: SYNCED
+      });
+    });
+
+    it("finishes an empty rescan in one round without asking for another", async () => {
+      fakeServer.folders.INBOX = {
+        uidValidity: 2n,
+        uidNext: 31,
+        messages: [msg(30, 200)]
+      };
+      const cursor = { folders: { INBOX: { uidValidity: "1", lastUid: 500 } } };
+      const result = await adapter.fetchChanges(makeAccount(cursor));
+      expect(result.emails).toHaveLength(0);
+      expect(result.hasMore).toBe(false);
+      expect(result.cursor.folders).toEqual({
+        INBOX: {
+          uidValidity: "2",
+          lastUid: 30,
+          syncedAt: SYNCED,
+          validityChangedAt: SYNCED
+        }
+      });
+    });
+
+    it("rescans the Sent folder the same way, as outbound mail", async () => {
+      fakeServer.folders.INBOX = { uidValidity: 1n, uidNext: 2, messages: [] };
+      fakeServer.folders.Enviados = {
+        uidValidity: 8n,
+        uidNext: 3,
+        specialUse: "\\Sent",
+        messages: [msg(1, 60), msg(2, 3)]
+      };
+      const cursor = {
+        folders: {
+          INBOX: { uidValidity: "1", lastUid: 1, syncedAt: SYNCED - 3600000 },
+          Enviados: {
+            uidValidity: "7",
+            lastUid: 44,
+            syncedAt: SYNCED - 3600000
+          }
+        }
+      };
+      const result = await adapter.fetchChanges(makeAccount(cursor));
+      expect(result.emails).toHaveLength(1);
+      expect(result.emails[0]).toMatchObject({
+        providerMessageId: "Enviados:8:2",
+        direction: "out",
+        internetMessageId: "<m2@cliente.com>"
+      });
+      expect((result.cursor.folders as any).Enviados).toEqual({
+        uidValidity: "8",
+        lastUid: 2,
+        syncedAt: SYNCED,
+        validityChangedAt: SYNCED
+      });
+    });
+
+    it("leaves a folder whose UIDVALIDITY changed untouched when an earlier folder spent the round's budget", async () => {
+      const inbox: FakeMessage[] = [];
+      for (let i = 1; i <= 120; i += 1) inbox.push(msg(i, 1));
+      fakeServer.folders.INBOX = {
+        uidValidity: 1n,
+        uidNext: 121,
+        messages: inbox
+      };
+      fakeServer.folders.Sent = {
+        uidValidity: 9n,
+        uidNext: 4,
+        specialUse: "\\Sent",
+        messages: [msg(3, 1)]
+      };
+      const cursor = {
+        folders: {
+          INBOX: { uidValidity: "1", lastUid: 20 },
+          Sent: { uidValidity: "8", lastUid: 70, syncedAt: SYNCED - 3600000 }
+        }
+      };
+      const result = await adapter.fetchChanges(makeAccount(cursor));
+      expect(result.emails).toHaveLength(SYNC_BATCH_MAX);
+      expect(result.hasMore).toBe(true);
+      // Sent was not even opened: its old cursor stays, so the rescan
+      // window is computed from the same caught-up time later
+      expect((result.cursor.folders as any).Sent).toEqual(cursor.folders.Sent);
+    });
+
+    it("records a just-started rescan when the rest of the byte budget is too small for its first message", async () => {
+      const MB = 1024 * 1024;
+      fakeServer.folders.INBOX = {
+        uidValidity: 1n,
+        uidNext: 3,
+        messages: [
+          { ...msg(1, 1), size: 30 * MB },
+          { ...msg(2, 1), size: 30 * MB }
+        ]
+      };
+      fakeServer.folders.Sent = {
+        uidValidity: 9n,
+        uidNext: 6,
+        specialUse: "\\Sent",
+        messages: [{ ...msg(5, 1), size: 30 * MB }]
+      };
+      const cursor = {
+        folders: {
+          INBOX: { uidValidity: "1", lastUid: 0 },
+          Sent: { uidValidity: "8", lastUid: 70, syncedAt: SYNCED - 3600000 }
+        }
+      };
+      const first = await adapter.fetchChanges(makeAccount(cursor));
+      expect(first.emails.map(e => e.providerMessageId)).toEqual([
+        "INBOX:1:1",
+        "INBOX:1:2"
+      ]);
+      expect(first.hasMore).toBe(true);
+      expect((first.cursor.folders as any).Sent).toEqual({
+        uidValidity: "9",
+        lastUid: 0,
+        rescanSince: hoursAgo(24).getTime(),
+        syncedAt: SYNCED - 3600000,
+        validityChangedAt: SYNCED
+      });
+
+      const second = await adapter.fetchChanges(makeAccount(first.cursor));
+      expect(second.emails.map(e => e.providerMessageId)).toEqual(["Sent:9:5"]);
+      expect(second.hasMore).toBe(false);
+      expect((second.cursor.folders as any).Sent).toEqual({
+        uidValidity: "9",
+        lastUid: 5,
+        syncedAt: SYNCED,
+        validityChangedAt: SYNCED
+      });
+    });
   });
 
   it("marks Sent folder messages as direction 'out' and keeps a cursor per folder", async () => {
@@ -992,8 +1551,18 @@ describe("ImapSmtpAdapter.fetchChanges", () => {
       internetMessageId: "<m2@cliente.com>"
     });
     expect(result.cursor.folders).toEqual({
-      INBOX: { uidValidity: "1", lastUid: 2 },
-      "[Gmail]/Enviados": { uidValidity: "4", lastUid: 7 }
+      INBOX: {
+        uidValidity: "1",
+        lastUid: 2,
+        syncedAt: SYNCED,
+        importedAt: SYNCED
+      },
+      "[Gmail]/Enviados": {
+        uidValidity: "4",
+        lastUid: 7,
+        syncedAt: SYNCED,
+        importedAt: SYNCED
+      }
     });
     expect(fakeServer.opened).not.toContain("Lixeira");
   });
