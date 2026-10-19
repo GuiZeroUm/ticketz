@@ -178,6 +178,8 @@ export const handleSyncCompleted = async (
   job: Pick<Job<{ accountId: number }>, "data">,
   result: { hasMore?: boolean } | undefined
 ): Promise<void> => {
+  // The tick job carries no accountId: nothing to re-enqueue or look up.
+  if (!job.data?.accountId) return;
   const dirty = await takeSyncDirty(job.data.accountId);
   if (!result?.hasMore && !dirty) return;
   try {

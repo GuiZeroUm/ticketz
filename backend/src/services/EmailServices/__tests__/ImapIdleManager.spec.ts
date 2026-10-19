@@ -1,5 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { EventEmitter } from "events";
+// imapflow's own capability parsing/lookup, so the fixtures cannot drift from
+// the casing the real client stores (e.g. "IMAP4rev2", not "IMAP4REV2").
+import { hasCapability, updateCapabilities } from "imapflow/lib/tools";
 import { inspect } from "util";
 import EmailAccount from "../../../models/EmailAccount";
 import {
@@ -61,10 +64,17 @@ const fakeRedis = () => {
   };
 };
 
+// Capabilities as imapflow builds them from a CAPABILITY response.
+const capsOf = (...names: string[]) =>
+  updateCapabilities(names.map(value => ({ value }) as any));
+
 class FakeClient extends EventEmitter {
   usable = true;
 
-  capabilities = new Map<string, boolean | number>([["IDLE", true]]);
+  capabilities: Map<string, boolean | number> = capsOf("IMAP4rev1", "IDLE");
+
+  // extensions switched on with ENABLE (e.g. IMAP4REV2)
+  enabled = new Set<string>();
 
   resolvers: Array<(v?: unknown) => void> = [];
 
@@ -549,18 +559,79 @@ describe("ImapIdleManager", () => {
       expect(lastClient().usable).toBe(true);
     });
 
-    it("accepts IMAP4rev2 as IDLE-capable (IDLE is part of the base protocol)", async () => {
-      connectMock.mockImplementation(async () => {
-        const client = new FakeClient();
-        client.capabilities = new Map<string, boolean | number>([
-          ["IMAP4REV2", true]
-        ]);
-        clients.push(client);
-        return client;
+    describe("IDLE capability (same rule as imapflow)", () => {
+      const connectWith = (
+        capabilities: Map<string, boolean | number>,
+        enabled: string[] = []
+      ) =>
+        connectMock.mockImplementation(async () => {
+          const client = new FakeClient();
+          client.capabilities = capabilities;
+          client.enabled = new Set(enabled);
+          clients.push(client);
+          return client;
+        });
+
+      it("uses IDLE on a rev2-only server, which does not list IDLE (imapflow stores it as IMAP4rev2)", async () => {
+        const caps = capsOf("IMAP4rev2");
+        expect(caps.has("IMAP4rev2")).toBe(true);
+        expect(caps.has("IDLE")).toBe(false);
+        connectWith(caps);
+        await startManager();
+        expect(clients[0].idle).toHaveBeenCalledTimes(1);
+        expect(clients[0].usable).toBe(true);
       });
-      await startManager();
-      expect(clients[0].idle).toHaveBeenCalledTimes(1);
-      expect(clients[0].usable).toBe(true);
+
+      it("uses IDLE when IMAP4REV2 was enabled with ENABLE, even without the IDLE capability", async () => {
+        connectWith(capsOf("IMAP4rev1", "IMAP4rev2", "ENABLE"), ["IMAP4REV2"]);
+        await startManager();
+        expect(clients[0].idle).toHaveBeenCalledTimes(1);
+      });
+
+      it("treats a rev1+rev2 server without IDLE (and without ENABLE) as having no IDLE", async () => {
+        connectWith(capsOf("IMAP4rev1", "IMAP4rev2", "UIDPLUS"));
+        await startManager();
+        expect(clients[0].idle).not.toHaveBeenCalled();
+        expect(clients[0].usable).toBe(false);
+        await ImapIdleManager.refresh();
+        await flush();
+        expect(connectMock).toHaveBeenCalledTimes(1);
+      });
+
+      it("a lowercase look-alike of the old key is not enough", async () => {
+        connectWith(capsOf("IMAP4rev1", "NAMESPACE"));
+        await startManager();
+        expect(clients[0].idle).not.toHaveBeenCalled();
+      });
+
+      it("agrees with imapflow's own hasCapability(IDLE) for every combination", async () => {
+        const combos: Array<[string[], string[]]> = [
+          [["IMAP4rev1", "IDLE"], []],
+          [["IMAP4rev1"], []],
+          [["IMAP4rev2"], []],
+          [["IMAP4rev1", "IMAP4rev2"], []],
+          [["IMAP4rev1", "IMAP4rev2"], ["IMAP4REV2"]],
+          [["IMAP4rev1", "IMAP4rev2", "IDLE"], []],
+          [[], []]
+        ];
+        // eslint-disable-next-line no-restricted-syntax
+        for (const [names, enabled] of combos) {
+          await ImapIdleManager.stop();
+          clients = [];
+          connectMock.mockClear();
+          connectWith(capsOf(...names), enabled);
+
+          await startManager();
+          const expected = hasCapability(
+            {
+              capabilities: capsOf(...names),
+              enabled: new Set(enabled)
+            } as any,
+            "IDLE"
+          );
+          expect(clients[0].idle.mock.calls.length > 0).toBe(expected);
+        }
+      });
     });
 
     describe("lease renewal errors", () => {
@@ -570,14 +641,17 @@ describe("ImapIdleManager", () => {
         await startManager();
         redis.eval.mockRejectedValue(new Error("redis down"));
 
-        // still within the TTL after two failed renewals: keep going
-        await advance(LEASE_RENEW_MS * 2);
+        // three failed renewals (20s, 40s, 60s): still inside the safe window
+        await advance(LEASE_RENEW_MS * 3);
         await flush();
         expect(clients[0].usable).toBe(true);
 
-        await advance(LEASE_TTL_MS - LEASE_RENEW_MS * 2);
+        // stops one renewal interval BEFORE the lease can expire, so no other
+        // process can have taken it while this one is still connected
+        await advance(LEASE_RENEW_MS);
         await flush();
         expect(clients[0].usable).toBe(false);
+        expect(LEASE_RENEW_MS * 4).toBeLessThan(LEASE_TTL_MS);
         // not reconnected here while Redis is unusable
         await advance(BACKOFF_MAX_MS);
         await flush();
@@ -600,7 +674,8 @@ describe("ImapIdleManager", () => {
         (redis.eval as jest.Mock).mockImplementation(
           () => new Promise(() => undefined)
         );
-        await advance(LEASE_TTL_MS + LEASE_RENEW_MS);
+        // stopped by the time the lease would expire, not after
+        await advance(LEASE_TTL_MS - 1);
         await flush();
         expect(clients[0].usable).toBe(false);
       });
@@ -631,12 +706,16 @@ describe("ImapIdleManager", () => {
           return client;
         });
         await startManager();
+        const logoutsAfterStart = clients[0].logout.mock.calls.length;
+        expect(logoutsAfterStart).toBe(1);
         await advance(TOMBSTONE_TTL_MS - 1);
         await flush();
         expect(connectMock).toHaveBeenCalledTimes(1);
         await advance(1);
         await flush();
         expect(connectMock).toHaveBeenCalledTimes(2);
+        // the expired tombstone does not close the already closed client again
+        expect(clients[0].logout).toHaveBeenCalledTimes(logoutsAfterStart);
       });
 
       it("a tombstone is still cleared when the account leaves and comes back active", async () => {

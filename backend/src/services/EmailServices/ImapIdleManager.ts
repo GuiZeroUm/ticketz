@@ -37,7 +37,11 @@ import emailRedis from "./emailRedis";
 export const BACKOFF_MIN_MS = 5 * 1000;
 export const BACKOFF_MAX_MS = 5 * 60 * 1000;
 export const LEASE_TTL_MS = 90 * 1000;
-export const LEASE_RENEW_MS = 30 * 1000;
+export const LEASE_RENEW_MS = 20 * 1000;
+// IDLE stops this long before the lease can expire, so another process never
+// takes over while this one is still connected. The clock starts when a Redis
+// command was SENT (a slow answer must not stretch it).
+const LEASE_SAFE_MS = LEASE_TTL_MS - LEASE_RENEW_MS;
 export const REFRESH_INTERVAL_MS = 60 * 1000;
 export const DEFAULT_IDLE_MAX = 200;
 // A connection that stayed up this long counts as healthy: the next drop
@@ -223,7 +227,7 @@ const startLeaseRenewal = (entry: Entry): void => {
     if (!token || entry.stopped) return;
     // A renewal that neither succeeds nor fails (hung Redis) must not keep
     // IDLE alive past the TTL either.
-    if (Date.now() - entry.lastRenewOkAt >= LEASE_TTL_MS) {
+    if (Date.now() - entry.lastRenewOkAt >= LEASE_SAFE_MS) {
       logger.warn(
         { emailAccountId: entry.accountId },
         "Email idle lease could not be renewed in time; stopping IDLE here"
@@ -231,11 +235,12 @@ const startLeaseRenewal = (entry: Entry): void => {
       stopEntry(entry, false).catch(() => undefined);
       return;
     }
+    const sentAt = Date.now();
     emailRedis()
       .eval(RENEW_SCRIPT, 1, idleLeaseKey(entry.accountId), token, LEASE_TTL_MS)
       .then(renewed => {
         if (Number(renewed) === 1) {
-          entry.lastRenewOkAt = Date.now();
+          entry.lastRenewOkAt = Math.max(entry.lastRenewOkAt, sentAt);
           return;
         }
         if (entry.stopped) return;
@@ -255,7 +260,7 @@ const startLeaseRenewal = (entry: Entry): void => {
         // can legitimately own IDLE, so stop here instead of holding on.
         if (
           !entry.stopped &&
-          Date.now() - entry.lastRenewOkAt >= LEASE_TTL_MS
+          Date.now() - entry.lastRenewOkAt >= LEASE_SAFE_MS
         ) {
           return stopEntry(entry, false);
         }
@@ -265,6 +270,21 @@ const startLeaseRenewal = (entry: Entry): void => {
   timer.unref?.();
 
   entry.leaseTimer = timer;
+};
+
+// Same rule as imapflow itself (tools.js hasCapability/isRev2Active, which
+// idle.js uses before it issues a real IDLE): the IDLE capability, or IMAP4rev2
+// semantics being active. IDLE is folded into the base of IMAP4rev2 (RFC 9051),
+// so a rev2-only server does not list it. imapflow stores the capability as
+// "IMAP4rev1"/"IMAP4rev2" (mixed case) and the ENABLE-d extension as
+// "IMAP4REV2" in `enabled`.
+const supportsIdle = (client: ImapFlow): boolean => {
+  const caps = client.capabilities;
+  return Boolean(
+    caps?.has("IDLE") ||
+    client.enabled?.has("IMAP4REV2") ||
+    (caps?.has("IMAP4rev2") && !caps?.has("IMAP4rev1"))
+  );
 };
 
 // The loop of one account. Never rejects.
@@ -319,12 +339,7 @@ const runEntry = async (entry: Entry): Promise<void> => {
       });
 
       await client.mailboxOpen("INBOX", { readOnly: true });
-      // IMAP4rev2 (RFC 9051) made IDLE part of the base protocol, so servers
-      // that only announce it no longer list IDLE separately.
-      if (
-        !client.capabilities?.has("IDLE") &&
-        !client.capabilities?.has("IMAP4REV2")
-      ) {
+      if (!supportsIdle(client)) {
         logger.info(
           { emailAccountId: accountId },
           "Email server has no IDLE capability; polling only"
@@ -332,6 +347,8 @@ const runEntry = async (entry: Entry): Promise<void> => {
 
         entry.state = "no_idle";
         entry.tombstonedAt = Date.now();
+        // closed here; a later tombstone expiry must not close it again
+        entry.client = null;
         await releaseLease(entry);
         await closeClient(client);
         return;
@@ -358,6 +375,7 @@ const runEntry = async (entry: Entry): Promise<void> => {
 
         entry.state = "auth_failed";
         entry.tombstonedAt = Date.now();
+        entry.client = null;
         await releaseLease(entry);
         await closeClient(client);
         return;
@@ -389,6 +407,7 @@ const runEntry = async (entry: Entry): Promise<void> => {
 // false when Redis said no (someone else owns it).
 const startEntry = async (account: AccountRow): Promise<boolean> => {
   const token = randomBytes(16).toString("hex");
+  const leaseSentAt = Date.now();
   const taken = await emailRedis().set(
     idleLeaseKey(account.id),
     token,
@@ -410,7 +429,7 @@ const startEntry = async (account: AccountRow): Promise<boolean> => {
     fingerprint: fingerprintOf(account),
     state: "running",
     tombstonedAt: 0,
-    lastRenewOkAt: Date.now(),
+    lastRenewOkAt: leaseSentAt,
     stopped: false,
     token,
     leaseTimer: null,

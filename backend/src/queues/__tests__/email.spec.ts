@@ -177,6 +177,14 @@ describe("EmailSync queue", () => {
     expect(queue.add).toHaveBeenCalledTimes(1);
   });
 
+  it("ignores completed jobs without an accountId (the tick job)", async () => {
+    redisMock.eval.mockResolvedValue("1");
+    await handleSyncCompleted({ data: {} } as any, undefined);
+    await handleSyncCompleted({ data: undefined } as any, { hasMore: true });
+    expect(redisMock.eval).not.toHaveBeenCalled();
+    expect(queue.add).not.toHaveBeenCalled();
+  });
+
   it("queues one round, not two, when both hasMore and the dirty flag are set", async () => {
     redisMock.eval.mockResolvedValue("1");
     await handleSyncCompleted({ data: { accountId: 3 } }, { hasMore: true });
