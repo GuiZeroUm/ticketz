@@ -3,6 +3,7 @@ import sequelize from "../../database";
 import CampaignShipping from "../../models/CampaignShipping";
 import Contact from "../../models/Contact";
 import ContactCustomField from "../../models/ContactCustomField";
+import ContactIdentity from "../../models/ContactIdentity";
 import ContactTag from "../../models/ContactTag";
 import Message from "../../models/Message";
 import Schedule from "../../models/Schedule";
@@ -38,14 +39,18 @@ const closeDuplicatedOpenTicketsPerConnection = async (
   contactId: number,
   companyId: number
 ): Promise<void> => {
-  const openTickets = await Ticket.findAll({
-    where: {
-      contactId,
-      status: {
-        [Op.or]: ["open", "pending"]
+  // Email tickets (one per thread, whatsappId NULL) are never collapsed: a
+  // contact may have several open email threads at once.
+  const openTickets = (
+    await Ticket.findAll({
+      where: {
+        contactId,
+        status: {
+          [Op.or]: ["open", "pending"]
+        }
       }
-    }
-  });
+    })
+  ).filter(ticket => ticket.channel !== "email" && !ticket.emailAccountId);
 
   if (openTickets.length <= 1) {
     return;
@@ -329,6 +334,16 @@ const mergeContactsInTransaction = async (
       {
         where: { contactId: loser.id },
         silent: true,
+        transaction
+      }
+    );
+
+    // Email addresses linked to the loser now point to the winner. The unique
+    // index is (companyId, channel, externalId), so no row can collide.
+    await ContactIdentity.update(
+      { contactId: winner.id },
+      {
+        where: { contactId: loser.id, companyId },
         transaction
       }
     );

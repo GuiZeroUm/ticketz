@@ -113,11 +113,14 @@ const AbrirConversaDoLeadService = async ({
   } catch (erro) {
     // CreateTicketService recusa quando o contato já tem conversa aberta com
     // outra pessoa. Levar para a conversa existente é melhor do que falhar.
+    // Uma conversa de e-mail do mesmo contato não serve: o rascunho é de
+    // WhatsApp.
     const aberto = await Ticket.findOne({
       where: {
         contactId: contact.id,
         companyId,
-        status: { [Op.in]: ["open", "pending"] }
+        status: { [Op.in]: ["open", "pending"] },
+        [Op.or]: [{ channel: { [Op.ne]: "email" } }, { channel: null }]
       },
       order: [["updatedAt", "DESC"]]
     });
