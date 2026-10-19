@@ -86,6 +86,48 @@ describe("isAllowedFrontendOrigin", () => {
     expect(isAllowedFrontendOrigin(origin)).toBe(false);
   });
 
+  it("requires the whole origin to match an unanchored FRONTEND_URL_REGEX", () => {
+    setEnv({
+      FRONTEND_URL: "https://app.espacowhats.com.br",
+      FRONTEND_URL_REGEX: "^https://.*\\.espacowhats\\.com\\.br"
+    });
+    const { isAllowedFrontendOrigin } = load();
+    expect(isAllowedFrontendOrigin("https://teste.espacowhats.com.br")).toBe(
+      true
+    );
+    expect(
+      isAllowedFrontendOrigin("https://x.espacowhats.com.br.evil.com")
+    ).toBe(false);
+    // a match that does not start at the beginning does not count either
+    setEnv({
+      FRONTEND_URL: "https://app.espacowhats.com.br",
+      FRONTEND_URL_REGEX: "[a-z]+\\.espacowhats\\.com\\.br$"
+    });
+    expect(
+      load().isAllowedFrontendOrigin("https://evil.espacowhats.com.br")
+    ).toBe(false);
+  });
+
+  it("keeps accepting tenants with the anchored CI regex", () => {
+    setEnv({
+      FRONTEND_URL: "http://espaco-whats.example.invalid",
+      FRONTEND_URL_REGEX:
+        "^http://([a-z0-9-]+\\.)?espaco-whats\\.example\\.invalid$"
+    });
+    const { isAllowedFrontendOrigin } = load();
+    expect(
+      isAllowedFrontendOrigin("http://teste.espaco-whats.example.invalid")
+    ).toBe(true);
+    expect(isAllowedFrontendOrigin("http://espaco-whats.example.invalid")).toBe(
+      true
+    );
+    expect(
+      isAllowedFrontendOrigin(
+        "http://teste.espaco-whats.example.invalid.evil.com"
+      )
+    ).toBe(false);
+  });
+
   it("treats an invalid FRONTEND_URL_REGEX as no match instead of throwing", () => {
     setEnv({ FRONTEND_URL: "https://a.com", FRONTEND_URL_REGEX: "([" });
     const { isAllowedFrontendOrigin } = load();
@@ -113,5 +155,19 @@ describe("corsOrigin", () => {
     expect(corsAllows(corsOrigin, "https://app.espacowhats.com.br")).toBe(true);
     expect(corsAllows(corsOrigin, undefined)).toBe(true);
     expect(corsAllows(corsOrigin, "https://evil.com")).toBe(false);
+  });
+
+  it("applies full-match regex semantics to CORS too", () => {
+    setEnv({
+      FRONTEND_URL: "https://app.espacowhats.com.br",
+      FRONTEND_URL_REGEX: "^https://.*\\.espacowhats\\.com\\.br"
+    });
+    const { corsOrigin } = load();
+    expect(corsAllows(corsOrigin, "https://teste.espacowhats.com.br")).toBe(
+      true
+    );
+    expect(
+      corsAllows(corsOrigin, "https://x.espacowhats.com.br.evil.com")
+    ).toBe(false);
   });
 });

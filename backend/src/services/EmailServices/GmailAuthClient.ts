@@ -192,7 +192,10 @@ export const revokeGmailAccount = async (
   const context = { companyId: account.companyId, emailAccountId: account.id };
   try {
     const refreshToken = account.getCredentials()?.refreshToken;
-    if (!refreshToken) return;
+    if (!refreshToken) {
+      logger.info(context, "No Gmail token to revoke");
+      return;
+    }
     if (await gmailGrantInUse(account.address, account.id)) {
       logger.info(
         context,

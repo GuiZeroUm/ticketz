@@ -33,7 +33,8 @@ jest.mock("../../services/EmailServices/adapters", () => ({
 jest.mock("../../services/EmailServices/GmailOAuthService", () => ({
   ...jest.requireActual("../../services/EmailServices/GmailOAuthService"),
   StartGmailOAuthService: jest.fn(),
-  CompleteGmailOAuthService: jest.fn()
+  CompleteGmailOAuthService: jest.fn(),
+  FinishGmailOAuthService: jest.fn()
 }));
 jest.mock("../../services/EmailServices/EmailAttachmentStorage", () => ({
   ...jest.requireActual("../../services/EmailServices/EmailAttachmentStorage"),
@@ -64,6 +65,7 @@ import {
 import { openAttachment } from "../../services/EmailServices/EmailAttachmentStorage";
 import {
   CompleteGmailOAuthService,
+  FinishGmailOAuthService,
   StartGmailOAuthService
 } from "../../services/EmailServices/GmailOAuthService";
 import { EMAIL_PRESETS } from "../../services/EmailServices/presets";
@@ -822,7 +824,7 @@ describe("email routes", () => {
         .post("/email/oauth/google/start")
         .set("x-test-user", asUser(1))
         .set("Origin", "https://teste.espacowhats.com.br")
-        .send({ name: "Suporte", queueId: 5 });
+        .send({ name: "Suporte", queueId: 5, accountId: 9 });
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
         url: "https://accounts.google.com/o/oauth2/v2/auth?state=s"
@@ -834,6 +836,7 @@ describe("email routes", () => {
         userId: 100,
         name: "Suporte",
         queueId: 5,
+        accountId: 9,
         origin: "https://teste.espacowhats.com.br"
       });
     });
@@ -871,6 +874,54 @@ describe("email routes", () => {
         .send({});
       expect(anonymous.status).toBe(401);
       expect(StartGmailOAuthService).not.toHaveBeenCalled();
+    });
+
+    it("POST finish passes the handle with the caller's company and user and answers the account", async () => {
+      (FinishGmailOAuthService as jest.Mock).mockResolvedValue({
+        id: 42,
+        address: "caixa@gmail.com",
+        provider: "gmail_api",
+        status: "active"
+      });
+      const response = await request(app)
+        .post("/email/oauth/google/finish")
+        .set("x-test-user", asUser(1))
+        .send({ handle: "h4ndle" });
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        id: 42,
+        address: "caixa@gmail.com",
+        provider: "gmail_api",
+        status: "active"
+      });
+      expect(response.headers["cache-control"]).toBe("no-store");
+      expect(assertEmailEnabled).toHaveBeenCalledWith(1);
+      expect(FinishGmailOAuthService).toHaveBeenCalledWith({
+        handle: "h4ndle",
+        companyId: 1,
+        userId: 100
+      });
+    });
+
+    it("POST finish needs a logged-in admin and an enabled channel", async () => {
+      const anonymous = await request(app)
+        .post("/email/oauth/google/finish")
+        .send({ handle: "h" });
+      expect(anonymous.status).toBe(401);
+      const notAdmin = await request(app)
+        .post("/email/oauth/google/finish")
+        .set("x-test-user", asUser(1, "user", 9))
+        .send({ handle: "h" });
+      expect(notAdmin.status).toBe(403);
+      (assertEmailEnabled as jest.Mock).mockRejectedValue(
+        new AppError("ERR_EMAIL_CHANNEL_DISABLED", 403)
+      );
+      const disabled = await request(app)
+        .post("/email/oauth/google/finish")
+        .set("x-test-user", asUser(1))
+        .send({ handle: "h" });
+      expect(disabled.body).toEqual({ error: "ERR_EMAIL_CHANNEL_DISABLED" });
+      expect(FinishGmailOAuthService).not.toHaveBeenCalled();
     });
 
     it("GET callback needs no auth and answers a 302 to the service redirect", async () => {

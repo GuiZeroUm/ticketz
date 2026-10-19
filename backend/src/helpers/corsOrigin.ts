@@ -41,9 +41,13 @@ export const isAllowedFrontendOrigin = (origin: unknown): boolean => {
   ].map(configuredOrigin);
   if (allowed.includes(origin)) return true;
 
+  // Full-match semantics (ruling R26): the regex must match the WHOLE origin,
+  // so an unanchored "^https://.*\.example\.com" does not accept
+  // "https://x.example.com.evil.com".
   if (process.env.FRONTEND_URL_REGEX) {
     try {
-      return new RegExp(process.env.FRONTEND_URL_REGEX).test(origin);
+      const match = origin.match(new RegExp(process.env.FRONTEND_URL_REGEX));
+      return Boolean(match) && match.index === 0 && match[0] === origin;
     } catch {
       return false;
     }
@@ -59,7 +63,7 @@ export const isAllowedFrontendOrigin = (origin: unknown): boolean => {
  *   Each URL is trimmed and added to the set of allowed origins.
  *   Example: `https://app.example.com,https://admin.example.com`
  * - `FRONTEND_URL_REGEX`: Regular expression pattern to match allowed origins dynamically.
- *   If the incoming origin matches this regex, it is allowed by CORS.
+ *   The WHOLE origin must match it (full match, ruling R26).
  *   Example: `^https:\/\/.*\.example\.com$`
  *
  * Both variables are used to determine if a request's origin is permitted by the CORS policy,

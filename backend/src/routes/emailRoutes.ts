@@ -30,7 +30,14 @@ emailRoutes.post(
   isAdmin,
   EmailController.googleStart
 );
+emailRoutes.post(
+  "/email/oauth/google/finish",
+  isAuth,
+  isAdmin,
+  EmailController.googleFinish
+);
 // No isAuth: the browser comes back from Google; the state identifies the flow.
+// It only parks the code; /finish (logged in) exchanges it.
 emailRoutes.get("/email/oauth/google/callback", EmailController.googleCallback);
 
 emailRoutes.get(

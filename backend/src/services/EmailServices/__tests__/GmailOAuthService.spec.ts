@@ -25,9 +25,6 @@ jest.mock("../../../libs/cache", () => ({
   }
 }));
 jest.mock("../../../queues/email", () => ({ enqueueAccountSync: jest.fn() }));
-jest.mock("../EmailAccessService", () => ({
-  emailEnabledForCompany: jest.fn()
-}));
 jest.mock("../../../libs/socket", () => ({ getIO: jest.fn() }));
 jest.mock("../../../utils/logger", () => ({
   logger: {
@@ -49,11 +46,11 @@ import { enqueueAccountSync } from "../../../queues/email";
 import { logger } from "../../../utils/logger";
 import EmailAccount from "../../../models/EmailAccount";
 import Queue from "../../../models/Queue";
-import { emailEnabledForCompany } from "../EmailAccessService";
 import { disableEmailAccount } from "../EmailAccountService";
 import { EmailAuthError, EmailTransientError } from "../adapters/errors";
 import {
   CompleteGmailOAuthService,
+  FinishGmailOAuthService,
   StartGmailOAuthService,
   getGmailAuthClient,
   persistRotatedRefreshToken,
@@ -122,7 +119,6 @@ const fakeFetch = async (url: string, init: any): Promise<Response> => {
 const originalAdapter = (Gaxios.prototype as any)._defaultAdapter;
 
 const sentTo = (path: string) => sent.filter(item => item.url.includes(path));
-const redirectParams = (redirectTo: string) => new URL(redirectTo);
 
 const emit = jest.fn();
 const roomTo = jest.fn();
@@ -226,7 +222,6 @@ beforeEach(() => {
       });
     });
 
-  (emailEnabledForCompany as jest.Mock).mockResolvedValue(true);
   (enqueueAccountSync as jest.Mock).mockResolvedValue(undefined);
   roomTo.mockReturnValue({ to: roomTo, emit });
   (getIO as jest.Mock).mockReturnValue({ to: roomTo });
@@ -293,7 +288,7 @@ describe("StartGmailOAuthService", () => {
     expect(params.get("response_type")).toBe("code");
     expect(params.get("access_type")).toBe("offline");
     expect(params.get("prompt")).toBe("consent");
-    // incremental consent must not merge the login (Clerk) scopes
+    // no incremental auth: the granted set must be exactly readonly + send
     expect(params.get("include_granted_scopes")).toBe("false");
     expect(params.get("scope")!.split(" ").sort()).toEqual([READONLY, SEND]);
     expect(params.get("code_challenge_method")).toBe("S256");
@@ -309,8 +304,10 @@ describe("StartGmailOAuthService", () => {
       name: "Suporte Gmail",
       queueId: null,
       codeVerifier: expect.any(String),
-      origin: TENANT
+      origin: TENANT,
+      accountId: null
     });
+    expect(params.get("login_hint")).toBeNull();
     const challenge = crypto
       .createHash("sha256")
       .update(record.codeVerifier)
@@ -338,6 +335,36 @@ describe("StartGmailOAuthService", () => {
       message: "ERR_GMAIL_NOT_CONFIGURED"
     });
     expect(store.size).toBe(0);
+  });
+
+  it("refuses when FRONTEND_URL is empty (no relative redirects)", async () => {
+    process.env.FRONTEND_URL = "  ";
+    await expect(start()).rejects.toMatchObject({
+      message: "ERR_GMAIL_NOT_CONFIGURED"
+    });
+    expect(store.size).toBe(0);
+  });
+
+  it("reconnect: sends login_hint and carries accountId only for a gmail account of the company", async () => {
+    makeAccount({ id: 9, companyId: 1 });
+    const { url } = await start({ accountId: 9 });
+    expect(new URL(url).searchParams.get("login_hint")).toBe("caixa@gmail.com");
+    expect(recordOf(stateOf(url)!).accountId).toBe(9);
+
+    makeAccount({ id: 10, companyId: 2, address: "b@gmail.com" });
+    makeAccount({
+      id: 11,
+      companyId: 1,
+      provider: "imap_smtp",
+      address: "c@x.com"
+    });
+    await Promise.all(
+      [10, 11, 999, "abc", true].map(accountId =>
+        expect(start({ accountId })).rejects.toMatchObject({
+          message: "ERR_EMAIL_ACCOUNT_NOT_FOUND"
+        })
+      )
+    );
   });
 
   it("refuses a queue of another company and a malformed name", async () => {
@@ -373,14 +400,7 @@ describe("StartGmailOAuthService", () => {
   });
 });
 
-describe("CompleteGmailOAuthService", () => {
-  const connect = async (startOverrides: Record<string, any> = {}) => {
-    const { url } = await start(startOverrides);
-    const state = stateOf(url)!;
-    const result = await CompleteGmailOAuthService({ code: AUTH_CODE, state });
-    return { state, ...result };
-  };
-
+describe("CompleteGmailOAuthService (callback)", () => {
   it("callback rejects unknown, expired or reused state", async () => {
     const unknown = await CompleteGmailOAuthService({
       code: AUTH_CODE,
@@ -400,14 +420,11 @@ describe("CompleteGmailOAuthService", () => {
     expect(expired.redirectTo).toBe(
       `${FRONTEND}/connections?email=error&code=ERR_GMAIL_STATE`
     );
-    expect(sent).toHaveLength(0);
 
     // reused: the first callback consumes it
-    const { state, redirectTo } = await connect();
-    expect(redirectParams(redirectTo).searchParams.get("email")).toBe(
-      "connected"
-    );
-    sent = [];
+    const state = stateOf((await start()).url)!;
+    const first = await CompleteGmailOAuthService({ code: AUTH_CODE, state });
+    expect(new URL(first.redirectTo).searchParams.get("email")).toBe("pending");
     const replay = await CompleteGmailOAuthService({ code: AUTH_CODE, state });
     expect(replay.redirectTo).toBe(
       `${FRONTEND}/connections?email=error&code=ERR_GMAIL_STATE`
@@ -440,11 +457,11 @@ describe("CompleteGmailOAuthService", () => {
     expect(denied.redirectTo).toBe(
       `${TENANT}/connections?email=error&code=ERR_GMAIL_STATE`
     );
-    expect(sent).toHaveLength(0);
     const again = await CompleteGmailOAuthService({ code: AUTH_CODE, state });
     expect(again.redirectTo).toBe(
       `${FRONTEND}/connections?email=error&code=ERR_GMAIL_STATE`
     );
+    expect(sent).toHaveLength(0);
   });
 
   it("never redirects to an origin that fails validation, even one stored in Redis", async () => {
@@ -462,46 +479,87 @@ describe("CompleteGmailOAuthService", () => {
     expect(new URL(redirectTo).origin).toBe(FRONTEND);
   });
 
-  it("redirects back to the validated initiating tenant origin", async () => {
-    const { redirectTo } = await connect({ origin: TENANT });
-    expect(redirectTo).toBe(`${TENANT}/connections?email=connected`);
-  });
-
-  it("callback fails with ERR_GMAIL_SCOPES_MISSING and revokes when send scope is not granted", async () => {
-    tokenResponse.body.scope = READONLY;
-    const { redirectTo } = await connect();
-    expect(redirectTo).toBe(
-      `${TENANT}/connections?email=error&code=ERR_GMAIL_SCOPES_MISSING`
-    );
-    const revokes = sentTo("oauth2.googleapis.com/revoke");
-    expect(revokes).toHaveLength(1);
-    expect(revokes[0].method).toBe("POST");
-    // the token travels in the body, never in the URL
-    expect(revokes[0].url).not.toContain("SECRET");
-    expect(new URLSearchParams(revokes[0].body).get("token")).toBe(
-      REFRESH_TOKEN
-    );
-    expect(EmailAccount.prototype.save).not.toHaveBeenCalled();
-    expect(enqueueAccountSync).not.toHaveBeenCalled();
-  });
-
-  it("callback fails with ERR_GMAIL_NO_REFRESH_TOKEN", async () => {
-    delete tokenResponse.body.refresh_token;
-    const { redirectTo } = await connect();
-    expect(redirectTo).toBe(
-      `${TENANT}/connections?email=error&code=ERR_GMAIL_NO_REFRESH_TOKEN`
-    );
-    expect(EmailAccount.prototype.save).not.toHaveBeenCalled();
-    expect(enqueueAccountSync).not.toHaveBeenCalled();
-  });
-
-  it("callback upserts an active gmail account bound to the state's companyId and userId", async () => {
-    const { redirectTo } = await connect({
-      companyId: 1,
-      userId: 100,
-      queueId: 5
+  it("parks the code under a single-use handle and never calls the token endpoint", async () => {
+    const state = stateOf((await start({ origin: TENANT })).url)!;
+    const { redirectTo } = await CompleteGmailOAuthService({
+      code: AUTH_CODE,
+      state
     });
-    expect(redirectTo).toBe(`${TENANT}/connections?email=connected`);
+    const target = new URL(redirectTo);
+    expect(target.origin + target.pathname).toBe(`${TENANT}/connections`);
+    expect(target.searchParams.get("email")).toBe("pending");
+    const handle = target.searchParams.get("handle")!;
+    expect(handle).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(handle).not.toBe(state);
+    expect([...target.searchParams.keys()].sort()).toEqual(["email", "handle"]);
+    [AUTH_CODE, state, REFRESH_TOKEN, ACCESS_TOKEN].forEach(secret =>
+      expect(redirectTo).not.toContain(secret)
+    );
+
+    expect(sent).toHaveLength(0);
+    expect(EmailAccount.prototype.save).not.toHaveBeenCalled();
+    expect(enqueueAccountSync).not.toHaveBeenCalled();
+    expect(cacheLayer.set).toHaveBeenCalledWith(
+      `email:oauth:handle:${handle}`,
+      expect.any(String),
+      "EX",
+      300
+    );
+    const parked = JSON.parse(store.get(`email:oauth:handle:${handle}`)!.value);
+    expect(parked).toMatchObject({
+      code: AUTH_CODE,
+      record: { companyId: 1, userId: 100, origin: TENANT, accountId: null }
+    });
+  });
+
+  it("answers ERR_GMAIL_NOT_CONFIGURED when the client was unconfigured meanwhile", async () => {
+    const state = stateOf((await start()).url)!;
+    delete process.env.GMAIL_OAUTH_CLIENT_SECRET;
+    const { redirectTo } = await CompleteGmailOAuthService({
+      code: AUTH_CODE,
+      state
+    });
+    expect(redirectTo).toBe(
+      `${TENANT}/connections?email=error&code=ERR_GMAIL_NOT_CONFIGURED`
+    );
+  });
+});
+
+describe("FinishGmailOAuthService", () => {
+  type Who = { companyId?: number; userId?: number };
+
+  const pendingHandle = async (startOverrides: Record<string, any> = {}) => {
+    const { url } = await start(startOverrides);
+    const { redirectTo } = await CompleteGmailOAuthService({
+      code: AUTH_CODE,
+      state: stateOf(url)
+    });
+    return new URL(redirectTo).searchParams.get("handle");
+  };
+
+  const finish = (handle: unknown, who: Who = {}) =>
+    FinishGmailOAuthService({
+      handle,
+      companyId: who.companyId ?? 1,
+      userId: who.userId ?? 100
+    });
+
+  const connect = async (startOverrides: Record<string, any> = {}) =>
+    finish(await pendingHandle(startOverrides), {
+      companyId: startOverrides.companyId,
+      userId: startOverrides.userId
+    });
+
+  const rejection = (promise: Promise<unknown>) =>
+    promise.then(
+      () => {
+        throw new Error("expected a rejection");
+      },
+      err => ({ message: err.message, statusCode: err.statusCode })
+    );
+
+  it("finish by the starting user persists an active gmail account bound to the state's companyId and userId", async () => {
+    const result = await connect({ companyId: 1, userId: 100, queueId: 5 });
 
     const exchange = sentTo("oauth2.googleapis.com/token");
     expect(exchange).toHaveLength(1);
@@ -548,13 +606,119 @@ describe("CompleteGmailOAuthService", () => {
     expect(JSON.stringify(emit.mock.calls)).not.toMatch(
       /SECRET|credentials|syncCursor|refreshToken/
     );
-    expect(redirectTo).not.toContain("SECRET");
+
+    // same public shape as the account list, never a secret
+    expect(result).toMatchObject({
+      id: account.id,
+      address: "caixa@gmail.com",
+      provider: "gmail_api",
+      status: "active"
+    });
+    expect(JSON.stringify(result)).not.toMatch(
+      /SECRET|credentials|syncCursor|refreshToken/
+    );
+  });
+
+  it("refuses another user of the same company and consumes the handle", async () => {
+    const handle = await pendingHandle();
+    expect(await rejection(finish(handle, { userId: 101 }))).toEqual({
+      message: "ERR_GMAIL_OAUTH_FAILED",
+      statusCode: 403
+    });
+    expect(sent).toHaveLength(0);
+    // the starting user cannot reuse it either: it was consumed
+    expect(await rejection(finish(handle))).toEqual({
+      message: "ERR_GMAIL_STATE",
+      statusCode: 400
+    });
+    expect(accounts).toHaveLength(0);
+  });
+
+  it("refuses a user of another company", async () => {
+    const handle = await pendingHandle();
+    expect(
+      await rejection(finish(handle, { companyId: 2, userId: 100 }))
+    ).toEqual({ message: "ERR_GMAIL_OAUTH_FAILED", statusCode: 403 });
+    expect(sent).toHaveLength(0);
+    expect(accounts).toHaveLength(0);
+  });
+
+  it("refuses a replayed handle", async () => {
+    const handle = await pendingHandle();
+    await finish(handle);
+    sent = [];
+    expect(await rejection(finish(handle))).toEqual({
+      message: "ERR_GMAIL_STATE",
+      statusCode: 400
+    });
+    expect(sent).toHaveLength(0);
+  });
+
+  it("refuses an expired handle", async () => {
+    const handle = await pendingHandle();
+    clock += 301 * 1000;
+    expect(await rejection(finish(handle))).toEqual({
+      message: "ERR_GMAIL_STATE",
+      statusCode: 400
+    });
+    expect(sent).toHaveLength(0);
+  });
+
+  it.each([
+    ["missing", undefined],
+    ["an object", { $gt: "" }],
+    ["too short", "abc"],
+    ["not base64url", "!".repeat(43)]
+  ])("refuses a %s handle without touching Redis", async (_label, handle) => {
+    expect(await rejection(finish(handle))).toEqual({
+      message: "ERR_GMAIL_STATE",
+      statusCode: 400
+    });
+    expect(cacheLayer.consume).not.toHaveBeenCalled();
+  });
+
+  it("fails with ERR_GMAIL_SCOPES_MISSING and revokes when send scope is not granted", async () => {
+    tokenResponse.body.scope = READONLY;
+    expect(await rejection(connect())).toEqual({
+      message: "ERR_GMAIL_SCOPES_MISSING",
+      statusCode: 400
+    });
+    const revokes = sentTo("oauth2.googleapis.com/revoke");
+    expect(revokes).toHaveLength(1);
+    expect(revokes[0].method).toBe("POST");
+    // the token travels in the body, never in the URL
+    expect(revokes[0].url).not.toContain("SECRET");
+    expect(new URLSearchParams(revokes[0].body).get("token")).toBe(
+      REFRESH_TOKEN
+    );
+    expect(EmailAccount.prototype.save).not.toHaveBeenCalled();
+    expect(enqueueAccountSync).not.toHaveBeenCalled();
+  });
+
+  it("does not revoke a partial grant whose address is unknown (R30)", async () => {
+    tokenResponse.body.scope = SEND;
+    expect(await rejection(connect())).toEqual({
+      message: "ERR_GMAIL_SCOPES_MISSING",
+      statusCode: 400
+    });
+    expect(sentTo("revoke")).toHaveLength(0);
+    expect(sentTo("users/me/profile")).toHaveLength(0);
+  });
+
+  it("fails with ERR_GMAIL_NO_REFRESH_TOKEN", async () => {
+    delete tokenResponse.body.refresh_token;
+    expect(await rejection(connect())).toEqual({
+      message: "ERR_GMAIL_NO_REFRESH_TOKEN",
+      statusCode: 400
+    });
+    expect(EmailAccount.prototype.save).not.toHaveBeenCalled();
+    expect(enqueueAccountSync).not.toHaveBeenCalled();
   });
 
   it("falls back to the address when no name was given and drops a queue deleted meanwhile", async () => {
-    const { url } = await start({ name: "", queueId: 5 });
+    const handle = await pendingHandle({ name: "", queueId: 5 });
     (Queue.findOne as jest.Mock).mockResolvedValue(null);
-    await CompleteGmailOAuthService({ code: AUTH_CODE, state: stateOf(url) });
+    await finish(handle);
     expect(accounts[0]).toMatchObject({
       name: "caixa@gmail.com",
       queueId: null
@@ -563,8 +727,7 @@ describe("CompleteGmailOAuthService", () => {
 
   it("allows the same mailbox in another company as an independent row", async () => {
     const other = makeAccount({ companyId: 2, id: 7 }, "1//other-company");
-    const { redirectTo } = await connect({ companyId: 1 });
-    expect(redirectTo).toBe(`${TENANT}/connections?email=connected`);
+    await connect({ companyId: 1 });
     expect(accounts).toHaveLength(2);
     const created = accounts.find(item => item !== other)!;
     expect(created.companyId).toBe(1);
@@ -584,8 +747,14 @@ describe("CompleteGmailOAuthService", () => {
       },
       "1//old-token"
     );
-    const { redirectTo } = await connect();
-    expect(redirectTo).toBe(`${TENANT}/connections?email=connected`);
+    const { url } = await start({ accountId: 9 });
+    expect(new URL(url).searchParams.get("login_hint")).toBe("caixa@gmail.com");
+    const { redirectTo } = await CompleteGmailOAuthService({
+      code: AUTH_CODE,
+      state: stateOf(url)
+    });
+    await finish(new URL(redirectTo).searchParams.get("handle"));
+
     expect(accounts).toHaveLength(1);
     expect(existing).toMatchObject({
       status: "active",
@@ -599,6 +768,22 @@ describe("CompleteGmailOAuthService", () => {
     expect(enqueueAccountSync).toHaveBeenCalledWith(9);
     // the old token is not revoked: that would revoke the new grant too
     expect(sentTo("revoke")).toHaveLength(0);
+  });
+
+  it("refuses a reconnect that consented with a different mailbox, revoking nothing (R29)", async () => {
+    const existing = makeAccount(
+      { id: 9, status: "reauth_required", syncCursor: { historyId: "111" } },
+      "1//old-token"
+    );
+    profileResponse.body.emailAddress = "outra@gmail.com";
+    expect(await rejection(connect({ accountId: 9 }))).toEqual({
+      message: "ERR_GMAIL_ACCOUNT_MISMATCH",
+      statusCode: 409
+    });
+    expect(sentTo("revoke")).toHaveLength(0);
+    expect(EmailAccount.prototype.save).not.toHaveBeenCalled();
+    expect(existing.getCredentials()).toEqual({ refreshToken: "1//old-token" });
+    expect(existing.status).toBe("reauth_required");
   });
 
   it("reconnecting a disabled gmail account reuses its row with a fresh initial cursor", async () => {
@@ -628,50 +813,63 @@ describe("CompleteGmailOAuthService", () => {
       preset: "custom",
       status: "disabled"
     });
-    const { redirectTo } = await connect();
-    expect(redirectTo).toBe(
-      `${TENANT}/connections?email=error&code=ERR_EMAIL_ACCOUNT_EXISTS`
-    );
+    expect(await rejection(connect())).toEqual({
+      message: "ERR_EMAIL_ACCOUNT_EXISTS",
+      statusCode: 409
+    });
     expect(imap.provider).toBe("imap_smtp");
     expect(EmailAccount.prototype.save).not.toHaveBeenCalled();
     expect(sentTo("revoke")).toHaveLength(1);
     expect(enqueueAccountSync).not.toHaveBeenCalled();
   });
 
-  it("checks the channel switch again before exchanging the code", async () => {
-    (emailEnabledForCompany as jest.Mock).mockResolvedValue(false);
-    const { redirectTo } = await connect();
-    expect(redirectTo).toBe(
-      `${TENANT}/connections?email=error&code=ERR_EMAIL_CHANNEL_DISABLED`
-    );
-    expect(sent).toHaveLength(0);
-  });
-
-  it("maps a refused code exchange to a fixed code without logging secrets", async () => {
+  it("maps a refused code exchange to a fixed code", async () => {
     tokenResponse = {
       status: 400,
       body: { error: "invalid_grant", error_description: "Bad Request" }
     };
-    const { redirectTo } = await connect();
-    expect(redirectTo).toBe(
-      `${TENANT}/connections?email=error&code=ERR_GMAIL_OAUTH_FAILED`
-    );
+    expect(await rejection(connect())).toEqual({
+      message: "ERR_GMAIL_OAUTH_FAILED",
+      statusCode: 400
+    });
     expect(logger.warn).toHaveBeenCalled();
   });
 
-  it("never logs or redirects with tokens, codes, state or the client secret", async () => {
-    const { state, redirectTo } = await connect();
+  it("maps an unexpected profile failure to ERR_GMAIL_OAUTH_FAILED", async () => {
+    profileResponse = { status: 500, body: {} };
+    expect(await rejection(connect())).toEqual({
+      message: "ERR_GMAIL_OAUTH_FAILED",
+      statusCode: 502
+    });
+    expect(accounts).toHaveLength(0);
+  });
+
+  it("never logs tokens, codes, handles, state or the client secret", async () => {
+    const { url } = await start();
+    const state = stateOf(url)!;
+    const { redirectTo } = await CompleteGmailOAuthService({
+      code: AUTH_CODE,
+      state
+    });
+    const handle = new URL(redirectTo).searchParams.get("handle")!;
+    await finish(handle);
     tokenResponse.body.scope = READONLY;
-    await connect();
+    await connect().catch(() => undefined);
     profileResponse = { status: 500, body: {} };
     tokenResponse.body.scope = `${READONLY} ${SEND}`;
     accounts = [];
-    await connect();
+    await connect().catch(() => undefined);
+    await finish(await pendingHandle(), { userId: 101 }).catch(() => undefined);
 
-    const text = loggedText() + redirectTo;
-    [REFRESH_TOKEN, ACCESS_TOKEN, AUTH_CODE, CLIENT_SECRET, state].forEach(
-      secret => expect(text).not.toContain(secret)
-    );
+    const text = loggedText();
+    [
+      REFRESH_TOKEN,
+      ACCESS_TOKEN,
+      AUTH_CODE,
+      CLIENT_SECRET,
+      state,
+      handle
+    ].forEach(secret => expect(text).not.toContain(secret));
   });
 });
 

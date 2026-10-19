@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { CodeChallengeMethod, Credentials } from "google-auth-library";
 import { UniqueConstraintError } from "sequelize";
 import AppError from "../../errors/AppError";
+import serializeEmailAccount from "../../helpers/SerializeEmailAccount";
 import { GMAIL_SCOPES, GmailConfig, getGmailConfig } from "../../config/gmail";
 import { isAllowedFrontendOrigin } from "../../helpers/corsOrigin";
 import { cacheLayer } from "../../libs/cache";
@@ -9,7 +10,6 @@ import EmailAccount from "../../models/EmailAccount";
 import Queue from "../../models/Queue";
 import { enqueueAccountSync } from "../../queues/email";
 import { logger } from "../../utils/logger";
-import { emailEnabledForCompany } from "./EmailAccessService";
 import { emitEmailAccount } from "./EmailAccountStatusService";
 import {
   GMAIL_HTTP_TIMEOUT_MS,
@@ -21,8 +21,16 @@ import {
 } from "./GmailAuthClient";
 
 // Dedicated Gmail OAuth (connect a mailbox), separate from the Clerk login.
-// Flow: POST /email/oauth/google/start -> Google consent ->
-// GET /email/oauth/google/callback -> 302 to <tenant>/connections?email=...
+// Flow (ruling R27):
+//  1. POST /email/oauth/google/start (logged-in admin) -> Google consent URL;
+//  2. GET /email/oauth/google/callback (no session: the browser comes back
+//     from Google) consumes the state but does NOT exchange the code; it parks
+//     {state record, code} under a fresh single-use handle and redirects to
+//     <tenant>/connections?email=pending&handle=<handle>;
+//  3. POST /email/oauth/google/finish {handle} (logged-in admin) exchanges the
+//     code only when the caller is the same user of the same company that
+//     started the flow. A consent URL sent to someone else (phishing) can never
+//     attach that person's mailbox to the sender's company.
 export {
   getGmailAuthClient,
   persistRotatedRefreshToken,
@@ -32,6 +40,8 @@ export type { GmailAuthClient } from "./GmailAuthClient";
 
 export const GMAIL_STATE_PREFIX = "email:oauth:state:";
 export const GMAIL_STATE_TTL_SECONDS = 600;
+export const GMAIL_HANDLE_PREFIX = "email:oauth:handle:";
+export const GMAIL_HANDLE_TTL_SECONDS = 300;
 
 const STATE_ERROR = "ERR_GMAIL_STATE";
 const NOT_CONFIGURED = "ERR_GMAIL_NOT_CONFIGURED";
@@ -39,13 +49,14 @@ const SCOPES_MISSING = "ERR_GMAIL_SCOPES_MISSING";
 const NO_REFRESH_TOKEN = "ERR_GMAIL_NO_REFRESH_TOKEN";
 const OAUTH_FAILED = "ERR_GMAIL_OAUTH_FAILED";
 const ACCOUNT_EXISTS = "ERR_EMAIL_ACCOUNT_EXISTS";
-const CHANNEL_DISABLED = "ERR_EMAIL_CHANNEL_DISABLED";
+const ACCOUNT_MISMATCH = "ERR_GMAIL_ACCOUNT_MISMATCH";
+const ACCOUNT_NOT_FOUND = "ERR_EMAIL_ACCOUNT_NOT_FOUND";
 
 const READONLY_SCOPE = GMAIL_SCOPES[0];
 const PROFILE_URL = "https://gmail.googleapis.com/gmail/v1/users/me/profile";
 
-// 32 random bytes in base64url.
-const STATE_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+// 32 random bytes in base64url (state and handle).
+const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const VERIFIER_PATTERN = /^[A-Za-z0-9._~-]{43,128}$/;
 const ADDRESS_PATTERN = /^[^\s@<>"',;()]+@[^\s@<>"',;()]+\.[^\s@<>"',;()]+$/;
 const MAX_CODE_LENGTH = 2048;
@@ -61,7 +72,12 @@ type StateRecord = {
   queueId: number | null;
   codeVerifier: string;
   origin: string;
+  // Reconnecting this account (R29): the mailbox must be the same address.
+  accountId: number | null;
 };
+
+// What the callback parks for /finish (Redis only, single use, 300 s).
+type PendingRecord = { record: StateRecord; code: string };
 
 type Profile = { address: string; historyId: string };
 
@@ -70,6 +86,8 @@ export type StartGmailOAuthInput = {
   userId: number;
   name?: unknown;
   queueId?: unknown;
+  // Optional: reconnect this gmail_api account (sends login_hint).
+  accountId?: unknown;
   // Origin of the frontend that started the flow (Origin header, else the
   // Referer's origin). Anything not allowed falls back to FRONTEND_URL.
   origin?: string | null;
@@ -81,25 +99,36 @@ export type CompleteGmailOAuthInput = {
   error?: unknown;
 };
 
-// A failure with one of our fixed codes, shown by the frontend after the redirect.
+export type FinishGmailOAuthInput = {
+  handle?: unknown;
+  companyId: number;
+  userId: number;
+};
+
+// A failure with one of our fixed codes (shown translated by the frontend).
 class GmailConnectError extends Error {}
+
+const CONNECT_ERROR_STATUS: Record<string, number> = {
+  [ACCOUNT_EXISTS]: 409,
+  [ACCOUNT_MISMATCH]: 409
+};
+
+const randomToken = (): string => crypto.randomBytes(32).toString("base64url");
 
 const isPositiveInteger = (value: unknown): value is number =>
   typeof value === "number" && Number.isSafeInteger(value) && value > 0;
 
-const redirectUrl = (
+const connectionsUrl = (
   origin: string,
-  result: "connected" | "error",
-  code?: string
-): string => {
-  const params = new URLSearchParams({ email: result });
-  if (code) params.set("code", code);
-  return `${origin}/connections?${params.toString()}`;
-};
+  params: Record<string, string>
+): string => `${origin}/connections?${new URLSearchParams(params).toString()}`;
+
+const errorUrl = (origin: string, code: string): string =>
+  connectionsUrl(origin, { email: "error", code });
 
 // For the controller when everything else failed: FRONTEND_URL, fixed code.
 export const gmailFallbackRedirect = (code = OAUTH_FAILED): string =>
-  redirectUrl(getGmailConfig().frontendUrl, "error", code);
+  errorUrl(getGmailConfig().frontendUrl, code);
 
 export const requestFrontendOrigin = (
   originHeader?: string,
@@ -160,30 +189,50 @@ const resolveQueueId = async (
   return queueId;
 };
 
+// Only a gmail_api account of the caller's company can be reconnected.
+const resolveReconnectAccount = async (
+  companyId: number,
+  value: unknown
+): Promise<EmailAccount | null> => {
+  if (value === undefined || value === null || value === "") return null;
+  const id = Number(value);
+  const account =
+    typeof value !== "boolean" && Number.isSafeInteger(id) && id > 0
+      ? await EmailAccount.findOne({
+          where: { id, companyId, provider: "gmail_api" }
+        })
+      : null;
+  if (!account) throw new AppError(ACCOUNT_NOT_FOUND, 404);
+  return account;
+};
+
 export const StartGmailOAuthService = async ({
   companyId,
   userId,
   name,
   queueId,
+  accountId,
   origin
 }: StartGmailOAuthInput): Promise<{ url: string }> => {
   const config = getGmailConfig();
   if (!config.enabled) throw new AppError(NOT_CONFIGURED, 503);
 
+  const reconnect = await resolveReconnectAccount(companyId, accountId);
   const record: StateRecord = {
     companyId,
     userId,
     name: parseName(name),
     queueId: await resolveQueueId(companyId, queueId),
     codeVerifier: "",
-    origin: frontendOrigin(origin, config)
+    origin: frontendOrigin(origin, config),
+    accountId: reconnect?.id ?? null
   };
 
   const client = createGmailOAuthClient(config);
   const { codeVerifier, codeChallenge } =
     await client.generateCodeVerifierAsync();
   record.codeVerifier = codeVerifier;
-  const state = crypto.randomBytes(32).toString("base64url");
+  const state = randomToken();
 
   try {
     await cacheLayer.set(
@@ -200,20 +249,21 @@ export const StartGmailOAuthService = async ({
   const url = client.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
-    // false: the token must carry only the mail scopes, never merge scopes
-    // this Google account granted to other clients/flows (login).
+    // Incremental authorization would merge earlier grants of this same
+    // client ID into the token; false keeps the granted set exactly
+    // gmail.readonly + gmail.send, so the scope check below stays exact.
     include_granted_scopes: false,
     scope: [...GMAIL_SCOPES],
     state,
     code_challenge_method: CodeChallengeMethod.S256,
-    code_challenge: codeChallenge
+    code_challenge: codeChallenge,
+    ...(reconnect ? { login_hint: reconnect.address } : {})
   });
   return { url };
 };
 
-const parseRecord = (raw: string): StateRecord | null => {
+const parseRecord = (value: Partial<StateRecord>): StateRecord | null => {
   try {
-    const value = JSON.parse(raw) as Partial<StateRecord>;
     if (
       !isPositiveInteger(value.companyId) ||
       !isPositiveInteger(value.userId) ||
@@ -221,27 +271,49 @@ const parseRecord = (raw: string): StateRecord | null => {
       !VERIFIER_PATTERN.test(value.codeVerifier) ||
       typeof value.origin !== "string" ||
       !(value.name === null || typeof value.name === "string") ||
-      !(value.queueId === null || isPositiveInteger(value.queueId))
+      !(value.queueId === null || isPositiveInteger(value.queueId)) ||
+      !(value.accountId == null || isPositiveInteger(value.accountId))
     ) {
       return null;
     }
-    return value as StateRecord;
+    return { ...value, accountId: value.accountId ?? null } as StateRecord;
   } catch {
     return null;
   }
 };
 
-// Atomic get+del: a state works once, whatever happens next.
-const consumeState = async (state: unknown): Promise<StateRecord | null> => {
-  if (typeof state !== "string" || !STATE_PATTERN.test(state)) return null;
-  let raw: string | null;
+// Atomic get+del: a state/handle works once, whatever happens next. The
+// format is checked before Redis is touched.
+const consumeJson = async (
+  prefix: string,
+  token: unknown
+): Promise<Record<string, unknown> | null> => {
+  if (typeof token !== "string" || !TOKEN_PATTERN.test(token)) return null;
   try {
-    raw = await cacheLayer.consume(`${GMAIL_STATE_PREFIX}${state}`);
+    const raw = await cacheLayer.consume(`${prefix}${token}`);
+    const value = raw ? JSON.parse(raw) : null;
+    return value && typeof value === "object" ? value : null;
   } catch {
     logger.warn("Could not read Gmail OAuth state");
     return null;
   }
-  return raw ? parseRecord(raw) : null;
+};
+
+const consumeState = async (state: unknown): Promise<StateRecord | null> => {
+  const value = await consumeJson(GMAIL_STATE_PREFIX, state);
+  return value ? parseRecord(value as Partial<StateRecord>) : null;
+};
+
+const validCode = (code: unknown): code is string =>
+  typeof code === "string" && code.length > 0 && code.length <= MAX_CODE_LENGTH;
+
+const consumeHandle = async (
+  handle: unknown
+): Promise<PendingRecord | null> => {
+  const value = await consumeJson(GMAIL_HANDLE_PREFIX, handle);
+  if (!value) return null;
+  const record = parseRecord((value.record || {}) as Partial<StateRecord>);
+  return record && validCode(value.code) ? { record, code: value.code } : null;
 };
 
 const grantedScopes = (scope: unknown): string[] =>
@@ -276,15 +348,18 @@ const fetchProfile = async (client: GmailAuthClient): Promise<Profile> => {
   return { address, historyId };
 };
 
-// Best effort, never throws. Skipped while the mailbox is still connected in
-// some account (revoking would cut that one off too).
+// Best effort, never throws (ruling R30). Skipped while the mailbox is still
+// connected in some account, and skipped when the address is unknown: revoking
+// removes the whole grant of that Google account for our client, which could
+// cut off another company connected to the same mailbox.
 const revokeUnusedGrant = async (
   address: string | null,
   token: string,
   record: StateRecord
 ): Promise<void> => {
+  if (!address) return;
   try {
-    if (address && (await gmailGrantInUse(address))) return;
+    if (await gmailGrantInUse(address)) return;
     await revokeGoogleToken(token);
   } catch (err) {
     logger.warn(
@@ -316,7 +391,7 @@ const discardPartialGrant = async (
       });
       ({ address } = await fetchProfile(client));
     } catch {
-      // address unknown: revoke anyway
+      // address unknown: nothing is revoked (R30)
     }
   }
   await revokeUnusedGrant(address, token, record);
@@ -329,6 +404,16 @@ const upsertAccount = async (
   refreshToken: string
 ): Promise<{ account: EmailAccount; action: "create" | "update" }> => {
   const { companyId, userId } = record;
+  if (record.accountId) {
+    // Reconnecting a given account (R29): the consent must be for its mailbox.
+    // Nothing is revoked: the grant belongs to whatever mailbox was picked.
+    const target = await EmailAccount.findOne({
+      where: { id: record.accountId, companyId, provider: "gmail_api" }
+    });
+    if (!target || target.address !== address) {
+      throw new GmailConnectError(ACCOUNT_MISMATCH);
+    }
+  }
   const existing = await EmailAccount.scope("withSecrets").findOne({
     where: { companyId, address }
   });
@@ -351,9 +436,10 @@ const upsertAccount = async (
   let action: "create" | "update";
   if (existing) {
     // Reconnect (reauth or a disabled mailbox): same row, so its tickets stay
-    // attached. A live account keeps its cursor so nothing that arrived while
-    // it needed reauth is skipped (Task 15 resyncs if the historyId expired);
-    // a disabled one starts over like a new connection.
+    // attached. A live account keeps its cursor (same address = same mailbox,
+    // R29) so nothing that arrived while it needed reauth is skipped (Task 15
+    // resyncs if the historyId expired); a disabled one starts over like a new
+    // connection.
     const wasDisabled = existing.status === "disabled";
     const cursor = existing.getDataValue("syncCursor") as {
       historyId?: unknown;
@@ -445,10 +531,12 @@ const connectMailbox = async (
   return upsertAccount(record, profile, granted, tokens.refresh_token);
 };
 
-// Never throws: every outcome is a redirect to the frontend's /connections
-// with ?email=connected or ?email=error&code=<fixed code>. The state is
-// validated (and consumed) before anything else; nothing secret (code, state,
-// tokens) ever reaches the redirect or the logs.
+// GET callback. Never throws: every outcome is a redirect to the frontend's
+// /connections. The state is validated (and consumed) before anything else.
+// The code is NOT exchanged here (R27): it is parked with the state record
+// under a fresh single-use handle, and the redirect carries only that handle
+// (?email=pending&handle=...), never the code or any token. Errors redirect
+// with ?email=error&code=<fixed code>.
 export const CompleteGmailOAuthService = async ({
   code,
   state,
@@ -456,11 +544,7 @@ export const CompleteGmailOAuthService = async ({
 }: CompleteGmailOAuthInput): Promise<{ redirectTo: string }> => {
   const config = getGmailConfig();
   const record = await consumeState(state);
-  if (!record) {
-    return {
-      redirectTo: redirectUrl(config.frontendUrl, "error", STATE_ERROR)
-    };
-  }
+  if (!record) return { redirectTo: errorUrl(config.frontendUrl, STATE_ERROR) };
 
   // Re-checked: never redirect to an origin that does not pass the rules now.
   const origin = frontendOrigin(record.origin, config);
@@ -469,57 +553,84 @@ export const CompleteGmailOAuthService = async ({
       { companyId: record.companyId, userId: record.userId, code: failure },
       "Gmail connection failed"
     );
-    return { redirectTo: redirectUrl(origin, "error", failure) };
+    return { redirectTo: errorUrl(origin, failure) };
   };
 
-  if (
-    error ||
-    typeof code !== "string" ||
-    !code ||
-    code.length > MAX_CODE_LENGTH
-  ) {
-    return fail(STATE_ERROR);
-  }
+  if (error || !validCode(code)) return fail(STATE_ERROR);
   if (!config.enabled) return fail(NOT_CONFIGURED);
 
+  const handle = randomToken();
+  const pending: PendingRecord = { record, code };
   try {
-    // The super admin may have switched the channel off meanwhile.
-    if (!(await emailEnabledForCompany(record.companyId))) {
-      return fail(CHANNEL_DISABLED);
-    }
-
-    const { account, action } = await connectMailbox(config, record, code);
-
-    // Extension point (Task 16): watchGmailAccount(account) goes here.
-    try {
-      await enqueueAccountSync(account.id);
-    } catch {
-      // The account is saved; the minute tick picks it up anyway.
-      logger.warn(
-        { companyId: account.companyId, emailAccountId: account.id },
-        "Could not enqueue email account sync"
-      );
-    }
-    emitEmailAccount(account, action);
-    logger.info(
-      {
-        companyId: account.companyId,
-        emailAccountId: account.id,
-        userId: record.userId
-      },
-      "Gmail account connected"
+    await cacheLayer.set(
+      `${GMAIL_HANDLE_PREFIX}${handle}`,
+      JSON.stringify(pending),
+      "EX",
+      GMAIL_HANDLE_TTL_SECONDS
     );
-    return { redirectTo: redirectUrl(origin, "connected") };
-  } catch (err) {
-    if (err instanceof GmailConnectError) return fail(err.message);
+  } catch {
+    return fail(OAUTH_FAILED);
+  }
+  return { redirectTo: connectionsUrl(origin, { email: "pending", handle }) };
+};
+
+// POST finish (isAuth + isAdmin + assertEmailEnabled in the route/controller).
+// Consumes the handle first (so a refused attempt cannot be retried), then
+// requires the caller to be the user of the company that started the flow.
+// Returns the account in the public shape of the account list.
+export const FinishGmailOAuthService = async ({
+  handle,
+  companyId,
+  userId
+}: FinishGmailOAuthInput) => {
+  const pending = await consumeHandle(handle);
+  if (!pending) throw new AppError(STATE_ERROR, 400);
+  const { record, code } = pending;
+
+  if (record.companyId !== companyId || record.userId !== userId) {
     logger.warn(
-      {
-        companyId: record.companyId,
-        userId: record.userId,
-        reason: gmailFailureReason(err)
-      },
+      { companyId, userId, startedByCompanyId: record.companyId },
+      "Gmail connection finished by another user: refused"
+    );
+    throw new AppError(OAUTH_FAILED, 403);
+  }
+
+  const config = getGmailConfig();
+  if (!config.enabled) throw new AppError(NOT_CONFIGURED, 503);
+
+  let result: Awaited<ReturnType<typeof connectMailbox>>;
+  try {
+    result = await connectMailbox(config, record, code);
+  } catch (err) {
+    if (err instanceof GmailConnectError) {
+      logger.warn(
+        { companyId, userId, code: err.message },
+        "Gmail connection failed"
+      );
+      throw new AppError(err.message, CONNECT_ERROR_STATUS[err.message] || 400);
+    }
+    logger.warn(
+      { companyId, userId, reason: gmailFailureReason(err) },
       "Gmail connection failed unexpectedly"
     );
-    return { redirectTo: redirectUrl(origin, "error", OAUTH_FAILED) };
+    throw new AppError(OAUTH_FAILED, 502);
   }
+
+  const { account, action } = result;
+  // Extension point (Task 16): watchGmailAccount(account) goes here.
+  try {
+    await enqueueAccountSync(account.id);
+  } catch {
+    // The account is saved; the minute tick picks it up anyway.
+    logger.warn(
+      { companyId: account.companyId, emailAccountId: account.id },
+      "Could not enqueue email account sync"
+    );
+  }
+  emitEmailAccount(account, action);
+  logger.info(
+    { companyId, emailAccountId: account.id, userId },
+    "Gmail account connected"
+  );
+  return serializeEmailAccount(account);
 };

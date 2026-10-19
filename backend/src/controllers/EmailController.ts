@@ -18,10 +18,13 @@ import {
 } from "../services/EmailServices/EmailAttachmentStorage";
 import {
   CompleteGmailOAuthService,
+  FinishGmailOAuthService,
   StartGmailOAuthService,
   gmailFallbackRedirect,
   requestFrontendOrigin
 } from "../services/EmailServices/GmailOAuthService";
+import { gmailFailureReason } from "../services/EmailServices/GmailAuthClient";
+import { logger } from "../utils/logger";
 import GetEmailThreadService, {
   assertAttachmentVisible
 } from "../services/EmailServices/GetEmailThreadService";
@@ -144,12 +147,13 @@ export const googleStart = async (
 ): Promise<Response> => {
   const { companyId, id: userId } = req.user;
   await assertEmailEnabled(companyId);
-  const { name, queueId } = body(req);
+  const { name, queueId, accountId } = body(req);
   const { url } = await StartGmailOAuthService({
     companyId,
     userId: Number(userId),
     name,
     queueId,
+    accountId,
     origin: requestFrontendOrigin(req.get("origin"), req.get("referer"))
   });
   res.setHeader("Cache-Control", "no-store");
@@ -169,10 +173,31 @@ export const googleCallback = async (
       state: req.query.state,
       error: req.query.error
     }));
-  } catch {
+  } catch (err) {
+    logger.warn(
+      { reason: gmailFailureReason(err) },
+      "Gmail OAuth callback failed unexpectedly"
+    );
     redirectTo = gmailFallbackRedirect();
   }
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("Referrer-Policy", "no-referrer");
   res.redirect(302, redirectTo);
+};
+
+// Completes the connection parked by the callback, only for the same user of
+// the same company that started it (ruling R27).
+export const googleFinish = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { companyId, id: userId } = req.user;
+  await assertEmailEnabled(companyId);
+  const account = await FinishGmailOAuthService({
+    handle: body(req).handle,
+    companyId,
+    userId: Number(userId)
+  });
+  res.setHeader("Cache-Control", "no-store");
+  return res.status(200).json(account);
 };

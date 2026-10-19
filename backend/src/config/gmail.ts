@@ -24,18 +24,21 @@ const env = (key: string): string => (process.env[key] || "").trim();
 const optional = (key: string): string | undefined => env(key) || undefined;
 
 // Read on every call so a deployment can be configured without code changes
-// (and tests can switch it). `enabled` needs the three OAuth variables.
+// (and tests can switch it). `enabled` needs the three OAuth variables and
+// FRONTEND_URL (the callback's fallback redirect target; without it the
+// redirect would be relative to the backend host).
 export const getGmailConfig = (): GmailConfig => {
   const clientId = env("GMAIL_OAUTH_CLIENT_ID");
   const clientSecret = env("GMAIL_OAUTH_CLIENT_SECRET");
   const redirectUri = env("GMAIL_OAUTH_REDIRECT_URI");
+  const frontendUrl = env("FRONTEND_URL").replace(/\/+$/, "");
 
   return {
-    enabled: Boolean(clientId && clientSecret && redirectUri),
+    enabled: Boolean(clientId && clientSecret && redirectUri && frontendUrl),
     clientId,
     clientSecret,
     redirectUri,
-    frontendUrl: env("FRONTEND_URL").replace(/\/+$/, ""),
+    frontendUrl,
     pubsubTopic: optional("GMAIL_PUBSUB_TOPIC"),
     pubsubAudience: optional("GMAIL_PUBSUB_AUDIENCE"),
     pubsubServiceAccount: optional("GMAIL_PUBSUB_SERVICE_ACCOUNT")
