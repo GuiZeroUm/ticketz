@@ -66,6 +66,12 @@ describe("emailInbox helpers", () => {
     );
     expect(translateEmailSendError("ERR_EMAIL_REJECTED_550")).toContain("550");
     expect(translateEmailSendError("ERR_GMAIL_SEND_403")).toContain("403");
-    expect(translateEmailSendError("ERR_WHATEVER")).toContain("ERR_WHATEVER");
+    expect(translateEmailSendError("ERR_EMAIL_WHATEVER")).not.toMatch(/ERR_/);
+    expect(translateEmailSendError("ERR_EMAIL_AUTH_FAILED")).toBe(
+      i18n.t("backendErrors.ERR_EMAIL_AUTH_FAILED")
+    );
+    expect(translateEmailSendError("ERR_EMAIL_REJECTED_EENVELOPE")).not.toMatch(
+      /ERR_/
+    );
   });
 });

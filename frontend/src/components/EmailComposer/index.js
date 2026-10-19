@@ -6,7 +6,6 @@ import CircularProgress from "@material-ui/core/CircularProgress";
 import { AlertTriangle, FileText, Paperclip, Send, X } from "lucide-react";
 
 import api from "../../services/api";
-import toastError from "../../errors/toastError";
 import { i18n } from "../../translate/i18n";
 import {
   CONNECTION_PROVIDERS,
@@ -21,6 +20,7 @@ import {
   formatFileSize,
   replySubject,
   ti,
+  toastEmailApiError,
   translateEmailSendError
 } from "../../helpers/emailInbox";
 
@@ -212,15 +212,6 @@ const useStyles = makeStyles(theme => {
   };
 });
 
-const toastSendError = err => {
-  const code = err?.response?.data?.error;
-  if (typeof code === "string" && /^ERR_(EMAIL|GMAIL)_/.test(code)) {
-    toast.error(translateEmailSendError(code), { toastId: code });
-    return;
-  }
-  toastError(err);
-};
-
 const EmailComposer = ({ ticket, thread, onSent }) => {
   const classes = useStyles();
   const theme = useTheme();
@@ -336,7 +327,7 @@ const EmailComposer = ({ ticket, thread, onSent }) => {
       setTouched({});
       if (onSent) onSent();
     } catch (err) {
-      toastSendError(err);
+      await toastEmailApiError(err);
     } finally {
       setSending(false);
     }

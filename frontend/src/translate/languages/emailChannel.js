@@ -454,7 +454,6 @@ const ptInbox = {
     removeAttachment: "Remover {{name}}",
     send: "Enviar e-mail",
     sending: "Enviando…",
-    queued: "E-mail na fila de envio",
     reauth: "A autorização desta caixa venceu. Reconecte em Conexões.",
     replyPrefix: "Re:",
     forwardPrefix: "Enc:"
@@ -462,12 +461,10 @@ const ptInbox = {
   errors: {
     rejected: "O servidor de e-mail recusou o envio (código {{code}}).",
     gmailRejected: "O Gmail recusou o envio (código {{code}}).",
-    unknownCode: "Falha no envio ({{code}})."
+    generic: "Não foi possível enviar o e-mail. Tente de novo em instantes."
   },
   contacts: {
-    noPhone: "sem telefone",
-    noPhoneHint:
-      "Contato só com e-mail: não pode receber atendimento nem agendamento de WhatsApp"
+    noPhone: "sem telefone"
   }
 };
 
@@ -521,7 +518,6 @@ const enInbox = {
     removeAttachment: "Remove {{name}}",
     send: "Send email",
     sending: "Sending…",
-    queued: "Email queued for sending",
     reauth:
       "This mailbox authorization has expired. Reconnect it in Connections.",
     replyPrefix: "Re:",
@@ -530,11 +526,10 @@ const enInbox = {
   errors: {
     rejected: "The mail server rejected the message (code {{code}}).",
     gmailRejected: "Gmail rejected the message (code {{code}}).",
-    unknownCode: "Sending failed ({{code}})."
+    generic: "The email could not be sent. Try again in a moment."
   },
   contacts: {
-    noPhone: "no phone",
-    noPhoneHint: "Email-only contact: cannot get a WhatsApp ticket or schedule"
+    noPhone: "no phone"
   }
 };
 
@@ -557,7 +552,27 @@ const ptBackendErrors = {
   ERR_EMAIL_BOUNCED: "O servidor de destino recusou a entrega.",
   ERR_EMAIL_AUTH: "A caixa recusou o acesso. Reconecte a conta em Conexões.",
   ERR_EMAIL_CONNECTION_FAILED:
-    "Não foi possível conectar ao servidor de e-mail."
+    "Não foi possível conectar ao servidor de e-mail.",
+  ERR_EMAIL_AUTH_FAILED:
+    "A autorização desta caixa venceu. Reconecte em Conexões.",
+  ERR_EMAIL_CREDENTIALS_MISSING:
+    "Esta caixa está sem credenciais salvas. Reconecte em Conexões.",
+  ERR_EMAIL_TRANSIENT:
+    "O servidor de e-mail não respondeu depois de várias tentativas. Tente enviar de novo.",
+  ERR_EMAIL_SEND_AMBIGUOUS:
+    "O servidor não confirmou o envio. Confira a caixa antes de reenviar.",
+  ERR_EMAIL_ATTACHMENT_MISSING:
+    "Um anexo não está mais disponível. Anexe o arquivo de novo e reenvie.",
+  ERR_EMAIL_REJECTED_EENVELOPE:
+    "O servidor recusou os destinatários. Confira os endereços e tente de novo.",
+  ERR_EMAIL_REJECTED_EMESSAGE:
+    "O servidor recusou o conteúdo do e-mail. Revise a mensagem e os anexos.",
+  ERR_EMAIL_PROVIDER_NOT_SUPPORTED:
+    "Este tipo de caixa de e-mail ainda não é suportado.",
+  ERR_EMAIL_HOST_NOT_ALLOWED:
+    "Este servidor de e-mail não é permitido. Use o endereço público do servidor.",
+  ERR_EMAIL_PORT_NOT_ALLOWED:
+    "Esta porta não é permitida para o servidor de e-mail."
 };
 
 const enBackendErrors = {
@@ -576,7 +591,26 @@ const enBackendErrors = {
   ERR_EMAIL_BOUNCED: "The destination server refused delivery.",
   ERR_EMAIL_AUTH:
     "The mailbox refused access. Reconnect the account in Connections.",
-  ERR_EMAIL_CONNECTION_FAILED: "Could not connect to the mail server."
+  ERR_EMAIL_CONNECTION_FAILED: "Could not connect to the mail server.",
+  ERR_EMAIL_AUTH_FAILED:
+    "This mailbox authorization has expired. Reconnect it in Connections.",
+  ERR_EMAIL_CREDENTIALS_MISSING:
+    "This mailbox has no saved credentials. Reconnect it in Connections.",
+  ERR_EMAIL_TRANSIENT:
+    "The mail server did not respond after several attempts. Try sending again.",
+  ERR_EMAIL_SEND_AMBIGUOUS:
+    "The server did not confirm the send. Check the mailbox before resending.",
+  ERR_EMAIL_ATTACHMENT_MISSING:
+    "An attachment is no longer available. Attach the file again and resend.",
+  ERR_EMAIL_REJECTED_EENVELOPE:
+    "The server refused the recipients. Check the addresses and try again.",
+  ERR_EMAIL_REJECTED_EMESSAGE:
+    "The server refused the email content. Review the message and attachments.",
+  ERR_EMAIL_PROVIDER_NOT_SUPPORTED:
+    "This type of mailbox is not supported yet.",
+  ERR_EMAIL_HOST_NOT_ALLOWED:
+    "This mail server is not allowed. Use the server's public address.",
+  ERR_EMAIL_PORT_NOT_ALLOWED: "This port is not allowed for the mail server."
 };
 
 const pt = {

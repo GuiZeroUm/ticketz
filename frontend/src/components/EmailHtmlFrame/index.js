@@ -7,9 +7,13 @@ import React, {
 } from "react";
 
 // Email HTML (already sanitized by the backend) is only ever rendered inside
-// this frame: sandbox="" gives it an opaque origin with no scripts, forms,
-// popups or navigation, and the CSP below blocks every network load as a
-// second line of defense (no tracking pixels, fonts or stylesheets).
+// this frame. The sandbox never grants allow-scripts or allow-same-origin: the
+// document has an opaque origin and runs nothing. Popups are allowed (and
+// escape the sandbox) only so links open in a new tab; <base target="_blank">
+// sends every link there. The CSP blocks every network load as a second line
+// of defense (no tracking pixels, fonts or stylesheets).
+export const FRAME_SANDBOX = "allow-popups allow-popups-to-escape-sandbox";
+
 const FRAME_CSP =
   "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:";
 
@@ -28,6 +32,8 @@ export const buildFrameDocument = html =>
   "<!doctype html><html><head>" +
   '<meta charset="utf-8">' +
   `<meta http-equiv="Content-Security-Policy" content="${FRAME_CSP}">` +
+  '<meta name="referrer" content="no-referrer">' +
+  '<base target="_blank">' +
   "<style>" +
   "html,body{margin:0;padding:0;background:transparent;}" +
   "body{font-family:Inter,system-ui,-apple-system,'Segoe UI',sans-serif;" +
@@ -67,9 +73,16 @@ export const estimateHtmlHeight = (html, width = DEFAULT_WIDTH) => {
   }
 };
 
-const EmailHtmlFrame = ({ html, title, className, style }) => {
+const EmailHtmlFrame = ({ html, title, className, style, onHeightChange }) => {
   const frameRef = useRef(null);
   const [height, setHeight] = useState(() => estimateHtmlHeight(html));
+  const onHeightChangeRef = useRef(onHeightChange);
+  onHeightChangeRef.current = onHeightChange;
+
+  // Lets the thread keep its scroll pinned to the bottom when a frame grows.
+  useEffect(() => {
+    if (onHeightChangeRef.current) onHeightChangeRef.current(height);
+  }, [height]);
   const srcDoc = useMemo(() => buildFrameDocument(html), [html]);
 
   useEffect(() => {
@@ -95,7 +108,7 @@ const EmailHtmlFrame = ({ html, title, className, style }) => {
     <iframe
       ref={frameRef}
       title={title}
-      sandbox=""
+      sandbox={FRAME_SANDBOX}
       srcDoc={srcDoc}
       referrerPolicy="no-referrer"
       onLoad={handleLoad}

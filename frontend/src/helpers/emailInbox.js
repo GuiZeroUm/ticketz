@@ -1,4 +1,5 @@
 import { i18n } from "../translate/i18n";
+import { toast } from "react-toastify";
 import toastError from "../errors/toastError";
 
 // Mirrors MAX_OUTBOUND_ATTACHMENTS_BYTES on the backend (EmailServices/limits.ts).
@@ -156,32 +157,45 @@ export const defaultRecipients = (thread, mode) => {
   return { to: joinAddresses(to), cc: joinAddresses(cc) };
 };
 
+export const isEmailErrorCode = code =>
+  typeof code === "string" && /^ERR_(EMAIL|GMAIL)_/.test(code);
+
 // Error codes stay as keys on the API. Known ones live in backendErrors; SMTP
-// and Gmail rejections carry the server status in the code itself.
+// and Gmail rejections carry the server status in the code itself. Unknown
+// codes get a generic sentence: the raw key is never shown.
 export const translateEmailSendError = code => {
   if (!code) return ti("status.failed");
   if (i18n.exists(`backendErrors.${code}`))
     return i18n.t(`backendErrors.${code}`);
-  const smtp = /^ERR_EMAIL_REJECTED_(\w+)$/.exec(code);
+  const smtp = /^ERR_EMAIL_REJECTED_(\d+)$/.exec(code);
   if (smtp) return ti("errors.rejected", { code: smtp[1] });
-  const gmail = /^ERR_GMAIL_SEND_(\w+)$/.exec(code);
+  const gmail = /^ERR_GMAIL_SEND_(\d+)$/.exec(code);
   if (gmail) return ti("errors.gmailRejected", { code: gmail[1] });
-  return ti("errors.unknownCode", { code });
+  return ti("errors.generic");
 };
 
-// Blob responses (attachment downloads) hide the JSON error body.
-export const toastEmailRequestError = async err => {
+const errorCodeOf = async err => {
+  if (typeof err === "string") return err;
   const data = err?.response?.data;
+  // Blob responses (attachment downloads) hide the JSON error body.
   if (typeof Blob !== "undefined" && data instanceof Blob) {
     try {
-      const parsed = JSON.parse(await data.text());
-      if (parsed?.error) {
-        toastError(parsed.error);
-        return;
-      }
+      return JSON.parse(await data.text())?.error || null;
     } catch (_) {
-      // not JSON
+      return null;
     }
   }
-  toastError(err);
+  return data?.error || null;
+};
+
+// Email codes go through translateEmailSendError; anything else falls back to
+// the app-wide toastError.
+export const toastEmailApiError = async err => {
+  const code = await errorCodeOf(err);
+  if (isEmailErrorCode(code)) {
+    toast.error(translateEmailSendError(code), { toastId: code });
+    return;
+  }
+  // A code read from a Blob body is not visible to toastError itself.
+  toastError(code || err);
 };

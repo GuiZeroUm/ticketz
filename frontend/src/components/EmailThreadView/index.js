@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { makeStyles, alpha } from "@material-ui/core/styles";
 import CircularProgress from "@material-ui/core/CircularProgress";
 import {
@@ -21,9 +21,10 @@ import {
   firstAddress,
   formatEmailDate,
   formatFileSize,
+  isEmailErrorCode,
   ti,
   tiCount,
-  toastEmailRequestError,
+  toastEmailApiError,
   translateEmailSendError
 } from "../../helpers/emailInbox";
 
@@ -302,7 +303,7 @@ const Attachment = ({ attachment }) => {
       document.body.removeChild(link);
       setTimeout(() => window.URL.revokeObjectURL(url), 1000);
     } catch (err) {
-      await toastEmailRequestError(err);
+      await toastEmailApiError(err);
     } finally {
       setBusy(false);
     }
@@ -328,7 +329,7 @@ const Attachment = ({ attachment }) => {
   );
 };
 
-const EmailCard = ({ message, contactColor }) => {
+const EmailCard = ({ message, contactColor, onFrameResize }) => {
   const classes = useStyles();
   const out = message.direction === "out";
   const from = firstAddress(message.from);
@@ -374,6 +375,7 @@ const EmailCard = ({ message, contactColor }) => {
           <EmailHtmlFrame
             html={message.htmlSanitized}
             title={ti("thread.frameTitle", { from: fromName })}
+            onHeightChange={onFrameResize}
           />
         </div>
       ) : (
@@ -399,16 +401,35 @@ const EmailThreadView = ({ ticket, thread, loading, error, onRetry }) => {
   const messages = Array.isArray(thread?.messages) ? thread.messages : [];
   const count = messages.length;
   const lastCountRef = useRef(0);
+  // True while the user is at (or near) the bottom of the thread.
+  const pinnedRef = useRef(true);
+
+  const scrollToBottom = useCallback(() => {
+    const element = scrollRef.current;
+    if (!element) return;
+    requestAnimationFrame(() => {
+      element.scrollTop = element.scrollHeight;
+    });
+  }, []);
+
+  const handleScroll = event => {
+    const { scrollTop, clientHeight, scrollHeight } = event.currentTarget;
+    pinnedRef.current = scrollHeight - (scrollTop + clientHeight) < 48;
+  };
+
+  // A frame resized after onLoad pushes content down; follow it only when
+  // the user had not scrolled up to read something.
+  const handleFrameResize = useCallback(() => {
+    if (pinnedRef.current) scrollToBottom();
+  }, [scrollToBottom]);
 
   useEffect(() => {
-    if (count > lastCountRef.current && scrollRef.current) {
-      const element = scrollRef.current;
-      requestAnimationFrame(() => {
-        element.scrollTop = element.scrollHeight;
-      });
+    if (count > lastCountRef.current) {
+      pinnedRef.current = true;
+      scrollToBottom();
     }
     lastCountRef.current = count;
-  }, [count]);
+  }, [count, scrollToBottom]);
 
   if (!thread) {
     return (
@@ -422,9 +443,11 @@ const EmailThreadView = ({ ticket, thread, loading, error, onRetry }) => {
           ) : (
             <>
               <span>
-                {i18n.exists(`backendErrors.${error}`)
-                  ? i18n.t(`backendErrors.${error}`)
-                  : ti("thread.loadError")}
+                {isEmailErrorCode(error)
+                  ? translateEmailSendError(error)
+                  : i18n.exists(`backendErrors.${error}`)
+                    ? i18n.t(`backendErrors.${error}`)
+                    : ti("thread.loadError")}
               </span>
               <button type="button" className={classes.retry} onClick={onRetry}>
                 {ti("thread.retry")}
@@ -440,7 +463,7 @@ const EmailThreadView = ({ ticket, thread, loading, error, onRetry }) => {
   const contactColor = corAvatarContato(ticket?.contact);
 
   return (
-    <div className={classes.thread} ref={scrollRef}>
+    <div className={classes.thread} ref={scrollRef} onScroll={handleScroll}>
       <div className={classes.header}>
         <h2 className={classes.subject}>{subject}</h2>
         <span className={classes.countBadge}>
@@ -455,6 +478,7 @@ const EmailThreadView = ({ ticket, thread, loading, error, onRetry }) => {
           key={message.messageId || message.id || index}
           message={message}
           contactColor={contactColor}
+          onFrameResize={handleFrameResize}
         />
       ))}
     </div>
