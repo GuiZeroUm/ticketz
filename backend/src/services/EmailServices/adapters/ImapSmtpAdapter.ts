@@ -1,4 +1,5 @@
 import fs from "fs";
+import net from "net";
 import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
 import { createTransport } from "nodemailer";
@@ -8,9 +9,9 @@ import { logger } from "../../../utils/logger";
 import {
   INITIAL_IMPORT_HOURS,
   INITIAL_IMPORT_MAX,
-  MAX_HTML_BYTES,
-  MAX_INBOUND_ATTACHMENTS_BYTES,
-  SYNC_BATCH_MAX
+  MAX_RAW_MESSAGE_BYTES,
+  SYNC_BATCH_MAX,
+  SYNC_ROUND_MAX_BYTES
 } from "../limits";
 import { resolveSafeMailEndpoint } from "../mailEndpoint";
 import normalizeParsedMail from "../normalizeParsedMail";
@@ -26,6 +27,8 @@ import {
 type Endpoint = { host: string; port: number; secure: boolean };
 
 type MailboxConfig = {
+  // Only used to tag secret-free log entries.
+  accountId?: number;
   address: string;
   password: string;
   imap: Endpoint;
@@ -52,11 +55,35 @@ const SMTP_TIMEOUTS = {
   socketTimeout: 120_000
 };
 
-// A message larger than this is cut when downloaded, so one huge message cannot
-// exhaust memory. Attachments are bounded by MAX_INBOUND_ATTACHMENTS_BYTES.
-const MAX_RAW_MESSAGE_BYTES = MAX_INBOUND_ATTACHMENTS_BYTES + MAX_HTML_BYTES;
-
 const SMTP_AUTH_REJECT_CODES = [530, 534, 535, 538];
+
+const PROGRAMMING_ERRORS = [
+  "TypeError",
+  "ReferenceError",
+  "RangeError",
+  "SyntaxError"
+];
+
+// Secret-free description of an unexpected error. Library errors (imapflow,
+// nodemailer) can echo server text, so only name and code are kept; a stack is
+// added just for programming errors, which are ours.
+const logUnexpected = (accountId: number | undefined, error: unknown) => {
+  const e = error as { name?: unknown; code?: unknown; stack?: unknown };
+  const name = typeof e?.name === "string" ? e.name : typeof error;
+  const entry: Record<string, unknown> = {
+    accountId,
+    name,
+    code: typeof e?.code === "string" ? e.code : undefined
+  };
+  if (PROGRAMMING_ERRORS.includes(name) && typeof e?.stack === "string") {
+    entry.stack = e.stack;
+  }
+  logger.warn(entry, "email adapter: unexpected error");
+};
+
+// SNI is only sent for DNS names, never for an IP literal.
+const sniOptions = (servername: string) =>
+  net.isIP(servername) ? {} : { servername };
 
 const reasonOf = (error: unknown): string | undefined => {
   const code = (error as { code?: unknown })?.code;
@@ -77,6 +104,7 @@ const loadMailboxConfig = (account: EmailAccount): MailboxConfig => {
     throw new AppError(CONNECTION_FAILED, 400);
   }
   return {
+    accountId: account.id,
     address: account.address,
     password,
     imap: { host: imapHost, port: imapPort, secure: Boolean(imapSecure) },
@@ -86,7 +114,7 @@ const loadMailboxConfig = (account: EmailAccount): MailboxConfig => {
 
 // ----------------------------------------------------------------------- IMAP
 
-const mapImapError = (error: unknown): Error | AppError => {
+const mapImapError = (error: unknown, accountId?: number): Error | AppError => {
   if (
     error instanceof AppError ||
     error instanceof EmailAuthError ||
@@ -104,6 +132,7 @@ const mapImapError = (error: unknown): Error | AppError => {
   ) {
     return new EmailAuthError();
   }
+  logUnexpected(accountId, error);
   return new EmailTransientError(undefined, reasonOf(error));
 };
 
@@ -120,10 +149,14 @@ const connectImap = async (config: MailboxConfig): Promise<ImapFlow> => {
     host: endpoint.address,
     port: endpoint.port,
     secure: config.imap.secure,
-    servername: endpoint.servername,
+    ...sniOptions(endpoint.servername),
     // Without implicit TLS, STARTTLS is mandatory (no cleartext fallback).
     ...(config.imap.secure ? {} : { doSTARTTLS: true }),
-    tls: { servername: endpoint.servername, minVersion: "TLSv1.2" },
+    tls: {
+      ...sniOptions(endpoint.servername),
+      minVersion: "TLSv1.2",
+      rejectUnauthorized: true
+    },
     auth: { user: config.address, pass: config.password },
     logger: false,
     disableAutoIdle: true,
@@ -137,7 +170,7 @@ const connectImap = async (config: MailboxConfig): Promise<ImapFlow> => {
     await client.connect();
   } catch (error) {
     client.close();
-    throw mapImapError(error);
+    throw mapImapError(error, config.accountId);
   }
   return client;
 };
@@ -186,18 +219,89 @@ type FolderResult = {
   hasMore: boolean;
 };
 
+// What one sync round may still take, shared by every folder of the round.
+type RoundBudget = { messages: number; bytes: number; taken: number };
+
+type MessageMeta = { uid: number; size: number };
+
 const sortedUnique = (uids: number[] | false | undefined): number[] =>
   Array.from(new Set(uids || [])).sort((a, b) => a - b);
+
+// 1,2,3,7,9,10 -> "1:3,7,9:10": a compact UID set instead of one id per message.
+const toRanges = (uids: number[]): string => {
+  const parts: string[] = [];
+  let from = uids[0];
+  let to = uids[0];
+  uids.slice(1).forEach(uid => {
+    if (uid === to + 1) {
+      to = uid;
+      return;
+    }
+    parts.push(from === to ? `${from}` : `${from}:${to}`);
+    from = uid;
+    to = uid;
+  });
+  parts.push(from === to ? `${from}` : `${from}:${to}`);
+  return parts.join(",");
+};
+
+const isOversize = (size: number) => size > MAX_RAW_MESSAGE_BYTES;
+
+// Takes messages (ascending) while the round budget lasts. At least one message
+// is always taken per round so a single large message cannot stall the sync.
+const takeWithinBudget = (
+  candidates: MessageMeta[],
+  budget: RoundBudget
+): { selected: MessageMeta[]; cut: boolean } => {
+  const selected: MessageMeta[] = [];
+  // eslint-disable-next-line no-restricted-syntax
+  for (const candidate of candidates) {
+    // Oversize messages are fetched as headers only: they weigh nothing here.
+    const weight = isOversize(candidate.size) ? 0 : candidate.size;
+    const first = budget.taken === 0;
+    if (budget.messages <= 0 || (!first && weight > budget.bytes)) {
+      return { selected, cut: true };
+    }
+    selected.push(candidate);
+    budget.messages -= 1;
+    budget.bytes -= weight;
+    budget.taken += 1;
+  }
+  return { selected, cut: false };
+};
+
+type FetchedMessage = {
+  uid: number;
+  flags?: Set<string>;
+  internalDate?: Date | string;
+  source?: Buffer;
+  headers?: Buffer;
+};
+
+const withFallbackDate = (
+  parsed: Awaited<ReturnType<typeof simpleParser>>,
+  internalDate: Date | string | undefined
+) => {
+  const internal = new Date(internalDate as Date | string);
+  if (
+    !(parsed.date instanceof Date && !Number.isNaN(parsed.date.getTime())) &&
+    !Number.isNaN(internal.getTime())
+  ) {
+    parsed.date = internal;
+  }
+};
 
 const syncFolder = async (
   client: ImapFlow,
   accountId: number,
   folder: FolderToSync,
   previous: FolderCursor | undefined,
-  budget: number
+  budget: RoundBudget
 ): Promise<FolderResult> => {
-  // The batch is already full: leave this folder for the next round.
-  if (budget <= 0) return { emails: [], cursor: previous, hasMore: true };
+  // The round is already full: leave this folder for the next one.
+  if (budget.messages <= 0 || (budget.taken > 0 && budget.bytes <= 0)) {
+    return { emails: [], cursor: previous, hasMore: true };
+  }
 
   const lock = await client.getMailboxLock(folder.path, { readOnly: true });
   try {
@@ -222,38 +326,40 @@ const syncFolder = async (
       };
     }
 
-    let uids: number[];
-    let hasMore = false;
+    let candidates: MessageMeta[];
+    // UIDs the cursor moves past when the whole candidate list is consumed
+    let candidatesEnd: number;
+    let moreBeyondCandidates = false;
 
     if (!previous) {
-      // IMAP SINCE only has day granularity: filter by the exact date.
+      // IMAP SINCE only has day granularity: filter by the exact date. The
+      // search criteria is the range, so no UID list goes over the wire.
       const since = new Date(
         Date.now() - INITIAL_IMPORT_HOURS * 60 * 60 * 1000
       );
-      const candidates = sortedUnique(
-        await client.search({ since }, { uid: true })
+      const meta = await client.fetchAll(
+        { since },
+        { uid: true, size: true, internalDate: true },
+        { uid: true }
       );
-      let inWindow: number[] = [];
-      if (candidates.length) {
-        const meta = await client.fetchAll(
-          candidates.join(","),
-          { uid: true, internalDate: true },
-          { uid: true }
-        );
-        inWindow = meta
-          .filter(m => {
-            const time = new Date(m.internalDate as Date | string).getTime();
-            return Number.isFinite(time) && time >= since.getTime();
-          })
-          .map(m => m.uid)
-          .sort((a, b) => a - b);
-      }
-      // Only the most recent messages of the window are imported.
-      uids = inWindow.slice(-Math.min(INITIAL_IMPORT_MAX, budget));
-      if (!uids.length) {
+      candidates = meta
+        .filter(m => {
+          const time = new Date(m.internalDate as Date | string).getTime();
+          return Number.isFinite(time) && time >= since.getTime();
+        })
+        .map(m => ({ uid: m.uid, size: Number(m.size) || 0 }))
+        .sort((a, b) => a.uid - b.uid)
+        // Only the most recent messages of the window are imported.
+        .slice(-INITIAL_IMPORT_MAX);
+      // After the first import only newer mail is read, never the history.
+      candidatesEnd = Math.max(
+        lastKnownUid,
+        candidates.length ? candidates[candidates.length - 1].uid : 0
+      );
+      if (!candidates.length) {
         return {
           emails: [],
-          cursor: { uidValidity, lastUid: lastKnownUid },
+          cursor: { uidValidity, lastUid: candidatesEnd },
           hasMore: false
         };
       }
@@ -262,73 +368,123 @@ const syncFolder = async (
       const found = sortedUnique(
         await client.search({ uid: `${previous.lastUid + 1}:*` }, { uid: true })
       ).filter(uid => uid > previous.lastUid);
-      uids = found.slice(0, budget);
-      hasMore = found.length > uids.length;
-      if (!uids.length) {
-        return { emails: [], cursor: previous, hasMore };
-      }
+      if (!found.length)
+        return { emails: [], cursor: previous, hasMore: false };
+      const window = found.slice(0, Math.max(1, budget.messages));
+      moreBeyondCandidates = found.length > window.length;
+      candidatesEnd = window[window.length - 1];
+      const meta = await client.fetchAll(
+        toRanges(window),
+        { uid: true, size: true },
+        { uid: true }
+      );
+      const sizes = new Map(meta.map(m => [m.uid, Number(m.size) || 0]));
+      // A UID without metadata was expunged meanwhile: nothing to import.
+      candidates = window
+        .filter(uid => sizes.has(uid))
+        .map(uid => ({ uid, size: sizes.get(uid) }));
     }
 
-    const fetched: {
-      uid: number;
-      source?: Buffer;
-      flags?: Set<string>;
-      internalDate?: Date | string;
-    }[] = [];
-    // eslint-disable-next-line no-restricted-syntax
-    for await (const message of client.fetch(
-      uids.join(","),
-      {
-        uid: true,
-        flags: true,
-        internalDate: true,
-        source: { maxLength: MAX_RAW_MESSAGE_BYTES }
-      },
-      { uid: true }
-    )) {
-      fetched.push(message);
+    const { selected, cut } = takeWithinBudget(candidates, budget);
+    if (!selected.length) {
+      // Only possible when the budget ran out before this folder started.
+      return { emails: [], cursor: previous, hasMore: true };
     }
-    fetched.sort((a, b) => a.uid - b.uid);
 
-    const emails: NormalizedEmail[] = [];
-    // eslint-disable-next-line no-restricted-syntax
-    for (const message of fetched) {
-      if (message.source) {
-        try {
-          const parsed = await simpleParser(message.source);
-          const internal = new Date(message.internalDate as Date | string);
-          if (
-            !(
-              parsed.date instanceof Date &&
-              !Number.isNaN(parsed.date.getTime())
-            ) &&
-            !Number.isNaN(internal.getTime())
-          ) {
-            parsed.date = internal;
+    const normal = selected.filter(m => !isOversize(m.size));
+    const oversize = selected.filter(m => isOversize(m.size));
+    const imported: { uid: number; email: NormalizedEmail }[] = [];
+
+    const normalize = (
+      message: FetchedMessage,
+      raw: Buffer,
+      flags: string[]
+    ): Promise<NormalizedEmail> =>
+      simpleParser(raw).then(parsed => {
+        withFallbackDate(parsed, message.internalDate);
+        return normalizeParsedMail(parsed, {
+          accountId,
+          direction: folder.direction,
+          providerMessageId: `${folder.path}:${uidValidity}:${message.uid}`,
+          flags
+        });
+      });
+
+    // Each source is parsed as it arrives and dropped, so only one raw message
+    // is held at a time.
+    if (normal.length) {
+      // eslint-disable-next-line no-restricted-syntax
+      for await (const message of client.fetch(
+        toRanges(normal.map(m => m.uid)),
+        { uid: true, flags: true, internalDate: true, source: true },
+        { uid: true }
+      )) {
+        if (message.source) {
+          try {
+            imported.push({
+              uid: message.uid,
+              email: await normalize(
+                message,
+                message.source,
+                Array.from(message.flags || [])
+              )
+            });
+          } catch {
+            // A message that cannot be parsed would otherwise block the folder
+            // forever; skip it (the cursor moves past its UID).
+            logger.warn(
+              { accountId, folder: folder.path, uid: message.uid },
+              "email imap: message could not be parsed, skipped"
+            );
           }
-          emails.push(
-            normalizeParsedMail(parsed, {
-              accountId,
-              direction: folder.direction,
-              providerMessageId: `${folder.path}:${uidValidity}:${message.uid}`,
-              flags: Array.from(message.flags || [])
-            })
-          );
-        } catch {
-          // A message that cannot be parsed would otherwise block the folder
-          // forever; skip it (the cursor moves past its UID).
-          logger.warn(
-            { accountId, folder: folder.path, uid: message.uid },
-            "email imap: message could not be parsed, skipped"
-          );
         }
       }
     }
 
+    // Too large to import whole: keep the envelope so the conversation shows
+    // it, flagged "oversize", without body or attachments.
+    if (oversize.length) {
+      // eslint-disable-next-line no-restricted-syntax
+      for await (const message of client.fetch(
+        toRanges(oversize.map(m => m.uid)),
+        { uid: true, flags: true, internalDate: true, headers: true },
+        { uid: true }
+      )) {
+        if (message.headers) {
+          try {
+            const email = await normalize(message, message.headers, [
+              ...Array.from(message.flags || []),
+              "oversize"
+            ]);
+            imported.push({
+              uid: message.uid,
+              email: {
+                ...email,
+                text: "",
+                htmlSanitized: undefined,
+                attachments: []
+              }
+            });
+          } catch {
+            logger.warn(
+              { accountId, folder: folder.path, uid: message.uid },
+              "email imap: message headers could not be parsed, skipped"
+            );
+          }
+        }
+      }
+    }
+
+    imported.sort((a, b) => a.uid - b.uid);
     return {
-      emails,
-      cursor: { uidValidity, lastUid: uids[uids.length - 1] },
-      hasMore
+      emails: imported.map(item => item.email),
+      cursor: {
+        uidValidity,
+        // When the round stopped early the cursor stays right after the last
+        // message taken; otherwise it moves past everything considered.
+        lastUid: cut ? selected[selected.length - 1].uid : candidatesEnd
+      },
+      hasMore: cut || moreBeyondCandidates
     };
   } finally {
     lock.release();
@@ -372,7 +528,8 @@ type SmtpError = {
 
 export const classifySmtpError = (
   error: unknown,
-  dataStarted: boolean
+  dataStarted: boolean,
+  accountId?: number
 ): Error | AppError => {
   if (error instanceof AppError) return error;
   const { code, command, responseCode } = (error || {}) as SmtpError;
@@ -385,18 +542,24 @@ export const classifySmtpError = (
       if (authStage || SMTP_AUTH_REJECT_CODES.includes(responseCode)) {
         return new EmailAuthError();
       }
-      return new EmailSendRejectedError(`ERR_EMAIL_REJECTED_${responseCode}`);
+      return new EmailSendRejectedError(
+        "ERR_EMAIL_REJECTED",
+        `${responseCode}`
+      );
     }
     // 4xx: the server answered and did not take the message.
-    return new EmailTransientError(undefined, reasonOf(error));
+    return new EmailTransientError(undefined, `${responseCode}`);
   }
 
   if (authStage) return new EmailAuthError();
   // Local validation (invalid address, empty message): nothing was sent.
   if (code === "EENVELOPE" || code === "EMESSAGE") {
-    return new EmailSendRejectedError(`ERR_EMAIL_REJECTED_${code}`);
+    return new EmailSendRejectedError("ERR_EMAIL_INVALID_MESSAGE", code);
   }
   if (dataStarted || command === "DATA") return new EmailSendAmbiguousError();
+  // Network-level failures carry a known code (ECONNREFUSED, ETIMEDOUT...);
+  // anything else is unexpected and worth a secret-free log entry.
+  if (!reasonOf(error)) logUnexpected(accountId, error);
   return new EmailTransientError(undefined, reasonOf(error));
 };
 
@@ -416,7 +579,11 @@ const createSmtpTransport = async (
     secure: config.smtp.secure,
     // STARTTLS is mandatory when the connection is not implicit TLS.
     ...(config.smtp.secure ? {} : { requireTLS: true }),
-    tls: { servername: endpoint.servername, minVersion: "TLSv1.2" },
+    tls: {
+      ...sniOptions(endpoint.servername),
+      minVersion: "TLSv1.2",
+      rejectUnauthorized: true
+    },
     auth: { user: config.address, pass: config.password },
     disableUrlAccess: true,
     ...(tracker ? { logger: tracker.logger, transactionLog: true } : {}),
@@ -434,7 +601,10 @@ const assertAttachmentsReadable = async (mail: OutgoingEmail) => {
     )
   );
   if (results.some(readable => !readable)) {
-    throw new EmailSendRejectedError("ERR_EMAIL_ATTACHMENT_MISSING");
+    throw new EmailSendRejectedError(
+      "ERR_EMAIL_INVALID_MESSAGE",
+      "attachment_missing"
+    );
   }
 };
 
@@ -456,6 +626,11 @@ export class ImapSmtpAdapter implements EmailProviderAdapter {
         ...previous.folders
       };
       const emails: NormalizedEmail[] = [];
+      const budget: RoundBudget = {
+        messages: SYNC_BATCH_MAX,
+        bytes: SYNC_ROUND_MAX_BYTES,
+        taken: 0
+      };
       let hasMore = false;
 
       // eslint-disable-next-line no-restricted-syntax
@@ -465,7 +640,7 @@ export class ImapSmtpAdapter implements EmailProviderAdapter {
           account.id,
           folder,
           previous.folders[folder.path],
-          Math.max(0, SYNC_BATCH_MAX - emails.length)
+          budget
         );
         emails.push(...result.emails);
         if (result.cursor) nextFolders[folder.path] = result.cursor;
@@ -474,7 +649,7 @@ export class ImapSmtpAdapter implements EmailProviderAdapter {
 
       return { emails, cursor: { folders: nextFolders }, hasMore };
     } catch (error) {
-      throw mapImapError(error);
+      throw mapImapError(error, config.accountId);
     } finally {
       await closeImap(client);
     }
@@ -483,14 +658,18 @@ export class ImapSmtpAdapter implements EmailProviderAdapter {
   async send(
     account: EmailAccount,
     mail: OutgoingEmail
-  ): Promise<{ providerMessageId?: string; providerThreadId?: string }> {
+  ): Promise<{
+    providerMessageId?: string;
+    providerThreadId?: string;
+    rejectedCount?: number;
+  }> {
     const config = loadMailboxConfig(account);
     await assertAttachmentsReadable(mail);
 
     const tracker = createSmtpTracker();
     const transport = await createSmtpTransport(config, tracker);
     try {
-      await transport.sendMail({
+      const info = await transport.sendMail({
         from: { name: mail.from.name || "", address: mail.from.address },
         to: mail.to.map(a => ({ name: a.name || "", address: a.address })),
         cc: mail.cc.map(a => ({ name: a.name || "", address: a.address })),
@@ -507,9 +686,10 @@ export class ImapSmtpAdapter implements EmailProviderAdapter {
         }))
       });
       // SMTP gives no provider id nor thread id; the Message-ID is ours.
-      return {};
+      const rejected = Array.isArray(info?.rejected) ? info.rejected.length : 0;
+      return rejected > 0 ? { rejectedCount: rejected } : {};
     } catch (error) {
-      throw classifySmtpError(error, tracker.state.dataStarted);
+      throw classifySmtpError(error, tracker.state.dataStarted, account.id);
     } finally {
       transport.close();
     }

@@ -102,7 +102,6 @@
     "@types/multer": "^2.1.0",
     "@types/mustache": "^4.2.5",
     "@types/node": "^17.0.45",
-    "@types/nodemailer": "8.0.2",
     "@types/pdfkit": "^0.17.3",
     "@types/sanitize-html": "^2.16.1",
     "@types/supertest": "^7.2.0",

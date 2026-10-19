@@ -29,6 +29,8 @@ type FakeMessage = {
   internalDate: Date;
   flags?: string[];
   source: Buffer;
+  // size the server reports; defaults to the source length
+  size?: number;
 };
 
 type FakeFolder = {
@@ -42,12 +44,14 @@ const fakeServer = {
   folders: {} as Record<string, FakeFolder>,
   options: [] as Record<string, unknown>[],
   opened: [] as string[],
+  calls: [] as { method: string; range: unknown; query: unknown }[],
   connectError: null as Error | null,
   logouts: 0,
   reset() {
     this.folders = {};
     this.options = [];
     this.opened = [];
+    this.calls = [];
     this.connectError = null;
     this.logouts = 0;
   }
@@ -125,27 +129,50 @@ jest.mock("imapflow", () => ({
       return messages.map(m => m.uid);
     }
 
-    async fetchAll(range: string) {
-      const wanted = new Set(range.split(",").map(Number));
-      return this.folder()
-        .messages.filter(m => wanted.has(m.uid))
-        .map(m => ({
+    private select(range: unknown) {
+      const { messages } = this.folder();
+      if (typeof range === "object" && range) {
+        const { since } = range as { since: Date };
+        const floor = dayStart(since);
+        return messages.filter(m => m.internalDate.getTime() >= floor);
+      }
+      const wanted = new Set<number>();
+      String(range)
+        .split(",")
+        .forEach(part => {
+          const [from, to] = part.split(":").map(Number);
+          for (let uid = from; uid <= (to ?? from); uid += 1) wanted.add(uid);
+        });
+      return messages.filter(m => wanted.has(m.uid));
+    }
+
+    async fetchAll(range: unknown, query: unknown) {
+      fakeServer.calls.push({ method: "fetchAll", range, query });
+      return this.select(range).map(m => ({
+        uid: m.uid,
+        internalDate: m.internalDate,
+        size: m.size ?? m.source.length,
+        flags: new Set(m.flags || [])
+      }));
+    }
+
+    async *fetch(range: string, query: { headers?: boolean }) {
+      fakeServer.calls.push({ method: "fetch", range, query });
+      for (const m of this.select(range)) {
+        const base = {
           uid: m.uid,
           internalDate: m.internalDate,
           flags: new Set(m.flags || [])
-        }));
-    }
-
-    async *fetch(range: string) {
-      const wanted = new Set(range.split(",").map(Number));
-      for (const m of this.folder().messages) {
-        if (wanted.has(m.uid)) {
+        };
+        if (query.headers) {
+          const text = m.source.toString("latin1");
+          const end = text.indexOf("\r\n\r\n");
           yield {
-            uid: m.uid,
-            internalDate: m.internalDate,
-            flags: new Set(m.flags || []),
-            source: m.source
+            ...base,
+            headers: Buffer.from(`${text.slice(0, end)}\r\n\r\n`, "latin1")
           };
+        } else {
+          yield { ...base, source: m.source };
         }
       }
     }
@@ -279,7 +306,7 @@ describe("ImapSmtpAdapter.fetchChanges", () => {
       result.emails.some(e => /^INBOX:777:[123]$/.test(e.providerMessageId))
     ).toBe(false);
     expect(result.cursor).toEqual({
-      folders: { INBOX: { uidValidity: "777", lastUid: 69 } }
+      folders: { INBOX: { uidValidity: "777", lastUid: 99 } }
     });
     expect(result.hasMore).toBe(false);
   });
@@ -345,6 +372,155 @@ describe("ImapSmtpAdapter.fetchChanges", () => {
       INBOX: { uidValidity: "1", lastUid: 100 }
     });
     expect(fakeServer.opened).not.toContain("Sent");
+  });
+
+  it("first sync fetches by search criteria and compact UID ranges, never a long id list", async () => {
+    const messages: FakeMessage[] = [];
+    for (let i = 1; i <= 40; i += 1) messages.push(msg(i, 1));
+    fakeServer.folders.INBOX = { uidValidity: 1n, uidNext: 41, messages };
+
+    await adapter.fetchChanges(makeAccount());
+
+    const [meta, body] = fakeServer.calls;
+    expect(meta.method).toBe("fetchAll");
+    expect(meta.range).toEqual({ since: expect.any(Date) });
+    expect(body).toMatchObject({ method: "fetch", range: "1:40" });
+    expect(JSON.stringify(fakeServer.calls)).not.toContain("1,2,3");
+  });
+
+  it("after the first sync lastUid is max(uidNext - 1, highest imported UID)", async () => {
+    // a stale uidNext below the highest imported UID must not move back
+    fakeServer.folders.INBOX = {
+      uidValidity: 1n,
+      uidNext: 5,
+      messages: [msg(20, 1), msg(21, 1)]
+    };
+    const stale = await adapter.fetchChanges(makeAccount());
+    expect(stale.cursor).toEqual({
+      folders: { INBOX: { uidValidity: "1", lastUid: 21 } }
+    });
+
+    // old history below uidNext - 1 is never read afterwards
+    fakeServer.folders.INBOX = {
+      uidValidity: 1n,
+      uidNext: 500,
+      messages: [msg(20, 1)]
+    };
+    const ahead = await adapter.fetchChanges(makeAccount());
+    expect(ahead.cursor).toEqual({
+      folders: { INBOX: { uidValidity: "1", lastUid: 499 } }
+    });
+  });
+
+  it("cuts a batch by total size, keeps the cursor after the last message taken and sets hasMore", async () => {
+    const MB = 1024 * 1024;
+    const messages: FakeMessage[] = [];
+    for (let i = 1; i <= 4; i += 1) {
+      messages.push({ ...msg(i, 1), size: 30 * MB });
+    }
+    fakeServer.folders.INBOX = { uidValidity: 1n, uidNext: 5, messages };
+    const cursor = { folders: { INBOX: { uidValidity: "1", lastUid: 0 } } };
+
+    const first = await adapter.fetchChanges(makeAccount(cursor));
+    // 30 + 30 = 60 MB fits in 64 MB, the third would pass it
+    expect(first.emails.map(e => e.providerMessageId)).toEqual([
+      "INBOX:1:1",
+      "INBOX:1:2"
+    ]);
+    expect(first.hasMore).toBe(true);
+    expect(first.cursor).toEqual({
+      folders: { INBOX: { uidValidity: "1", lastUid: 2 } }
+    });
+
+    const second = await adapter.fetchChanges(makeAccount(first.cursor));
+    expect(second.emails.map(e => e.providerMessageId)).toEqual([
+      "INBOX:1:3",
+      "INBOX:1:4"
+    ]);
+    expect(second.hasMore).toBe(false);
+  });
+
+  it("always takes at least one message per round, whatever its size", async () => {
+    const MB = 1024 * 1024;
+    fakeServer.folders.INBOX = {
+      uidValidity: 1n,
+      uidNext: 3,
+      messages: [
+        { ...msg(1, 1), size: 50 * MB },
+        { ...msg(2, 1), size: 50 * MB }
+      ]
+    };
+    const cursor = { folders: { INBOX: { uidValidity: "1", lastUid: 0 } } };
+    const result = await adapter.fetchChanges(makeAccount(cursor));
+    expect(result.emails).toHaveLength(1);
+    expect(result.hasMore).toBe(true);
+  });
+
+  it("shares the byte budget across folders and defers the next folder", async () => {
+    const MB = 1024 * 1024;
+    fakeServer.folders.INBOX = {
+      uidValidity: 1n,
+      uidNext: 2,
+      messages: [{ ...msg(1, 1), size: 50 * MB }]
+    };
+    fakeServer.folders.Sent = {
+      uidValidity: 2n,
+      uidNext: 2,
+      specialUse: "\\Sent",
+      messages: [{ ...msg(1, 1), size: 20 * MB }]
+    };
+    const cursor = { folders: { INBOX: { uidValidity: "1", lastUid: 0 } } };
+    const result = await adapter.fetchChanges(makeAccount(cursor));
+    expect(result.emails.map(e => e.providerMessageId)).toEqual(["INBOX:1:1"]);
+    expect(result.hasMore).toBe(true);
+    expect((result.cursor.folders as any).Sent).toBeUndefined();
+  });
+
+  it("imports an oversize message as headers only, flagged oversize", async () => {
+    const MB = 1024 * 1024;
+    const big = raw("big", "carla@cliente.com", "Content-Type: text/plain\r\n");
+    fakeServer.folders.INBOX = {
+      uidValidity: 1n,
+      uidNext: 4,
+      messages: [
+        msg(1, 1),
+        {
+          uid: 2,
+          internalDate: hoursAgo(1),
+          flags: ["\\Seen"],
+          source: big,
+          size: 80 * MB
+        },
+        msg(3, 1)
+      ]
+    };
+    const cursor = { folders: { INBOX: { uidValidity: "1", lastUid: 0 } } };
+
+    const result = await adapter.fetchChanges(makeAccount(cursor));
+
+    expect(result.emails.map(e => e.providerMessageId)).toEqual([
+      "INBOX:1:1",
+      "INBOX:1:2",
+      "INBOX:1:3"
+    ]);
+    const oversize = result.emails[1];
+    expect(oversize).toMatchObject({
+      subject: "Assunto big",
+      from: { address: "carla@cliente.com" },
+      internetMessageId: "<big@cliente.com>",
+      text: "",
+      attachments: []
+    });
+    expect(oversize.htmlSanitized).toBeUndefined();
+    expect(oversize.flags).toEqual(
+      expect.arrayContaining(["\\Seen", "oversize"])
+    );
+    expect(result.emails[0].flags).not.toContain("oversize");
+    // the full body of the big message is never requested
+    const bodyFetches = fakeServer.calls.filter(
+      c => c.method === "fetch" && (c.query as any).source
+    );
+    expect(bodyFetches.map(c => c.range)).toEqual(["1,3"]);
   });
 
   it("does not re-deliver the last message when nothing is new (N:* quirk)", async () => {
@@ -505,6 +681,23 @@ describe("ImapSmtpAdapter.fetchChanges", () => {
     expect(fakeServer.logouts).toBe(1);
   });
 
+  it("verifies the server certificate and sends SNI only for DNS names (IMAP)", async () => {
+    fakeServer.folders.INBOX = { uidValidity: 1n, uidNext: 2, messages: [] };
+    await adapter.fetchChanges(makeAccount());
+    const [options] = fakeServer.options as any[];
+    expect(options.tls.rejectUnauthorized).not.toBe(false);
+
+    resolveMock.mockImplementation(async ({ port }) => ({
+      address: "203.0.113.10",
+      servername: "203.0.113.10",
+      port
+    }));
+    await adapter.fetchChanges(makeAccount());
+    const second = fakeServer.options[1] as any;
+    expect("servername" in second).toBe(false);
+    expect("servername" in second.tls).toBe(false);
+  });
+
   it("requires STARTTLS when the IMAP connection is not implicit TLS", async () => {
     fakeServer.folders.INBOX = { uidValidity: 1n, uidNext: 2, messages: [] };
     await adapter.fetchChanges(
@@ -615,7 +808,8 @@ describe("ImapSmtpAdapter.send", () => {
       )
       .catch(e => e);
     expect(error).toBeInstanceOf(EmailSendRejectedError);
-    expect(error.code).toBe("ERR_EMAIL_ATTACHMENT_MISSING");
+    expect(error.code).toBe("ERR_EMAIL_INVALID_MESSAGE");
+    expect(error.reason).toBe("attachment_missing");
     expect(smtpState.transports).toHaveLength(0);
   });
 
@@ -630,7 +824,8 @@ describe("ImapSmtpAdapter.send", () => {
       );
     const error = await adapter.send(makeAccount(), outgoing()).catch(e => e);
     expect(error).toBeInstanceOf(EmailSendRejectedError);
-    expect(error.code).toBe("ERR_EMAIL_REJECTED_550");
+    expect(error.code).toBe("ERR_EMAIL_REJECTED");
+    expect(error.reason).toBe("550");
   });
 
   it("maps a 5xx after the message body to EmailSendRejectedError", async () => {
@@ -646,7 +841,8 @@ describe("ImapSmtpAdapter.send", () => {
     };
     const error = await adapter.send(makeAccount(), outgoing()).catch(e => e);
     expect(error).toBeInstanceOf(EmailSendRejectedError);
-    expect(error.code).toBe("ERR_EMAIL_REJECTED_554");
+    expect(error.code).toBe("ERR_EMAIL_REJECTED");
+    expect(error.reason).toBe("554");
   });
 
   it("maps ECONNREFUSED to EmailTransientError", async () => {
@@ -747,6 +943,92 @@ describe("ImapSmtpAdapter.send", () => {
     expect(error.message).not.toContain("s3cret-pass");
     expect(error.message).not.toContain("secret server text");
   });
+
+  it("returns only the count of recipients the server refused when the rest were accepted", async () => {
+    smtpState.sendImpl = mail =>
+      Promise.resolve({
+        messageId: mail.messageId,
+        accepted: ["a@b.com"],
+        rejected: ["x@y.com", "z@w.com"]
+      });
+    const result = await adapter.send(makeAccount(), outgoing());
+    expect(result).toEqual({ rejectedCount: 2 });
+    expect(JSON.stringify(result)).not.toContain("@");
+  });
+
+  it("maps local validation failures to ERR_EMAIL_INVALID_MESSAGE", async () => {
+    smtpState.sendImpl = () =>
+      Promise.reject(
+        Object.assign(new Error('Invalid recipient "x"'), {
+          code: "EENVELOPE",
+          command: "API"
+        })
+      );
+    const error = await adapter.send(makeAccount(), outgoing()).catch(e => e);
+    expect(error).toBeInstanceOf(EmailSendRejectedError);
+    expect(error.code).toBe("ERR_EMAIL_INVALID_MESSAGE");
+    expect(error.reason).toBe("EENVELOPE");
+  });
+
+  it("logs unrecognised errors without secrets: name and code only, stack only for programming errors", async () => {
+    const warn = logger.warn as jest.Mock;
+
+    smtpState.sendImpl = () =>
+      Promise.reject(
+        Object.assign(new Error("boom s3cret-pass"), { name: "WeirdLibError" })
+      );
+    await adapter.send(makeAccount(), outgoing()).catch(e => e);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toEqual({
+      accountId: 5,
+      name: "WeirdLibError",
+      code: undefined
+    });
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("s3cret-pass");
+
+    warn.mockClear();
+    smtpState.sendImpl = () => Promise.reject(new TypeError("x is undefined"));
+    await adapter.send(makeAccount(), outgoing()).catch(e => e);
+    expect(warn.mock.calls[0][0]).toMatchObject({
+      accountId: 5,
+      name: "TypeError",
+      stack: expect.stringContaining("TypeError")
+    });
+
+    warn.mockClear();
+    fakeServer.connectError = Object.assign(new Error("weird s3cret-pass"), {
+      name: "ImapFlowError"
+    });
+    await adapter.fetchChanges(makeAccount()).catch(e => e);
+    expect(warn.mock.calls[0][0]).toEqual({
+      accountId: 5,
+      name: "ImapFlowError",
+      code: undefined
+    });
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("s3cret-pass");
+  });
+
+  it("does not log recognised network failures", async () => {
+    smtpState.sendImpl = () =>
+      Promise.reject(Object.assign(new Error("x"), { code: "ECONNREFUSED" }));
+    await adapter.send(makeAccount(), outgoing()).catch(e => e);
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+
+  it("verifies the server certificate and sends SNI only for DNS names", async () => {
+    await adapter.send(makeAccount(), outgoing());
+    const { tls } = smtpState.transports[0].options;
+    expect(tls.rejectUnauthorized).not.toBe(false);
+    expect(tls.servername).toBe("smtp.empresa.com");
+
+    resolveMock.mockImplementation(async ({ port }) => ({
+      address: "203.0.113.10",
+      servername: "203.0.113.10",
+      port
+    }));
+    await adapter.send(makeAccount(), outgoing());
+    expect("servername" in smtpState.transports[1].options.tls).toBe(false);
+  });
 });
 
 describe("getAdapter", () => {
@@ -778,6 +1060,16 @@ describe("testImapSmtp", () => {
       requireTLS: true
     });
     expect(fakeServer.logouts).toBe(1);
+  });
+
+  it("never disables certificate verification for IMAP or SMTP", async () => {
+    await testImapSmtp(config);
+    expect((fakeServer.options[0] as any).tls.rejectUnauthorized).not.toBe(
+      false
+    );
+    expect(smtpState.transports[0].options.tls.rejectUnauthorized).not.toBe(
+      false
+    );
   });
 
   it("throws EmailAuthError when IMAP rejects the credentials", async () => {

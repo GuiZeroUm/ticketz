@@ -12,5 +12,11 @@ export interface EmailProviderAdapter {
   send(
     account: EmailAccount,
     mail: OutgoingEmail
-  ): Promise<{ providerMessageId?: string; providerThreadId?: string }>;
+  ): Promise<{
+    providerMessageId?: string;
+    providerThreadId?: string;
+    // Recipients the server refused while accepting the message for others
+    // (count only, never the addresses).
+    rejectedCount?: number;
+  }>;
 }

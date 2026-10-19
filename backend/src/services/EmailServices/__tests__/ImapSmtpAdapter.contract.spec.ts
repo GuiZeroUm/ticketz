@@ -123,8 +123,9 @@ describe("SMTP tracker and classifier against real nodemailer", () => {
       const mapped = classifySmtpError(error, tracker.state.dataStarted);
       expect(mapped).toBeInstanceOf(EmailSendRejectedError);
       expect((mapped as EmailSendRejectedError).code).toBe(
-        "ERR_EMAIL_REJECTED_550"
+        "ERR_EMAIL_REJECTED"
       );
+      expect((mapped as EmailSendRejectedError).reason).toBe("550");
     } finally {
       server.close();
     }
