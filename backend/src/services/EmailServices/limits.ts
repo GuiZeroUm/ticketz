@@ -1,0 +1,9 @@
+export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
+export const MAX_INBOUND_ATTACHMENTS_BYTES = 50 * 1024 * 1024;
+export const MAX_OUTBOUND_ATTACHMENTS_BYTES = 25 * 1024 * 1024;
+export const MAX_RECIPIENTS = 20;
+export const SYNC_BATCH_MAX = 100;
+export const INITIAL_IMPORT_HOURS = 24;
+export const INITIAL_IMPORT_MAX = 50;
+export const SUBJECT_FALLBACK_DAYS = 30;
+export const MAX_REFERENCES = 20;
