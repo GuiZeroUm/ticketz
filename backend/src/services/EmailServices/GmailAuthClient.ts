@@ -5,6 +5,7 @@ import EmailAccount from "../../models/EmailAccount";
 import { logger } from "../../utils/logger";
 import { EmailAuthError, EmailTransientError } from "./adapters/errors";
 import { gmailFailureReason, isInvalidGrant } from "./gmailErrors";
+import { assertCredentialsReadable } from "./encryption";
 
 // Kept apart from GmailOAuthService (which pulls the sync queue) so the Gmail
 // adapter (Task 15) can import it from adapters/index.ts without an import cycle.
@@ -74,7 +75,11 @@ export const getGmailAuthClient = (account: EmailAccount): GmailAuthClient => {
     throw new EmailTransientError("ERR_GMAIL_NOT_CONFIGURED");
   }
   const refreshToken = account.getCredentials()?.refreshToken;
-  if (!refreshToken) throw new EmailAuthError("ERR_EMAIL_CREDENTIALS_MISSING");
+  if (!refreshToken) {
+    // unreadable because the key is missing, not because Google refused
+    assertCredentialsReadable();
+    throw new EmailAuthError("ERR_EMAIL_CREDENTIALS_MISSING");
+  }
 
   const client = createGmailOAuthClient(config);
   client.setCredentials({ refresh_token: refreshToken });

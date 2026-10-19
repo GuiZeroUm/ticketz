@@ -460,6 +460,55 @@ describe("email routes", () => {
       );
     });
 
+    describe("without ENCRYPTION_KEY", () => {
+      const savedKey = process.env.ENCRYPTION_KEY;
+      beforeEach(() => {
+        delete process.env.ENCRYPTION_KEY;
+      });
+      afterEach(() => {
+        if (savedKey === undefined) delete process.env.ENCRYPTION_KEY;
+        else process.env.ENCRYPTION_KEY = savedKey;
+      });
+
+      it("refuses to create a mailbox with ERR_EMAIL_ENCRYPTION_NOT_CONFIGURED", async () => {
+        const response = await request(app)
+          .post("/email/accounts")
+          .set("x-test-user", asUser(1))
+          .send({
+            preset: "icloud",
+            address: "pessoa@icloud.com",
+            password: "app-password"
+          });
+        expect(response.status).toBe(503);
+        expect(response.body).toEqual({
+          error: "ERR_EMAIL_ENCRYPTION_NOT_CONFIGURED"
+        });
+        expect(testImapSmtp).not.toHaveBeenCalled();
+        expect(accounts).toHaveLength(0);
+      });
+
+      it("refuses a new password, but still saves name and queue changes", async () => {
+        const account = makeAccount();
+        accounts = [account];
+        const refused = await request(app)
+          .put("/email/accounts/1")
+          .set("x-test-user", asUser(1))
+          .send({ password: "new-password" });
+        expect(refused.status).toBe(503);
+        expect(refused.body).toEqual({
+          error: "ERR_EMAIL_ENCRYPTION_NOT_CONFIGURED"
+        });
+        expect(testImapSmtp).not.toHaveBeenCalled();
+        expect(account.setCredentials).not.toHaveBeenCalled();
+
+        const renamed = await request(app)
+          .put("/email/accounts/1")
+          .set("x-test-user", asUser(1))
+          .send({ name: "Novo nome" });
+        expect(renamed.status).toBe(200);
+      });
+    });
+
     it("creates a custom account with the validated endpoints", async () => {
       const response = await request(app)
         .post("/email/accounts")

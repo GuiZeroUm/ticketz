@@ -1,4 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, no-restricted-syntax */
+// Credentials are stored encrypted; a configured key is the normal case.
+process.env.ENCRYPTION_KEY =
+  process.env.ENCRYPTION_KEY || "test-encryption-key";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -1679,6 +1682,22 @@ describe("ImapSmtpAdapter.fetchChanges", () => {
       AppError
     );
     expect(fakeServer.options).toHaveLength(0);
+  });
+
+  it("reports a missing ENCRYPTION_KEY as its own code, not as an auth error", async () => {
+    const savedKey = process.env.ENCRYPTION_KEY;
+    delete process.env.ENCRYPTION_KEY;
+    try {
+      const error = await adapter
+        .fetchChanges(makeAccount(null, { getCredentials: () => null }))
+        .catch(e => e);
+      expect(error).toBeInstanceOf(EmailTransientError);
+      expect(error.message).toBe("ERR_EMAIL_ENCRYPTION_NOT_CONFIGURED");
+      expect(fakeServer.options).toHaveLength(0);
+    } finally {
+      if (savedKey === undefined) delete process.env.ENCRYPTION_KEY;
+      else process.env.ENCRYPTION_KEY = savedKey;
+    }
   });
 
   it("reports missing credentials as an auth error", async () => {

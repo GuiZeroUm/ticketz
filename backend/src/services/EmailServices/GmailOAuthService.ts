@@ -41,6 +41,7 @@ export {
   persistRotatedRefreshToken,
   revokeGmailAccount
 } from "./GmailAuthClient";
+import { assertEncryptionConfigured } from "./encryption";
 export type { GmailAuthClient } from "./GmailAuthClient";
 
 export const GMAIL_STATE_PREFIX = "email:oauth:state:";
@@ -221,6 +222,7 @@ export const StartGmailOAuthService = async ({
 }: StartGmailOAuthInput): Promise<{ url: string }> => {
   const config = getGmailConfig();
   if (!config.enabled) throw new AppError(NOT_CONFIGURED, 503);
+  assertEncryptionConfigured();
 
   const reconnect = await resolveReconnectAccount(companyId, accountId);
   const record: StateRecord = {
@@ -602,6 +604,7 @@ export const FinishGmailOAuthService = async ({
 
   const config = getGmailConfig();
   if (!config.enabled) throw new AppError(NOT_CONFIGURED, 503);
+  assertEncryptionConfigured();
 
   let result: Awaited<ReturnType<typeof connectMailbox>>;
   try {

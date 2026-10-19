@@ -13,6 +13,7 @@ import {
 import { revokeGmailAccount } from "./GmailAuthClient";
 import { stopGmailWatch } from "./GmailWatchService";
 import { EMAIL_PRESETS } from "./presets";
+import { assertEncryptionConfigured } from "./encryption";
 
 type Endpoint = { host: string; port: number; secure: boolean };
 
@@ -247,6 +248,7 @@ export const createEmailAccount = async (
   body: CreateEmailAccountInput
 ) => {
   const { preset, mailbox } = parseMailbox(body);
+  assertEncryptionConfigured();
   const name = parseName(body.name, mailbox.address);
   const queueId = await resolveQueueId(companyId, body.queueId);
 
@@ -337,6 +339,7 @@ export const updateEmailAccount = async (
       throw new AppError("ERR_EMAIL_PROVIDER_NOT_SUPPORTED", 400);
     }
     const password = parsePassword(body.password);
+    assertEncryptionConfigured();
     const endpoints =
       account.preset === "icloud"
         ? presetEndpoints("icloud")
