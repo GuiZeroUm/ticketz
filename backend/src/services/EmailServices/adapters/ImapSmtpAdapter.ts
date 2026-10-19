@@ -487,31 +487,35 @@ const syncFolder = async (
         { uid: true }
       )) {
         // imapflow passes unsolicited and repeated rows through
-        if (wanted.has(message.uid) && !seen.has(message.uid)) {
+        if (
+          wanted.has(message.uid) &&
+          !seen.has(message.uid) &&
+          message.source
+        ) {
+          // A row without the body (e.g. an unsolicited FLAGS update) must not
+          // hide the real row that follows.
           seen.add(message.uid);
-          if (message.source) {
-            budget.bytes -= chargeExtra(message.uid, message.source.length);
-            try {
-              const email = await normalize(
-                message,
-                headerBlock(message.source),
-                [...Array.from(message.flags || []), "oversize"]
-              );
-              done.set(message.uid, {
-                ...email,
-                text: "",
-                htmlSanitized: undefined,
-                attachments: []
-              });
-              settled.add(message.uid);
-            } catch {
-              done.set(message.uid, null);
-              settled.add(message.uid);
-              logger.warn(
-                { accountId, folder: folder.path, uid: message.uid },
-                "email imap: message headers could not be parsed, skipped"
-              );
-            }
+          budget.bytes -= chargeExtra(message.uid, message.source.length);
+          try {
+            const email = await normalize(
+              message,
+              headerBlock(message.source),
+              [...Array.from(message.flags || []), "oversize"]
+            );
+            done.set(message.uid, {
+              ...email,
+              text: "",
+              htmlSanitized: undefined,
+              attachments: []
+            });
+            settled.add(message.uid);
+          } catch {
+            done.set(message.uid, null);
+            settled.add(message.uid);
+            logger.warn(
+              { accountId, folder: folder.path, uid: message.uid },
+              "email imap: message headers could not be parsed, skipped"
+            );
           }
         }
       }
@@ -522,7 +526,7 @@ const syncFolder = async (
     // eslint-disable-next-line no-restricted-syntax
     for (const batch of chunk(selected, FETCH_BATCH_SIZE)) {
       if (stoppedEarly) break;
-      if (budget.delivered > 0 && budget.bytes <= 0) {
+      if (budget.delivered > 0 && budget.bytes < 0) {
         stoppedEarly = true;
         break;
       }
@@ -561,14 +565,6 @@ const syncFolder = async (
           }
           seen.add(message.uid);
           const extra = chargeExtra(message.uid, message.source.length);
-          if (message.source.length >= MAX_RAW_MESSAGE_BYTES) {
-            // Cut at the cap: the body is incomplete, import headers only.
-            budget.bytes -= extra;
-            truncated.push(message.uid);
-            settled.add(message.uid);
-
-            continue;
-          }
           if (budget.delivered > 0 && budget.bytes - extra < 0) {
             // Real size does not fit in what is left of the round: discard it
             // (it is read again next round) and stop.
@@ -576,6 +572,17 @@ const syncFolder = async (
             break;
           }
           budget.bytes -= extra;
+          // Whatever happens next, this message used the round's bandwidth:
+          // it counts as the "first message" so a run of truncated or
+          // unparseable ones cannot bypass the budget check.
+          budget.delivered += 1;
+          if (message.source.length >= MAX_RAW_MESSAGE_BYTES) {
+            // Cut at the cap: the body is incomplete, import headers only.
+            truncated.push(message.uid);
+            settled.add(message.uid);
+
+            continue;
+          }
           settled.add(message.uid);
           try {
             const email = await normalize(
@@ -584,7 +591,6 @@ const syncFolder = async (
               Array.from(message.flags || [])
             );
             done.set(message.uid, email);
-            budget.delivered += 1;
           } catch {
             // A message that cannot be parsed would otherwise block the folder
             // forever; skip it (the cursor moves past its UID).
@@ -598,9 +604,6 @@ const syncFolder = async (
       }
 
       await importHeadersOnly(truncated);
-      truncated.forEach(uid => {
-        if (done.has(uid)) budget.delivered += 1;
-      });
 
       if (!stoppedEarly) batchUids.forEach(uid => settled.add(uid));
     }

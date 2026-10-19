@@ -17,9 +17,23 @@ import {
   INITIAL_IMPORT_MAX,
   MAX_HEADERS_FETCH_BYTES,
   MAX_RAW_MESSAGE_BYTES,
-  SYNC_BATCH_MAX
+  SYNC_BATCH_MAX,
+  SYNC_ROUND_MAX_BYTES
 } from "../limits";
 import type { OutgoingEmail } from "../types";
+
+const parserState = { fail: false };
+
+jest.mock("mailparser", () => {
+  const actual = jest.requireActual("mailparser");
+  return {
+    ...actual,
+    simpleParser: (...args: unknown[]) =>
+      parserState.fail
+        ? Promise.reject(new Error("unparseable"))
+        : actual.simpleParser(...args)
+  };
+});
 
 jest.mock("../../../utils/logger", () => ({
   logger: { warn: jest.fn(), info: jest.fn(), error: jest.fn() }
@@ -279,6 +293,7 @@ const logClient = (options: Record<string, any>, command: string) =>
   options.logger.debug({ tnx: "client" }, command);
 
 beforeEach(() => {
+  parserState.fail = false;
   fakeServer.reset();
   smtpState.transports = [];
   smtpState.sendImpl = null;
@@ -720,6 +735,134 @@ describe("ImapSmtpAdapter.fetchChanges", () => {
     });
     expect(result.emails[0].flags).toContain("oversize");
   });
+
+  it("does not let a FLAGS-only row hide the real row of an oversize message", async () => {
+    fakeServer.folders.INBOX = {
+      uidValidity: 1n,
+      uidNext: 2,
+      messages: [
+        {
+          uid: 1,
+          internalDate: hoursAgo(1),
+          source: raw(
+            "big",
+            "carla@cliente.com",
+            "Content-Type: text/plain\r\n"
+          ),
+          size: 80 * 1024 * 1024
+        }
+      ]
+    };
+    fakeServer.injectRows = rows => [
+      { ...rows[0], source: undefined },
+      ...rows
+    ];
+    const cursor = { folders: { INBOX: { uidValidity: "1", lastUid: 0 } } };
+
+    const result = await adapter.fetchChanges(makeAccount(cursor));
+
+    expect(result.emails.map(e => e.providerMessageId)).toEqual(["INBOX:1:1"]);
+    expect(result.emails[0].flags).toContain("oversize");
+    expect(result.emails[0].subject).toBe("Assunto big");
+  });
+
+  it("does not stop for an exactly full budget (no needless extra round)", async () => {
+    const budget = SYNC_ROUND_MAX_BYTES;
+    const pad = (id: string, length: number) => {
+      const base = raw(id);
+      return Buffer.concat([
+        base,
+        Buffer.alloc(length - base.length, "a")
+      ] as any);
+    };
+    const last = raw("m11");
+    // 10 messages claiming 100 bytes whose real sizes use exactly what is left
+    // for them once the honest 11th message has been reserved
+    const total = budget - last.length;
+    const each = Math.floor(total / 10);
+    const sizes = Array.from({ length: 10 }, (_, i) =>
+      i === 9 ? total - each * 9 : each
+    );
+    fakeServer.folders.INBOX = {
+      uidValidity: 1n,
+      uidNext: 12,
+      messages: [
+        ...sizes.map((length, i) => ({
+          uid: i + 1,
+          internalDate: hoursAgo(1),
+          source: pad(`m${i + 1}`, length),
+          size: 100
+        })),
+        { uid: 11, internalDate: hoursAgo(1), source: last }
+      ]
+    };
+    const cursor = { folders: { INBOX: { uidValidity: "1", lastUid: 0 } } };
+
+    const result = await adapter.fetchChanges(makeAccount(cursor));
+
+    expect(result.emails).toHaveLength(11);
+    expect(result.hasMore).toBe(false);
+    expect(result.cursor).toEqual({
+      folders: { INBOX: { uidValidity: "1", lastUid: 11 } }
+    });
+  }, 60000);
+
+  it("counts a run of truncated messages against the budget instead of downloading all of them", async () => {
+    const huge = Buffer.concat([
+      raw("huge", "carla@cliente.com", "Content-Type: text/plain\r\n"),
+      Buffer.alloc(MAX_RAW_MESSAGE_BYTES + 1024, "a")
+    ] as any);
+    fakeServer.folders.INBOX = {
+      uidValidity: 1n,
+      uidNext: 4,
+      messages: [1, 2, 3].map(uid => ({
+        uid,
+        internalDate: hoursAgo(1),
+        source: huge,
+        size: 100
+      }))
+    };
+    const cursor = { folders: { INBOX: { uidValidity: "1", lastUid: 0 } } };
+
+    const result = await adapter.fetchChanges(makeAccount(cursor));
+
+    // the first one is always taken (52 MB of the 64 MB round); the second
+    // would pass the budget, so the run stops there
+    expect(result.emails.map(e => e.providerMessageId)).toEqual(["INBOX:1:1"]);
+    expect(result.emails[0].flags).toContain("oversize");
+    expect(result.hasMore).toBe(true);
+    expect(result.cursor).toEqual({
+      folders: { INBOX: { uidValidity: "1", lastUid: 1 } }
+    });
+  }, 60000);
+
+  it("counts a run of unparseable messages against the budget too", async () => {
+    parserState.fail = true;
+    const body = Buffer.concat([
+      raw("big", "carla@cliente.com", "Content-Type: text/plain\r\n"),
+      Buffer.alloc(30 * 1024 * 1024, "a")
+    ] as any);
+    fakeServer.folders.INBOX = {
+      uidValidity: 1n,
+      uidNext: 4,
+      messages: [1, 2, 3].map(uid => ({
+        uid,
+        internalDate: hoursAgo(1),
+        source: body,
+        size: 100
+      }))
+    };
+    const cursor = { folders: { INBOX: { uidValidity: "1", lastUid: 0 } } };
+
+    const result = await adapter.fetchChanges(makeAccount(cursor));
+
+    // 30 + 30 MB fit in 64 MB; the third is not downloaded into this round
+    expect(result.emails).toHaveLength(0);
+    expect(result.hasMore).toBe(true);
+    expect(result.cursor).toEqual({
+      folders: { INBOX: { uidValidity: "1", lastUid: 2 } }
+    });
+  }, 60000);
 
   it("imports an oversize message as headers only, flagged oversize", async () => {
     const MB = 1024 * 1024;
