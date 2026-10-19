@@ -66,7 +66,16 @@ const ContactSchema = Yup.object()
       .min(2, "Too Short!")
       .max(50, "Too Long!")
       .required("Required"),
-    number: Yup.string().min(8, "Too Short!").max(50, "Too Long!"),
+    number: Yup.string().when("channel", {
+      is: "email",
+      then: schema =>
+        schema
+          .nullable()
+          .transform((value, original) => (original === "" ? null : value))
+          .min(8, "Too Short!")
+          .max(50, "Too Long!"),
+      otherwise: schema => schema.min(8, "Too Short!").max(50, "Too Long!")
+    }),
     email: Yup.string().email("Invalid email"),
     birthdayDay: Yup.number()
       .transform((value, original) => (original === "" ? null : value))
@@ -149,7 +158,12 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
     setContact(initialState);
   };
 
-  const handleSaveContact = async values => {
+  const handleSaveContact = async formValues => {
+    // Email contacts may have no phone number: omit it instead of sending an
+    // empty string that the backend would reject.
+    const { number, ...rest } = formValues;
+    const values =
+      formValues.channel === "email" && !number ? rest : formValues;
     try {
       if (contactId) {
         await api.put(`/contacts/${contactId}`, values);

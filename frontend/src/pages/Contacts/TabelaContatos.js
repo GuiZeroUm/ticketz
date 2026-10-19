@@ -10,7 +10,7 @@ import {
   Users
 } from "lucide-react";
 import Papa from "papaparse";
-import { corAvatar } from "../../helpers/coresAvatar";
+import { corAvatarContato } from "../../helpers/coresAvatar";
 import { i18n } from "../../translate/i18n";
 import { getInitials } from "../../helpers/getInitials";
 import TabelaDados from "../../components/TabelaDados";
@@ -21,7 +21,7 @@ function exportar(contatos) {
   const csv = Papa.unparse(
     contatos.map(contato => ({
       nome: contato.name,
-      telefone: contato.number,
+      telefone: contato.number || "",
       email: contato.email || "",
       apelido: contato.nickname || ""
     })),
@@ -64,13 +64,13 @@ export default function TabelaContatos({
             <AvatarContato
               contact={contato}
               preview
-              style={{ background: corAvatar(contato.number) }}
+              style={{ background: corAvatarContato(contato) }}
             >
               {getInitials(contato.name)}
             </AvatarContato>
             <span>
               <strong>{contato.name}</strong>
-              <small>{contato.number}</small>
+              <small>{contato.number || contato.email || ""}</small>
             </span>
           </div>
         )

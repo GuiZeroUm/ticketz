@@ -21,7 +21,7 @@ import { TicketsContext } from "../../context/Tickets/TicketsContext";
 import { i18n } from "../../translate/i18n";
 import { formatWhatsappContactName } from "../../helpers/formatWhatsappDisplay";
 import pastRelativeDate from "../../helpers/pastRelativeDate";
-import { corAvatar } from "../../helpers/coresAvatar";
+import { corAvatarContato } from "../../helpers/coresAvatar";
 import { getInitials } from "../../helpers/getInitials";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
@@ -113,7 +113,7 @@ export default function TicketListItemCustom({
         <AvatarContato
           contact={ticket.contact}
           style={{
-            backgroundColor: corAvatar(ticket.contact?.number),
+            backgroundColor: corAvatarContato(ticket.contact),
             color: "white",
             fontSize: 13
           }}

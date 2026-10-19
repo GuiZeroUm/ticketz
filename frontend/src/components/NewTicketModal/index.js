@@ -112,7 +112,11 @@ const NewTicketModal = ({ modalOpen, onClose, contact }) => {
               {forcedContact ? (
                 <TextField
                   label={i18n.t("common.contact")}
-                  value={`${forcedContact.name} (${forcedContact.number})`}
+                  value={
+                    forcedContact.number
+                      ? `${forcedContact.name} (${forcedContact.number})`
+                      : forcedContact.name
+                  }
                   variant="outlined"
                   fullWidth
                   disabled
