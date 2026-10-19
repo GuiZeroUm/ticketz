@@ -542,22 +542,33 @@ const IngestEmailService = async (
     return ignored(account, "bounce");
   }
 
-  // 1b'. mail in the inbox from the mailbox's own address (sent to itself, or
-  // a copy of a mail sent from the mailbox): never a contact or a ticket for
-  // the mailbox itself. Like the Gmail SENT copy it may confirm one of our
-  // sends; otherwise it is dropped, because a From header is easy to forge and
-  // the Sent folder copy already brings mail sent from the mailbox into its
-  // thread.
+  // 1b'. mail in the inbox from the mailbox's own address (ruling R35):
+  //  (a) a copy of one of our sends is reconciled, like the Sent copy;
+  //  (b) a contact form (From = To = mailbox, Reply-To = visitor) is normal
+  //      inbound mail whose counterpart is the first Reply-To that is not the
+  //      mailbox;
+  //  (c) anything else (a self-test) is dropped: never a contact or a ticket
+  //      for the mailbox itself, and a From header is easy to forge, so it
+  //      never joins a thread as if we had sent it.
+  const ownAddress = normalizeEmailAddress(account.address);
+  let replyToCounterpart: { address: string; name?: string } | null = null;
   if (
     email.direction === "in" &&
-    normalizeEmailAddress(email.from?.address) &&
-    normalizeEmailAddress(email.from?.address) ===
-      normalizeEmailAddress(account.address)
+    ownAddress &&
+    normalizeEmailAddress(email.from?.address) === ownAddress
   ) {
     const reconciled = email.internetMessageId
       ? await reconcileOutbound(account, email)
       : null;
-    return reconciled || ignored(account, "self_address");
+    if (reconciled) return reconciled;
+    replyToCounterpart =
+      (email.replyTo || [])
+        .map(entry => ({
+          address: normalizeEmailAddress(entry?.address) || "",
+          name: entry?.name
+        }))
+        .find(entry => entry.address && entry.address !== ownAddress) || null;
+    if (!replyToCounterpart) return ignored(account, "self_address");
   }
 
   // 1c. same inbound message under another provider id (see findSameInbound)
@@ -584,9 +595,11 @@ const IngestEmailService = async (
 
   // 4. counterpart: sender of inbound mail, first recipient of outbound mail
   const isInbound = email.direction === "in";
-  const counterpart = normalizeEmailAddress(
-    isInbound ? email.from?.address : email.to?.[0]?.address
-  );
+  const counterpart =
+    replyToCounterpart?.address ||
+    normalizeEmailAddress(
+      isInbound ? email.from?.address : email.to?.[0]?.address
+    );
   if (!counterpart) {
     return ignored(account, "no_counterpart");
   }
@@ -598,7 +611,7 @@ const IngestEmailService = async (
       contact = await FindOrCreateEmailContactService({
         companyId,
         address: counterpart,
-        name: email.from?.name,
+        name: replyToCounterpart ? replyToCounterpart.name : email.from?.name,
         emailAccountId
       });
     } catch (err) {

@@ -296,6 +296,7 @@ Depois do deploy:
 1. Ligue o canal para a empresa (super admin, ver acima).
 2. Em **Conexões › Nova conexão › E-mail**, conecte uma caixa IMAP/iCloud e, se o Gmail estiver configurado, uma caixa Gmail de teste.
 3. Mande um e-mail para a caixa e confira o ticket. Responda pelo atendimento e confira que a resposta chega na mesma conversa do cliente (no Gmail, na mesma thread).
+   Mande de um endereço **diferente** da própria caixa (por exemplo, um Gmail pessoal). Um e-mail que a caixa manda para si mesma é ignorado de propósito: ele não pode virar um contato da própria caixa, e o remetente de um e-mail é fácil de falsificar. A exceção é o formulário de contato do site, que envia com remetente igual à caixa e com o endereço do visitante em `Reply-To`. Esse e-mail entra normalmente, com o visitante como contato, e a resposta vai para ele.
 
 ## Servidor de e-mail local (GreenMail)
 

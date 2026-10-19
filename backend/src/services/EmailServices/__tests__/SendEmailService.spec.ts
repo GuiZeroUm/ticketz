@@ -329,6 +329,28 @@ describe("SendEmailService", () => {
     });
   });
 
+  it("replies to the visitor of a contact-form mail sent by the mailbox itself (R35)", async () => {
+    inbound = lastInbound({
+      fromAddress: { address: "contato@acme.com" },
+      toAddresses: [{ address: "contato@acme.com" }],
+      ccAddresses: [],
+      replyToAddresses: [{ address: "Visitante@Site.com", name: "Visitante" }]
+    });
+
+    await send();
+    expect(EM.create.mock.calls[0][0].toAddresses).toEqual([
+      { address: "visitante@site.com", name: "Visitante" }
+    ]);
+
+    jest.clearAllMocks();
+    await send({ mode: "replyAll", idempotencyKey: "key-ra" });
+    const values = EM.create.mock.calls[0][0];
+    expect(values.toAddresses).toEqual([
+      { address: "visitante@site.com", name: "Visitante" }
+    ]);
+    expect(values.ccAddresses).toEqual([]);
+  });
+
   it("reply defaults to the first usable Reply-To of the last inbound", async () => {
     inbound = lastInbound({
       replyToAddresses: [
