@@ -20,7 +20,7 @@ Os arquivos do login (`ClerkGoogleAuthService.ts`, `googleAuth.js`, `config/cler
 | `GMAIL_OAUTH_CLIENT_SECRET` | sim | Client secret desse cliente. Nunca vai para o frontend. |
 | `GMAIL_OAUTH_REDIRECT_URI` | sim | URL pública do callback, igual à cadastrada no Google. Exemplo: `https://app.espacowhats.com.br/backend/email/oauth/google/callback`. |
 | `FRONTEND_URL` | sim (já existe) | Destino padrão do retorno: `${FRONTEND_URL}/connections#...`. Sem ela, o Gmail fica como não configurado, para não haver redirecionamento relativo ao host do backend. |
-| `FRONTEND_CUSTOM_URL`, `FRONTEND_URL_REGEX` | já existem | As mesmas regras do CORS decidem para quais origens do frontend o callback pode voltar (ver "Multi-tenant" abaixo). |
+| `FRONTEND_CUSTOM_URL`, `FRONTEND_URL_REGEX` | já existem | Decidem para quais origens do frontend o callback pode voltar, com regra mais rígida que a do CORS (ver "Multi-tenant" abaixo). |
 | `GMAIL_PUBSUB_TOPIC`, `GMAIL_PUBSUB_AUDIENCE`, `GMAIL_PUBSUB_SERVICE_ACCOUNT` | não | Push do Gmail (ver "Push do Gmail (Pub/Sub)" abaixo). Sem elas, a sincronização usa só o polling de 1 minuto. |
 
 Sem as três primeiras ou sem `FRONTEND_URL`, `POST /email/oauth/google/start` responde `ERR_GMAIL_NOT_CONFIGURED` e nada é chamado no Google.
@@ -113,7 +113,9 @@ Callback (`#email=error&code=`):
 
 O Google aceita só URIs de redirecionamento fixas, por isso o callback é um só. O resultado, porém, precisa voltar ao subdomínio que iniciou o fluxo, porque o frontend guarda o resultado no `sessionStorage`, que é separado por origem.
 
-No início do fluxo, o backend guarda a origem do frontend no `state`. Ele usa o header `Origin` ou, na falta dele, a origem do `Referer`. A origem só é guardada se passar por `isAllowedFrontendOrigin`, que aplica as mesmas regras do CORS: `FRONTEND_URL`, `FRONTEND_CUSTOM_URL` e `FRONTEND_URL_REGEX`. Além disso, precisa ser uma origem exata, sem caminho, query ou usuário. A regex precisa casar com a origem **inteira**, mesmo sem `$` no final. Assim `^https://.*\.espacowhats\.com\.br` não aceita `https://x.espacowhats.com.br.evil.com`. Se não passar, o backend guarda `FRONTEND_URL`.
+No início do fluxo, o backend guarda a origem do frontend no `state`. Ele usa o header `Origin` ou, na falta dele, a origem do `Referer`. A origem só é guardada se passar por `isAllowedRedirectOrigin` (`backend/src/helpers/corsOrigin.ts`), que usa as mesmas variáveis do CORS: `FRONTEND_URL`, `FRONTEND_CUSTOM_URL` e `FRONTEND_URL_REGEX`. Além disso, precisa ser uma origem exata, sem caminho, query ou usuário. A regex precisa casar com a origem **inteira**, mesmo sem `$` no final. Assim `^https://.*\.espacowhats\.com\.br` não aceita `https://x.espacowhats.com.br.evil.com`. Se não passar, o backend guarda `FRONTEND_URL`.
+
+O CORS (HTTP e Socket.IO) **não** mudou: continua aceitando qualquer origem em que a regex encontre um trecho, como sempre fez. Só o redirecionamento do Gmail usa a regra rígida, para que uma regex de produção sem `$` não derrube o acesso dos tenants.
 
 No callback, a origem é validada de novo. Com `state` inválido, o redirecionamento vai para `FRONTEND_URL`. Nunca há redirecionamento para uma origem que não foi validada.
 
@@ -250,6 +252,50 @@ Com o canal desligado:
 - as caixas e o cursor ficam guardados.
 
 Ao religar, o que chegou nesse intervalo entra no próximo tick (até 1 minuto).
+
+## Deploy no Dokploy (dev/produção)
+
+Os dois arquivos do Dokploy (`docker-compose.dev.dokploy.yml` para `dev.espacowhats.com.br` e `docker-compose.dokploy.yml` para produção) repassam ao backend as variáveis do canal. Preencha os valores na aba **Environment** do projeto no Dokploy e faça o redeploy.
+
+Importante: no compose, essas variáveis estão no bloco `environment:` com padrão vazio (`${GMAIL_OAUTH_CLIENT_ID:-}`). O `environment:` tem precedência sobre o `env_file:`. Por isso elas precisam estar na aba Environment do Dokploy. Se ficarem só num arquivo de `/etc/dokploy/secrets/`, o valor do arquivo é substituído por vazio.
+
+| Variável | Obrigatória | Para que serve | Exemplo (dev) |
+| --- | --- | --- | --- |
+| `ENCRYPTION_KEY` | **sim** | Cifra as senhas e os refresh tokens das caixas. Precisa ser **estável**: trocar a chave obriga a reconectar todas as caixas (e o token da Meta). Veja a nota abaixo sobre onde ela fica em cada ambiente. | valor de `openssl rand -hex 32` |
+| `FRONTEND_URL` | sim (já existe) | Destino padrão da volta do Gmail. | `https://dev.espacowhats.com.br` |
+| `FRONTEND_URL_REGEX` | já existe | Subdomínios dos tenants aceitos no CORS e na volta do Gmail. Use âncoras `^` e `$`. | `^https://([a-z0-9-]+\.)?dev\.espacowhats\.com\.br$` |
+| `GMAIL_OAUTH_CLIENT_ID` | só para Gmail | Client ID do cliente OAuth "Aplicativo da Web". | `1234-abc.apps.googleusercontent.com` |
+| `GMAIL_OAUTH_CLIENT_SECRET` | só para Gmail | Client secret do mesmo cliente. | `GOCSPX-...` |
+| `GMAIL_OAUTH_REDIRECT_URI` | só para Gmail | Callback público, cadastrado igual no Google. | `https://dev.espacowhats.com.br/backend/email/oauth/google/callback` |
+| `GMAIL_PUBSUB_TOPIC` | não | Tópico do push do Gmail. Sem as três variáveis de Pub/Sub, o Gmail usa só o polling de 1 minuto. | `projects/espaco-whats/topics/gmail-push-dev` |
+| `GMAIL_PUBSUB_AUDIENCE` | não | Audience fixa da assinatura push. | `https://dev.espacowhats.com.br/backend/webhooks/gmail/push` |
+| `GMAIL_PUBSUB_SERVICE_ACCOUNT` | não | Conta de serviço que assina o push. | `gmail-push-invoker@espaco-whats.iam.gserviceaccount.com` |
+| `EMAIL_IMAP_IDLE` | não | IMAP IDLE ligado (padrão `true`). `false` deixa só o polling de 1 minuto. | `true` |
+| `EMAIL_IMAP_IDLE_MAX` | não | Máximo de conexões IDLE por processo (vazio = 200, `0` desliga). | vazio |
+
+Sem as três variáveis `GMAIL_OAUTH_*`, a opção Gmail aparece como indisponível (`GET /email/availability` devolve `gmailConfigured: false`). iCloud e e-mail próprio funcionam sem elas.
+
+`EMAIL_ALLOW_PRIVATE_HOSTS` e `NODE_EXTRA_CA_CERTS` não entram no Dokploy: são só para o GreenMail local.
+
+**Onde fica a `ENCRYPTION_KEY`:**
+
+- Dev: o `docker-compose.dev.dokploy.yml` já repassa `ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}`. Defina o valor na aba Environment.
+- Produção: o `docker-compose.dokploy.yml` não tem `ENCRYPTION_KEY` no `environment:`. Ela chega pelos `env_file:` (normalmente `/etc/dokploy/secrets/espaco_whats_meta.env`, junto das variáveis da Meta). Não acrescente `ENCRYPTION_KEY` ao `environment:`, porque com padrão vazio ela apagaria a chave do arquivo. Confira com `docker exec <container-do-backend> printenv ENCRYPTION_KEY`, sem colar o valor em lugar nenhum.
+- Use a mesma chave para sempre em cada ambiente. Dev e produção podem ter chaves diferentes, porque cada um tem seu banco.
+
+**Google Cloud (resumo):**
+
+1. Ative a **Gmail API** no projeto. Para o push, ative também a **Cloud Pub/Sub API**.
+2. Na tela de consentimento OAuth, adicione só `gmail.readonly` e `gmail.send`. Enquanto o app estiver em teste, cadastre as caixas de teste em **Usuários de teste**.
+3. Crie um cliente OAuth **Aplicativo da Web** e cadastre em **URIs de redirecionamento autorizados** o valor exato de `GMAIL_OAUTH_REDIRECT_URI` de cada ambiente (dev: `https://dev.espacowhats.com.br/backend/email/oauth/google/callback`; produção: o domínio de produção com o mesmo caminho).
+4. Push (opcional): crie o tópico, dê **Publicador do Pub/Sub** a `gmail-api-push@system.gserviceaccount.com`, crie a conta de serviço do push e uma assinatura **Push** para `https://<domínio>/backend/webhooks/gmail/push`, com autenticação ligada e a audience igual a `GMAIL_PUBSUB_AUDIENCE`. Os detalhes estão em "Push do Gmail (Pub/Sub)".
+5. Copie os valores para a aba Environment do Dokploy e faça o redeploy.
+
+Depois do deploy:
+
+1. Ligue o canal para a empresa (super admin, ver acima).
+2. Em **Conexões › Nova conexão › E-mail**, conecte uma caixa IMAP/iCloud e, se o Gmail estiver configurado, uma caixa Gmail de teste.
+3. Mande um e-mail para a caixa e confira o ticket. Responda pelo atendimento e confira que a resposta chega na mesma conversa do cliente (no Gmail, na mesma thread).
 
 ## Servidor de e-mail local (GreenMail)
 

@@ -193,6 +193,16 @@ services:
       PROSPECCAO_API_KEY: ${PROSPECCAO_API_KEY:-}
       PROSPECCAO_API_KEY_FILE: /run/secrets/prospeccao_api_key
       PROSPECCAO_SLUGS: ${PROSPECCAO_SLUGS:-teste}
+      # Canal de e-mail (docs/email-channel.md). Sem as variaveis GMAIL_* a
+      # opcao Gmail fica indisponivel; IMAP/SMTP e iCloud funcionam sem elas.
+      GMAIL_OAUTH_CLIENT_ID: ${GMAIL_OAUTH_CLIENT_ID:-}
+      GMAIL_OAUTH_CLIENT_SECRET: ${GMAIL_OAUTH_CLIENT_SECRET:-}
+      GMAIL_OAUTH_REDIRECT_URI: ${GMAIL_OAUTH_REDIRECT_URI:-}
+      GMAIL_PUBSUB_TOPIC: ${GMAIL_PUBSUB_TOPIC:-}
+      GMAIL_PUBSUB_AUDIENCE: ${GMAIL_PUBSUB_AUDIENCE:-}
+      GMAIL_PUBSUB_SERVICE_ACCOUNT: ${GMAIL_PUBSUB_SERVICE_ACCOUNT:-}
+      EMAIL_IMAP_IDLE: ${EMAIL_IMAP_IDLE:-true}
+      EMAIL_IMAP_IDLE_MAX: ${EMAIL_IMAP_IDLE_MAX:-}
     volumes:
       - backend_public:/usr/src/app/public
       - backend_private:/usr/src/app/private
