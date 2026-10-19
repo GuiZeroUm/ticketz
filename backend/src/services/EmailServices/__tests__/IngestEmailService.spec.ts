@@ -669,6 +669,8 @@ describe("IngestEmailService", () => {
         messageId: first.messageId
       });
       expect(tables.Message).toHaveLength(1);
+      // the parent inbound row and one outbound copy
+      expect(tables.EmailMessage).toHaveLength(2);
     });
   });
 

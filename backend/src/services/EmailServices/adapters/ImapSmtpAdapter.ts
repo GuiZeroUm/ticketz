@@ -46,6 +46,13 @@ type FolderCursor = {
   // Present while recent mail is read again after a UIDVALIDITY change: only
   // messages with an internal date from this instant (ms) on are imported.
   rescanSince?: number;
+  // When the initial import of the folder ran (ms): a rescan never reaches
+  // before it, so it cannot import mail the initial import left out.
+  importedAt?: number;
+  // Last UIDVALIDITY change (ms), kept for VALIDITY_STABLE_MS, and whether
+  // changes kept repeating (rescan disabled, error logged once).
+  validityChangedAt?: number;
+  validityUnstable?: boolean;
 };
 type ImapCursor = { folders: Record<string, FolderCursor> };
 
@@ -234,6 +241,11 @@ const parseCursor = (raw: unknown): ImapCursor => {
         if (isInstant(entry.rescanSince)) {
           folder.rescanSince = entry.rescanSince;
         }
+        if (isInstant(entry.importedAt)) folder.importedAt = entry.importedAt;
+        if (isInstant(entry.validityChangedAt)) {
+          folder.validityChangedAt = entry.validityChangedAt;
+          if (entry.validityUnstable === true) folder.validityUnstable = true;
+        }
         folders[p] = folder;
       }
     });
@@ -369,12 +381,17 @@ const withFallbackDate = (
 const HOUR_MS = 60 * 60 * 1000;
 // Clock skew allowance between our clock and the server's internal dates.
 const RESCAN_MARGIN_MS = HOUR_MS;
+// A UIDVALIDITY change within this time of the previous one (or during a
+// rescan) is a server that keeps changing it, e.g. Dovecot with in-memory
+// indexes: rescanning on each change would re-read the same window forever.
+const VALIDITY_STABLE_MS = HOUR_MS;
 
 // Start of the window read again after a UIDVALIDITY change: from the last
 // moment the folder was known to be caught up (per folder, or the account's
 // last sync for cursors written before that was recorded), and never less
-// than the initial import window. An unfinished rescan of the replaced
-// validity is kept, and the window is capped at UIDVALIDITY_RESCAN_MAX_DAYS.
+// than the initial import window. It never reaches before the folder's
+// initial import once that import finished, and is capped at
+// UIDVALIDITY_RESCAN_MAX_DAYS.
 const rescanStart = (
   previous: FolderCursor,
   accountLastSyncAt: Date | string | null | undefined,
@@ -389,8 +406,10 @@ const rescanStart = (
   if (reference !== undefined) {
     since = Math.min(since, reference - RESCAN_MARGIN_MS);
   }
-  if (previous.rescanSince !== undefined) {
-    since = Math.min(since, previous.rescanSince);
+  // syncedAt is only recorded once the folder was caught up, i.e. after the
+  // initial import was fully read.
+  if (previous.importedAt !== undefined && previous.syncedAt !== undefined) {
+    since = Math.max(since, previous.importedAt - RESCAN_MARGIN_MS);
   }
   return Math.max(since, now - UIDVALIDITY_RESCAN_MAX_DAYS * 24 * HOUR_MS);
 };
@@ -428,7 +447,33 @@ const syncFolder = async (
     // Read the recent window again (never the whole history); messages
     // already imported come back with new provider ids and are recognised by
     // their Message-ID at ingestion.
-    if (previous && previous.uidValidity !== uidValidity) {
+    // A change while a rescan is still running or soon after the previous
+    // change: fall back to restarting at the end of the folder (mail since
+    // the last sync may be missed), never a rescan loop.
+    const repeatedChange =
+      !!previous &&
+      previous.uidValidity !== uidValidity &&
+      (previous.rescanSince !== undefined ||
+        (previous.validityChangedAt !== undefined &&
+          startedAt - previous.validityChangedAt < VALIDITY_STABLE_MS));
+
+    if (previous && repeatedChange) {
+      if (!previous.validityUnstable) {
+        logger.error(
+          { accountId, folder: folder.path },
+          "email imap: UIDVALIDITY keeps changing; rescan disabled, cursor reset to the end of the folder"
+        );
+      }
+      current = {
+        uidValidity,
+        lastUid: lastKnownUid,
+        validityChangedAt: startedAt,
+        validityUnstable: true,
+        ...(previous.importedAt !== undefined
+          ? { importedAt: previous.importedAt }
+          : {})
+      };
+    } else if (previous && previous.uidValidity !== uidValidity) {
       const rescanSince = rescanStart(previous, accountLastSyncAt, startedAt);
       logger.warn(
         {
@@ -442,8 +487,12 @@ const syncFolder = async (
         uidValidity,
         lastUid: 0,
         rescanSince,
+        validityChangedAt: startedAt,
         ...(previous.syncedAt !== undefined
           ? { syncedAt: previous.syncedAt }
+          : {}),
+        ...(previous.importedAt !== undefined
+          ? { importedAt: previous.importedAt }
           : {})
       };
     }
@@ -454,14 +503,32 @@ const syncFolder = async (
       const next: FolderCursor = { uidValidity, lastUid };
       if (caughtUp) {
         next.syncedAt = startedAt;
-        return next;
+      } else {
+        if (current?.syncedAt !== undefined) next.syncedAt = current.syncedAt;
+        if (current?.rescanSince !== undefined) {
+          next.rescanSince = current.rescanSince;
+        }
       }
-      if (current?.syncedAt !== undefined) next.syncedAt = current.syncedAt;
-      if (current?.rescanSince !== undefined) {
-        next.rescanSince = current.rescanSince;
+      // the first sync of the folder is its initial import
+      const importedAt = current ? current.importedAt : startedAt;
+      if (importedAt !== undefined) next.importedAt = importedAt;
+      if (
+        current?.validityChangedAt !== undefined &&
+        startedAt - current.validityChangedAt < VALIDITY_STABLE_MS
+      ) {
+        next.validityChangedAt = current.validityChangedAt;
+        if (current.validityUnstable) next.validityUnstable = true;
       }
       return next;
     };
+
+    if (repeatedChange) {
+      return {
+        emails: [],
+        cursor: cursorAt(lastKnownUid, true),
+        hasMore: false
+      };
+    }
 
     let candidates: MessageMeta[];
     // UIDs the cursor moves past when the whole candidate list is consumed
