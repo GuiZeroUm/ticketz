@@ -194,6 +194,10 @@ const GetEmailThreadService = async ({
       from: row.fromAddress,
       to: row.toAddresses || [],
       cc: row.ccAddresses || [],
+      replyTo: row.replyToAddresses || [],
+      // headers-only import (the ingest stores the "oversize" flag on the
+      // EmailMessage row); nothing else of the flags is exposed
+      oversize: Array.isArray(row.flags) && row.flags.includes("oversize"),
       date: row.receivedAt || row.createdAt,
       text: bodies.get(row.messageId) ?? "",
       htmlSanitized: row.htmlSanitized,
