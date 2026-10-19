@@ -39,14 +39,14 @@ beforeAll(() => {
 
 afterAll(() => setEnv(saved));
 
-describe("isAllowedFrontendOrigin", () => {
+describe("isAllowedRedirectOrigin", () => {
   it("accepts FRONTEND_URL even with a trailing slash", () => {
     setEnv({ FRONTEND_URL: "https://app.espacowhats.com.br/" });
-    const { isAllowedFrontendOrigin } = load();
-    expect(isAllowedFrontendOrigin("https://app.espacowhats.com.br")).toBe(
+    const { isAllowedRedirectOrigin } = load();
+    expect(isAllowedRedirectOrigin("https://app.espacowhats.com.br")).toBe(
       true
     );
-    expect(isAllowedFrontendOrigin("https://other.espacowhats.com.br")).toBe(
+    expect(isAllowedRedirectOrigin("https://other.espacowhats.com.br")).toBe(
       false
     );
   });
@@ -57,10 +57,10 @@ describe("isAllowedFrontendOrigin", () => {
       FRONTEND_CUSTOM_URL: "https://painel.cliente.com , https://x.y",
       FRONTEND_URL_REGEX: "^https://[a-z0-9-]+\\.espacowhats\\.com\\.br$"
     });
-    const { isAllowedFrontendOrigin } = load();
-    expect(isAllowedFrontendOrigin("https://painel.cliente.com")).toBe(true);
-    expect(isAllowedFrontendOrigin("https://x.y")).toBe(true);
-    expect(isAllowedFrontendOrigin("https://teste.espacowhats.com.br")).toBe(
+    const { isAllowedRedirectOrigin } = load();
+    expect(isAllowedRedirectOrigin("https://painel.cliente.com")).toBe(true);
+    expect(isAllowedRedirectOrigin("https://x.y")).toBe(true);
+    expect(isAllowedRedirectOrigin("https://teste.espacowhats.com.br")).toBe(
       true
     );
   });
@@ -82,8 +82,8 @@ describe("isAllowedFrontendOrigin", () => {
       FRONTEND_URL: "https://app.espacowhats.com.br",
       FRONTEND_URL_REGEX: "^https://.*\\.espacowhats\\.com\\.br"
     });
-    const { isAllowedFrontendOrigin } = load();
-    expect(isAllowedFrontendOrigin(origin)).toBe(false);
+    const { isAllowedRedirectOrigin } = load();
+    expect(isAllowedRedirectOrigin(origin)).toBe(false);
   });
 
   it("requires the whole origin to match an unanchored FRONTEND_URL_REGEX", () => {
@@ -91,12 +91,12 @@ describe("isAllowedFrontendOrigin", () => {
       FRONTEND_URL: "https://app.espacowhats.com.br",
       FRONTEND_URL_REGEX: "^https://.*\\.espacowhats\\.com\\.br"
     });
-    const { isAllowedFrontendOrigin } = load();
-    expect(isAllowedFrontendOrigin("https://teste.espacowhats.com.br")).toBe(
+    const { isAllowedRedirectOrigin } = load();
+    expect(isAllowedRedirectOrigin("https://teste.espacowhats.com.br")).toBe(
       true
     );
     expect(
-      isAllowedFrontendOrigin("https://x.espacowhats.com.br.evil.com")
+      isAllowedRedirectOrigin("https://x.espacowhats.com.br.evil.com")
     ).toBe(false);
     // a match that does not start at the beginning does not count either
     setEnv({
@@ -104,7 +104,7 @@ describe("isAllowedFrontendOrigin", () => {
       FRONTEND_URL_REGEX: "[a-z]+\\.espacowhats\\.com\\.br$"
     });
     expect(
-      load().isAllowedFrontendOrigin("https://evil.espacowhats.com.br")
+      load().isAllowedRedirectOrigin("https://evil.espacowhats.com.br")
     ).toBe(false);
   });
 
@@ -114,15 +114,15 @@ describe("isAllowedFrontendOrigin", () => {
       FRONTEND_URL_REGEX:
         "^http://([a-z0-9-]+\\.)?espaco-whats\\.example\\.invalid$"
     });
-    const { isAllowedFrontendOrigin } = load();
+    const { isAllowedRedirectOrigin } = load();
     expect(
-      isAllowedFrontendOrigin("http://teste.espaco-whats.example.invalid")
+      isAllowedRedirectOrigin("http://teste.espaco-whats.example.invalid")
     ).toBe(true);
-    expect(isAllowedFrontendOrigin("http://espaco-whats.example.invalid")).toBe(
+    expect(isAllowedRedirectOrigin("http://espaco-whats.example.invalid")).toBe(
       true
     );
     expect(
-      isAllowedFrontendOrigin(
+      isAllowedRedirectOrigin(
         "http://teste.espaco-whats.example.invalid.evil.com"
       )
     ).toBe(false);
@@ -130,9 +130,9 @@ describe("isAllowedFrontendOrigin", () => {
 
   it("treats an invalid FRONTEND_URL_REGEX as no match instead of throwing", () => {
     setEnv({ FRONTEND_URL: "https://a.com", FRONTEND_URL_REGEX: "([" });
-    const { isAllowedFrontendOrigin } = load();
-    expect(isAllowedFrontendOrigin("https://b.com")).toBe(false);
-    expect(isAllowedFrontendOrigin("https://a.com")).toBe(true);
+    const { isAllowedRedirectOrigin } = load();
+    expect(isAllowedRedirectOrigin("https://b.com")).toBe(false);
+    expect(isAllowedRedirectOrigin("https://a.com")).toBe(true);
   });
 });
 
@@ -142,9 +142,10 @@ describe("corsOrigin", () => {
     expect(load().corsOrigin).toBe("https://app.espacowhats.com.br");
   });
 
-  it("uses the shared rules when custom origins are configured", () => {
+  it("accepts FRONTEND_URL, custom URLs and regex matches when configured", () => {
     setEnv({
       FRONTEND_URL: "https://app.espacowhats.com.br",
+      FRONTEND_CUSTOM_URL: "https://painel.cliente.com , https://x.y",
       FRONTEND_URL_REGEX: "^https://[a-z0-9-]+\\.espacowhats\\.com\\.br$"
     });
     const { corsOrigin } = load();
@@ -153,11 +154,15 @@ describe("corsOrigin", () => {
       true
     );
     expect(corsAllows(corsOrigin, "https://app.espacowhats.com.br")).toBe(true);
+    expect(corsAllows(corsOrigin, "https://painel.cliente.com")).toBe(true);
+    expect(corsAllows(corsOrigin, "https://x.y")).toBe(true);
     expect(corsAllows(corsOrigin, undefined)).toBe(true);
     expect(corsAllows(corsOrigin, "https://evil.com")).toBe(false);
   });
 
-  it("applies full-match regex semantics to CORS too", () => {
+  // Ruling R26b: CORS keeps the pre-branch partial-match regex semantics, so
+  // a production FRONTEND_URL_REGEX without "$" keeps accepting every tenant.
+  it("keeps the historical partial-match regex semantics", () => {
     setEnv({
       FRONTEND_URL: "https://app.espacowhats.com.br",
       FRONTEND_URL_REGEX: "^https://.*\\.espacowhats\\.com\\.br"
@@ -168,6 +173,39 @@ describe("corsOrigin", () => {
     );
     expect(
       corsAllows(corsOrigin, "https://x.espacowhats.com.br.evil.com")
-    ).toBe(false);
+    ).toBe(true);
+    // unanchored at the start too, as before the email channel
+    setEnv({
+      FRONTEND_URL: "https://app.espacowhats.com.br",
+      FRONTEND_URL_REGEX: "espacowhats\\.com\\.br"
+    });
+    expect(corsAllows(load().corsOrigin, "https://a.espacowhats.com.br")).toBe(
+      true
+    );
+  });
+
+  it("compares FRONTEND_URL literally, as before the email channel", () => {
+    setEnv({
+      FRONTEND_URL: "https://app.espacowhats.com.br",
+      FRONTEND_CUSTOM_URL: "https://painel.cliente.com"
+    });
+    const { corsOrigin } = load();
+    expect(corsAllows(corsOrigin, "https://app.espacowhats.com.br")).toBe(true);
+    expect(corsAllows(corsOrigin, "https://app.espacowhats.com.br/")).toBe(
+      false
+    );
+  });
+});
+
+describe("redirect vs CORS (ruling R26b)", () => {
+  it("still rejects a suffix trick for redirects while CORS accepts it", () => {
+    setEnv({
+      FRONTEND_URL: "https://app.espacowhats.com.br",
+      FRONTEND_URL_REGEX: "^https://.*\\.espacowhats\\.com\\.br"
+    });
+    const { corsOrigin, isAllowedRedirectOrigin } = load();
+    const origin = "https://x.espacowhats.com.br.evil.com";
+    expect(corsAllows(corsOrigin, origin)).toBe(true);
+    expect(isAllowedRedirectOrigin(origin)).toBe(false);
   });
 });
