@@ -7,7 +7,6 @@ import {
   PrimaryKey,
   AutoIncrement,
   AllowNull,
-  Unique,
   Default,
   HasMany,
   ForeignKey,
@@ -23,6 +22,7 @@ import ContactTag from "./ContactTag";
 import Tag from "./Tag";
 import WhatsappLidMap from "./WhatsappLidMap";
 import GroupQueue from "./GroupQueue";
+import ContactIdentity from "./ContactIdentity";
 
 @Table
 class Contact extends Model {
@@ -48,8 +48,9 @@ class Contact extends Model {
   @Column
   birthdayMonth: number;
 
-  @AllowNull(false)
-  @Unique
+  // NULL só em contatos do canal e-mail (CHECK contacts_number_required_unless_email).
+  // A unicidade real é o índice number_companyid_unique (number, companyId).
+  @AllowNull(true)
   @Column
   number: string;
 
@@ -125,6 +126,9 @@ class Contact extends Model {
 
   @HasMany(() => GroupQueue)
   groupQueues: GroupQueue[];
+
+  @HasMany(() => ContactIdentity, "contactId")
+  identities: ContactIdentity[];
 }
 
 export default Contact;

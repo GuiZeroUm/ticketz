@@ -11,7 +11,8 @@ import {
   AutoIncrement,
   Default,
   BeforeCreate,
-  BelongsToMany
+  BelongsToMany,
+  DataType
 } from "sequelize-typescript";
 import { v4 as uuidv4 } from "uuid";
 
@@ -20,6 +21,7 @@ import Message from "./Message";
 import Queue from "./Queue";
 import User from "./User";
 import Whatsapp from "./Whatsapp";
+import EmailAccount from "./EmailAccount";
 import Company from "./Company";
 import QueueOption from "./QueueOption";
 import Tag from "./Tag";
@@ -76,6 +78,19 @@ class Ticket extends Model<Ticket> {
 
   @BelongsTo(() => Whatsapp)
   whatsapp: Whatsapp;
+
+  @ForeignKey(() => EmailAccount)
+  @Column
+  emailAccountId: number;
+
+  @BelongsTo(() => EmailAccount)
+  emailAccount: EmailAccount;
+
+  @Column
+  emailThreadKey: string;
+
+  @Column(DataType.STRING(998))
+  subject: string;
 
   @ForeignKey(() => Queue)
   @Column

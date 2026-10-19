@@ -66,6 +66,10 @@ import VoiceCall from "../models/VoiceCall";
 import GroupQueue from "../models/GroupQueue";
 import GroupReadState from "../models/GroupReadState";
 import PushSubscription from "../models/PushSubscription";
+import EmailAccount from "../models/EmailAccount";
+import ContactIdentity from "../models/ContactIdentity";
+import EmailMessage from "../models/EmailMessage";
+import EmailAttachment from "../models/EmailAttachment";
 import ProspeccaoAutomation from "../models/ProspeccaoAutomation";
 import ProspeccaoSchedule from "../models/ProspeccaoSchedule";
 import ProspeccaoExecution from "../models/ProspeccaoExecution";
@@ -149,7 +153,11 @@ const models = [
   ProspeccaoSchedule,
   ProspeccaoExecution,
   ProspeccaoLead,
-  PushSubscription
+  PushSubscription,
+  EmailAccount,
+  ContactIdentity,
+  EmailMessage,
+  EmailAttachment
 ];
 
 sequelize.addModels(models);
