@@ -584,7 +584,8 @@ class GmailSyncRound {
       direction: meta.labelIds.includes("SENT") ? "out" : "in",
       providerMessageId: meta.id,
       providerThreadId: meta.threadId,
-      flags: [...meta.labelIds, ...extraFlags]
+      flags: [...meta.labelIds, ...extraFlags],
+      ...(meta.internalDate ? { internalDate: internal } : {})
     });
   }
 

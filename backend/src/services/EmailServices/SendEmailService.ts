@@ -348,7 +348,11 @@ const loadMessage = (companyId: number, ticketId: number, messageId: string) =>
           "queue",
           "tags",
           "user",
-          { association: "whatsapp", attributes: ["id", "name", "apiMode"] }
+          { association: "whatsapp", attributes: ["id", "name", "apiMode"] },
+          {
+            association: "emailAccount",
+            attributes: ["id", "name", "address", "preset"]
+          }
         ]
       }
     ]
@@ -502,6 +506,9 @@ const SendEmailService = async ({
             messageId,
             direction: "out",
             providerMessageId: null,
+            // Gmail keeps a reply in the conversation only when the send names
+            // its threadId; a forward (or a thread without one) starts anew.
+            providerThreadId: threaded ? last.providerThreadId || null : null,
             internetMessageId,
             inReplyTo,
             references,

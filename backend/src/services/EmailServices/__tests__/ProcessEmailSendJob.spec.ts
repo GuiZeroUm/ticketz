@@ -207,6 +207,24 @@ describe("ProcessEmailSendJob", () => {
     expect(redis.del).not.toHaveBeenCalled();
   });
 
+  it("passes the stored Gmail thread id to the adapter", async () => {
+    EM.findByPk.mockResolvedValue(
+      queuedEmail({ providerThreadId: "thread-abc" })
+    );
+    Account.scoped.findOne.mockResolvedValue(
+      account({ provider: "gmail_api" })
+    );
+    await ProcessEmailSendJob(41);
+    const [, mail] = adapter.send.mock.calls[0];
+    expect(mail.providerThreadId).toBe("thread-abc");
+  });
+
+  it("sends without a thread id when the email has none", async () => {
+    await ProcessEmailSendJob(41);
+    const [, mail] = adapter.send.mock.calls[0];
+    expect(mail).not.toHaveProperty("providerThreadId");
+  });
+
   it("claims the send with a Redis marker before talking to the server", async () => {
     await ProcessEmailSendJob(41);
     // the attempt flag is written first and never released: a replay can

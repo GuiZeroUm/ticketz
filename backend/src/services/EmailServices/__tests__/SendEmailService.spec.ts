@@ -290,6 +290,45 @@ describe("SendEmailService", () => {
     expect(result.id).toBe(values.messageId);
   });
 
+  it("keeps a Gmail reply in the Gmail thread of the last inbound", async () => {
+    Account.findOne.mockResolvedValue(account({ provider: "gmail_api" }));
+    inbound = lastInbound({ providerThreadId: "thread-abc" });
+
+    await send();
+    expect(EM.create.mock.calls[0][0]).toMatchObject({
+      providerThreadId: "thread-abc"
+    });
+
+    jest.clearAllMocks();
+    await send({ mode: "replyAll", idempotencyKey: "key-2" });
+    expect(EM.create.mock.calls[0][0].providerThreadId).toBe("thread-abc");
+  });
+
+  it("starts a new provider thread for a forward and for a thread without id", async () => {
+    inbound = lastInbound({ providerThreadId: "thread-abc" });
+    await send({ mode: "forward", to: "parceiro@z.com" });
+    expect(EM.create.mock.calls[0][0].providerThreadId).toBeNull();
+
+    jest.clearAllMocks();
+    inbound = lastInbound({ providerThreadId: null });
+    await send({ idempotencyKey: "key-3" });
+    expect(EM.create.mock.calls[0][0].providerThreadId).toBeNull();
+  });
+
+  it("reloads the ticket with its email account for the live events", async () => {
+    await send();
+    const reload = Msg.findOne.mock.calls.find(
+      ([opts]: any[]) => opts.include
+    )[0];
+    const ticketInclude = reload.include.find(
+      (item: any) => item.association === "ticket"
+    );
+    expect(ticketInclude.include).toContainEqual({
+      association: "emailAccount",
+      attributes: ["id", "name", "address", "preset"]
+    });
+  });
+
   it("reply defaults to the first usable Reply-To of the last inbound", async () => {
     inbound = lastInbound({
       replyToAddresses: [

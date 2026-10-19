@@ -96,6 +96,23 @@ const findOutboundByInternetId = (
     order: [["id", "DESC"]]
   });
 
+// How far ahead of our clock a Date header may be (clock skew).
+const FUTURE_SKEW_MS = 5 * 60 * 1000;
+
+// The time the message is shown at. A Date header missing, invalid or more
+// than FUTURE_SKEW_MS in the future (it would pin the mail at the top of the
+// inbox) gives way to the provider's arrival time, else to now.
+const messageTime = (email: NormalizedEmail): Date => {
+  const now = Date.now();
+  const usable = (value: unknown): value is Date =>
+    value instanceof Date &&
+    !Number.isNaN(value.getTime()) &&
+    value.getTime() <= now + FUTURE_SKEW_MS;
+  if (usable(email.receivedAt)) return email.receivedAt;
+  if (usable(email.providerDate)) return email.providerDate;
+  return new Date(now);
+};
+
 const SAME_MESSAGE_CANDIDATES = 5;
 
 // The same inbound message already imported under another provider id: an
@@ -389,6 +406,35 @@ const threadKeyBySubject = async (
   return match?.emailThreadKey || null;
 };
 
+// A Gmail thread that already has a message in a ticket of this account
+// under another key: our forward started it (the send gets a new threadId),
+// so a reply to the forward joins the ticket it came from, as the
+// In-Reply-To/References match does for IMAP.
+const threadKeyOfProviderThread = async (
+  account: EmailAccount,
+  providerThreadId: string
+): Promise<string | null> => {
+  const known = await EmailMessage.findOne({
+    where: {
+      companyId: account.companyId,
+      emailAccountId: account.id,
+      providerThreadId
+    },
+    attributes: ["id", "ticketId"],
+    order: [["id", "ASC"]]
+  });
+  if (!known) return null;
+  const ticket = await Ticket.findOne({
+    where: {
+      id: known.ticketId,
+      companyId: account.companyId,
+      emailAccountId: account.id
+    },
+    attributes: ["id", "emailThreadKey"]
+  });
+  return ticket?.emailThreadKey || null;
+};
+
 const resolveThreadKey = async (
   account: EmailAccount,
   email: NormalizedEmail,
@@ -396,7 +442,10 @@ const resolveThreadKey = async (
   contactId: number | null
 ): Promise<string> => {
   if (email.providerThreadId) {
-    return fitColumn(`g:${email.providerThreadId}`);
+    return (
+      (await threadKeyOfProviderThread(account, email.providerThreadId)) ||
+      fitColumn(`g:${email.providerThreadId}`)
+    );
   }
   return (
     (await threadKeyOfParent(account, email, counterpart, contactId)) ||
@@ -421,7 +470,11 @@ const loadMessageForEmit = (
           "queue",
           "tags",
           "user",
-          { association: "whatsapp", attributes: ["id", "name", "apiMode"] }
+          { association: "whatsapp", attributes: ["id", "name", "apiMode"] },
+          {
+            association: "emailAccount",
+            attributes: ["id", "name", "address", "preset"]
+          }
         ]
       }
     ]
@@ -487,6 +540,24 @@ const IngestEmailService = async (
   if ((email.flags || []).includes("bounce")) {
     await applyBounce(account, email);
     return ignored(account, "bounce");
+  }
+
+  // 1b'. mail in the inbox from the mailbox's own address (sent to itself, or
+  // a copy of a mail sent from the mailbox): never a contact or a ticket for
+  // the mailbox itself. Like the Gmail SENT copy it may confirm one of our
+  // sends; otherwise it is dropped, because a From header is easy to forge and
+  // the Sent folder copy already brings mail sent from the mailbox into its
+  // thread.
+  if (
+    email.direction === "in" &&
+    normalizeEmailAddress(email.from?.address) &&
+    normalizeEmailAddress(email.from?.address) ===
+      normalizeEmailAddress(account.address)
+  ) {
+    const reconciled = email.internetMessageId
+      ? await reconcileOutbound(account, email)
+      : null;
+    return reconciled || ignored(account, "self_address");
   }
 
   // 1c. same inbound message under another provider id (see findSameInbound)
@@ -559,6 +630,7 @@ const IngestEmailService = async (
 
   // 5-7. ticket, EmailMessage, attachments and Message in one transaction
   const messageId = uuidv4();
+  const receivedAt = messageTime(email);
   const fromMe = !isInbound;
   let saved: EmailAttachment[] = [];
   let outcome: {
@@ -604,7 +676,7 @@ const IngestEmailService = async (
           toAddresses: email.to || [],
           ccAddresses: email.cc || [],
           htmlSanitized: email.htmlSanitized || null,
-          receivedAt: email.receivedAt,
+          receivedAt,
           flags: email.flags || [],
           sendStatus: fromMe ? "sent" : null
         },
@@ -621,12 +693,6 @@ const IngestEmailService = async (
       // e.g. "oversize": the provider message was too big to import whole;
       // the inbox renders a hint from dataJson
       const flags = email.flags || [];
-
-      const receivedAt =
-        email.receivedAt instanceof Date &&
-        !Number.isNaN(email.receivedAt.getTime())
-          ? email.receivedAt
-          : undefined;
 
       await Message.create(
         {
@@ -647,7 +713,7 @@ const IngestEmailService = async (
             flags,
             ...(flags.includes("oversize") ? { oversize: true } : {})
           }),
-          ...(receivedAt ? { createdAt: receivedAt } : {})
+          createdAt: receivedAt
         },
         { transaction }
       );

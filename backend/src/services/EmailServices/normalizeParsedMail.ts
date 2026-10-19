@@ -12,7 +12,12 @@ type Meta = {
   providerMessageId: string;
   providerThreadId?: string;
   flags?: string[];
+  // provider arrival time (IMAP INTERNALDATE, Gmail internalDate)
+  internalDate?: Date;
 };
+
+const validDate = (value: unknown): Date | undefined =>
+  value instanceof Date && !Number.isNaN(value.getTime()) ? value : undefined;
 
 const BOUNCE_SENDER_RE = /^(?:mailer-daemon|mailerdaemon|postmaster)$/i;
 const MESSAGE_ID_RE = /^message-id:[ \t]*\r?\n?[ \t]*(<[^<>\s]+>)/im;
@@ -157,10 +162,8 @@ export function normalizeParsedMail(
     bounceOf = findEmbeddedMessageId(parsed) || inReplyTo;
   }
 
-  const date =
-    parsed.date instanceof Date && !Number.isNaN(parsed.date.getTime())
-      ? parsed.date
-      : new Date();
+  const providerDate = validDate(meta.internalDate);
+  const date = validDate(parsed.date) || providerDate || new Date();
 
   return {
     accountId: meta.accountId,
@@ -181,6 +184,7 @@ export function normalizeParsedMail(
     ...(htmlSanitized ? { htmlSanitized } : {}),
     attachments: (parsed.attachments || []).map(toAttachment),
     receivedAt: date,
+    ...(providerDate ? { providerDate } : {}),
     flags,
     ...(bounceOf ? { bounceOf } : {})
   };

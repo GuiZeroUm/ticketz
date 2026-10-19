@@ -638,7 +638,10 @@ const syncFolder = async (
           accountId,
           direction: folder.direction,
           providerMessageId: `${folder.path}:${uidValidity}:${message.uid}`,
-          flags
+          flags,
+          ...(message.internalDate
+            ? { internalDate: new Date(message.internalDate) }
+            : {})
         });
       });
 
