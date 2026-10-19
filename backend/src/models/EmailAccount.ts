@@ -11,7 +11,9 @@ import {
   DataType,
   ForeignKey,
   BelongsTo,
-  HasMany
+  HasMany,
+  DefaultScope,
+  Scopes
 } from "sequelize-typescript";
 import Company from "./Company";
 import Queue from "./Queue";
@@ -26,6 +28,24 @@ export type EmailAccountStatus =
 
 export type EmailCredentials = { password?: string; refreshToken?: string };
 
+const SECRET_ATTRIBUTES = ["credentials", "syncCursor"];
+
+const stripSecrets = (values: Record<string, unknown>) => {
+  const safe = { ...values };
+  SECRET_ATTRIBUTES.forEach(attribute => delete safe[attribute]);
+  return safe;
+};
+
+// Segredos nunca saem do banco por padrão: o escopo padrão exclui `credentials`
+// (JSON cifrado) e `syncCursor`, inclusive quando a conta vem em um include de
+// Ticket/EmailMessage/ContactIdentity. Quem precisa deles (conexão IMAP/SMTP,
+// refresh de token, sync) carrega com `EmailAccount.scope("withSecrets")`.
+// Instâncias carregadas sem o escopo `withSecrets` retornam null em
+// getCredentials(), porque a coluna nem foi selecionada. Em camadas extras,
+// toJSON() e get({ plain: true }) também removem os dois campos, já que o
+// Sequelize serializa includes aninhados por get() e não por toJSON().
+@DefaultScope(() => ({ attributes: { exclude: SECRET_ATTRIBUTES } }))
+@Scopes(() => ({ withSecrets: {} }))
 @Table
 class EmailAccount extends Model<EmailAccount> {
   @PrimaryKey
@@ -151,11 +171,32 @@ class EmailAccount extends Model<EmailAccount> {
   }
 
   toJSON(): Record<string, unknown> {
-    const safe = { ...(super.toJSON() as unknown as Record<string, unknown>) };
-    delete safe.credentials;
-    delete safe.syncCursor;
-    return safe;
+    return stripSecrets(super.toJSON() as unknown as Record<string, unknown>);
   }
 }
+
+// Instância pai chama get({ plain: true }) nos filhos de um include, sem passar
+// pelo toJSON do filho. Sobrescrever só o caso plain mantém o resto de get()
+// (usado pelo próprio Sequelize em save/changed) intacto.
+const originalGet = EmailAccount.prototype.get;
+EmailAccount.prototype.get = function get(
+  this: EmailAccount,
+  ...args: unknown[]
+) {
+  const result = (originalGet as (...a: unknown[]) => unknown).apply(
+    this,
+    args
+  );
+  const options = args.length === 1 ? args[0] : args[1];
+  const isPlainObjectRead =
+    args.length <= 1 &&
+    typeof args[0] === "object" &&
+    args[0] !== null &&
+    (options as { plain?: boolean }).plain === true;
+  if (isPlainObjectRead && result && typeof result === "object") {
+    return stripSecrets(result as Record<string, unknown>);
+  }
+  return result;
+} as typeof originalGet;
 
 export default EmailAccount;
