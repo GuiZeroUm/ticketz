@@ -202,7 +202,9 @@ describe("GmailApiAdapter.fetchChanges", () => {
       q: GMAIL_INITIAL_QUERY,
       maxResults: INITIAL_IMPORT_MAX
     });
-    expect(GMAIL_INITIAL_QUERY).toBe("newer_than:1d -in:chats");
+    expect(GMAIL_INITIAL_QUERY).toBe(
+      "newer_than:1d {in:inbox in:sent} -in:chats"
+    );
     expect(INITIAL_IMPORT_MAX).toBe(50);
     expect(api.users.messages.list).toHaveBeenNthCalledWith(2, {
       userId: "me",
@@ -217,7 +219,7 @@ describe("GmailApiAdapter.fetchChanges", () => {
     expect(api.users.history.list).toHaveBeenCalledWith({
       userId: "me",
       startHistoryId: "1000",
-      historyTypes: ["messageAdded"],
+      historyTypes: ["messageAdded", "labelAdded"],
       maxResults: SYNC_BATCH_MAX
     });
     expect(result.emails.map(e => e.providerMessageId)).toEqual([
@@ -271,7 +273,7 @@ describe("GmailApiAdapter.fetchChanges", () => {
     expect(api.users.history.list).toHaveBeenCalledWith(
       expect.objectContaining({
         startHistoryId: "500",
-        historyTypes: ["messageAdded"]
+        historyTypes: ["messageAdded", "labelAdded"]
       })
     );
     expect(result.emails.map(e => [e.providerMessageId, e.direction])).toEqual([
@@ -512,7 +514,7 @@ describe("GmailApiAdapter.fetchChanges", () => {
     expect(result.hasMore).toBe(true);
   });
 
-  it("caps the history pages read in one round", async () => {
+  it("caps the history pages and waits for the next tick when nothing advanced", async () => {
     let n = 0;
     api.users.history.list.mockImplementation(async () => {
       n += 1;
@@ -525,7 +527,125 @@ describe("GmailApiAdapter.fetchChanges", () => {
 
     expect(api.users.history.list).toHaveBeenCalledTimes(20);
     expect(result.cursor).toEqual({ historyId: "60" });
-    expect(result.hasMore).toBe(true);
+    // no progress: no immediate re-enqueue (tight loop)
+    expect(result.hasMore).toBe(false);
+  });
+
+  it("does not re-enqueue a repeated page token that made no progress", async () => {
+    api.users.history.list.mockResolvedValue({
+      data: { history: [], nextPageToken: "same", historyId: "70" }
+    });
+
+    const result = await adapter.fetchChanges(makeAccount({ historyId: "60" }));
+
+    expect(api.users.history.list).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({
+      emails: [],
+      cursor: { historyId: "60" },
+      hasMore: false
+    });
+  });
+
+  describe("ruling R33: INBOX label additions", () => {
+    const labelled = (
+      id: number,
+      messageId: string,
+      added: string[],
+      current = ["INBOX"]
+    ) => ({
+      id: String(id),
+      labelsAdded: [
+        { message: { id: messageId, labelIds: current }, labelIds: added }
+      ]
+    });
+
+    it("ingests an archived message moved back to INBOX", async () => {
+      addMessage("back", { labelIds: ["INBOX", "Label_3"] });
+      api.users.history.list.mockResolvedValue({
+        data: { history: [labelled(401, "back", ["INBOX"])], historyId: "402" }
+      });
+
+      const result = await adapter.fetchChanges(
+        makeAccount({ historyId: "400" })
+      );
+
+      expect(
+        result.emails.map(e => [e.providerMessageId, e.direction])
+      ).toEqual([["back", "in"]]);
+      expect(formatsRequested("back")).toEqual(["minimal", "raw"]);
+      expect(result.cursor).toEqual({ historyId: "402" });
+    });
+
+    it("ignores label additions other than INBOX", async () => {
+      addMessage("starred", { labelIds: ["INBOX", "STARRED"] });
+      addMessage("read", { labelIds: ["Label_9"] });
+      api.users.history.list.mockResolvedValue({
+        data: {
+          history: [
+            labelled(411, "starred", ["STARRED"], ["INBOX", "STARRED"]),
+            labelled(412, "read", ["Label_9"], ["Label_9"])
+          ],
+          historyId: "413"
+        }
+      });
+
+      const result = await adapter.fetchChanges(
+        makeAccount({ historyId: "410" })
+      );
+
+      expect(result.emails).toEqual([]);
+      expect(api.users.messages.get).not.toHaveBeenCalled();
+      expect(result.cursor).toEqual({ historyId: "413" });
+    });
+
+    it("re-checks the current labels of a message labelled INBOX", async () => {
+      // labelled INBOX, then trashed before this round read it
+      addMessage("gone", { labelIds: ["TRASH"] });
+      api.users.history.list.mockResolvedValue({
+        data: { history: [labelled(421, "gone", ["INBOX"])], historyId: "422" }
+      });
+
+      const result = await adapter.fetchChanges(
+        makeAccount({ historyId: "420" })
+      );
+
+      expect(result.emails).toEqual([]);
+      expect(formatsRequested("gone")).toEqual(["minimal"]);
+    });
+
+    it("fetches a message added and labelled INBOX in the same round once", async () => {
+      addMessage("twice");
+      api.users.history.list.mockResolvedValue({
+        data: {
+          history: [
+            // same record: added and labelled
+            {
+              id: "431",
+              messagesAdded: [
+                { message: { id: "twice", labelIds: ["INBOX"] } }
+              ],
+              labelsAdded: [
+                {
+                  message: { id: "twice", labelIds: ["INBOX"] },
+                  labelIds: ["INBOX"]
+                }
+              ]
+            },
+            // a later record of the same round
+            labelled(432, "twice", ["INBOX"])
+          ],
+          historyId: "433"
+        }
+      });
+
+      const result = await adapter.fetchChanges(
+        makeAccount({ historyId: "430" })
+      );
+
+      expect(result.emails.map(e => e.providerMessageId)).toEqual(["twice"]);
+      expect(formatsRequested("twice")).toEqual(["minimal", "raw"]);
+      expect(result.cursor).toEqual({ historyId: "433" });
+    });
   });
 
   it("ends on the first page's historyId, or the last record when it is newer", async () => {

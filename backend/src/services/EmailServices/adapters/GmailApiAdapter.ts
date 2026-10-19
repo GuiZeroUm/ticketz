@@ -72,7 +72,9 @@ type MessageMeta = {
   internalDate?: string;
 };
 
-export const GMAIL_INITIAL_QUERY = "newer_than:1d -in:chats";
+// Only the mailboxes we ingest (R31/R33), so archived or filtered mail does
+// not take the INITIAL_IMPORT_MAX slots; isIngestible stays the authority.
+export const GMAIL_INITIAL_QUERY = "newer_than:1d {in:inbox in:sent} -in:chats";
 const SKIP_LABELS = ["DRAFT", "SPAM", "TRASH", "CHAT"];
 
 // A message body can be up to MAX_RAW_MESSAGE_BYTES (base64url in JSON): the
@@ -253,6 +255,28 @@ const maxHistoryId = (a: string | undefined, b: string): string =>
 const hasSkipLabel = (labels: string[]): boolean =>
   labels.some(label => SKIP_LABELS.includes(label));
 
+// Message ids of one history record, deduplicated: messages added, and
+// messages that got the INBOX label (R33; other label additions are ignored).
+// Labels known from the record already exclude drafts/spam/trash/chats; the
+// current labels are checked again before importing (isIngestible).
+const historyRecordIds = (record: gmail_v1.Schema$History): string[] => {
+  const added = (record.messagesAdded || []).map(entry => entry.message);
+  const toInbox = (record.labelsAdded || [])
+    .filter(entry => (entry.labelIds || []).includes("INBOX"))
+    .map(entry => entry.message);
+  const ids: string[] = [];
+  [...added, ...toInbox].forEach(message => {
+    if (
+      message?.id &&
+      !hasSkipLabel(message.labelIds || []) &&
+      !ids.includes(message.id)
+    ) {
+      ids.push(message.id);
+    }
+  });
+  return ids;
+};
+
 // Ruling R31: the same mailboxes IMAP reads (INBOX and Sent).
 const isIngestible = (labels: string[]): boolean =>
   !hasSkipLabel(labels) &&
@@ -310,6 +334,9 @@ export const gmailApiFor = (auth: GmailAuthClient): GmailApi =>
 
 class GmailSyncRound {
   readonly emails: NormalizedEmail[] = [];
+
+  // Message ids taken this round (fetched or deliberately skipped).
+  private readonly handled = new Set<string>();
 
   private readonly budget: RoundBudget = {
     messages: SYNC_BATCH_MAX,
@@ -427,18 +454,25 @@ class GmailSyncRound {
 
     for (let page = 0; ; page += 1) {
       // A misbehaving pagination (endless or repeated tokens) cannot hold
-      // the round: continue from what was handled in the next one.
+      // the round: continue from what was handled. Ask for an immediate
+      // round only when this one made progress; a stuck pagination waits
+      // for the next tick instead of re-enqueuing in a tight loop.
       if (
         page >= HISTORY_PAGES_MAX ||
         (pageToken && seenTokens.has(pageToken))
       ) {
-        return { cursor: { historyId: resumeAt }, hasMore: true };
+        return {
+          cursor: { historyId: resumeAt },
+          hasMore: resumeAt !== startHistoryId
+        };
       }
       if (pageToken) seenTokens.add(pageToken);
       const { data } = await this.api.users.history.list({
         userId: "me",
         startHistoryId,
-        historyTypes: ["messageAdded"],
+        // labelAdded (R33): a message moved back to INBOX is new mail for
+        // us, as a move-back is a new UID with IMAP.
+        historyTypes: ["messageAdded", "labelAdded"],
         maxResults: SYNC_BATCH_MAX,
         ...(pageToken ? { pageToken } : {})
       });
@@ -447,14 +481,7 @@ class GmailSyncRound {
       }
       const units: Unit[] = (data?.history || []).map(record => ({
         recordId: record.id ? String(record.id) : undefined,
-        ids: (record.messagesAdded || [])
-          .map(added => added.message)
-          // Labels known from the record already exclude drafts/spam/chats.
-          .filter(
-            (message): message is gmail_v1.Schema$Message =>
-              Boolean(message?.id) && !hasSkipLabel(message.labelIds || [])
-          )
-          .map(message => message.id as string)
+        ids: historyRecordIds(record)
       }));
 
       // eslint-disable-next-line no-restricted-syntax
@@ -483,14 +510,18 @@ class GmailSyncRound {
 
   // One history record (or one initial id) at a time, so the cursor always
   // falls between records. Returns false when the unit does not fit in what is
-  // left of the round (nothing of it was imported).
+  // left of the round (nothing of it was imported). A message already handled
+  // in this round (added and then labelled INBOX, or imported initially and
+  // seen again in the catch-up) is not fetched twice.
   private async processUnit(unit: Unit): Promise<boolean> {
+    const ids = unit.ids.filter(id => !this.handled.has(id));
+    if (!ids.length) return true;
     const first = this.budget.taken === 0;
-    if (!first && unit.ids.length > this.budget.messages) return false;
+    if (!first && ids.length > this.budget.messages) return false;
 
     const metas: MessageMeta[] = [];
     // eslint-disable-next-line no-restricted-syntax
-    for (const id of unit.ids) {
+    for (const id of ids) {
       const meta = await this.getMeta(id);
       // Current labels (R31): only INBOX or SENT mail, never drafts/spam/
       // trash/chats; mail archived by a filter stays out, as with IMAP.
@@ -499,9 +530,10 @@ class GmailSyncRound {
     const weight = metas.reduce((sum, m) => sum + weightOf(m.sizeEstimate), 0);
     if (!first && weight > this.budget.bytes) return false;
 
-    this.budget.messages -= unit.ids.length;
+    this.budget.messages -= ids.length;
     this.budget.bytes -= weight;
     this.budget.taken += 1;
+    ids.forEach(id => this.handled.add(id));
 
     // eslint-disable-next-line no-restricted-syntax
     for (const meta of metas) {
