@@ -23,7 +23,12 @@ import {
   storedAttachmentPath
 } from "./EmailAttachmentStorage";
 import { MAX_OUTBOUND_ATTACHMENTS_BYTES, MAX_RECIPIENTS } from "./limits";
-import { recordSendOutcome, TRANSIENT } from "./ProcessEmailSendJob";
+import {
+  isSendInFlight,
+  recordSendOutcome,
+  SEND_INFLIGHT_TTL_SECONDS,
+  TRANSIENT
+} from "./ProcessEmailSendJob";
 import renderEmailHtml from "./renderEmailHtml";
 import { buildReferences, replySubject } from "./threading";
 import { EmailAddress } from "./types";
@@ -119,16 +124,20 @@ const withoutAddresses = (
 };
 
 // Defaults mirror the composer (frontend defaultRecipients): reply goes to the
-// sender of the last inbound email (Reply-To is not stored); reply all adds
-// its To/Cc, without the account's own address and without repetitions.
+// Reply-To of the last inbound email, or to its sender; reply all adds its
+// To/Cc, without the account's own address and without repetitions.
 const defaultRecipients = (
   mode: EmailSendMode,
   last: EmailMessage | null,
   ownAddress: string | null
 ): { to: EmailAddress[]; cc: EmailAddress[] } => {
   if (mode === "forward" || !last) return { to: [], cc: [] };
-  const sender = usable(last.fromAddress);
-  const to = sender && sender.address !== ownAddress ? [sender] : [];
+  const notOwn = (entry: EmailAddress | null): entry is EmailAddress =>
+    !!entry && entry.address !== ownAddress;
+  // first usable Reply-To (never the account itself), else the sender
+  const replyTo = (last.replyToAddresses || []).map(usable).find(notOwn);
+  const sender = replyTo || usable(last.fromAddress);
+  const to = notOwn(sender) ? [sender] : [];
   if (mode !== "replyAll") return { to, cc: [] };
   const excluded = new Set(to.map(entry => entry.address));
   if (ownAddress) excluded.add(ownAddress);
@@ -281,9 +290,34 @@ const isIdempotencyDuplicate = (error: unknown): boolean => {
 };
 
 // The message already created for this key, on this ticket only.
+// A replayed email still "queued" may have lost its job (process stopped
+// between the commit and the enqueue): it is queued again, unless a send
+// attempt holds the marker or the row is older than the marker's lifetime (a
+// crashed attempt could have sent it). The job id dedupes a job that still
+// exists, and the job itself only sends rows still queued.
+const requeueIfLost = async (existing: EmailMessage): Promise<void> => {
+  const age = Date.now() - new Date(existing.createdAt).getTime();
+  if (
+    existing.sendStatus !== "queued" ||
+    !(age >= 0 && age < SEND_INFLIGHT_TTL_SECONDS * 1000)
+  ) {
+    return;
+  }
+  try {
+    if (await isSendInFlight(existing.id)) return;
+    await enqueueEmailSend(existing.id);
+  } catch {
+    logger.warn(
+      { companyId: existing.companyId, emailMessageId: existing.id },
+      "Could not re-queue replayed email"
+    );
+  }
+};
+
 const replayOf = async (
   ticket: Ticket,
-  idempotencyKey: string
+  idempotencyKey: string,
+  requeue = false
 ): Promise<Message | null> => {
   const existing = await EmailMessage.findOne({
     where: { companyId: ticket.companyId, idempotencyKey }
@@ -298,6 +332,7 @@ const replayOf = async (
     }
   });
   if (!message) throw idempotencyConflict();
+  if (requeue) await requeueIfLost(existing);
   return message;
 };
 
@@ -320,15 +355,21 @@ const loadMessage = (companyId: number, ticketId: number, messageId: string) =>
   });
 
 // Same events as a new message and a ticket update (as IngestEmailService).
-const emitCreated = async (message: Message | null): Promise<void> => {
-  if (!message?.ticket) return;
+// Never throws: the email is already stored and queued.
+const emitCreated = async (
+  companyId: number,
+  ticketId: number,
+  messageId: string
+): Promise<void> => {
   try {
-    if (!(await checkCompanyCompliant(message.companyId))) return;
+    if (!(await checkCompanyCompliant(companyId))) return;
+    const message = await loadMessage(companyId, ticketId, messageId);
+    if (!message?.ticket) return;
     await websocketCreateMessage(message);
     websocketUpdateTicket(message.ticket);
   } catch (err) {
     logger.warn(
-      { ticketId: message.ticketId, error: err?.name },
+      { ticketId, error: err?.name },
       "Could not emit outgoing email"
     );
   }
@@ -363,7 +404,7 @@ const SendEmailService = async ({
     if (!IDEMPOTENCY_KEY_RE.test(idempotencyKey)) {
       throw badRequest("ERR_EMAIL_INVALID_IDEMPOTENCY_KEY");
     }
-    const replay = await replayOf(ticket, idempotencyKey);
+    const replay = await replayOf(ticket, idempotencyKey, true);
     if (replay) return replay;
 
     const account = await EmailAccount.findOne({
@@ -532,8 +573,8 @@ const SendEmailService = async ({
       "Email queued for sending"
     );
 
-    await emitCreated(await loadMessage(companyId, ticket.id, messageId));
-
+    // Enqueued before anything else can fail (outbox): a committed email
+    // always gets its job, or is marked failed.
     try {
       await enqueueEmailSend(emailMessage.id);
     } catch {
@@ -546,6 +587,8 @@ const SendEmailService = async ({
         code: TRANSIENT
       });
     }
+
+    await emitCreated(companyId, ticket.id, messageId);
 
     return Message.findOne({
       where: { id: messageId, ticketId: ticket.id, companyId }

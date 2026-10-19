@@ -70,8 +70,11 @@ jest.mock("../../../utils/logger", () => ({
 
 import ProcessEmailSendJob, {
   SEND_RETRY_DELAYS_MS,
-  sendInflightKey
+  sendInflightKey,
+  sendTimings
 } from "../ProcessEmailSendJob";
+
+sendTimings.sentWriteRetryDelaysMs = [0, 0];
 
 const EM = EmailMessage as any;
 const Account = EmailAccount as any;
@@ -191,9 +194,13 @@ describe("ProcessEmailSendJob", () => {
     });
     expect(options.where.id).toBe(41);
     expect(messageUpdate()[0]).toEqual({ ack: 1, error: null });
+    // live status for the email views, next to the chat message
     expect(emit).toHaveBeenCalledWith("company-7-appMessage", {
       action: "update",
-      message: chatMessage
+      message: chatMessage,
+      emailMessageId: 41,
+      sendStatus: "sent",
+      sendError: null
     });
     // the marker of a finished send is kept: a stalled re-run must not resend
     expect(redis.del).not.toHaveBeenCalled();
@@ -211,6 +218,43 @@ describe("ProcessEmailSendJob", () => {
     expect(redis.set.mock.invocationCallOrder[0]).toBeLessThan(
       adapter.send.mock.invocationCallOrder[0]
     );
+  });
+
+  it("retries the sent write when the database fails after acceptance", async () => {
+    EM.update
+      .mockRejectedValueOnce(new Error("db down"))
+      .mockResolvedValueOnce([1]);
+    await ProcessEmailSendJob(41);
+    expect(adapter.send).toHaveBeenCalledTimes(1);
+    expect(EM.update).toHaveBeenCalledTimes(2);
+    expect(EM.update.mock.calls[1][0].sendStatus).toBe("sent");
+    expect(messageUpdate()[0]).toEqual({ ack: 1, error: null });
+  });
+
+  it("falls back to unknown when the sent write keeps failing, never resending", async () => {
+    EM.update
+      .mockRejectedValueOnce(new Error("db down"))
+      .mockRejectedValueOnce(new Error("db down"))
+      .mockRejectedValueOnce(new Error("db down"))
+      .mockResolvedValueOnce([1]);
+    const scheduleRetry = jest.fn();
+    await expect(
+      ProcessEmailSendJob(41, { scheduleRetry })
+    ).resolves.toBeUndefined();
+    expect(adapter.send).toHaveBeenCalledTimes(1);
+    expect(EM.update).toHaveBeenCalledTimes(4);
+    expect(EM.update.mock.calls[3][0]).toEqual({
+      sendStatus: "unknown",
+      sendError: { code: "ERR_EMAIL_SEND_AMBIGUOUS" }
+    });
+    expect(scheduleRetry).not.toHaveBeenCalled();
+    expect(redis.del).not.toHaveBeenCalled();
+
+    // and does not throw when even that write fails
+    EM.update.mockReset();
+    EM.update.mockRejectedValue(new Error("db down"));
+    await expect(ProcessEmailSendJob(41)).resolves.toBeUndefined();
+    expect(logger.error).toHaveBeenCalled();
   });
 
   it("marks a partial rejection as sent with ERR_EMAIL_PARTIAL_REJECTION", async () => {

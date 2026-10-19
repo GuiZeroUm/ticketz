@@ -6,6 +6,7 @@ import ProcessEmailSendJob from "../../services/EmailServices/ProcessEmailSendJo
 import {
   backoffMs,
   emailQueue,
+  emailSendQueue,
   enqueueAccountSync,
   enqueueEmailSend,
   handleSendJob,
@@ -19,12 +20,18 @@ jest.mock("../../utils/logger", () => ({
   logger: { warn: jest.fn(), info: jest.fn(), error: jest.fn() }
 }));
 jest.mock("bull", () => {
-  const queue = {
-    add: jest.fn().mockResolvedValue({}),
-    process: jest.fn(),
-    on: jest.fn()
+  const queues: Record<string, unknown> = {};
+  return {
+    __esModule: true,
+    default: jest.fn((name: string) => {
+      queues[name] = queues[name] || {
+        add: jest.fn().mockResolvedValue({}),
+        process: jest.fn(),
+        on: jest.fn()
+      };
+      return queues[name];
+    })
   };
-  return { __esModule: true, default: jest.fn(() => queue) };
 });
 jest.mock("../../models/EmailAccount", () => ({
   __esModule: true,
@@ -46,6 +53,7 @@ jest.mock("../../services/EmailServices/ProcessEmailSendJob", () => ({
 const queueCtorCalls = [...jest.requireMock("bull").default.mock.calls];
 const Model = EmailAccount as any;
 const queue = emailQueue as any;
+const sendQueue = emailSendQueue as any;
 const acct = (id: number, companyId: number, over: any = {}) => ({
   id,
   companyId,
@@ -59,6 +67,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   (emailEnabledForCompany as jest.Mock).mockResolvedValue(true);
   queue.add.mockResolvedValue({});
+  sendQueue.add.mockResolvedValue({});
 });
 
 afterEach(() => {
@@ -70,8 +79,11 @@ afterEach(() => {
 describe("EmailSync queue", () => {
   it("is a Bull queue named EmailSync using the runtime prefix", () => {
     expect(queueCtorCalls).toEqual([
-      ["EmailSync", expect.any(String), { prefix: "bull" }]
+      ["EmailSync", expect.any(String), { prefix: "bull" }],
+      ["EmailSend", expect.any(String), { prefix: "bull" }]
     ]);
+    // sends never wait behind sync rounds
+    expect(emailSendQueue).not.toBe(emailQueue);
   });
 
   it("dedupes sync jobs by account", async () => {
@@ -92,7 +104,7 @@ describe("EmailSync queue", () => {
   it("registers the repeatable tick and the processors", () => {
     startEmailQueue();
     const names = queue.process.mock.calls.map((c: any[]) => c[0]);
-    expect(names).toEqual(["EmailSyncTick", "EmailSyncAccount", "EmailSend"]);
+    expect(names).toEqual(["EmailSyncTick", "EmailSyncAccount"]);
     const syncProcess = queue.process.mock.calls.find(
       (c: any[]) => c[0] === "EmailSyncAccount"
     );
@@ -136,7 +148,7 @@ describe("EmailSync queue", () => {
 describe("EmailSend jobs", () => {
   it("queues one send job per email message, never retried by Bull", async () => {
     await enqueueEmailSend(41);
-    expect(queue.add).toHaveBeenCalledWith(
+    expect(sendQueue.add).toHaveBeenCalledWith(
       "EmailSend",
       { emailMessageId: 41, attempt: 0 },
       {
@@ -150,7 +162,7 @@ describe("EmailSend jobs", () => {
 
   it("queues a delayed retry under its own job id", async () => {
     await enqueueEmailSend(41, 2, 120000);
-    expect(queue.add).toHaveBeenCalledWith(
+    expect(sendQueue.add).toHaveBeenCalledWith(
       "EmailSend",
       { emailMessageId: 41, attempt: 2 },
       {
@@ -170,17 +182,23 @@ describe("EmailSend jobs", () => {
     expect(id).toBe(41);
     expect(options.attempt).toBe(1);
     await options.scheduleRetry(2, 120000);
-    expect(queue.add.mock.calls[0][2].jobId).toBe("send-41-retry-2");
-    expect(queue.add.mock.calls[0][2].delay).toBe(120000);
+    expect(sendQueue.add.mock.calls[0][2].jobId).toBe("send-41-retry-2");
+    expect(sendQueue.add.mock.calls[0][2].delay).toBe(120000);
   });
 
   it("registers the send processor with its own concurrency", () => {
     startEmailQueue();
-    const sendProcess = queue.process.mock.calls.find(
+    const sendProcess = sendQueue.process.mock.calls.find(
       (c: any[]) => c[0] === "EmailSend"
     );
     expect(sendProcess[1]).toBe(5);
     expect(sendProcess[2]).toBe(handleSendJob);
+    expect(sendQueue.on).toHaveBeenCalledWith("failed", expect.any(Function));
+    // the sync queue keeps only its own processors and concurrency
+    expect(queue.process.mock.calls.map((c: any[]) => c[0])).toEqual([
+      "EmailSyncTick",
+      "EmailSyncAccount"
+    ]);
   });
 });
 

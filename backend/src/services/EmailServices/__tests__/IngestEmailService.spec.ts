@@ -477,6 +477,7 @@ describe("IngestEmailService", () => {
       subject: "Pedido 123",
       fromAddress: { address: "ana@cliente.com", name: "Ana" },
       toAddresses: [{ address: "suporte@empresa.com" }],
+      replyToAddresses: [],
       sendStatus: null
     });
 
@@ -493,6 +494,16 @@ describe("IngestEmailService", () => {
       })
     );
     expect(counter).toHaveBeenCalledWith(1, "ticket-create");
+  });
+
+  it("stores the Reply-To addresses of an inbound email", async () => {
+    await IngestEmailService(
+      account,
+      mail({ replyTo: [{ address: "vendas@cliente.com", name: "Vendas" }] })
+    );
+    expect(tables.EmailMessage[0].replyToAddresses).toEqual([
+      { address: "vendas@cliente.com", name: "Vendas" }
+    ]);
   });
 
   it("ingests the same providerMessageId once", async () => {

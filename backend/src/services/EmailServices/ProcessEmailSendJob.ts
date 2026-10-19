@@ -64,7 +64,12 @@ type SendRow = Pick<
   "id" | "companyId" | "ticketId" | "messageId"
 >;
 
-const emitMessageUpdate = async (row: SendRow): Promise<void> => {
+// Besides the chat message, the payload carries the email's send status
+// (additive fields: the email views also refetch the thread on any event).
+const emitMessageUpdate = async (
+  row: SendRow,
+  outcome: SendOutcome
+): Promise<void> => {
   try {
     const message = await Message.findOne({
       where: {
@@ -78,7 +83,10 @@ const emitMessageUpdate = async (row: SendRow): Promise<void> => {
       .to(row.ticketId.toString())
       .emit(`company-${row.companyId}-appMessage`, {
         action: "update",
-        message
+        message,
+        emailMessageId: row.id,
+        sendStatus: outcome.sendStatus,
+        sendError: outcome.code ? { code: outcome.code } : null
       });
   } catch (err) {
     logger.warn(
@@ -154,7 +162,7 @@ export const recordSendOutcome = async (
       },
       "Email send status changed"
     );
-    await emitMessageUpdate(row);
+    await emitMessageUpdate(row, outcome);
   }
   return applied;
 };
@@ -199,6 +207,12 @@ const buildOutgoing = async (
   };
 };
 
+// true while a send attempt holds (or a finished/crashed one left) the marker
+export const isSendInFlight = async (
+  emailMessageId: number
+): Promise<boolean> =>
+  (await emailRedis().exists(sendInflightKey(emailMessageId))) > 0;
+
 // true when this run now owns the send; false when another run already did.
 const claimSend = async (emailMessageId: number): Promise<boolean> => {
   const taken = await emailRedis().set(
@@ -217,6 +231,47 @@ const releaseSend = async (emailMessageId: number): Promise<void> => {
   } catch {
     // It expires on its own; a retry within the TTL is then marked unknown.
     logger.warn({ emailMessageId }, "Could not release email send marker");
+  }
+};
+
+// Pauses between the tries of the "sent" write (mutable for tests).
+export const sendTimings = { sentWriteRetryDelaysMs: [1000, 5000] };
+
+const wait = (ms: number) =>
+  new Promise<void>(resolve => {
+    setTimeout(resolve, ms);
+  });
+
+// The server took the email: writing "sent" is retried a few times when the
+// database fails, then "unknown" is written as a best effort (the UI says
+// "not confirmed" instead of a clock forever). Never resends, never throws.
+const recordAccepted = async (
+  row: EmailMessage,
+  outcome: SendOutcome
+): Promise<void> => {
+  const delays = sendTimings.sentWriteRetryDelaysMs;
+  for (let tryNumber = 0; tryNumber <= delays.length; tryNumber += 1) {
+    try {
+      await recordSendOutcome(row, outcome, ["queued", "unknown"]);
+      return;
+    } catch (err) {
+      logger.warn(
+        { companyId: row.companyId, emailMessageId: row.id, error: err?.name },
+        "Could not save sent email status"
+      );
+      if (tryNumber < delays.length) await wait(delays[tryNumber]);
+    }
+  }
+  try {
+    await recordSendOutcome(row, {
+      sendStatus: "unknown",
+      code: SEND_AMBIGUOUS
+    });
+  } catch (err) {
+    logger.error(
+      { companyId: row.companyId, emailMessageId: row.id, error: err?.name },
+      "Email was sent but its status could not be saved"
+    );
   }
 };
 
@@ -404,16 +459,12 @@ const ProcessEmailSendJob = async (
   // The marker stays until it expires: the email is gone, a re-run must not
   // send it again. A confirmed acceptance also replaces an "unknown" written
   // by a duplicate run in the meantime.
-  await recordSendOutcome(
-    row,
-    {
-      sendStatus: "sent",
-      code: result?.rejectedCount > 0 ? PARTIAL_REJECTION : undefined,
-      providerMessageId: result?.providerMessageId,
-      providerThreadId: result?.providerThreadId
-    },
-    ["queued", "unknown"]
-  );
+  await recordAccepted(row, {
+    sendStatus: "sent",
+    code: result?.rejectedCount > 0 ? PARTIAL_REJECTION : undefined,
+    providerMessageId: result?.providerMessageId,
+    providerThreadId: result?.providerThreadId
+  });
 };
 
 export default ProcessEmailSendJob;

@@ -83,6 +83,10 @@ class EmailMessage extends Model<EmailMessage> {
   @Column(DataType.JSONB)
   fromAddress: EmailAddress | null;
 
+  // Reply-To of received emails (null for sends and older rows)
+  @Column(DataType.JSONB)
+  replyToAddresses: EmailAddress[] | null;
+
   @Column(DataType.JSONB)
   toAddresses: EmailAddress[] | null;
 

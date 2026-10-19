@@ -17,6 +17,16 @@ export const emailQueue = new Queue(
   runtimeQueueOptions()
 );
 
+// Sends have their own queue (ruling R24): a backlog of sync rounds never
+// delays a reply, and the sync queue keeps its own concurrency (Bull adds up
+// the concurrency of every processor of a queue and lets any job take any
+// slot).
+export const emailSendQueue = new Queue(
+  "EmailSend",
+  connection,
+  runtimeQueueOptions()
+);
+
 export const SYNC_JOB = "EmailSyncAccount";
 export const TICK_JOB = "EmailSyncTick";
 export const SYNC_CONCURRENCY = 5;
@@ -138,7 +148,7 @@ export const enqueueEmailSend = async (
   attempt = 0,
   delayMs = 0
 ): Promise<void> => {
-  await emailQueue.add(
+  await emailSendQueue.add(
     SEND_JOB,
     { emailMessageId, attempt },
     {
@@ -167,10 +177,14 @@ export const startEmailQueue = (): void => {
     await runEmailSyncTick();
   });
   emailQueue.process(SYNC_JOB, SYNC_CONCURRENCY, handleSyncAccountJob);
-  emailQueue.process(SEND_JOB, SEND_CONCURRENCY, handleSendJob);
   emailQueue.on("completed", handleSyncCompleted);
   emailQueue.on("failed", (job, err) => {
-    logger.warn({ job: job?.name, error: err?.name }, "Email queue job failed");
+    logger.warn({ job: job?.name, error: err?.name }, "Email sync job failed");
+  });
+
+  emailSendQueue.process(SEND_JOB, SEND_CONCURRENCY, handleSendJob);
+  emailSendQueue.on("failed", (job, err) => {
+    logger.warn({ job: job?.name, error: err?.name }, "Email send job failed");
   });
 
   emailQueue

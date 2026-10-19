@@ -15,6 +15,7 @@ import { getIO } from "../../../libs/socket";
 import { websocketCreateMessage } from "../../MessageServices/CreateMessageService";
 import { websocketUpdateTicket } from "../../TicketServices/UpdateTicketService";
 import { assertEmailEnabled } from "../EmailAccessService";
+import emailRedis from "../emailRedis";
 import { MAX_OUTBOUND_ATTACHMENTS_BYTES, MAX_RECIPIENTS } from "../limits";
 
 const mockPrivateDir = fs.mkdtempSync(path.join(os.tmpdir(), "email-out-"));
@@ -72,6 +73,10 @@ jest.mock("../../TicketServices/UpdateTicketService", () => ({
   websocketUpdateTicket: jest.fn()
 }));
 jest.mock("../adapters", () => ({ getAdapter: jest.fn() }));
+jest.mock("../emailRedis", () => {
+  const client = { exists: jest.fn(), set: jest.fn(), del: jest.fn() };
+  return { __esModule: true, default: () => client };
+});
 jest.mock("../../../utils/logger", () => ({
   logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn() }
 }));
@@ -84,6 +89,7 @@ const Attachment = EmailAttachment as any;
 const Msg = Message as any;
 const TicketModel = Ticket as any;
 const emit = jest.fn();
+const redis = (emailRedis as any)();
 
 const ticket = (over: any = {}) =>
   ({
@@ -211,6 +217,7 @@ beforeEach(() => {
   (getIO as jest.Mock).mockReturnValue({ to: () => ({ emit }) });
   createdMessage = null;
   created = null;
+  redis.exists.mockResolvedValue(0);
 });
 
 afterAll(() => {
@@ -219,7 +226,7 @@ afterAll(() => {
 });
 
 describe("SendEmailService", () => {
-  it("reply defaults to Reply-To/From of last inbound and threads with In-Reply-To/References", async () => {
+  it("reply without Reply-To defaults to the From of the last inbound and threads with In-Reply-To/References", async () => {
     const result = await send();
 
     const values = EM.create.mock.calls[0][0];
@@ -270,11 +277,59 @@ describe("SendEmailService", () => {
     expect(enqueueEmailSend).toHaveBeenCalledWith(41);
     expect(websocketCreateMessage).toHaveBeenCalled();
     expect(websocketUpdateTicket).toHaveBeenCalled();
-    // emitted and enqueued only after the transaction
+    // enqueued only after the transaction, and before the emit: a failing
+    // emit can never leave a committed email without its job
     expect(
       (enqueueEmailSend as jest.Mock).mock.invocationCallOrder[0]
     ).toBeGreaterThan(Msg.create.mock.invocationCallOrder[0]);
+    expect(
+      (enqueueEmailSend as jest.Mock).mock.invocationCallOrder[0]
+    ).toBeLessThan(
+      (websocketCreateMessage as jest.Mock).mock.invocationCallOrder[0]
+    );
     expect(result.id).toBe(values.messageId);
+  });
+
+  it("reply defaults to the first usable Reply-To of the last inbound", async () => {
+    inbound = lastInbound({
+      replyToAddresses: [
+        { address: "not an address" },
+        { address: "Vendas@Client.com", name: "Vendas" },
+        { address: "outra@client.com" }
+      ]
+    });
+    await send();
+    expect(EM.create.mock.calls[0][0].toAddresses).toEqual([
+      { address: "vendas@client.com", name: "Vendas" }
+    ]);
+    expect(EM.create.mock.calls[0][0].ccAddresses).toEqual([]);
+  });
+
+  it("replyAll with Reply-To goes to it plus to/cc, minus own address", async () => {
+    inbound = lastInbound({
+      replyToAddresses: [{ address: "vendas@client.com" }],
+      ccAddresses: [
+        { address: "vendas@client.com" },
+        { address: "outro@client.com" }
+      ]
+    });
+    await send({ mode: "replyAll" });
+    const values = EM.create.mock.calls[0][0];
+    expect(values.toAddresses).toEqual([{ address: "vendas@client.com" }]);
+    expect(values.ccAddresses).toEqual([
+      { address: "socio@client.com", name: "Sócio" },
+      { address: "outro@client.com" }
+    ]);
+  });
+
+  it("falls back to From when the Reply-To is only the account itself", async () => {
+    inbound = lastInbound({
+      replyToAddresses: [{ address: "contato@acme.com" }]
+    });
+    await send();
+    expect(EM.create.mock.calls[0][0].toAddresses).toEqual([
+      { address: "cliente@client.com", name: "Cliente" }
+    ]);
   });
 
   it("replyAll includes to/cc minus own address, without duplicates", async () => {
@@ -470,6 +525,39 @@ describe("SendEmailService", () => {
       message: "ERR_EMAIL_IDEMPOTENCY_CONFLICT",
       statusCode: 409
     });
+  });
+
+  it("re-queues a replayed email that is still queued (lost enqueue)", async () => {
+    existingByKey = {
+      id: 40,
+      ticketId: 90,
+      messageId: "old-msg",
+      sendStatus: "queued",
+      createdAt: new Date()
+    };
+    redis.exists.mockResolvedValue(0);
+    await send();
+    expect(enqueueEmailSend).toHaveBeenCalledWith(40);
+    expect(redis.exists).toHaveBeenCalledWith("email:send-inflight:40");
+    expect(EM.create).not.toHaveBeenCalled();
+
+    // never while a send attempt holds the marker, for old rows (marker
+    // expired: a crashed attempt could have sent it) or finished rows
+    (enqueueEmailSend as jest.Mock).mockClear();
+    redis.exists.mockResolvedValue(1);
+    await send();
+    redis.exists.mockResolvedValue(0);
+    existingByKey.createdAt = new Date(Date.now() - 25 * 60 * 60 * 1000);
+    await send();
+    existingByKey.createdAt = new Date();
+    existingByKey.sendStatus = "sent";
+    await send();
+    expect(enqueueEmailSend).not.toHaveBeenCalled();
+
+    // a failing re-enqueue still returns the existing message
+    existingByKey.sendStatus = "queued";
+    (enqueueEmailSend as jest.Mock).mockRejectedValueOnce(new Error("redis"));
+    await expect(send()).resolves.toMatchObject({ id: "old-msg" });
   });
 
   it("returns the winner when a concurrent request with the same key commits first", async () => {

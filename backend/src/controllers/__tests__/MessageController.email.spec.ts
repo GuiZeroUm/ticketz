@@ -188,6 +188,30 @@ describe("MessageController.store", () => {
     expect(SendWhatsAppMedia).not.toHaveBeenCalled();
   });
 
+  it("still blocks official WhatsApp tickets outside the 24h window", async () => {
+    const ticket = {
+      id: 90,
+      companyId: 7,
+      channel: "whatsapp",
+      isGroup: false,
+      contactId: 11,
+      whatsapp: { apiMode: "official" }
+    };
+    (ShowTicketService as jest.Mock).mockResolvedValue(ticket);
+    (ResolveQuotedMessageService as jest.Mock).mockResolvedValue(null);
+    (GetTicketServiceWindowService as jest.Mock).mockResolvedValue({
+      open: false
+    });
+
+    await expect(store(req({ body: "Oi" }), res())).rejects.toMatchObject({
+      message: "ERR_META_WINDOW_CLOSED",
+      statusCode: 403
+    });
+    expect(GetTicketServiceWindowService).toHaveBeenCalledWith(ticket);
+    expect(SendWhatsAppMessage).not.toHaveBeenCalled();
+    expect(SendEmailService).not.toHaveBeenCalled();
+  });
+
   it("keeps WhatsApp tickets on the WhatsApp path", async () => {
     const ticket = {
       id: 90,

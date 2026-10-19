@@ -538,6 +538,7 @@ const IngestEmailService = async (
             .map(fitColumn),
           subject: (email.subject || "").slice(0, SUBJECT_MAX),
           fromAddress: email.from,
+          replyToAddresses: email.replyTo || [],
           toAddresses: email.to || [],
           ccAddresses: email.cc || [],
           htmlSanitized: email.htmlSanitized || null,
