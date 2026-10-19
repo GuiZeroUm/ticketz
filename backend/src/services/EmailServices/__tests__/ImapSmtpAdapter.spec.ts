@@ -15,6 +15,7 @@ import ImapSmtpAdapter, { testImapSmtp } from "../adapters/ImapSmtpAdapter";
 import { getAdapter } from "../adapters";
 import {
   INITIAL_IMPORT_MAX,
+  MAX_HEADERS_FETCH_BYTES,
   MAX_RAW_MESSAGE_BYTES,
   SYNC_BATCH_MAX
 } from "../limits";
@@ -51,6 +52,8 @@ const fakeServer = {
   calls: [] as { method: string; range: unknown; query: unknown }[],
   // runs right after a SEARCH answered, to simulate concurrent changes
   afterSearch: null as null | (() => void),
+  // lets a test add unsolicited or repeated rows to a FETCH stream
+  injectRows: null as null | ((rows: any[]) => any[]),
   connectError: null as Error | null,
   logouts: 0,
   reset() {
@@ -59,6 +62,7 @@ const fakeServer = {
     this.opened = [];
     this.calls = [];
     this.afterSearch = null;
+    this.injectRows = null;
     this.connectError = null;
     this.logouts = 0;
   }
@@ -167,30 +171,22 @@ jest.mock("imapflow", () => ({
 
     async *fetch(
       range: string,
-      query: { headers?: boolean; source?: boolean | { maxLength?: number } }
+      query: { source?: boolean | { maxLength?: number } }
     ) {
       fakeServer.calls.push({ method: "fetch", range, query });
-      for (const m of this.select(range)) {
-        const base = {
-          uid: m.uid,
-          internalDate: m.internalDate,
-          flags: new Set(m.flags || [])
-        };
-        if (query.headers) {
-          const text = m.source.toString("latin1");
-          const end = text.indexOf("\r\n\r\n");
-          yield {
-            ...base,
-            headers: Buffer.from(`${text.slice(0, end)}\r\n\r\n`, "latin1")
-          };
-        } else {
-          const limit =
-            typeof query.source === "object" ? query.source.maxLength : 0;
-          yield {
-            ...base,
-            source: limit ? m.source.subarray(0, limit) : m.source
-          };
-        }
+      const limit =
+        typeof query.source === "object" ? query.source.maxLength : 0;
+      const rows = this.select(range).map(m => ({
+        uid: m.uid,
+        internalDate: m.internalDate,
+        flags: new Set(m.flags || []),
+        source: limit ? m.source.subarray(0, limit) : m.source
+      }));
+
+      for (const row of fakeServer.injectRows
+        ? fakeServer.injectRows(rows)
+        : rows) {
+        yield row;
       }
     }
   }
@@ -401,7 +397,7 @@ describe("ImapSmtpAdapter.fetchChanges", () => {
     const [meta, body] = fakeServer.calls;
     expect(meta.method).toBe("fetchAll");
     expect(meta.range).toEqual({ since: expect.any(Date) });
-    expect(body).toMatchObject({ method: "fetch", range: "1:40" });
+    expect(body).toMatchObject({ method: "fetch", range: "1:10" });
     expect(JSON.stringify(fakeServer.calls)).not.toContain("1,2,3");
   });
 
@@ -539,7 +535,9 @@ describe("ImapSmtpAdapter.fetchChanges", () => {
       maxLength: MAX_RAW_MESSAGE_BYTES
     });
     expect(fetches[1]).toMatchObject({ range: "1" });
-    expect((fetches[1].query as any).headers).toBe(true);
+    expect((fetches[1].query as any).source).toEqual({
+      maxLength: MAX_HEADERS_FETCH_BYTES
+    });
     expect(result.emails.map(e => e.providerMessageId)).toEqual([
       "INBOX:1:1",
       "INBOX:1:2"
@@ -595,6 +593,134 @@ describe("ImapSmtpAdapter.fetchChanges", () => {
     });
   });
 
+  it("charges the bytes really downloaded when the reported sizes are understated", async () => {
+    const body = Buffer.concat([
+      raw("big", "carla@cliente.com", "Content-Type: text/plain\r\n"),
+      Buffer.alloc(20 * 1024 * 1024, "a")
+    ] as any);
+    fakeServer.folders.INBOX = {
+      uidValidity: 1n,
+      uidNext: 6,
+      messages: [1, 2, 3, 4, 5].map(uid => ({
+        uid,
+        internalDate: hoursAgo(1),
+        source: body,
+        size: 100
+      }))
+    };
+    const cursor = { folders: { INBOX: { uidValidity: "1", lastUid: 0 } } };
+
+    const first = await adapter.fetchChanges(makeAccount(cursor));
+
+    // 3 x 20 MB fit in the 64 MB round, the 4th is discarded and read again
+    expect(first.emails.map(e => e.providerMessageId)).toEqual([
+      "INBOX:1:1",
+      "INBOX:1:2",
+      "INBOX:1:3"
+    ]);
+    expect(first.hasMore).toBe(true);
+    expect(first.cursor).toEqual({
+      folders: { INBOX: { uidValidity: "1", lastUid: 3 } }
+    });
+
+    const second = await adapter.fetchChanges(makeAccount(first.cursor));
+    expect(second.emails.map(e => e.providerMessageId)).toEqual([
+      "INBOX:1:4",
+      "INBOX:1:5"
+    ]);
+    expect(second.hasMore).toBe(false);
+  }, 60000);
+
+  it("fetches in small UID batches", async () => {
+    const messages: FakeMessage[] = [];
+    for (let i = 1; i <= 25; i += 1) messages.push(msg(i, 1));
+    fakeServer.folders.INBOX = { uidValidity: 1n, uidNext: 26, messages };
+    const cursor = { folders: { INBOX: { uidValidity: "1", lastUid: 0 } } };
+    const result = await adapter.fetchChanges(makeAccount(cursor));
+    expect(result.emails).toHaveLength(25);
+    expect(
+      fakeServer.calls.filter(c => c.method === "fetch").map(c => c.range)
+    ).toEqual(["1:10", "11:20", "21:25"]);
+  });
+
+  it("ignores unsolicited and repeated FETCH rows", async () => {
+    fakeServer.folders.INBOX = {
+      uidValidity: 1n,
+      uidNext: 4,
+      messages: [
+        msg(1, 1),
+        msg(2, 1),
+        {
+          uid: 3,
+          internalDate: hoursAgo(1),
+          source: raw(
+            "big",
+            "carla@cliente.com",
+            "Content-Type: text/plain\r\n"
+          ),
+          size: 80 * 1024 * 1024
+        }
+      ]
+    };
+    fakeServer.injectRows = rows => [
+      rows[0],
+      rows[0],
+      { ...rows[0], uid: 99 },
+      ...rows.slice(1),
+      rows[rows.length - 1]
+    ];
+    const cursor = { folders: { INBOX: { uidValidity: "1", lastUid: 0 } } };
+
+    const result = await adapter.fetchChanges(makeAccount(cursor));
+
+    expect(result.emails.map(e => e.providerMessageId)).toEqual([
+      "INBOX:1:1",
+      "INBOX:1:2",
+      "INBOX:1:3"
+    ]);
+    expect(result.cursor).toEqual({
+      folders: { INBOX: { uidValidity: "1", lastUid: 3 } }
+    });
+  });
+
+  it("reads only a bounded prefix for headers-only messages, however long the headers", async () => {
+    const padding = Array.from(
+      { length: 4000 },
+      (_, i) => `X-Pad-${i}: ${"a".repeat(40)}\r\n`
+    ).join("");
+    const lying = Buffer.from(
+      `From: Carla <carla@cliente.com>\r\nTo: loja@empresa.com\r\n` +
+        `Subject: Cabecalho longo\r\nMessage-ID: <long@cliente.com>\r\n${padding}\r\ncorpo`
+    );
+    expect(lying.length).toBeGreaterThan(MAX_HEADERS_FETCH_BYTES);
+    fakeServer.folders.INBOX = {
+      uidValidity: 1n,
+      uidNext: 2,
+      messages: [
+        {
+          uid: 1,
+          internalDate: hoursAgo(1),
+          source: lying,
+          size: 80 * 1024 * 1024
+        }
+      ]
+    };
+    const cursor = { folders: { INBOX: { uidValidity: "1", lastUid: 0 } } };
+
+    const result = await adapter.fetchChanges(makeAccount(cursor));
+
+    expect(fakeServer.calls.filter(c => c.method === "fetch")).toHaveLength(1);
+    expect(
+      (fakeServer.calls.find(c => c.method === "fetch")!.query as any).source
+    ).toEqual({ maxLength: MAX_HEADERS_FETCH_BYTES });
+    expect(result.emails[0]).toMatchObject({
+      subject: "Cabecalho longo",
+      internetMessageId: "<long@cliente.com>",
+      text: ""
+    });
+    expect(result.emails[0].flags).toContain("oversize");
+  });
+
   it("imports an oversize message as headers only, flagged oversize", async () => {
     const MB = 1024 * 1024;
     const big = raw("big", "carla@cliente.com", "Content-Type: text/plain\r\n");
@@ -637,7 +763,9 @@ describe("ImapSmtpAdapter.fetchChanges", () => {
     expect(result.emails[0].flags).not.toContain("oversize");
     // the full body of the big message is never requested
     const bodyFetches = fakeServer.calls.filter(
-      c => c.method === "fetch" && (c.query as any).source
+      c =>
+        c.method === "fetch" &&
+        (c.query as any).source?.maxLength === MAX_RAW_MESSAGE_BYTES
     );
     expect(bodyFetches.map(c => c.range)).toEqual(["1,3"]);
   });

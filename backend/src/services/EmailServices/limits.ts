@@ -13,3 +13,5 @@ export const MAX_RAW_MESSAGE_BYTES =
   MAX_INBOUND_ATTACHMENTS_BYTES + MAX_HTML_BYTES;
 // Raw bytes one sync round may download (at least one message is always taken).
 export const SYNC_ROUND_MAX_BYTES = 64 * 1024 * 1024;
+// Prefix requested to read the headers of a message that is too large to import.
+export const MAX_HEADERS_FETCH_BYTES = 64 * 1024;

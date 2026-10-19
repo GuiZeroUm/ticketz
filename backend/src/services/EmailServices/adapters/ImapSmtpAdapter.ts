@@ -9,6 +9,7 @@ import { logger } from "../../../utils/logger";
 import {
   INITIAL_IMPORT_HOURS,
   INITIAL_IMPORT_MAX,
+  MAX_HEADERS_FETCH_BYTES,
   MAX_RAW_MESSAGE_BYTES,
   SYNC_BATCH_MAX,
   SYNC_ROUND_MAX_BYTES
@@ -224,7 +225,13 @@ type FolderResult = {
 };
 
 // What one sync round may still take, shared by every folder of the round.
-type RoundBudget = { messages: number; bytes: number; taken: number };
+type RoundBudget = {
+  messages: number;
+  bytes: number;
+  taken: number;
+  // messages actually imported (the first one is always allowed, any size)
+  delivered: number;
+};
 
 type MessageMeta = { uid: number; size: number };
 
@@ -247,6 +254,27 @@ const toRanges = (uids: number[]): string => {
   });
   parts.push(from === to ? `${from}` : `${from}:${to}`);
   return parts.join(",");
+};
+
+// Messages downloaded per FETCH; the budget is re-checked between batches.
+const FETCH_BATCH_SIZE = 10;
+
+const chunk = <T>(items: T[], size: number): T[][] => {
+  const result: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    result.push(items.slice(i, i + size));
+  }
+  return result;
+};
+
+// The header block of a (possibly truncated) message prefix. A header block cut
+// by the prefix limit loses its last, partial line.
+const headerBlock = (prefix: Buffer): Buffer => {
+  const text = prefix.toString("latin1");
+  const end = text.search(/\r?\n\r?\n/);
+  const block =
+    end >= 0 ? text.slice(0, end) : text.slice(0, text.lastIndexOf("\n") + 1);
+  return Buffer.from(`${block}\r\n\r\n`, "latin1");
 };
 
 const isOversize = (size: number) => size > MAX_RAW_MESSAGE_BYTES;
@@ -414,12 +442,10 @@ const syncFolder = async (
       return { emails: [], cursor: previous, hasMore: true };
     }
 
-    const normal = selected.filter(m => !isOversize(m.size));
-    // Known to be too large, or found truncated below.
-    const oversizeUids = selected
-      .filter(m => isOversize(m.size))
-      .map(m => m.uid);
-    const imported: { uid: number; email: NormalizedEmail }[] = [];
+    const sizeOf = new Map(selected.map(m => [m.uid, m.size]));
+    // Account for what really crossed the wire, not what the server claimed.
+    const chargeExtra = (uid: number, actual: number) =>
+      Math.max(0, actual - weightOf(sizeOf.get(uid)));
 
     const normalize = (
       message: FetchedMessage,
@@ -436,38 +462,133 @@ const syncFolder = async (
         });
       });
 
-    // Each source is parsed as it arrives and dropped, so only one raw message
-    // is held at a time.
-    if (normal.length) {
+    // uid -> email, or null for a message skipped because it cannot be parsed
+    const done = new Map<number, NormalizedEmail | null>();
+    // Every UID of a batch whose stream ended normally is settled (a UID that
+    // never came back was expunged); in the batch where the round stopped only
+    // the messages actually received are.
+    const settled = new Set<number>();
+    let stoppedEarly = false;
+
+    // Headers only: a bounded prefix of the message, cut at the header block.
+    const importHeadersOnly = async (uids: number[]) => {
+      if (!uids.length) return;
+      const wanted = new Set(uids);
+      const seen = new Set<number>();
       // eslint-disable-next-line no-restricted-syntax
       for await (const message of client.fetch(
-        toRanges(normal.map(m => m.uid)),
+        toRanges(uids),
         {
           uid: true,
           flags: true,
           internalDate: true,
-          // The reported size can be missing or understated: never download
-          // more than the cap, whatever the server claimed.
-          source: { maxLength: MAX_RAW_MESSAGE_BYTES }
+          source: { maxLength: MAX_HEADERS_FETCH_BYTES }
         },
         { uid: true }
       )) {
-        if (message.source && message.source.length >= MAX_RAW_MESSAGE_BYTES) {
-          // Cut at the cap: the body is incomplete, import headers only.
-          oversizeUids.push(message.uid);
-        } else if (message.source) {
-          try {
-            imported.push({
-              uid: message.uid,
-              email: await normalize(
+        // imapflow passes unsolicited and repeated rows through
+        if (wanted.has(message.uid) && !seen.has(message.uid)) {
+          seen.add(message.uid);
+          if (message.source) {
+            budget.bytes -= chargeExtra(message.uid, message.source.length);
+            try {
+              const email = await normalize(
                 message,
-                message.source,
-                Array.from(message.flags || [])
-              )
-            });
+                headerBlock(message.source),
+                [...Array.from(message.flags || []), "oversize"]
+              );
+              done.set(message.uid, {
+                ...email,
+                text: "",
+                htmlSanitized: undefined,
+                attachments: []
+              });
+              settled.add(message.uid);
+            } catch {
+              done.set(message.uid, null);
+              settled.add(message.uid);
+              logger.warn(
+                { accountId, folder: folder.path, uid: message.uid },
+                "email imap: message headers could not be parsed, skipped"
+              );
+            }
+          }
+        }
+      }
+    };
+
+    // Small batches: the budget is re-checked with real byte counts between
+    // them, so a lying size can overshoot by at most one message.
+    // eslint-disable-next-line no-restricted-syntax
+    for (const batch of chunk(selected, FETCH_BATCH_SIZE)) {
+      if (stoppedEarly) break;
+      if (budget.delivered > 0 && budget.bytes <= 0) {
+        stoppedEarly = true;
+        break;
+      }
+      const batchUids = batch.map(m => m.uid);
+      const known = batch.filter(m => isOversize(m.size)).map(m => m.uid);
+      // Too large to import whole: keep the envelope so the conversation shows
+      // it, flagged "oversize", without body or attachments.
+
+      await importHeadersOnly(known);
+
+      const normal = batch.filter(m => !isOversize(m.size)).map(m => m.uid);
+      const truncated: number[] = [];
+      const seen = new Set<number>();
+      if (normal.length) {
+        // eslint-disable-next-line no-restricted-syntax
+        for await (const message of client.fetch(
+          toRanges(normal),
+          {
+            uid: true,
+            flags: true,
+            internalDate: true,
+            // The reported size can be missing or understated: never download
+            // more than the cap, whatever the server claimed.
+            source: { maxLength: MAX_RAW_MESSAGE_BYTES }
+          },
+          { uid: true }
+        )) {
+          if (
+            !normal.includes(message.uid) ||
+            seen.has(message.uid) ||
+            !message.source
+          ) {
+            // unsolicited or repeated row (imapflow passes them through)
+
+            continue;
+          }
+          seen.add(message.uid);
+          const extra = chargeExtra(message.uid, message.source.length);
+          if (message.source.length >= MAX_RAW_MESSAGE_BYTES) {
+            // Cut at the cap: the body is incomplete, import headers only.
+            budget.bytes -= extra;
+            truncated.push(message.uid);
+            settled.add(message.uid);
+
+            continue;
+          }
+          if (budget.delivered > 0 && budget.bytes - extra < 0) {
+            // Real size does not fit in what is left of the round: discard it
+            // (it is read again next round) and stop.
+            stoppedEarly = true;
+            break;
+          }
+          budget.bytes -= extra;
+          settled.add(message.uid);
+          try {
+            const email = await normalize(
+              message,
+              message.source,
+              Array.from(message.flags || [])
+            );
+            done.set(message.uid, email);
+            budget.delivered += 1;
           } catch {
             // A message that cannot be parsed would otherwise block the folder
             // forever; skip it (the cursor moves past its UID).
+            done.set(message.uid, null);
             logger.warn(
               { accountId, folder: folder.path, uid: message.uid },
               "email imap: message could not be parsed, skipped"
@@ -475,52 +596,39 @@ const syncFolder = async (
           }
         }
       }
+
+      await importHeadersOnly(truncated);
+      truncated.forEach(uid => {
+        if (done.has(uid)) budget.delivered += 1;
+      });
+
+      if (!stoppedEarly) batchUids.forEach(uid => settled.add(uid));
     }
 
-    // Too large to import whole: keep the envelope so the conversation shows
-    // it, flagged "oversize", without body or attachments.
-    if (oversizeUids.length) {
+    // The cursor can only cover a contiguous run of settled messages.
+    let lastSettled: number | undefined;
+    if (stoppedEarly) {
       // eslint-disable-next-line no-restricted-syntax
-      for await (const message of client.fetch(
-        toRanges(sortedUnique(oversizeUids)),
-        { uid: true, flags: true, internalDate: true, headers: true },
-        { uid: true }
-      )) {
-        if (message.headers) {
-          try {
-            const email = await normalize(message, message.headers, [
-              ...Array.from(message.flags || []),
-              "oversize"
-            ]);
-            imported.push({
-              uid: message.uid,
-              email: {
-                ...email,
-                text: "",
-                htmlSanitized: undefined,
-                attachments: []
-              }
-            });
-          } catch {
-            logger.warn(
-              { accountId, folder: folder.path, uid: message.uid },
-              "email imap: message headers could not be parsed, skipped"
-            );
-          }
-        }
+      for (const m of selected) {
+        if (!settled.has(m.uid)) break;
+        lastSettled = m.uid;
       }
     }
+    const emails = Array.from(done.entries())
+      .filter(([uid]) => lastSettled === undefined || uid <= lastSettled)
+      .sort((x, y) => x[0] - y[0])
+      .map(([, email]) => email)
+      .filter((email): email is NormalizedEmail => email !== null);
 
-    imported.sort((a, b) => a.uid - b.uid);
+    let lastUid: number;
+    if (stoppedEarly) lastUid = lastSettled ?? selected[0].uid - 1;
+    else if (cut) lastUid = selected[selected.length - 1].uid;
+    else lastUid = candidatesEnd;
+
     return {
-      emails: imported.map(item => item.email),
-      cursor: {
-        uidValidity,
-        // When the round stopped early the cursor stays right after the last
-        // message taken; otherwise it moves past everything considered.
-        lastUid: cut ? selected[selected.length - 1].uid : candidatesEnd
-      },
-      hasMore: cut || moreBeyondCandidates
+      emails,
+      cursor: { uidValidity, lastUid },
+      hasMore: cut || stoppedEarly || moreBeyondCandidates
     };
   } finally {
     lock.release();
@@ -665,7 +773,8 @@ export class ImapSmtpAdapter implements EmailProviderAdapter {
       const budget: RoundBudget = {
         messages: SYNC_BATCH_MAX,
         bytes: SYNC_ROUND_MAX_BYTES,
-        taken: 0
+        taken: 0,
+        delivered: 0
       };
       let hasMore = false;
 
