@@ -9,8 +9,13 @@ export const EMAIL_ACCOUNT_BLOCKED_STATUSES = ["reauth_required", "disabled"];
 
 export const isEmailTicket = ticket => ticket?.channel === "email";
 
+// Interpolated values are names, addresses and subjects rendered by React,
+// which already escapes them; i18next escaping would show "&amp;".
 export const ti = (key, options) =>
-  i18n.t(`emailChannel.inbox.${key}`, options);
+  i18n.t(
+    `emailChannel.inbox.${key}`,
+    options ? { ...options, interpolation: { escapeValue: false } } : undefined
+  );
 
 export const tiCount = (key, count) =>
   ti(`${key}.${count === 1 ? "one" : "other"}`, { count });
@@ -106,18 +111,19 @@ export const formatFileSize = bytes => {
   })} ${units[unit]}`;
 };
 
-const PREFIX_PATTERN = /^\s*(re|res|fw|fwd|enc)\s*:\s*/i;
+// Same prefixes as threading.ts on the backend (Re/Res/AW/SV, Fwd/Fw/Enc/WG).
+const REPLY_PREFIX = /^\s*(?:re|res|aw|sv)(?:\s*\[\d+\])?\s*:/i;
+const FORWARD_PREFIX = /^\s*(?:fwd|fw|enc|wg)\s*:/i;
 
 // Same rule as replySubject on the backend: add the prefix once, never stack.
 export const replySubject = (subject, mode) => {
   const base = String(subject || "").trim();
+  const forward = mode === "forward";
+  if ((forward ? FORWARD_PREFIX : REPLY_PREFIX).test(base)) return base;
   const prefix = ti(
-    mode === "forward" ? "composer.forwardPrefix" : "composer.replyPrefix"
+    forward ? "composer.forwardPrefix" : "composer.replyPrefix"
   );
-  const wanted = mode === "forward" ? /^(fw|fwd|enc)$/i : /^(re|res)$/i;
-  const match = base.match(PREFIX_PATTERN);
-  if (match && wanted.test(match[1])) return base;
-  return base ? `${prefix} ${base}` : prefix;
+  return `${prefix} ${base}`.trim();
 };
 
 const lastInbound = messages => {

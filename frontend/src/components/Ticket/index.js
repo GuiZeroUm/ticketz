@@ -325,7 +325,7 @@ const Ticket = () => {
         <TicketHeader loading={loading}>
           {renderTicketInfo()}
           <div className="conversa-cabecalho-acoes">
-            {!loading && isEmailTicket(ticket) && (
+            {!loading && isEmailTicket(ticket) && ticket.emailAccount && (
               <EmailChannelPill account={ticket.emailAccount} />
             )}
             <BotaoIcone
