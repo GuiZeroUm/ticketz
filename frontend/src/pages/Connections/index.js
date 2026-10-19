@@ -367,8 +367,9 @@ const Connections = () => {
     account: null
   });
 
-  // Google OAuth comes back to /connections?email=pending&handle=... (or
-  // ?email=error&code=...). src/index.js takes that result off the URL before
+  // Google OAuth comes back to /connections#email=pending&handle=... (or
+  // #email=error&code=...; older backends used the query string).
+  // src/index.js takes that result off the URL before
   // the app renders (the query does not survive the auth redirects); once
   // availability is known it is consumed here, exactly once: a pending
   // handle is finished with POST /email/oauth/google/finish (ruling R27).
