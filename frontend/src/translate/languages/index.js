@@ -20,6 +20,7 @@ import { agentContextManagementMessages } from "./agentContextManagement";
 import { welcomeTourMessages } from "./welcomeTour";
 import { mobileLoginMessages } from "./mobileLogin";
 import { documentationMessages } from "./documentation";
+import { emailChannelMessages } from "./emailChannel";
 
 const mergeTranslations = (base, extra) => {
   const result = { ...base };
@@ -55,7 +56,8 @@ const messages = {
   agentContextManagementMessages,
   welcomeTourMessages,
   mobileLoginMessages,
-  documentationMessages
+  documentationMessages,
+  emailChannelMessages
 ].forEach(overlay => {
   Object.entries(overlay).forEach(([language, extra]) => {
     messages[language].translations = mergeTranslations(

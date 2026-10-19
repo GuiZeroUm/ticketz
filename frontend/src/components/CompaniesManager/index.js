@@ -113,6 +113,7 @@ export function CompanyForm(props) {
     status: true,
     campaignsEnabled: false,
     voiceCallsEnabled: false,
+    emailChannelEnabled: false,
     dueDate: initialDueDate(),
     trialDays: 0,
     dueDay: Number(moment(initialDueDate()).format("D")),
@@ -446,6 +447,27 @@ export function CompanyForm(props) {
                   </Field>
                 </FormControl>
               </Grid>
+              <Grid xs={12} sm={6} md={2} item>
+                <FormControl margin="dense" variant="outlined" fullWidth>
+                  <InputLabel htmlFor="email-channel-selection">
+                    {i18n.t("emailChannel.companies.enabled")}
+                  </InputLabel>
+                  <Field
+                    as={Select}
+                    id="email-channel-selection"
+                    label={i18n.t("emailChannel.companies.enabled")}
+                    name="emailChannelEnabled"
+                    margin="dense"
+                  >
+                    <MenuItem value={true}>
+                      {i18n.t("emailChannel.companies.on")}
+                    </MenuItem>
+                    <MenuItem value={false}>
+                      {i18n.t("emailChannel.companies.off")}
+                    </MenuItem>
+                  </Field>
+                </FormControl>
+              </Grid>
               {billingManagedInCentral ? (
                 <Grid xs={12} item>
                   <Typography variant="body2" color="textSecondary">
@@ -717,6 +739,13 @@ export function CompaniesManagerGrid(props) {
       : i18n.t("voiceCalls.disabled");
   };
 
+  const renderEmailChannelStatus = row => {
+    const setting = row.settings?.find(s => s.key === "emailChannelEnabled");
+    return setting?.value === "true"
+      ? i18n.t("emailChannel.companies.on")
+      : i18n.t("emailChannel.companies.off");
+  };
+
   const rowClass = record => {
     if (moment(record.dueDate).isValid()) {
       const now = moment();
@@ -755,6 +784,9 @@ export function CompaniesManagerGrid(props) {
             <TableCell align="left">
               {i18n.t("voiceCalls.companySwitch")}
             </TableCell>
+            <TableCell align="left">
+              {i18n.t("emailChannel.companies.enabled")}
+            </TableCell>
             <TableCell align="left">Status</TableCell>
             <TableCell align="left">Criada Em</TableCell>
             <TableCell align="left">Vencimento</TableCell>
@@ -785,6 +817,9 @@ export function CompaniesManagerGrid(props) {
               </TableCell>
               <TableCell align="left" style={{ color: "unset" }}>
                 {renderVoiceStatus(row)}
+              </TableCell>
+              <TableCell align="left" style={{ color: "unset" }}>
+                {renderEmailChannelStatus(row)}
               </TableCell>
               <TableCell align="left" style={{ color: "unset" }}>
                 {renderStatus(row)}
@@ -825,6 +860,7 @@ export default function CompaniesManager() {
     status: true,
     campaignsEnabled: false,
     voiceCallsEnabled: false,
+    emailChannelEnabled: false,
     dueDate: initialDueDate(),
     trialDays: 0,
     dueDay: Number(moment(initialDueDate()).format("D")),
@@ -864,6 +900,7 @@ export default function CompaniesManager() {
       }
       await loadPlans();
       handleCancel();
+      window.dispatchEvent(new Event("email-availability-changed"));
       toast.success("Operação realizada com sucesso!");
     } catch (e) {
       toast.error(
@@ -912,6 +949,7 @@ export default function CompaniesManager() {
       status: true,
       campaignsEnabled: false,
       voiceCallsEnabled: false,
+      emailChannelEnabled: false,
       dueDate: initialDueDate(),
       trialDays: 0,
       dueDay: Number(moment(initialDueDate()).format("D")),
@@ -926,6 +964,7 @@ export default function CompaniesManager() {
   const handleSelect = data => {
     let campaignsEnabled = false;
     let voiceCallsEnabled = false;
+    let emailChannelEnabled = false;
 
     const setting = (data.settings || []).find(
       s => s.key.indexOf("campaignsEnabled") > -1
@@ -940,6 +979,12 @@ export default function CompaniesManager() {
     if (voiceSetting) {
       voiceCallsEnabled = voiceSetting.value === "true";
     }
+    const emailSetting = (data.settings || []).find(
+      s => s.key === "emailChannelEnabled"
+    );
+    if (emailSetting) {
+      emailChannelEnabled = emailSetting.value === "true";
+    }
 
     setRecord(prev => ({
       ...prev,
@@ -953,6 +998,7 @@ export default function CompaniesManager() {
       status: data.status === false ? false : true,
       campaignsEnabled,
       voiceCallsEnabled,
+      emailChannelEnabled,
       dueDate: data.dueDate || "",
       trialDays: data.trialDays ?? 0,
       dueDay:
