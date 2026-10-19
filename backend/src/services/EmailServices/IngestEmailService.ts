@@ -23,6 +23,7 @@ import {
 import FindOrCreateEmailContactService from "./FindOrCreateEmailContactService";
 import FindOrCreateEmailTicketService from "./FindOrCreateEmailTicketService";
 import { MAX_REFERENCES, SUBJECT_FALLBACK_DAYS } from "./limits";
+import { contactFormSender } from "./selfAddress";
 import { normalizeSubject } from "./threading";
 import { EmailAddress, NormalizedEmail } from "./types";
 
@@ -544,14 +545,15 @@ const IngestEmailService = async (
 
   // 1b'. mail in the inbox from the mailbox's own address (ruling R35):
   //  (a) a copy of one of our sends is reconciled, like the Sent copy;
-  //  (b) a contact form (From = To = mailbox, Reply-To = visitor) is normal
-  //      inbound mail whose counterpart is the first Reply-To that is not the
-  //      mailbox;
-  //  (c) anything else (a self-test) is dropped: never a contact or a ticket
-  //      for the mailbox itself, and a From header is easy to forge, so it
-  //      never joins a thread as if we had sent it.
+  //  (b) a contact form (From = mailbox, mailbox in To, Reply-To = visitor)
+  //      is normal inbound mail whose counterpart is the visitor
+  //      (contactFormSender);
+  //  (c) anything else (a self-test, a copy of staff mail where the mailbox
+  //      is only in Cc/Bcc) is dropped: never a contact or a ticket for the
+  //      mailbox itself, and a From header is easy to forge, so it never
+  //      joins a thread as if we had sent it.
   const ownAddress = normalizeEmailAddress(account.address);
-  let replyToCounterpart: { address: string; name?: string } | null = null;
+  let replyToCounterpart: EmailAddress | null = null;
   if (
     email.direction === "in" &&
     ownAddress &&
@@ -561,13 +563,7 @@ const IngestEmailService = async (
       ? await reconcileOutbound(account, email)
       : null;
     if (reconciled) return reconciled;
-    replyToCounterpart =
-      (email.replyTo || [])
-        .map(entry => ({
-          address: normalizeEmailAddress(entry?.address) || "",
-          name: entry?.name
-        }))
-        .find(entry => entry.address && entry.address !== ownAddress) || null;
+    replyToCounterpart = contactFormSender(email, account.address);
     if (!replyToCounterpart) return ignored(account, "self_address");
   }
 

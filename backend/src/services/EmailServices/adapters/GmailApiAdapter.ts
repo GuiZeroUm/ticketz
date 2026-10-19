@@ -25,6 +25,7 @@ import {
   SYNC_ROUND_MAX_BYTES
 } from "../limits";
 import normalizeParsedMail from "../normalizeParsedMail";
+import { contactFormSender } from "../selfAddress";
 import type { NormalizedEmail, OutgoingEmail } from "../types";
 import type { EmailCursor, EmailProviderAdapter } from "./EmailProviderAdapter";
 import {
@@ -346,7 +347,8 @@ class GmailSyncRound {
 
   constructor(
     private readonly api: GmailApi,
-    private readonly accountId: number
+    private readonly accountId: number,
+    private readonly accountAddress: string
   ) {}
 
   private exhausted(): boolean {
@@ -577,7 +579,7 @@ class GmailSyncRound {
     ) {
       parsed.date = internal;
     }
-    return normalizeParsedMail(parsed, {
+    const email = normalizeParsedMail(parsed, {
       accountId: this.accountId,
       // Sent from the mailbox (here or in Gmail): the ingestion only lets it
       // into a thread that already has a ticket.
@@ -587,6 +589,17 @@ class GmailSyncRound {
       flags: [...meta.labelIds, ...extraFlags],
       ...(meta.internalDate ? { internalDate: internal } : {})
     });
+    // A contact form sent through the account's own SMTP lands with SENT and
+    // INBOX. IMAP sees its INBOX copy as inbound mail; so does Gmail now, and
+    // the ingestion's ruling R35(b) makes the Reply-To person the contact.
+    if (
+      email.direction === "out" &&
+      meta.labelIds.includes("INBOX") &&
+      contactFormSender(email, this.accountAddress)
+    ) {
+      return { ...email, direction: "in" };
+    }
+    return email;
   }
 
   private async parseOrSkip(
@@ -710,7 +723,11 @@ export class GmailApiAdapter implements EmailProviderAdapter {
   }> {
     const client = getGmailAuthClient(account);
     this.roundClients.set(account, client);
-    const round = new GmailSyncRound(gmailApiFor(client), account.id);
+    const round = new GmailSyncRound(
+      gmailApiFor(client),
+      account.id,
+      account.address
+    );
     try {
       const { cursor, hasMore } = await round.run(
         parseCursor(account.getDataValue("syncCursor"))

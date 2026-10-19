@@ -935,6 +935,51 @@ describe("IngestEmailService", () => {
       expect(second.ticketId).toBe(first.ticketId);
     });
 
+    it("ignores a self-From copy where the mailbox is only in Cc (staff writing from another client)", async () => {
+      const result = await IngestEmailService(
+        account,
+        fromSelf({
+          to: [{ address: "cliente@fora.com" }],
+          cc: [{ address: "suporte@empresa.com" }],
+          replyTo: [{ address: "pessoal@gmail.com" }]
+        })
+      );
+      expect(result).toEqual({ status: "ignored" });
+      expect(findContact).not.toHaveBeenCalled();
+      expect(tables.Ticket).toHaveLength(0);
+    });
+
+    it("ignores a self-From copy that reached the mailbox only by Bcc", async () => {
+      const result = await IngestEmailService(
+        account,
+        fromSelf({
+          to: [{ address: "cliente@fora.com" }],
+          cc: [],
+          replyTo: [{ address: "pessoal@gmail.com" }]
+        })
+      );
+      expect(result).toEqual({ status: "ignored" });
+      expect(tables.Ticket).toHaveLength(0);
+    });
+
+    it("accepts the contact-form shape with the mailbox among several To addresses", async () => {
+      findContact.mockResolvedValueOnce({ id: 78 });
+      const result = await IngestEmailService(
+        account,
+        fromSelf({
+          to: [
+            { address: "vendas@empresa.com" },
+            { address: "SUPORTE@empresa.com" }
+          ],
+          replyTo: [{ address: "visitante@site.com" }]
+        })
+      );
+      expect(result).toMatchObject({ status: "created" });
+      expect(findContact).toHaveBeenCalledWith(
+        expect.objectContaining({ address: "visitante@site.com" })
+      );
+    });
+
     it("ignores a self-test whose Reply-To is only the mailbox itself", async () => {
       const result = await IngestEmailService(
         account,
