@@ -22,7 +22,7 @@ const noTicket = () => new AppError("ERR_NO_TICKET_FOUND", 404);
 // Same rule as MessageController.index + ListMessagesService: a non-admin only
 // sees messages routed to one of their queues (or to no queue) when the
 // company keeps "messageVisibility" on "message".
-const visibleQueueIds = async (
+export const visibleQueueIds = async (
   companyId: number,
   user: { id: number | string; profile: string }
 ): Promise<number[] | null> => {
@@ -40,6 +40,39 @@ const visibleQueueIds = async (
     "message"
   );
   return visibility === "message" ? queueIds : null;
+};
+
+// Attachments follow the visibility of the message they belong to: the same
+// queue rule as the thread, and a hidden or missing one is a plain 404.
+export const assertAttachmentVisible = async (
+  attachmentId: number,
+  user: { id: number | string; companyId: number; profile: string }
+): Promise<void> => {
+  const { companyId } = user;
+  const queueIds = await visibleQueueIds(companyId, user);
+  if (!queueIds) return;
+
+  const notFound = () => new AppError("ERR_EMAIL_ATTACHMENT_NOT_FOUND", 404);
+  const attachment = await EmailAttachment.findOne({
+    where: { id: attachmentId, companyId },
+    attributes: ["id", "emailMessageId"]
+  });
+  if (!attachment) throw notFound();
+  const emailMessage = await EmailMessage.findOne({
+    where: { id: attachment.emailMessageId, companyId },
+    attributes: ["id", "messageId", "ticketId"]
+  });
+  if (!emailMessage) throw notFound();
+  const message = await Message.findOne({
+    where: {
+      id: emailMessage.messageId,
+      ticketId: emailMessage.ticketId,
+      companyId,
+      queueId: { [Op.or]: { [Op.in]: queueIds, [Op.eq]: null } }
+    },
+    attributes: ["id"]
+  });
+  if (!message) throw notFound();
 };
 
 // Only the fixed ERR_EMAIL_* code is exposed, never the timestamp or any
@@ -123,15 +156,18 @@ const GetEmailThreadService = async ({
 
   const queueIds = await visibleQueueIds(companyId, user);
 
-  const rows = await EmailMessage.findAll({
+  const allRows = await EmailMessage.findAll({
     where: { ticketId: ticket.id, companyId },
     include: [{ model: EmailAttachment, as: "attachments", required: false }],
     order: [
       ["createdAt", "DESC"],
       ["id", "DESC"]
     ],
-    limit: THREAD_MESSAGE_LIMIT
+    // one extra row tells whether the cap cut the thread
+    limit: THREAD_MESSAGE_LIMIT + 1
   });
+  const truncated = allRows.length > THREAD_MESSAGE_LIMIT;
+  const rows = allRows.slice(0, THREAD_MESSAGE_LIMIT);
 
   const messageWhere: WhereOptions = {
     id: { [Op.in]: rows.map(row => row.messageId) },
@@ -181,6 +217,7 @@ const GetEmailThreadService = async ({
   return {
     account: account ? serializeEmailAccount(account) : null,
     subject: ticket.subject,
+    truncated,
     messages
   };
 };

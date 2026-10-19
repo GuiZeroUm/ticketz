@@ -251,7 +251,12 @@ export const createEmailAccount = async (
   const existing = await EmailAccount.findOne({
     where: { companyId, address: mailbox.address }
   });
-  if (existing && existing.status !== "disabled") {
+  // A disabled account of another provider is not reused either: the
+  // providerMessageId format differs, so the old messages would be imported twice.
+  if (
+    existing &&
+    (existing.status !== "disabled" || existing.provider !== "imap_smtp")
+  ) {
     throw new AppError("ERR_EMAIL_ACCOUNT_EXISTS", 409);
   }
 
@@ -267,6 +272,8 @@ export const createEmailAccount = async (
       name,
       queueId,
       connectedByUserId: userId,
+      scopes: [],
+      externalId: null,
       syncCursor: null
     });
     applyMailbox(account, preset, mailbox);
@@ -404,5 +411,13 @@ export const requestEmailAccountSync = async (
   if (!(SYNCABLE_STATUSES as readonly string[]).includes(account.status)) {
     throw new AppError("ERR_EMAIL_ACCOUNT_UNAVAILABLE", 409);
   }
-  await enqueueAccountSync(account.id);
+  try {
+    await enqueueAccountSync(account.id);
+  } catch {
+    logger.warn(
+      { companyId, emailAccountId: account.id },
+      "Could not enqueue email account sync"
+    );
+    throw new AppError("ERR_EMAIL_SYNC_ENQUEUE_FAILED", 503);
+  }
 };

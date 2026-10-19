@@ -13,6 +13,11 @@ jest.mock("../../services/EmailServices/EmailAccessService", () => ({
   assertEmailEnabled: jest.fn()
 }));
 jest.mock("../../queues/email", () => ({ enqueueAccountSync: jest.fn() }));
+// TicketController pulls the WhatsApp listener, which would open Redis connections
+jest.mock("../../libs/cache", () => ({}));
+jest.mock("../../queues/campaign", () => ({
+  campaignQueue: { add: jest.fn() }
+}));
 jest.mock("../../libs/socket", () => ({ getIO: jest.fn() }));
 jest.mock("../../helpers/CheckSettings", () => ({
   GetCompanySetting: jest.fn()
@@ -37,6 +42,7 @@ import request from "supertest";
 import { Readable } from "stream";
 import { inspect } from "util";
 import emailRoutes from "../../routes/emailRoutes";
+import isAuth from "../../middleware/isAuth";
 import AppError from "../../errors/AppError";
 import { getIO } from "../../libs/socket";
 import { GetCompanySetting } from "../../helpers/CheckSettings";
@@ -54,8 +60,11 @@ import { openAttachment } from "../../services/EmailServices/EmailAttachmentStor
 import { EMAIL_PRESETS } from "../../services/EmailServices/presets";
 import ShowUserService from "../../services/UserServices/ShowUserService";
 import ListTicketsService from "../../services/TicketServices/ListTicketsService";
+import ShowTicketService from "../../services/TicketServices/ShowTicketService";
+import * as TicketController from "../../controllers/TicketController";
 import { disableEmailAccount } from "../../services/EmailServices/EmailAccountService";
 import EmailAccount from "../../models/EmailAccount";
+import EmailAttachment from "../../models/EmailAttachment";
 import EmailMessage from "../../models/EmailMessage";
 import Message from "../../models/Message";
 import Queue from "../../models/Queue";
@@ -150,7 +159,9 @@ beforeEach(() => {
 
   jest.spyOn(User, "findByPk").mockImplementation((async (id: number) => ({
     id,
-    profile: id === 7 ? "user" : "admin",
+    profile: id === 7 || id === 8 || id === 9 ? "user" : "admin",
+    // user 9 was granted the connections screen, 7 only has the defaults
+    visibleScreens: id === 9 ? ["connections"] : null,
     queues: id === 8 ? [{ id: 3 }] : []
   })) as any);
   jest
@@ -234,6 +245,37 @@ describe("email routes", () => {
         .send({ preset: "icloud", address: "a@icloud.com", password: "x" });
       expect(response.status).toBe(403);
       expect(testImapSmtp).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("screen access", () => {
+    it("lets a user with the connections screen list accounts but not change them", async () => {
+      accounts = [makeAccount()];
+      const user = asUser(1, "user", 9);
+      const list = await request(app)
+        .get("/email/accounts")
+        .set("x-test-user", user);
+      expect(list.status).toBe(200);
+      expect(list.body).toHaveLength(1);
+
+      const calls = [
+        request(app).post("/email/accounts/test").set("x-test-user", user),
+        request(app).post("/email/accounts").set("x-test-user", user),
+        request(app).put("/email/accounts/1").set("x-test-user", user),
+        request(app).delete("/email/accounts/1").set("x-test-user", user),
+        request(app).post("/email/accounts/1/sync").set("x-test-user", user)
+      ];
+      const responses = await Promise.all(calls.map(call => call.send({})));
+      responses.forEach(response => expect(response.status).toBe(403));
+      expect(testImapSmtp).not.toHaveBeenCalled();
+      expect(enqueueAccountSync).not.toHaveBeenCalled();
+    });
+
+    it("refuses the account list to a user without the connections screen", async () => {
+      const response = await request(app)
+        .get("/email/accounts")
+        .set("x-test-user", asUser(1, "user", 7));
+      expect(response.status).toBe(403);
     });
   });
 
@@ -483,7 +525,8 @@ describe("email routes", () => {
         address: "pessoa@icloud.com",
         status: "disabled",
         credentials: null,
-        syncCursor: null
+        syncCursor: null,
+        scopes: ["stale-scope"]
       });
       accounts = [old];
       const response = await request(app)
@@ -501,7 +544,35 @@ describe("email routes", () => {
       expect(old.status).toBe("active");
       expect(old.name).toBe("Nova");
       expect(old.syncCursor).toBeNull();
+      expect(old.scopes).toEqual([]);
       expect(enqueueAccountSync).toHaveBeenCalledWith(9);
+    });
+
+    it("does not reuse a disabled account of another provider", async () => {
+      const old = makeAccount({
+        id: 9,
+        provider: "gmail_api",
+        preset: "gmail",
+        address: "pessoa@icloud.com",
+        status: "disabled",
+        credentials: null
+      });
+      accounts = [old];
+      const response = await request(app)
+        .post("/email/accounts")
+        .set("x-test-user", asUser(1))
+        .send({
+          preset: "icloud",
+          name: "Nova",
+          address: "pessoa@icloud.com",
+          password: "pw"
+        });
+      expect(response.status).toBe(409);
+      expect(response.body).toEqual({ error: "ERR_EMAIL_ACCOUNT_EXISTS" });
+      expect(testImapSmtp).not.toHaveBeenCalled();
+      expect(old.save).not.toHaveBeenCalled();
+      expect(old.provider).toBe("gmail_api");
+      expect(enqueueAccountSync).not.toHaveBeenCalled();
     });
 
     it("company B gets 404 for a company A account on update, delete and sync", async () => {
@@ -695,6 +766,18 @@ describe("email routes", () => {
       expect(enqueueAccountSync).toHaveBeenCalledWith(1);
     });
 
+    it("POST sync maps an enqueue failure to a fixed code", async () => {
+      accounts = [makeAccount()];
+      (enqueueAccountSync as jest.Mock).mockRejectedValue(
+        new Error("redis://:secret@10.0.0.1 ECONNREFUSED")
+      );
+      const response = await request(app)
+        .post("/email/accounts/1/sync")
+        .set("x-test-user", asUser(1));
+      expect(response.status).toBe(503);
+      expect(response.body).toEqual({ error: "ERR_EMAIL_SYNC_ENQUEUE_FAILED" });
+    });
+
     it("POST sync refuses an account that cannot sync", async () => {
       accounts = [makeAccount({ status: "reauth_required" })];
       const response = await request(app)
@@ -865,6 +948,33 @@ describe("email routes", () => {
       expect(serialized).not.toContain("storageKey");
       expect(serialized).not.toContain("secret-key");
       secretKeys.forEach(key => expect(serialized).not.toContain(key));
+    });
+
+    it("flags truncated=false for a short thread", async () => {
+      setup();
+      const response = await request(app)
+        .get("/email/tickets/10/thread")
+        .set("x-test-user", asUser(1));
+      expect(response.body.truncated).toBe(false);
+    });
+
+    it("caps the thread at 300 messages and reports truncated=true", async () => {
+      const [template] = emailMessages();
+      const many = Array.from({ length: 301 }, (_, index) => ({
+        ...template,
+        id: 1000 - index,
+        messageId: `m-${index}`
+      }));
+      const { findEmailMessages } = setup({ emailMessages: many });
+      const response = await request(app)
+        .get("/email/tickets/10/thread")
+        .set("x-test-user", asUser(1));
+      expect(response.status).toBe(200);
+      expect(response.body.truncated).toBe(true);
+      expect(response.body.messages).toHaveLength(300);
+      expect(findEmailMessages).toHaveBeenCalledWith(
+        expect.objectContaining({ limit: 301 })
+      );
     });
 
     it("replaces a malformed stored error code by a fixed one", async () => {
@@ -1066,6 +1176,104 @@ describe("email routes", () => {
       expect(disposition).not.toMatch(/[\r\n]/);
     });
 
+    describe("queue visibility", () => {
+      const mockOpen = () =>
+        (openAttachment as jest.Mock).mockResolvedValue({
+          attachment: { id: 5, filename: "a.txt", contentType: "text/plain" },
+          stream: stream("x")
+        });
+      const chain = (queueId: number | null) => {
+        jest
+          .spyOn(EmailAttachment, "findOne")
+          .mockResolvedValue({ id: 5, emailMessageId: 2 } as any);
+        jest
+          .spyOn(EmailMessage, "findOne")
+          .mockResolvedValue({ id: 2, messageId: "m-1", ticketId: 10 } as any);
+        // honours the queue restriction the way the database would
+        return jest.spyOn(Message, "findOne").mockImplementation((async (
+          query: any
+        ) => {
+          const restriction = query.where.queueId?.[Op.or];
+          const allowed =
+            !restriction ||
+            restriction[Op.in].includes(queueId) ||
+            queueId === null;
+          return allowed ? { id: "m-1" } : null;
+        }) as any);
+      };
+      const visibility = (value: string) =>
+        (GetCompanySetting as jest.Mock).mockImplementation(
+          async (_companyId, key, fallback) =>
+            key === "messageVisibility" ? value : fallback
+        );
+      const download = (profile: string, id: number) =>
+        request(app)
+          .get("/email/attachments/5")
+          .set("x-test-user", asUser(1, profile, id));
+
+      it("answers 404 to a user whose queues do not include the message's queue", async () => {
+        mockOpen();
+        visibility("message");
+        const findMessage = chain(4);
+        const response = await download("user", 8);
+        expect(response.status).toBe(404);
+        expect(response.body).toEqual({
+          error: "ERR_EMAIL_ATTACHMENT_NOT_FOUND"
+        });
+        expect(findMessage).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({ companyId: 1, ticketId: 10 })
+          })
+        );
+        expect(openAttachment).not.toHaveBeenCalled();
+      });
+
+      it("serves a user whose queue matches", async () => {
+        mockOpen();
+        visibility("message");
+        chain(3);
+        const response = await download("user", 8);
+        expect(response.status).toBe(200);
+        expect(openAttachment).toHaveBeenCalledWith(1, 5);
+      });
+
+      it("serves a message that has no queue", async () => {
+        mockOpen();
+        visibility("message");
+        chain(null);
+        const response = await download("user", 8);
+        expect(response.status).toBe(200);
+      });
+
+      it("serves everything to an admin without extra lookups", async () => {
+        mockOpen();
+        visibility("message");
+        const findMessage = chain(4);
+        const response = await download("admin", 100);
+        expect(response.status).toBe(200);
+        expect(findMessage).not.toHaveBeenCalled();
+      });
+
+      it("serves everything when the company does not restrict by message queue", async () => {
+        mockOpen();
+        visibility("ticket");
+        const findMessage = chain(4);
+        const response = await download("user", 8);
+        expect(response.status).toBe(200);
+        expect(findMessage).not.toHaveBeenCalled();
+      });
+
+      it("answers 404 when the attachment row is gone", async () => {
+        mockOpen();
+        visibility("message");
+        chain(3);
+        (EmailAttachment.findOne as jest.Mock).mockResolvedValue(null);
+        const response = await download("user", 8);
+        expect(response.status).toBe(404);
+        expect(openAttachment).not.toHaveBeenCalled();
+      });
+    });
+
     it("company B gets 404 for a company A attachment", async () => {
       (openAttachment as jest.Mock).mockImplementation(
         async (companyId: number) => {
@@ -1154,6 +1362,71 @@ describe("GET /tickets channel filter (ListTicketsService)", () => {
 
   it("includes the email account (id, name, address, preset) without requiring it", async () => {
     const { include } = await list();
+    const account = include.find(item => item.as === "emailAccount");
+    expect(account).toBeDefined();
+    expect(account?.required).toBe(false);
+    expect(account?.attributes).toEqual(["id", "name", "address", "preset"]);
+  });
+});
+
+describe("GET /tickets?channel=email through TicketController", () => {
+  const ticketApp = express();
+  ticketApp.use(express.json());
+  ticketApp.get("/tickets", isAuth, TicketController.index);
+  ticketApp.use(
+    (
+      err: AppError,
+      _req: express.Request,
+      res: express.Response,
+      _next: express.NextFunction
+    ) => res.status(err.statusCode || 500).json({ error: err.message })
+  );
+
+  const run = async (query: string) => {
+    (ShowUserService as jest.Mock).mockResolvedValue({
+      id: 3,
+      profile: "admin"
+    });
+    const findAll = jest
+      .spyOn(Ticket, "findAll")
+      .mockResolvedValue([{ id: 1, channel: "email" }] as any);
+    const response = await request(ticketApp)
+      .get(`/tickets${query}`)
+      .set("x-test-user", asUser(10, "admin", 3));
+    return { response, findAll };
+  };
+
+  it("passes the channel to the listing and returns only email tickets", async () => {
+    const { response, findAll } = await run("?status=open&channel=email");
+    expect(response.status).toBe(200);
+    expect(response.body.tickets).toEqual([{ id: 1, channel: "email" }]);
+    const { where } = findAll.mock.calls[0][0] as { where: unknown };
+    expect(inspect(where, { depth: 12 })).toContain("channel: 'email'");
+  });
+
+  it("does not filter without the parameter", async () => {
+    const { findAll } = await run("?status=open");
+    const { where } = findAll.mock.calls[0][0] as { where: unknown };
+    expect(inspect(where, { depth: 12 })).not.toContain("channel");
+  });
+
+  it("rejects a repeated channel parameter", async () => {
+    const { response, findAll } = await run("?channel=email&channel=whatsapp");
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: "ERR_INVALID_CHANNEL" });
+    expect(findAll).not.toHaveBeenCalled();
+  });
+});
+
+describe("ShowTicketService email account include", () => {
+  it("includes the email account (id, name, address, preset), not required", async () => {
+    const findOne = jest
+      .spyOn(Ticket, "findOne")
+      .mockResolvedValue({ id: 1, companyId: 10 } as any);
+    await ShowTicketService(1, 10);
+    const { include } = findOne.mock.calls[0][0] as {
+      include: { as?: string; attributes?: string[]; required?: boolean }[];
+    };
     const account = include.find(item => item.as === "emailAccount");
     expect(account).toBeDefined();
     expect(account?.required).toBe(false);

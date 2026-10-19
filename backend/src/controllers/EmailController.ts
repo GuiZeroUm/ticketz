@@ -16,7 +16,9 @@ import {
   openAttachment,
   safeInlineContentType
 } from "../services/EmailServices/EmailAttachmentStorage";
-import GetEmailThreadService from "../services/EmailServices/GetEmailThreadService";
+import GetEmailThreadService, {
+  assertAttachmentVisible
+} from "../services/EmailServices/GetEmailThreadService";
 
 const idParam = (value: string): number => {
   const id = Number(value);
@@ -109,6 +111,9 @@ export const attachment = async (
 
   const id = idParam(req.params.id);
   if (!id) throw new AppError("ERR_EMAIL_ATTACHMENT_NOT_FOUND", 404);
+
+  // before the file is opened: a hidden attachment is a plain 404
+  await assertAttachmentVisible(id, req.user);
 
   const { attachment: file, stream } = await openAttachment(companyId, id);
 
