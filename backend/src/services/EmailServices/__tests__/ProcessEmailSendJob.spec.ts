@@ -351,6 +351,27 @@ describe("ProcessEmailSendJob", () => {
     });
   });
 
+  it("fails at once with ERR_EMAIL_ENCRYPTION_NOT_CONFIGURED, without retrying", async () => {
+    adapter.send.mockRejectedValue(
+      new EmailTransientError("ERR_EMAIL_ENCRYPTION_NOT_CONFIGURED")
+    );
+    const scheduleRetry = jest.fn().mockResolvedValue(undefined);
+    await ProcessEmailSendJob(41, { attempt: 0, scheduleRetry });
+
+    expect(scheduleRetry).not.toHaveBeenCalled();
+    expect(emailUpdate()[0]).toEqual({
+      sendStatus: "failed",
+      sendError: { code: "ERR_EMAIL_ENCRYPTION_NOT_CONFIGURED" }
+    });
+    expect(messageUpdate()[0]).toEqual({
+      ack: -1,
+      error: { code: "ERR_EMAIL_ENCRYPTION_NOT_CONFIGURED" }
+    });
+    // nothing left the server: the marker is released, the account untouched
+    expect(redis.del).toHaveBeenCalledWith(sendInflightKey(41));
+    expect(markAccountError).not.toHaveBeenCalled();
+  });
+
   it("fails with ERR_EMAIL_TRANSIENT when the retry cannot be scheduled", async () => {
     adapter.send.mockRejectedValue(new EmailTransientError());
     const scheduleRetry = jest.fn().mockRejectedValue(new Error("redis"));

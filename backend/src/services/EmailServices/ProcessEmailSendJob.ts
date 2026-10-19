@@ -20,6 +20,7 @@ import { emailEnabledForCompany } from "./EmailAccessService";
 import { markAccountError } from "./EmailAccountStatusService";
 import emailRedis from "./emailRedis";
 import { OutgoingEmail } from "./types";
+import { ENCRYPTION_NOT_CONFIGURED } from "./encryption";
 
 // Waiting time before retry n (1-based) of a transient failure. After the last
 // one the email is marked failed.
@@ -431,6 +432,19 @@ const ProcessEmailSendJob = async (
       await recordSendOutcome(row, {
         sendStatus: "unknown",
         code: SEND_AMBIGUOUS
+      });
+      return;
+    }
+    if (
+      err instanceof EmailTransientError &&
+      err.message === ENCRYPTION_NOT_CONFIGURED
+    ) {
+      // Configuration error raised before anything was sent: retrying
+      // cannot help, so the send fails now with its own code.
+      await releaseSend(row.id);
+      await recordSendOutcome(row, {
+        sendStatus: "failed",
+        code: ENCRYPTION_NOT_CONFIGURED
       });
       return;
     }
