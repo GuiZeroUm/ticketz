@@ -3,6 +3,7 @@ import EmailAccount from "../../models/EmailAccount";
 import { emailEnabledForCompany } from "../../services/EmailServices/EmailAccessService";
 import SyncEmailAccountService from "../../services/EmailServices/SyncEmailAccountService";
 import ProcessEmailSendJob from "../../services/EmailServices/ProcessEmailSendJob";
+import ImapIdleManager from "../../services/EmailServices/ImapIdleManager";
 import {
   backoffMs,
   emailQueue,
@@ -43,6 +44,10 @@ jest.mock("../../services/EmailServices/EmailAccessService", () => ({
 jest.mock("../../services/EmailServices/SyncEmailAccountService", () => ({
   __esModule: true,
   default: jest.fn()
+}));
+jest.mock("../../services/EmailServices/ImapIdleManager", () => ({
+  __esModule: true,
+  default: { start: jest.fn(), refresh: jest.fn(), stop: jest.fn() }
 }));
 jest.mock("../../services/EmailServices/ProcessEmailSendJob", () => ({
   __esModule: true,
@@ -271,6 +276,32 @@ describe("EmailSyncTick", () => {
       "sync-4",
       "sync-3"
     ]);
+  });
+
+  it("refreshes the IMAP IDLE watchers on every tick without changing the result", async () => {
+    (ImapIdleManager.refresh as jest.Mock).mockResolvedValue(undefined);
+    Model.findAll.mockResolvedValue([acct(1, 10), acct(2, 10)]);
+    await expect(runEmailSyncTick()).resolves.toBe(2);
+    expect(ImapIdleManager.refresh).toHaveBeenCalledTimes(1);
+    expect(queue.add).toHaveBeenCalledTimes(2);
+  });
+
+  it("a failing IDLE refresh never breaks the tick", async () => {
+    (ImapIdleManager.refresh as jest.Mock).mockRejectedValue(new Error("boom"));
+    Model.findAll.mockResolvedValue([acct(1, 10)]);
+    await expect(runEmailSyncTick()).resolves.toBe(1);
+
+    (ImapIdleManager.refresh as jest.Mock).mockImplementation(() => {
+      throw new Error("sync boom");
+    });
+    await expect(runEmailSyncTick()).resolves.toBe(1);
+  });
+
+  it("still refreshes IDLE when the account query fails, and keeps that error", async () => {
+    (ImapIdleManager.refresh as jest.Mock).mockResolvedValue(undefined);
+    Model.findAll.mockRejectedValue(new Error("db down"));
+    await expect(runEmailSyncTick()).rejects.toThrow("db down");
+    expect(ImapIdleManager.refresh).toHaveBeenCalledTimes(1);
   });
 
   it("backoff grows exponentially up to a cap", () => {

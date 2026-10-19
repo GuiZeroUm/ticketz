@@ -11,7 +11,10 @@ import {
   EmailSendRejectedError,
   EmailTransientError
 } from "../adapters/errors";
-import ImapSmtpAdapter, { testImapSmtp } from "../adapters/ImapSmtpAdapter";
+import ImapSmtpAdapter, {
+  openImapIdleClient,
+  testImapSmtp
+} from "../adapters/ImapSmtpAdapter";
 import { getAdapter } from "../adapters";
 import {
   INITIAL_IMPORT_MAX,
@@ -1506,5 +1509,55 @@ describe("testImapSmtp", () => {
     );
     const error = await testImapSmtp(config).catch(e => e);
     expect(error.message).toBe("ERR_EMAIL_HOST_NOT_ALLOWED");
+  });
+});
+
+describe("openImapIdleClient (Task 17)", () => {
+  it("connects through the same hardened path as sync: pinned IP, SNI, mandatory TLS, size limits", async () => {
+    const client = await openImapIdleClient(makeAccount(), {
+      maxIdleTime: 1200000
+    });
+    expect(client).toBeDefined();
+    expect(resolveMock).toHaveBeenCalledWith({
+      host: "imap.empresa.com",
+      port: 993,
+      kind: "imap"
+    });
+    const options = fakeServer.options[0] as any;
+    expect(options).toMatchObject({
+      host: "203.0.113.10",
+      secure: true,
+      servername: "imap.empresa.com",
+      maxIdleTime: 1200000,
+      // the manager starts IDLE itself
+      disableAutoIdle: true
+    });
+    expect(options.tls).toMatchObject({
+      servername: "imap.empresa.com",
+      rejectUnauthorized: true
+    });
+    expect(options.maxLiteralSize).toBeLessThan(MAX_RAW_MESSAGE_BYTES * 1.1);
+    expect(options.maxResponseSize).toBeGreaterThan(options.maxLiteralSize);
+  });
+
+  it("forces STARTTLS on a non-implicit-TLS port and has no maxIdleTime by default", async () => {
+    await openImapIdleClient(
+      makeAccount(null, { imapPort: 143, imapSecure: false })
+    );
+    const options = fakeServer.options[0] as any;
+    expect(options).toMatchObject({ secure: false, doSTARTTLS: true });
+    expect("maxIdleTime" in options).toBe(false);
+  });
+
+  it("rejects with EmailAuthError on refused credentials and when the password is missing", async () => {
+    fakeServer.connectError = Object.assign(new Error("nope"), {
+      authenticationFailed: true
+    });
+    await expect(openImapIdleClient(makeAccount())).rejects.toBeInstanceOf(
+      EmailAuthError
+    );
+    await expect(
+      openImapIdleClient(makeAccount(null, { getCredentials: () => null }))
+    ).rejects.toBeInstanceOf(EmailAuthError);
   });
 });

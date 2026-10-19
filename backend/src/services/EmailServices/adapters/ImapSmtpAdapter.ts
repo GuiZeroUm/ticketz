@@ -139,7 +139,10 @@ const mapImapError = (error: unknown, accountId?: number): Error | AppError => {
 
 // Always connects to the IP validated by resolveSafeMailEndpoint and uses the
 // hostname only as TLS servername, so DNS cannot be re-resolved afterwards.
-const connectImap = async (config: MailboxConfig): Promise<ImapFlow> => {
+const connectImap = async (
+  config: MailboxConfig,
+  extra: { maxIdleTime?: number } = {}
+): Promise<ImapFlow> => {
   const endpoint = await resolveSafeMailEndpoint({
     host: config.imap.host,
     port: config.imap.port,
@@ -165,7 +168,8 @@ const connectImap = async (config: MailboxConfig): Promise<ImapFlow> => {
     // requested beyond MAX_RAW_MESSAGE_BYTES, so nothing larger is legitimate.
     maxLiteralSize: MAX_RAW_MESSAGE_BYTES + 1024 * 1024,
     maxResponseSize: MAX_RAW_MESSAGE_BYTES + 4 * 1024 * 1024,
-    ...IMAP_TIMEOUTS
+    ...IMAP_TIMEOUTS,
+    ...(extra.maxIdleTime ? { maxIdleTime: extra.maxIdleTime } : {})
   });
   // Socket errors after connect are emitted as events; unhandled they would
   // crash the process. The failing command already rejects with the error.
@@ -179,6 +183,15 @@ const connectImap = async (config: MailboxConfig): Promise<ImapFlow> => {
   }
   return client;
 };
+
+// Connection for the IDLE manager (Task 17): same hardened connect path as the
+// sync adapter (resolveSafeMailEndpoint, pinned address, mandatory TLS, size
+// limits). Throws EmailAuthError / EmailTransientError / AppError, never with
+// credentials or server text. The caller owns the returned client.
+export const openImapIdleClient = async (
+  account: EmailAccount,
+  options: { maxIdleTime?: number } = {}
+): Promise<ImapFlow> => connectImap(loadMailboxConfig(account), options);
 
 const closeImap = async (client: ImapFlow): Promise<void> => {
   try {

@@ -20,7 +20,11 @@ import {
 } from "./services/VoiceServices/VoiceService";
 import { recoverPendingVoiceArtifacts } from "./services/VoiceServices/VoiceArtifactService";
 import { recoverVoiceHistories } from "./services/VoiceServices/VoiceHistoryService";
-import { startAgentContextWorker, stopAgentContextWorker } from "./services/AgentServices/AgentDocumentService";
+import ImapIdleManager from "./services/EmailServices/ImapIdleManager";
+import {
+  startAgentContextWorker,
+  stopAgentContextWorker
+} from "./services/AgentServices/AgentDocumentService";
 
 // Environment Variable Validation
 if (!process.env.PORT) {
@@ -48,6 +52,12 @@ async function startServer() {
     await Promise.all(sessionPromises);
 
     startQueueProcess();
+    // Near-real-time IMAP inbound; polling keeps working without it.
+    if (process.env.EMAIL_IMAP_IDLE !== "false") {
+      await ImapIdleManager.start().catch(error =>
+        logger.error({ error }, "Unable to start IMAP IDLE manager")
+      );
+    }
     await startAgentContextWorker();
     if (!isDedicatedRuntime()) {
       startVoiceEventBridge();
@@ -89,6 +99,11 @@ i18nReady.then(() => {
     onShutdown: async () => {
       logger.info("Shutdown initiated. Cleaning up...");
       stopVoiceEventBridge();
+      // Closes every IMAP IDLE connection and releases its Redis lease (bounded
+      // inside the manager, within the 30s shutdown budget).
+      await ImapIdleManager.stop().catch(error =>
+        logger.error({ error }, "Unable to stop IMAP IDLE manager")
+      );
       await stopAgentContextWorker();
     },
     finally: () => {

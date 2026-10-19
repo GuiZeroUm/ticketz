@@ -6,6 +6,7 @@ import {
 } from "../helpers/tenantRuntime";
 import EmailAccount from "../models/EmailAccount";
 import { emailEnabledForCompany } from "../services/EmailServices/EmailAccessService";
+import ImapIdleManager from "../services/EmailServices/ImapIdleManager";
 import ProcessEmailSendJob from "../services/EmailServices/ProcessEmailSendJob";
 import SyncEmailAccountService from "../services/EmailServices/SyncEmailAccountService";
 import { logger } from "../utils/logger";
@@ -74,9 +75,27 @@ const inBackoff = (account: EmailAccount, now: number): boolean => {
   return now - at < backoffMs(account.errorCount || 0) - BACKOFF_TOLERANCE_MS;
 };
 
-// Runs every minute. Extension point (Task 17): ImapIdleManager.refresh() is
-// called from here so IDLE watchers follow the same eligible accounts.
+// IDLE watchers follow the same eligible accounts as the tick (ruling R2). A
+// refresh failure must never break the tick: refresh() already swallows its own
+// errors, the catch also covers a manager that throws synchronously.
+const refreshImapIdle = async (): Promise<void> => {
+  try {
+    await ImapIdleManager.refresh();
+  } catch {
+    logger.warn("Could not refresh IMAP IDLE watchers");
+  }
+};
+
+// Runs every minute.
 export const runEmailSyncTick = async (): Promise<number> => {
+  try {
+    return await enqueueDueAccounts();
+  } finally {
+    await refreshImapIdle();
+  }
+};
+
+const enqueueDueAccounts = async (): Promise<number> => {
   const accounts = await EmailAccount.findAll({
     attributes: ["id", "companyId", "status", "errorCount", "lastError"],
     where: {
