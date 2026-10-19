@@ -1,5 +1,6 @@
 import React from "react";
 import { toast } from "react-toastify";
+import { alpha, lighten } from "@material-ui/core/styles";
 
 import api from "../services/api";
 import toastError from "../errors/toastError";
@@ -22,7 +23,8 @@ export const CHANNEL_ICON_PATHS = {
   off: "M2 20h.01M7 20v-4 M14 9l6 6M20 9l-6 6",
   warn: "M12 3 2 20h20z M12 10v4 M12 17h.01",
   clock: "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M12 7v5l3 2",
-  error: "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M15 9l-6 6 M9 9l6 6"
+  error: "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M15 9l-6 6 M9 9l6 6",
+  search: "M18 11a7 7 0 1 1-14 0a7 7 0 1 1 14 0z M21 21l-4.3-4.3"
 };
 
 // Provider colors from the design board. `labelKey` is under
@@ -49,6 +51,24 @@ export const CONNECTION_PROVIDERS = {
     icon: "cloud"
   },
   custom: { labelKey: "custom", color: "#52525B", tint: "#F1F1F3", icon: "at" }
+};
+
+// Foreground / background pair for a provider (or any { color, tint }). The
+// design tints are light hex values; on a dark palette the background becomes
+// a translucent wash of the provider color and the foreground is lightened so
+// it stays readable.
+export const providerColors = (theme, providerOrKey) => {
+  const provider =
+    typeof providerOrKey === "string"
+      ? CONNECTION_PROVIDERS[providerOrKey]
+      : providerOrKey;
+  if (theme?.palette?.type === "dark") {
+    return {
+      color: lighten(provider.color, 0.35),
+      tint: alpha(provider.color, 0.16)
+    };
+  }
+  return { color: provider.color, tint: provider.tint };
 };
 
 export const ChannelIcon = ({

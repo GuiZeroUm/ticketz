@@ -2,6 +2,7 @@ import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import api from "../../services/api";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { SocketContext } from "../../context/Socket/SocketContext";
+import { toastEmailError } from "../../helpers/emailConnections";
 
 const upsertAccount = (list, account) => {
   const index = list.findIndex(item => item.id === account.id);
@@ -30,6 +31,7 @@ const useEmailAccounts = (enabled = true) => {
   const [accounts, setAccounts] = useState([]);
   const [loadedKey, setLoadedKey] = useState(null);
   const requestRef = useRef(0);
+  const loadedKeyRef = useRef(null);
 
   // The loading state only covers the first load for a company; later
   // reloads (after a save, a disconnect or a socket reconnect) refresh the
@@ -41,16 +43,26 @@ const useEmailAccounts = (enabled = true) => {
       const { data } = await api.get("/email/accounts");
       if (requestId === requestRef.current)
         setAccounts(Array.isArray(data) ? data : []);
-    } catch (_) {
-      // keep whatever is on screen; the page still works without the list
+    } catch (err) {
+      // Keep whatever is on screen; the page still works without the list.
+      // Only the first load of a company reports the failure.
+      if (
+        requestId === requestRef.current &&
+        loadedKeyRef.current !== sourceKey
+      )
+        toastEmailError(err);
     } finally {
-      if (requestId === requestRef.current) setLoadedKey(sourceKey);
+      if (requestId === requestRef.current) {
+        loadedKeyRef.current = sourceKey;
+        setLoadedKey(sourceKey);
+      }
     }
   }, [sourceKey]);
 
   useEffect(() => {
     setAccounts([]);
     setLoadedKey(null);
+    loadedKeyRef.current = null;
     reload();
     return () => {
       // drop any in-flight response from a previous company / toggle state

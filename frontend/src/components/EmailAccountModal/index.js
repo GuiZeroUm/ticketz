@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { makeStyles } from "@material-ui/core/styles";
+import { makeStyles, useTheme } from "@material-ui/core/styles";
 import {
   Button,
   Checkbox,
@@ -24,6 +24,7 @@ import {
   CONNECTION_PROVIDERS,
   ChannelIcon,
   emailProviderKey,
+  providerColors,
   startGmailOAuth,
   toastEmailError
 } from "../../helpers/emailConnections";
@@ -170,6 +171,7 @@ const EmailAccountModal = ({
   account
 }) => {
   const classes = useStyles();
+  const theme = useTheme();
   const { findAll: findAllQueues } = useQueues();
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState({});
@@ -181,6 +183,7 @@ const EmailAccountModal = ({
   const providerKey =
     mode === "create" ? preset : emailProviderKey(account || {});
   const provider = CONNECTION_PROVIDERS[providerKey];
+  const providerColor = providerColors(theme, provider).color;
 
   useEffect(() => {
     if (!open) return;
@@ -336,7 +339,8 @@ const EmailAccountModal = ({
             ? t("form.password.titleApp")
             : t("form.password.titleMailbox"),
         subtitle: t("form.password.subtitle", {
-          address: account?.address || ""
+          address: account?.address || "",
+          interpolation: { escapeValue: false }
         })
       };
     return {
@@ -496,7 +500,7 @@ const EmailAccountModal = ({
             <Button
               variant="outlined"
               className={classes.oauthButton}
-              style={{ color: provider.color, borderColor: provider.color }}
+              style={{ color: providerColor, borderColor: providerColor }}
               onClick={handleGoogle}
               disabled={disabled}
             >

@@ -3,7 +3,6 @@ import StardewEmblem from "../../components/StardewEmblem";
 import React, { useState, useCallback, useContext, useEffect } from "react";
 import { toast } from "react-toastify";
 import { format, parseISO } from "date-fns";
-import { useHistory, useLocation } from "react-router-dom";
 
 import { alpha, makeStyles, useTheme } from "@material-ui/core/styles";
 import { green } from "@material-ui/core/colors";
@@ -20,7 +19,8 @@ import {
   Typography,
   CircularProgress,
   Checkbox,
-  Chip
+  Chip,
+  InputBase
 } from "@material-ui/core";
 import {
   Edit,
@@ -72,12 +72,31 @@ import {
   CONNECTION_PROVIDERS,
   ChannelIcon,
   emailProviderKey,
+  providerColors,
   startGmailOAuth,
   toastEmailError,
   translateEmailError
 } from "../../helpers/emailConnections";
+import { consumeEmailOAuthReturn } from "../../helpers/emailOAuthReturn";
 
 const te = (key, options) => i18n.t(`emailChannel.connections.${key}`, options);
+
+// "1 conectada" / "2 conectadas": explicit one/other keys so every language
+// bundle (including pt_PT) picks the right form.
+const countText = (key, count) =>
+  te(`${key}.${count === 1 ? "one" : "other"}`, { count });
+
+const WHATSAPP_WAITING = ["qrcode", "OPENING", "PAIRING", "passkey_required"];
+const WHATSAPP_DOWN = ["DISCONNECTED", "TIMEOUT"];
+const EMAIL_ATTENTION = ["reauth_required", "error", "disabled"];
+
+const matchesSearch = (term, ...values) =>
+  !term ||
+  values.some(value =>
+    String(value || "")
+      .toLowerCase()
+      .includes(term)
+  );
 
 const formatEmailDate = value => {
   if (!value) return "—";
@@ -118,11 +137,74 @@ const useStyles = makeStyles(theme => ({
   buttonProgress: {
     color: theme.isStardew ? theme.stardew.green : green[500]
   },
+  summary: {
+    flex: "none",
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    gap: 12,
+    marginBottom: 12
+  },
+  summaryCard: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: "14px 16px",
+    borderRadius: 12
+  },
+  summaryIcon: {
+    width: 40,
+    height: 40,
+    flex: "none",
+    borderRadius: 10,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  summaryText: {
+    flex: 1,
+    minWidth: 0
+  },
+  summaryLabel: {
+    fontWeight: 600,
+    fontSize: theme.isStardew ? 18 : 14
+  },
+  summaryDetail: {
+    marginTop: 2,
+    color: theme.palette.text.secondary,
+    fontSize: theme.isStardew ? 15 : 12
+  },
+  toolbar: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    padding: theme.spacing(0.5, 0.5, 1.5)
+  },
   filterBar: {
     display: "flex",
     flexWrap: "wrap",
-    gap: 6,
-    padding: theme.spacing(0.5, 0.5, 1.5)
+    gap: 6
+  },
+  search: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    height: 34,
+    minWidth: 240,
+    padding: "0 10px",
+    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: 8,
+    color: theme.palette.text.secondary,
+    [theme.breakpoints.down("xs")]: {
+      minWidth: 0,
+      width: "100%"
+    }
+  },
+  searchInput: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: theme.isStardew ? 17 : 13
   },
   filterChip: {
     borderRadius: 8,
@@ -172,12 +254,11 @@ const useStyles = makeStyles(theme => ({
 
 const ChannelChip = ({ providerKey }) => {
   const classes = useStyles();
+  const theme = useTheme();
   const provider = CONNECTION_PROVIDERS[providerKey];
+  const { color, tint } = providerColors(theme, provider);
   return (
-    <span
-      className={classes.channelChip}
-      style={{ background: provider.tint, color: provider.color }}
-    >
+    <span className={classes.channelChip} style={{ background: tint, color }}>
       <ChannelIcon name={provider.icon} size={14} strokeWidth={2} />
       {te(`providers.${provider.labelKey}`)}
     </span>
@@ -247,15 +328,15 @@ const Connections = () => {
 
   // Email channel: everything below is inert while the company has the
   // channel disabled, so the page stays exactly as it was.
-  const history = useHistory();
-  const location = useLocation();
-  const { enabled: emailEnabled } = useEmailAvailability();
+  const { enabled: emailEnabled, loading: emailAvailabilityLoading } =
+    useEmailAvailability();
   const {
     accounts: emailAccounts,
     loading: emailLoading,
     reload: reloadEmailAccounts
   } = useEmailAccounts(emailEnabled);
   const [channelFilter, setChannelFilter] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
   const [addConnectionOpen, setAddConnectionOpen] = useState(false);
   const [emailModal, setEmailModal] = useState({
     open: false,
@@ -265,24 +346,18 @@ const Connections = () => {
   });
 
   // Google OAuth comes back to /connections?email=connected|error&code=...
+  // src/index.js stores that result before the app renders (the query does
+  // not survive the auth redirects); show it once availability is known.
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const result = params.get("email");
-    if (!result) return;
-    if (result === "connected") {
+    if (emailAvailabilityLoading) return;
+    const oauthReturn = consumeEmailOAuthReturn();
+    if (!oauthReturn) return;
+    if (oauthReturn.result === "connected") {
       toast.success(te("toasts.gmailConnected"));
-    } else if (result === "error") {
-      toastEmailError(params.get("code") || "generic");
+    } else {
+      toastEmailError(oauthReturn.code || "generic");
     }
-    params.delete("email");
-    params.delete("code");
-    const search = params.toString();
-    history.replace({
-      pathname: location.pathname,
-      search: search ? `?${search}` : "",
-      hash: location.hash
-    });
-  }, [location.search, location.pathname, location.hash, history]);
+  }, [emailAvailabilityLoading]);
 
   useEffect(() => {
     setMetaConfig({
@@ -792,7 +867,73 @@ const Connections = () => {
   const showWhatsAppRows = !emailEnabled || channelFilter !== "email";
   const showEmailRows = emailEnabled && channelFilter !== "whatsapp";
   const tableColumns = emailEnabled ? 8 : 7;
-  const tableLoading = loading || (showEmailRows && emailLoading);
+  // While availability is unknown keep the skeleton, so email companies do
+  // not see the old layout flash first.
+  const tableLoading =
+    loading || emailAvailabilityLoading || (showEmailRows && emailLoading);
+
+  // Search only exists with the email channel on (design); off, it is inert.
+  const search = emailEnabled ? searchTerm.trim().toLowerCase() : "";
+  const visibleWhatsApps = (whatsApps || []).filter(whatsApp =>
+    matchesSearch(
+      search,
+      whatsApp.name,
+      whatsApp.number,
+      formatWhatsappDigits(whatsApp.number)
+    )
+  );
+  const visibleEmailAccounts = emailAccounts.filter(account =>
+    matchesSearch(search, account.name, account.address)
+  );
+
+  const whatsAppSummary = (() => {
+    if (loading) return "…";
+    const list = whatsApps || [];
+    if (!list.length) return te("summary.whatsapp.empty");
+    const connected = list.filter(w => w.status === "CONNECTED").length;
+    const waiting = list.filter(w =>
+      WHATSAPP_WAITING.includes(w.status)
+    ).length;
+    const down = list.filter(w => WHATSAPP_DOWN.includes(w.status)).length;
+    const parts = [];
+    if (connected)
+      parts.push(countText("summary.whatsapp.connected", connected));
+    if (waiting) parts.push(countText("summary.whatsapp.waiting", waiting));
+    if (down) parts.push(countText("summary.whatsapp.disconnected", down));
+    if (!parts.length)
+      parts.push(countText("summary.whatsapp.total", list.length));
+    return parts.join(" · ");
+  })();
+
+  const emailSummary = (() => {
+    if (emailLoading) return "…";
+    if (!emailAccounts.length) return te("summary.email.empty");
+    const attention = emailAccounts.filter(account =>
+      EMAIL_ATTENTION.includes(account.status)
+    ).length;
+    const parts = [countText("summary.email.accounts", emailAccounts.length)];
+    if (attention) parts.push(countText("summary.email.attention", attention));
+    return parts.join(" · ");
+  })();
+
+  const summaryCards = [
+    {
+      key: "whatsapp",
+      icon: "wa",
+      colors: providerColors(theme, "wa"),
+      detail: whatsAppSummary
+    },
+    {
+      key: "email",
+      icon: "mail",
+      colors: providerColors(theme, {
+        color: theme.palette.type === "dark" ? "#A1A1AA" : "#3F3F46",
+        tint: "#F1F1F3"
+      }),
+      detail: emailSummary
+    }
+  ];
+
   const channelFilters = [
     {
       key: "all",
@@ -803,7 +944,7 @@ const Connections = () => {
     {
       key: "whatsapp",
       icon: "wa",
-      color: CONNECTION_PROVIDERS.wa.color,
+      color: providerColors(theme, "wa").color,
       count: whatsApps?.length || 0
     },
     {
@@ -899,55 +1040,96 @@ const Connections = () => {
               variant="contained"
               color="primary"
               onClick={handleOpenWhatsAppModal}
+              disabled={emailAvailabilityLoading}
             >
               {i18n.t("connections.buttons.add")}
             </Button>
           )}
         </MainHeaderButtonsWrapper>
       </MainHeader>
+      {emailEnabled && (
+        <div className={classes.summary}>
+          {summaryCards.map(card => (
+            <Paper
+              key={card.key}
+              variant="outlined"
+              className={classes.summaryCard}
+            >
+              <span
+                className={classes.summaryIcon}
+                style={{
+                  background: card.colors.tint,
+                  color: card.colors.color
+                }}
+              >
+                <ChannelIcon name={card.icon} size={20} />
+              </span>
+              <div className={classes.summaryText}>
+                <div className={classes.summaryLabel}>
+                  {te(`summary.${card.key}.label`)}
+                </div>
+                <div className={classes.summaryDetail}>{card.detail}</div>
+              </div>
+            </Paper>
+          ))}
+        </div>
+      )}
       <Paper className={classes.mainPaper} variant="outlined">
         {emailEnabled && (
-          <div
-            className={classes.filterBar}
-            role="group"
-            aria-label={te("filters.label")}
-          >
-            {channelFilters.map(filter => {
-              const selected = channelFilter === filter.key;
-              return (
-                <Chip
-                  key={filter.key}
-                  clickable
-                  variant="outlined"
-                  color={selected ? "primary" : "default"}
-                  aria-pressed={selected}
-                  className={`${classes.filterChip} ${
-                    selected ? classes.filterChipSelected : ""
-                  }`}
-                  onClick={() => setChannelFilter(filter.key)}
-                  icon={
-                    <ChannelIcon
-                      name={filter.icon}
-                      size={14}
-                      className={classes.filterChipIcon}
-                      style={{
-                        color: selected
-                          ? theme.palette.primary.main
-                          : filter.color
-                      }}
-                    />
-                  }
-                  label={
-                    <>
-                      {te(`filters.${filter.key}`)}
-                      <span className={classes.filterCount}>
-                        {filter.count}
-                      </span>
-                    </>
-                  }
-                />
-              );
-            })}
+          <div className={classes.toolbar}>
+            <div
+              className={classes.filterBar}
+              role="group"
+              aria-label={te("filters.label")}
+            >
+              {channelFilters.map(filter => {
+                const selected = channelFilter === filter.key;
+                return (
+                  <Chip
+                    key={filter.key}
+                    clickable
+                    variant="outlined"
+                    color={selected ? "primary" : "default"}
+                    aria-pressed={selected}
+                    className={`${classes.filterChip} ${
+                      selected ? classes.filterChipSelected : ""
+                    }`}
+                    onClick={() => setChannelFilter(filter.key)}
+                    icon={
+                      <ChannelIcon
+                        name={filter.icon}
+                        size={14}
+                        className={classes.filterChipIcon}
+                        style={{
+                          color: selected
+                            ? theme.palette.primary.main
+                            : filter.color
+                        }}
+                      />
+                    }
+                    label={
+                      <>
+                        {te(`filters.${filter.key}`)}
+                        <span className={classes.filterCount}>
+                          {filter.count}
+                        </span>
+                      </>
+                    }
+                  />
+                );
+              })}
+            </div>
+            <label className={classes.search}>
+              <ChannelIcon name="search" size={16} strokeWidth={1.8} />
+              <InputBase
+                type="search"
+                value={searchTerm}
+                onChange={event => setSearchTerm(event.target.value)}
+                placeholder={te("search.placeholder")}
+                className={classes.searchInput}
+                inputProps={{ "aria-label": te("search.placeholder") }}
+              />
+            </label>
           </div>
         )}
         <Table size="small">
@@ -996,8 +1178,8 @@ const Connections = () => {
             ) : (
               <>
                 {showWhatsAppRows &&
-                  whatsApps?.length > 0 &&
-                  whatsApps.map(whatsApp => (
+                  visibleWhatsApps.length > 0 &&
+                  visibleWhatsApps.map(whatsApp => (
                     <TableRow key={whatsApp.id}>
                       {emailEnabled ? (
                         <>
@@ -1109,7 +1291,7 @@ const Connections = () => {
                     </TableRow>
                   ))}
                 {showEmailRows &&
-                  emailAccounts.map(account => (
+                  visibleEmailAccounts.map(account => (
                     <TableRow key={`email-${account.id}`}>
                       <TableCell align="center">
                         <ChannelChip providerKey={emailProviderKey(account)} />
@@ -1119,7 +1301,10 @@ const Connections = () => {
                         {emailProviderKey(account) === "custom" &&
                           account.imapHost && (
                             <div className={classes.rowNote}>
-                              {te("note.imap", { host: account.imapHost })}
+                              {te("note.imap", {
+                                host: account.imapHost,
+                                interpolation: { escapeValue: false }
+                              })}
                             </div>
                           )}
                       </TableCell>

@@ -5,6 +5,31 @@ const ptConnections = {
     whatsapp: "WhatsApp",
     email: "E-mail"
   },
+  search: {
+    placeholder: "Buscar conexão"
+  },
+  summary: {
+    whatsapp: {
+      label: "WhatsApp",
+      empty: "Nenhuma conexão",
+      total: { one: "{{count}} conexão", other: "{{count}} conexões" },
+      connected: { one: "{{count}} conectada", other: "{{count}} conectadas" },
+      waiting: { one: "{{count}} aguardando", other: "{{count}} aguardando" },
+      disconnected: {
+        one: "{{count}} desconectada",
+        other: "{{count}} desconectadas"
+      }
+    },
+    email: {
+      label: "E-mail",
+      empty: "Nenhuma conta conectada",
+      accounts: { one: "{{count}} conta", other: "{{count}} contas" },
+      attention: {
+        one: "{{count}} precisa de atenção",
+        other: "{{count}} precisam de atenção"
+      }
+    }
+  },
   table: {
     channel: "Canal",
     account: "Conta",
@@ -183,6 +208,31 @@ const enConnections = {
     all: "All",
     whatsapp: "WhatsApp",
     email: "Email"
+  },
+  search: {
+    placeholder: "Search connection"
+  },
+  summary: {
+    whatsapp: {
+      label: "WhatsApp",
+      empty: "No connections",
+      total: { one: "{{count}} connection", other: "{{count}} connections" },
+      connected: { one: "{{count}} connected", other: "{{count}} connected" },
+      waiting: { one: "{{count}} waiting", other: "{{count}} waiting" },
+      disconnected: {
+        one: "{{count}} disconnected",
+        other: "{{count}} disconnected"
+      }
+    },
+    email: {
+      label: "Email",
+      empty: "No accounts connected",
+      accounts: { one: "{{count}} account", other: "{{count}} accounts" },
+      attention: {
+        one: "{{count}} needs attention",
+        other: "{{count}} need attention"
+      }
+    }
   },
   table: {
     channel: "Channel",

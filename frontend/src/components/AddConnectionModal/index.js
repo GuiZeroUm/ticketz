@@ -1,5 +1,5 @@
 import React from "react";
-import { makeStyles } from "@material-ui/core/styles";
+import { makeStyles, useTheme } from "@material-ui/core/styles";
 import {
   ButtonBase,
   Button,
@@ -13,8 +13,9 @@ import { Close } from "@material-ui/icons";
 
 import { i18n } from "../../translate/i18n";
 import {
+  ChannelIcon,
   CONNECTION_PROVIDERS,
-  ChannelIcon
+  providerColors
 } from "../../helpers/emailConnections";
 
 const useStyles = makeStyles(theme => ({
@@ -139,7 +140,9 @@ const t = key => i18n.t(`emailChannel.connections.${key}`);
 
 const PickerOption = ({ providerKey, labelKey, disabled, tag, onPick }) => {
   const classes = useStyles();
+  const theme = useTheme();
   const provider = CONNECTION_PROVIDERS[providerKey];
+  const { color, tint } = providerColors(theme, provider);
   return (
     <ButtonBase
       focusRipple
@@ -149,10 +152,7 @@ const PickerOption = ({ providerKey, labelKey, disabled, tag, onPick }) => {
       style={disabled ? { pointerEvents: "auto" } : undefined}
       onClick={disabled ? undefined : onPick}
     >
-      <span
-        className={classes.iconBox}
-        style={{ background: provider.tint, color: provider.color }}
-      >
+      <span className={classes.iconBox} style={{ background: tint, color }}>
         <ChannelIcon name={provider.icon} />
       </span>
       <span className={classes.optionText}>
