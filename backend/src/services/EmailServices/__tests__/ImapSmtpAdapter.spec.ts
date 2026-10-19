@@ -13,7 +13,11 @@ import {
 } from "../adapters/errors";
 import ImapSmtpAdapter, { testImapSmtp } from "../adapters/ImapSmtpAdapter";
 import { getAdapter } from "../adapters";
-import { INITIAL_IMPORT_MAX, SYNC_BATCH_MAX } from "../limits";
+import {
+  INITIAL_IMPORT_MAX,
+  MAX_RAW_MESSAGE_BYTES,
+  SYNC_BATCH_MAX
+} from "../limits";
 import type { OutgoingEmail } from "../types";
 
 jest.mock("../../../utils/logger", () => ({
@@ -29,8 +33,8 @@ type FakeMessage = {
   internalDate: Date;
   flags?: string[];
   source: Buffer;
-  // size the server reports; defaults to the source length
-  size?: number;
+  // size the server reports; defaults to the source length, "missing" omits it
+  size?: number | "missing";
 };
 
 type FakeFolder = {
@@ -45,6 +49,8 @@ const fakeServer = {
   options: [] as Record<string, unknown>[],
   opened: [] as string[],
   calls: [] as { method: string; range: unknown; query: unknown }[],
+  // runs right after a SEARCH answered, to simulate concurrent changes
+  afterSearch: null as null | (() => void),
   connectError: null as Error | null,
   logouts: 0,
   reset() {
@@ -52,6 +58,7 @@ const fakeServer = {
     this.options = [];
     this.opened = [];
     this.calls = [];
+    this.afterSearch = null;
     this.connectError = null;
     this.logouts = 0;
   }
@@ -121,10 +128,12 @@ jest.mock("imapflow", () => ({
         const from = Number(query.uid.split(":")[0]);
         const hit = messages.filter(m => m.uid >= from).map(m => m.uid);
         // A real "N:*" range always includes the highest UID in the mailbox.
-        if (!hit.length && messages.length) {
-          return [messages[messages.length - 1].uid];
-        }
-        return hit;
+        const answer =
+          !hit.length && messages.length
+            ? [messages[messages.length - 1].uid]
+            : hit;
+        fakeServer.afterSearch?.();
+        return answer;
       }
       return messages.map(m => m.uid);
     }
@@ -151,12 +160,15 @@ jest.mock("imapflow", () => ({
       return this.select(range).map(m => ({
         uid: m.uid,
         internalDate: m.internalDate,
-        size: m.size ?? m.source.length,
+        size: m.size === "missing" ? undefined : (m.size ?? m.source.length),
         flags: new Set(m.flags || [])
       }));
     }
 
-    async *fetch(range: string, query: { headers?: boolean }) {
+    async *fetch(
+      range: string,
+      query: { headers?: boolean; source?: boolean | { maxLength?: number } }
+    ) {
       fakeServer.calls.push({ method: "fetch", range, query });
       for (const m of this.select(range)) {
         const base = {
@@ -172,7 +184,12 @@ jest.mock("imapflow", () => ({
             headers: Buffer.from(`${text.slice(0, end)}\r\n\r\n`, "latin1")
           };
         } else {
-          yield { ...base, source: m.source };
+          const limit =
+            typeof query.source === "object" ? query.source.maxLength : 0;
+          yield {
+            ...base,
+            source: limit ? m.source.subarray(0, limit) : m.source
+          };
         }
       }
     }
@@ -474,6 +491,108 @@ describe("ImapSmtpAdapter.fetchChanges", () => {
     expect(result.emails.map(e => e.providerMessageId)).toEqual(["INBOX:1:1"]);
     expect(result.hasMore).toBe(true);
     expect((result.cursor.folders as any).Sent).toBeUndefined();
+  });
+
+  it("charges a missing or zero size as the largest downloadable message", async () => {
+    const cursor = { folders: { INBOX: { uidValidity: "1", lastUid: 0 } } };
+
+    for (const size of [0, "missing"] as const) {
+      fakeServer.reset();
+      fakeServer.folders.INBOX = {
+        uidValidity: 1n,
+        uidNext: 3,
+        messages: [
+          { ...msg(1, 1), size },
+          { ...msg(2, 1), size }
+        ]
+      };
+
+      const result = await adapter.fetchChanges(makeAccount(cursor));
+      // 52 MB charged for the first, the second no longer fits in 64 MB
+      expect(result.emails.map(e => e.providerMessageId)).toEqual([
+        "INBOX:1:1"
+      ]);
+      expect(result.hasMore).toBe(true);
+    }
+  });
+
+  it("caps the download of every body and treats a truncated source as oversize", async () => {
+    const huge = Buffer.concat([
+      raw("huge", "carla@cliente.com", "Content-Type: text/plain\r\n"),
+      Buffer.alloc(MAX_RAW_MESSAGE_BYTES + 1024, "a")
+    ] as any);
+    fakeServer.folders.INBOX = {
+      uidValidity: 1n,
+      uidNext: 3,
+      messages: [
+        // the server understates the size, the body is far above the cap
+        { uid: 1, internalDate: hoursAgo(1), source: huge, size: 100 },
+        msg(2, 1)
+      ]
+    };
+    const cursor = { folders: { INBOX: { uidValidity: "1", lastUid: 0 } } };
+
+    const result = await adapter.fetchChanges(makeAccount(cursor));
+
+    const fetches = fakeServer.calls.filter(c => c.method === "fetch");
+    expect((fetches[0].query as any).source).toEqual({
+      maxLength: MAX_RAW_MESSAGE_BYTES
+    });
+    expect(fetches[1]).toMatchObject({ range: "1" });
+    expect((fetches[1].query as any).headers).toBe(true);
+    expect(result.emails.map(e => e.providerMessageId)).toEqual([
+      "INBOX:1:1",
+      "INBOX:1:2"
+    ]);
+    expect(result.emails[0]).toMatchObject({
+      subject: "Assunto huge",
+      text: "",
+      attachments: []
+    });
+    expect(result.emails[0].flags).toContain("oversize");
+    expect(result.emails[1].flags).not.toContain("oversize");
+    expect(result.emails[1].text).toContain("Corpo m2");
+  });
+
+  it("bounds the IMAP literal and response sizes just above the download cap", async () => {
+    fakeServer.folders.INBOX = { uidValidity: 1n, uidNext: 2, messages: [] };
+    await adapter.fetchChanges(makeAccount());
+    const options = fakeServer.options[0] as any;
+    expect(options.maxLiteralSize).toBeGreaterThan(MAX_RAW_MESSAGE_BYTES);
+    expect(options.maxLiteralSize).toBeLessThan(MAX_RAW_MESSAGE_BYTES * 1.1);
+    expect(options.maxResponseSize).toBeGreaterThan(options.maxLiteralSize);
+    expect(options.maxResponseSize).toBeLessThan(MAX_RAW_MESSAGE_BYTES * 1.2);
+  });
+
+  it("charges headers-only messages a small weight so they do not eat the round budget", async () => {
+    const MB = 1024 * 1024;
+    fakeServer.folders.INBOX = {
+      uidValidity: 1n,
+      uidNext: 5,
+      messages: [1, 2, 3, 4].map(uid => ({ ...msg(uid, 1), size: 80 * MB }))
+    };
+    const cursor = { folders: { INBOX: { uidValidity: "1", lastUid: 0 } } };
+    const result = await adapter.fetchChanges(makeAccount(cursor));
+    expect(result.emails).toHaveLength(4);
+    expect(result.hasMore).toBe(false);
+  });
+
+  it("does not ask for another round when every candidate was expunged before the fetch", async () => {
+    fakeServer.folders.INBOX = {
+      uidValidity: 1n,
+      uidNext: 3,
+      messages: [msg(1, 1), msg(2, 1)]
+    };
+    fakeServer.afterSearch = () => {
+      fakeServer.folders.INBOX.messages = [];
+    };
+    const cursor = { folders: { INBOX: { uidValidity: "1", lastUid: 0 } } };
+    const result = await adapter.fetchChanges(makeAccount(cursor));
+    expect(result.emails).toHaveLength(0);
+    expect(result.hasMore).toBe(false);
+    expect(result.cursor).toEqual({
+      folders: { INBOX: { uidValidity: "1", lastUid: 2 } }
+    });
   });
 
   it("imports an oversize message as headers only, flagged oversize", async () => {

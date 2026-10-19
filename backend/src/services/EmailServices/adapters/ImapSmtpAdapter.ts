@@ -160,6 +160,10 @@ const connectImap = async (config: MailboxConfig): Promise<ImapFlow> => {
     auth: { user: config.address, pass: config.password },
     logger: false,
     disableAutoIdle: true,
+    // Hard ceilings below the 1 GB library defaults: a message body is never
+    // requested beyond MAX_RAW_MESSAGE_BYTES, so nothing larger is legitimate.
+    maxLiteralSize: MAX_RAW_MESSAGE_BYTES + 1024 * 1024,
+    maxResponseSize: MAX_RAW_MESSAGE_BYTES + 4 * 1024 * 1024,
     ...IMAP_TIMEOUTS
   });
   // Socket errors after connect are emitted as events; unhandled they would
@@ -247,6 +251,16 @@ const toRanges = (uids: number[]): string => {
 
 const isOversize = (size: number) => size > MAX_RAW_MESSAGE_BYTES;
 
+// Weight charged for a message imported as headers only.
+const HEADERS_ONLY_WEIGHT_BYTES = 64 * 1024;
+
+// An unknown size (missing or 0, as a broken server may report) is charged as
+// the largest message that can be downloaded, never as free.
+const weightOf = (size: number): number => {
+  if (!(size > 0)) return MAX_RAW_MESSAGE_BYTES;
+  return isOversize(size) ? HEADERS_ONLY_WEIGHT_BYTES : size;
+};
+
 // Takes messages (ascending) while the round budget lasts. At least one message
 // is always taken per round so a single large message cannot stall the sync.
 const takeWithinBudget = (
@@ -256,8 +270,7 @@ const takeWithinBudget = (
   const selected: MessageMeta[] = [];
   // eslint-disable-next-line no-restricted-syntax
   for (const candidate of candidates) {
-    // Oversize messages are fetched as headers only: they weigh nothing here.
-    const weight = isOversize(candidate.size) ? 0 : candidate.size;
+    const weight = weightOf(candidate.size);
     const first = budget.taken === 0;
     if (budget.messages <= 0 || (!first && weight > budget.bytes)) {
       return { selected, cut: true };
@@ -385,14 +398,27 @@ const syncFolder = async (
         .map(uid => ({ uid, size: sizes.get(uid) }));
     }
 
+    // Every candidate was expunged between SEARCH and FETCH: nothing to read,
+    // move past them without asking for another round just for this.
+    if (!candidates.length) {
+      return {
+        emails: [],
+        cursor: { uidValidity, lastUid: candidatesEnd },
+        hasMore: moreBeyondCandidates
+      };
+    }
+
     const { selected, cut } = takeWithinBudget(candidates, budget);
     if (!selected.length) {
-      // Only possible when the budget ran out before this folder started.
+      // The round budget was spent by an earlier folder: try again next round.
       return { emails: [], cursor: previous, hasMore: true };
     }
 
     const normal = selected.filter(m => !isOversize(m.size));
-    const oversize = selected.filter(m => isOversize(m.size));
+    // Known to be too large, or found truncated below.
+    const oversizeUids = selected
+      .filter(m => isOversize(m.size))
+      .map(m => m.uid);
     const imported: { uid: number; email: NormalizedEmail }[] = [];
 
     const normalize = (
@@ -416,10 +442,20 @@ const syncFolder = async (
       // eslint-disable-next-line no-restricted-syntax
       for await (const message of client.fetch(
         toRanges(normal.map(m => m.uid)),
-        { uid: true, flags: true, internalDate: true, source: true },
+        {
+          uid: true,
+          flags: true,
+          internalDate: true,
+          // The reported size can be missing or understated: never download
+          // more than the cap, whatever the server claimed.
+          source: { maxLength: MAX_RAW_MESSAGE_BYTES }
+        },
         { uid: true }
       )) {
-        if (message.source) {
+        if (message.source && message.source.length >= MAX_RAW_MESSAGE_BYTES) {
+          // Cut at the cap: the body is incomplete, import headers only.
+          oversizeUids.push(message.uid);
+        } else if (message.source) {
           try {
             imported.push({
               uid: message.uid,
@@ -443,10 +479,10 @@ const syncFolder = async (
 
     // Too large to import whole: keep the envelope so the conversation shows
     // it, flagged "oversize", without body or attachments.
-    if (oversize.length) {
+    if (oversizeUids.length) {
       // eslint-disable-next-line no-restricted-syntax
       for await (const message of client.fetch(
-        toRanges(oversize.map(m => m.uid)),
+        toRanges(sortedUnique(oversizeUids)),
         { uid: true, flags: true, internalDate: true, headers: true },
         { uid: true }
       )) {
