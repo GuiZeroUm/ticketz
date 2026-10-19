@@ -1,4 +1,5 @@
 import React, { useContext, useState } from "react";
+import { useTheme } from "@material-ui/core/styles";
 import { useHistory, useParams } from "react-router-dom";
 import { parseISO } from "date-fns";
 import {
@@ -25,6 +26,13 @@ import { corAvatarContato } from "../../helpers/coresAvatar";
 import { getInitials } from "../../helpers/getInitials";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
+import {
+  CONNECTION_PROVIDERS,
+  ChannelIcon,
+  emailProviderKey,
+  providerColors
+} from "../../helpers/emailConnections";
+import { isEmailTicket, ti } from "../../helpers/emailInbox";
 import "./ticket-card.css";
 
 export default function TicketListItemCustom({
@@ -64,6 +72,15 @@ export default function TicketListItemCustom({
       ? i18n.t("chatExperience.location")
       : last.split("\n")[0];
   const presence = ["composing", "recording"].includes(ticket.presence);
+  const theme = useTheme();
+  const email = isEmailTicket(ticket);
+  const emailProvider = email
+    ? CONNECTION_PROVIDERS[emailProviderKey(ticket.emailAccount)]
+    : null;
+  const emailColor = email ? providerColors(theme, emailProvider).color : null;
+  const subject = email ? ticket.subject || ti("noSubject") : "";
+  // Email tickets keep the subject as lastMessage; avoid showing it twice.
+  const emailPreview = email && last.trim() !== subject.trim() ? message : "";
 
   const updateStatus = async status => {
     if (busy) return;
@@ -110,20 +127,52 @@ export default function TicketListItemCustom({
             });
         }}
       >
-        <AvatarContato
-          contact={ticket.contact}
-          style={{
-            backgroundColor: corAvatarContato(ticket.contact),
-            color: "white",
-            fontSize: 13
-          }}
-        >
-          {getInitials(ticket.contact?.name || "")}
-        </AvatarContato>
+        {email ? (
+          <span className="ticket-card-avatar">
+            <AvatarContato
+              contact={ticket.contact}
+              style={{
+                backgroundColor: corAvatarContato(ticket.contact),
+                color: "white",
+                fontSize: 13
+              }}
+            >
+              {getInitials(ticket.contact?.name || "")}
+            </AvatarContato>
+            <span
+              className="ticket-card-channel-badge"
+              style={{ background: emailColor }}
+              aria-hidden="true"
+            >
+              <ChannelIcon
+                name={emailProvider.icon}
+                size={10}
+                strokeWidth={2.6}
+              />
+            </span>
+          </span>
+        ) : (
+          <AvatarContato
+            contact={ticket.contact}
+            style={{
+              backgroundColor: corAvatarContato(ticket.contact),
+              color: "white",
+              fontSize: 13
+            }}
+          >
+            {getInitials(ticket.contact?.name || "")}
+          </AvatarContato>
+        )}
         <span className="ticket-card-content">
           <span className="ticket-card-heading">
             <strong>
-              {group ? <UsersRound size={14} /> : <MessageCircle size={14} />}
+              {group ? (
+                <UsersRound size={14} />
+              ) : email ? (
+                <ChannelIcon name="mail" size={14} strokeWidth={2} />
+              ) : (
+                <MessageCircle size={14} />
+              )}
               <span>{name}</span>
             </strong>
             {last && ticket.updatedAt && (
@@ -132,10 +181,17 @@ export default function TicketListItemCustom({
               </time>
             )}
           </span>
+          {email && (
+            <span className="ticket-card-subject" title={subject}>
+              {subject}
+            </span>
+          )}
           <span className="ticket-card-preview">
             <span className={presence ? "ticket-card-presence" : ""}>
               {presence ? (
                 i18n.t(`presence.${ticket.presence}`)
+              ) : email ? (
+                emailPreview
               ) : (
                 <WhatsMarked oneline>
                   {`${prefix}${message}` || i18n.t("chatExperience.noMessage")}
@@ -163,6 +219,21 @@ export default function TicketListItemCustom({
                 <span title={ticket.user.name}>
                   <UserRound size={12} />
                   {ticket.user.name}
+                </span>
+              )}
+              {email && ticket.emailAccount?.name && (
+                <span
+                  title={
+                    ticket.emailAccount.address || ticket.emailAccount.name
+                  }
+                  style={{ color: emailColor, fontWeight: 600 }}
+                >
+                  <ChannelIcon
+                    name={emailProvider.icon}
+                    size={12}
+                    strokeWidth={2}
+                  />
+                  {ticket.emailAccount.name}
                 </span>
               )}
               {ticket.whatsapp?.name && (

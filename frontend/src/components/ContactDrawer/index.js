@@ -471,7 +471,12 @@ const ContactDrawer = ({
                   </div>
                   <div>
                     <dt>{i18n.t("conversa.conexao")}</dt>
-                    <dd>{ticket.whatsapp?.name || "—"}</dd>
+                    <dd>
+                      {ticket.whatsapp?.name ||
+                        (ticket.channel === "email" &&
+                          ticket.emailAccount?.name) ||
+                        "—"}
+                    </dd>
                   </div>
                   <div>
                     <dt>{i18n.t("conversa.abertoEm")}</dt>

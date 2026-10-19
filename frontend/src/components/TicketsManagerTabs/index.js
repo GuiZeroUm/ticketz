@@ -12,7 +12,7 @@ import React, {
 } from "react";
 import { useHistory } from "react-router-dom";
 
-import { makeStyles } from "@material-ui/core/styles";
+import { makeStyles, alpha, useTheme } from "@material-ui/core/styles";
 import Paper from "@material-ui/core/Paper";
 import Tabs from "@material-ui/core/Tabs";
 import Tab from "@material-ui/core/Tab";
@@ -35,6 +35,12 @@ import useSettings from "../../hooks/useSettings";
 import { ContactSelect } from "../ContactSelect";
 import api from "../../services/api";
 import { SocketContext } from "../../context/Socket/SocketContext";
+import useEmailAvailability from "../../hooks/useEmailAvailability";
+import useTicketChannelCounts, {
+  formatChannelCount
+} from "../../hooks/useTicketChannelCounts";
+import { ChannelIcon, providerColors } from "../../helpers/emailConnections";
+import { ti } from "../../helpers/emailInbox";
 
 const useStyles = makeStyles(theme => ({
   ticketsWrapper: {
@@ -117,11 +123,67 @@ const useStyles = makeStyles(theme => ({
   icon24: {
     width: 24,
     height: 24
+  },
+
+  channelFilter: {
+    flex: "none",
+    padding: "10px 10px 0"
+  },
+
+  channelFilterLabel: {
+    fontSize: 10.5,
+    fontWeight: 600,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    color: theme.palette.text.secondary,
+    marginBottom: 6
+  },
+
+  channelChips: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 5
+  },
+
+  channelChip: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 5,
+    height: 30,
+    padding: "0 9px",
+    borderRadius: 8,
+    font: "inherit",
+    fontSize: 12,
+    fontWeight: 500,
+    cursor: "pointer",
+    background: theme.palette.background.paper,
+    border: `1px solid ${theme.palette.divider}`,
+    color: theme.palette.text.primary
+  },
+
+  channelChipSelected: {
+    fontWeight: 600,
+    background: alpha(theme.palette.primary.main, 0.08),
+    borderColor: theme.palette.primary.main,
+    color: theme.palette.primary.main
+  },
+
+  channelChipCount: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: theme.palette.text.secondary
   }
 }));
 
+const CHANNEL_FILTERS = [
+  { key: "all", icon: "all" },
+  { key: "whatsapp", icon: "wa" },
+  { key: "email", icon: "mail" }
+];
+
 const TicketsManagerTabs = () => {
   const classes = useStyles();
+  const theme = useTheme();
   const identidade = useIdentidade();
   const history = useHistory();
 
@@ -152,6 +214,25 @@ const TicketsManagerTabs = () => {
   const [groupMode, setGroupMode] = useState("conversation");
   const [groupTicketStatus, setGroupTicketStatus] = useState("pending");
   const socketManager = useContext(SocketContext);
+  const { enabled: emailEnabled } = useEmailAvailability();
+  const [channelFilter, setChannelFilter] = useState("all");
+  // Without the email channel the lists get no channel filter at all, so the
+  // inbox requests and behaves exactly as before.
+  const channel =
+    emailEnabled && channelFilter !== "all" ? channelFilter : undefined;
+  const countStatus =
+    tab === "open" && ["open", "pending"].includes(tabOpen) ? tabOpen : null;
+  const channelCounts = useTicketChannelCounts({
+    enabled: emailEnabled,
+    status: countStatus,
+    showAll: countStatus === "open" ? showAllTickets : undefined,
+    queueIds: JSON.stringify(selectedQueueIds),
+    userQueueIds: profile === "user" ? JSON.stringify(userQueueIds) : undefined
+  });
+
+  useEffect(() => {
+    if (!emailEnabled) setChannelFilter("all");
+  }, [emailEnabled]);
 
   useEffect(() => {
     if (profile !== "admin") {
@@ -334,6 +415,58 @@ const TicketsManagerTabs = () => {
           </Abas.Trigger>
         </Abas.List>
       </Abas.Root>
+      {emailEnabled && tab !== "groups" && (
+        <div className={classes.channelFilter}>
+          <div className={classes.channelFilterLabel} aria-hidden="true">
+            {ti("filters.label")}
+          </div>
+          <div
+            className={classes.channelChips}
+            role="group"
+            aria-label={ti("filters.groupLabel")}
+          >
+            {CHANNEL_FILTERS.map(filter => {
+              const selected = channelFilter === filter.key;
+              const iconColor = selected
+                ? theme.palette.primary.main
+                : filter.key === "whatsapp"
+                  ? providerColors(theme, "wa").color
+                  : theme.palette.text.secondary;
+              const count = formatChannelCount(channelCounts?.[filter.key]);
+              return (
+                <button
+                  key={filter.key}
+                  type="button"
+                  aria-pressed={selected}
+                  className={`${classes.channelChip} ${
+                    selected ? classes.channelChipSelected : ""
+                  }`}
+                  onClick={() => setChannelFilter(filter.key)}
+                >
+                  <ChannelIcon
+                    name={filter.icon}
+                    size={14}
+                    style={{ color: iconColor }}
+                  />
+                  {ti(`filters.${filter.key}`)}
+                  {count && (
+                    <span
+                      className={classes.channelChipCount}
+                      style={
+                        selected
+                          ? { color: theme.palette.primary.main }
+                          : undefined
+                      }
+                    >
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
       <div className="fila-pesquisa">
         <label className="tabela-busca">
           <Search size={15} />
@@ -426,6 +559,7 @@ const TicketsManagerTabs = () => {
             status="open"
             showAll={showAllTickets}
             selectedQueueIds={selectedQueueIds}
+            channel={channel}
             updateCount={val => setOpenCount(val)}
             style={applyPanelStyle("open")}
             setTabOpen={setTabOpen}
@@ -434,6 +568,7 @@ const TicketsManagerTabs = () => {
           <TicketsList
             status="pending"
             selectedQueueIds={selectedQueueIds}
+            channel={channel}
             updateCount={val => setPendingCount(val)}
             style={applyPanelStyle("pending")}
             setTabOpen={setTabOpen}
@@ -446,6 +581,7 @@ const TicketsManagerTabs = () => {
           status="closed"
           showAll={true}
           selectedQueueIds={selectedQueueIds}
+          channel={channel}
           showTabGroups={showTabGroups}
         />
       </TabPanel>
@@ -525,6 +661,7 @@ const TicketsManagerTabs = () => {
           tags={selectedTags}
           users={selectedUsers}
           selectedQueueIds={selectedQueueIds}
+          channel={channel}
           showTabGroups={showTabGroups}
         />
       </TabPanel>

@@ -48,7 +48,11 @@ const TicketInfo = ({ contact, ticket, onClick }) => {
           </AvatarContato>
         }
         title={contactName}
-        subheader={formatWhatsappContactNumber(contact) || userName}
+        subheader={
+          (ticket.channel === "email" && contact?.email) ||
+          formatWhatsappContactNumber(contact) ||
+          userName
+        }
       />
     </>
   );

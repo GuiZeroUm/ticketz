@@ -404,6 +404,181 @@ const enConnections = {
   }
 };
 
+const ptInbox = {
+  filters: {
+    label: "Canal",
+    groupLabel: "Filtrar por canal",
+    all: "Todos",
+    whatsapp: "WhatsApp",
+    email: "E-mail"
+  },
+  noSubject: "(sem assunto)",
+  thread: {
+    count: { one: "{{count}} mensagem", other: "{{count}} mensagens" },
+    to: "para {{list}}",
+    cc: "cc {{list}}",
+    today: "Hoje",
+    yesterday: "Ontem",
+    loading: "Carregando e-mails…",
+    loadError: "Não foi possível carregar os e-mails deste atendimento.",
+    retry: "Tentar de novo",
+    empty: "Nenhum e-mail nesta conversa ainda.",
+    frameTitle: "Conteúdo do e-mail de {{from}}",
+    attachmentSkipped: "Anexo não importado (muito grande)",
+    download: "Baixar {{name}}"
+  },
+  status: {
+    queued: "Na fila",
+    sent: "Enviado",
+    failed: "Falhou",
+    failedWithReason: "Falhou: {{reason}}",
+    unknown: "Envio não confirmado",
+    unknownHint:
+      "O servidor não confirmou o envio. A mensagem não é reenviada automaticamente e passa a enviada quando a cópia aparecer na caixa."
+  },
+  composer: {
+    modesLabel: "Tipo de resposta",
+    reply: "Responder",
+    replyAll: "Responder a todos",
+    forward: "Encaminhar",
+    from: "De",
+    to: "Para",
+    cc: "Cc",
+    subject: "Assunto",
+    body: "Corpo do e-mail",
+    placeholder: "Escreva sua resposta",
+    recipientsPlaceholder: "Separe os endereços por vírgula",
+    bold: "Negrito",
+    italic: "Itálico",
+    attach: "Anexar arquivo",
+    removeAttachment: "Remover {{name}}",
+    send: "Enviar e-mail",
+    sending: "Enviando…",
+    queued: "E-mail na fila de envio",
+    reauth: "A autorização desta caixa venceu. Reconecte em Conexões.",
+    replyPrefix: "Re:",
+    forwardPrefix: "Enc:"
+  },
+  errors: {
+    rejected: "O servidor de e-mail recusou o envio (código {{code}}).",
+    gmailRejected: "O Gmail recusou o envio (código {{code}}).",
+    unknownCode: "Falha no envio ({{code}})."
+  },
+  contacts: {
+    noPhone: "sem telefone",
+    noPhoneHint:
+      "Contato só com e-mail: não pode receber atendimento nem agendamento de WhatsApp"
+  }
+};
+
+const enInbox = {
+  filters: {
+    label: "Channel",
+    groupLabel: "Filter by channel",
+    all: "All",
+    whatsapp: "WhatsApp",
+    email: "Email"
+  },
+  noSubject: "(no subject)",
+  thread: {
+    count: { one: "{{count}} message", other: "{{count}} messages" },
+    to: "to {{list}}",
+    cc: "cc {{list}}",
+    today: "Today",
+    yesterday: "Yesterday",
+    loading: "Loading emails…",
+    loadError: "Could not load the emails of this ticket.",
+    retry: "Try again",
+    empty: "No emails in this conversation yet.",
+    frameTitle: "Email content from {{from}}",
+    attachmentSkipped: "Attachment not imported (too large)",
+    download: "Download {{name}}"
+  },
+  status: {
+    queued: "Queued",
+    sent: "Sent",
+    failed: "Failed",
+    failedWithReason: "Failed: {{reason}}",
+    unknown: "Delivery not confirmed",
+    unknownHint:
+      "The server did not confirm the send. The message is not resent automatically and becomes sent once the copy shows up in the mailbox."
+  },
+  composer: {
+    modesLabel: "Reply type",
+    reply: "Reply",
+    replyAll: "Reply all",
+    forward: "Forward",
+    from: "From",
+    to: "To",
+    cc: "Cc",
+    subject: "Subject",
+    body: "Email body",
+    placeholder: "Write your reply",
+    recipientsPlaceholder: "Separate addresses with commas",
+    bold: "Bold",
+    italic: "Italic",
+    attach: "Attach file",
+    removeAttachment: "Remove {{name}}",
+    send: "Send email",
+    sending: "Sending…",
+    queued: "Email queued for sending",
+    reauth:
+      "This mailbox authorization has expired. Reconnect it in Connections.",
+    replyPrefix: "Re:",
+    forwardPrefix: "Fwd:"
+  },
+  errors: {
+    rejected: "The mail server rejected the message (code {{code}}).",
+    gmailRejected: "Gmail rejected the message (code {{code}}).",
+    unknownCode: "Sending failed ({{code}})."
+  },
+  contacts: {
+    noPhone: "no phone",
+    noPhoneHint: "Email-only contact: cannot get a WhatsApp ticket or schedule"
+  }
+};
+
+// Merged into the app-wide `backendErrors` map so toastError translates these
+// codes anywhere they come back from the API.
+const ptBackendErrors = {
+  ERR_CONTACT_HAS_NO_PHONE:
+    "Este contato não tem telefone. Atendimentos e agendamentos de WhatsApp precisam de um número.",
+  ERR_EMAIL_CHANNEL_DISABLED:
+    "O canal de e-mail não está habilitado para esta empresa.",
+  ERR_EMAIL_ACCOUNT_UNAVAILABLE:
+    "A caixa de e-mail deste atendimento não está disponível. Confira a conexão em Conexões.",
+  ERR_EMAIL_RECIPIENT_REQUIRED: "Informe ao menos um destinatário.",
+  ERR_EMAIL_INVALID_RECIPIENT:
+    "Há um endereço de e-mail inválido nos destinatários.",
+  ERR_EMAIL_TOO_MANY_RECIPIENTS:
+    "Muitos destinatários. O limite é de 20 por e-mail.",
+  ERR_EMAIL_ATTACHMENTS_TOO_LARGE: "Os anexos passam do limite de 25 MB.",
+  ERR_EMAIL_ATTACHMENT_NOT_FOUND: "Anexo não encontrado.",
+  ERR_EMAIL_BOUNCED: "O servidor de destino recusou a entrega.",
+  ERR_EMAIL_AUTH: "A caixa recusou o acesso. Reconecte a conta em Conexões.",
+  ERR_EMAIL_CONNECTION_FAILED:
+    "Não foi possível conectar ao servidor de e-mail."
+};
+
+const enBackendErrors = {
+  ERR_CONTACT_HAS_NO_PHONE:
+    "This contact has no phone number. WhatsApp tickets and schedules need a number.",
+  ERR_EMAIL_CHANNEL_DISABLED:
+    "The email channel is not enabled for this company.",
+  ERR_EMAIL_ACCOUNT_UNAVAILABLE:
+    "The mailbox of this ticket is not available. Check the connection in Connections.",
+  ERR_EMAIL_RECIPIENT_REQUIRED: "Enter at least one recipient.",
+  ERR_EMAIL_INVALID_RECIPIENT: "One of the recipients is not a valid email.",
+  ERR_EMAIL_TOO_MANY_RECIPIENTS:
+    "Too many recipients. The limit is 20 per email.",
+  ERR_EMAIL_ATTACHMENTS_TOO_LARGE: "Attachments exceed the 25 MB limit.",
+  ERR_EMAIL_ATTACHMENT_NOT_FOUND: "Attachment not found.",
+  ERR_EMAIL_BOUNCED: "The destination server refused delivery.",
+  ERR_EMAIL_AUTH:
+    "The mailbox refused access. Reconnect the account in Connections.",
+  ERR_EMAIL_CONNECTION_FAILED: "Could not connect to the mail server."
+};
+
 const pt = {
   emailChannel: {
     companies: {
@@ -411,8 +586,10 @@ const pt = {
       on: "Habilitado",
       off: "Desabilitado"
     },
-    connections: ptConnections
-  }
+    connections: ptConnections,
+    inbox: ptInbox
+  },
+  backendErrors: ptBackendErrors
 };
 
 const ptPT = {
@@ -429,8 +606,10 @@ const ptPT = {
           smtpHostPlaceholder: "smtp.suaempresa.pt"
         }
       }
-    }
-  }
+    },
+    inbox: ptInbox
+  },
+  backendErrors: { ...ptBackendErrors }
 };
 
 const en = {
@@ -440,8 +619,10 @@ const en = {
       on: "Enabled",
       off: "Disabled"
     },
-    connections: enConnections
-  }
+    connections: enConnections,
+    inbox: enInbox
+  },
+  backendErrors: enBackendErrors
 };
 
 export const emailChannelMessages = { pt, pt_PT: ptPT, en };
