@@ -24,7 +24,7 @@ import FindOrCreateEmailContactService from "./FindOrCreateEmailContactService";
 import FindOrCreateEmailTicketService from "./FindOrCreateEmailTicketService";
 import { MAX_REFERENCES, SUBJECT_FALLBACK_DAYS } from "./limits";
 import { normalizeSubject } from "./threading";
-import { NormalizedEmail } from "./types";
+import { EmailAddress, NormalizedEmail } from "./types";
 
 export type IngestStatus = "created" | "duplicate" | "reconciled" | "ignored";
 
@@ -217,9 +217,56 @@ const reconcileOutbound = async (
   };
 };
 
+const PARENT_CANDIDATES = 20;
+
+const addressesOf = (
+  ...lists: (EmailAddress | EmailAddress[] | null | undefined)[]
+): Set<string> =>
+  new Set(
+    lists
+      .flatMap(list => (Array.isArray(list) ? list : list ? [list] : []))
+      .map(entry => normalizeEmailAddress(entry?.address))
+      .filter(Boolean)
+  );
+
+// A known Message-ID is not a credential: anyone who saw it (a forwarded
+// mail, a leaked header) could reply with it. The parent's thread is joined
+// only when the counterpart already takes part in it: it is the parent
+// ticket's contact (identity or e-mail), or it appears in the parent
+// message's from/to/cc. Otherwise the mail goes on to the subject fallback
+// (which also requires the same contact) or to a new thread.
+const isThreadParticipant = async (
+  account: EmailAccount,
+  parent: EmailMessage,
+  ticket: Ticket,
+  counterpart: string,
+  contactId: number | null
+): Promise<boolean> => {
+  if (contactId && ticket.contactId === contactId) return true;
+  // The mailbox's own address is on every message of the thread; a mail
+  // claiming to come from it proves nothing.
+  if (counterpart === normalizeEmailAddress(account.address)) return false;
+  if (
+    addressesOf(parent.fromAddress, parent.toAddresses, parent.ccAddresses).has(
+      counterpart
+    )
+  ) {
+    return true;
+  }
+  const contact = await Contact.findOne({
+    where: { id: ticket.contactId, companyId: account.companyId },
+    attributes: ["id", "email"]
+  });
+  return (
+    !!contact?.email && normalizeEmailAddress(contact.email) === counterpart
+  );
+};
+
 const threadKeyOfParent = async (
   account: EmailAccount,
-  email: NormalizedEmail
+  email: NormalizedEmail,
+  counterpart: string,
+  contactId: number | null
 ): Promise<string | null> => {
   const ids = Array.from(
     new Set(
@@ -230,21 +277,36 @@ const threadKeyOfParent = async (
   );
   if (!ids.length) return null;
 
-  const parent = await EmailMessage.findOne({
+  const parents = await EmailMessage.findAll({
     where: {
       companyId: account.companyId,
       emailAccountId: account.id,
       internetMessageId: { [Op.in]: ids }
     },
-    order: [["id", "DESC"]]
+    order: [["id", "DESC"]],
+    limit: PARENT_CANDIDATES
   });
-  if (!parent) return null;
 
-  const ticket = await Ticket.findOne({
-    where: { id: parent.ticketId, companyId: account.companyId },
-    attributes: ["id", "emailThreadKey"]
-  });
-  return ticket?.emailThreadKey || null;
+  // eslint-disable-next-line no-restricted-syntax
+  for (const parent of parents) {
+    const ticket = await Ticket.findOne({
+      where: { id: parent.ticketId, companyId: account.companyId },
+      attributes: ["id", "contactId", "emailThreadKey"]
+    });
+    if (
+      ticket?.emailThreadKey &&
+      (await isThreadParticipant(
+        account,
+        parent,
+        ticket,
+        counterpart,
+        contactId
+      ))
+    ) {
+      return ticket.emailThreadKey;
+    }
+  }
+  return null;
 };
 
 // Conservative fallback for clients that drop In-Reply-To/References: an open
@@ -284,13 +346,14 @@ const threadKeyBySubject = async (
 const resolveThreadKey = async (
   account: EmailAccount,
   email: NormalizedEmail,
+  counterpart: string,
   contactId: number | null
 ): Promise<string> => {
   if (email.providerThreadId) {
     return fitColumn(`g:${email.providerThreadId}`);
   }
   return (
-    (await threadKeyOfParent(account, email)) ||
+    (await threadKeyOfParent(account, email, counterpart, contactId)) ||
     (await threadKeyBySubject(account, email, contactId)) ||
     fitColumn(`m:${email.internetMessageId || email.providerMessageId}`)
   );
@@ -322,25 +385,24 @@ const loadMessageForEmit = (
 // update (UpdateTicketService), so the inbox and the email thread view
 // refresh. Runs after the commit; a failure here is logged only, because the
 // data is already stored and a retry would just be a duplicate.
+// Like CreateMessageService, a non-compliant company gets no websocket events
+// at all for a new message (neither the message nor the ticket update); the
+// data is stored and shows up once the company is compliant again.
 const emitIngested = async (
   companyId: number,
   ticketId: number,
   messageId: string,
-  reopened: boolean
+  reopenedFromQueueId: number | null | undefined
 ): Promise<void> => {
   try {
+    if (!(await checkCompanyCompliant(companyId))) return;
     const message = await loadMessageForEmit(companyId, ticketId, messageId);
     if (!message?.ticket) return;
-    if (await checkCompanyCompliant(companyId)) {
-      await websocketCreateMessage(message);
-    }
+    await websocketCreateMessage(message);
     websocketUpdateTicket(
       message.ticket,
-      reopened
-        ? [
-            `company-${companyId}-closed`,
-            `queue-${message.ticket.queueId}-closed`
-          ]
+      reopenedFromQueueId !== undefined
+        ? [`company-${companyId}-closed`, `queue-${reopenedFromQueueId}-closed`]
         : undefined
     );
   } catch (err) {
@@ -426,26 +488,36 @@ const IngestEmailService = async (
   }
 
   // 3. thread
-  const threadKey = await resolveThreadKey(account, email, contactId);
+  const threadKey = await resolveThreadKey(
+    account,
+    email,
+    counterpart,
+    contactId
+  );
 
   // 5-7. ticket, EmailMessage, attachments and Message in one transaction
   const messageId = uuidv4();
   const fromMe = !isInbound;
   let saved: EmailAttachment[] = [];
-  let outcome: { ticketId: number; reopened: boolean } | null;
+  let outcome: {
+    ticketId: number;
+    // set only when a closed ticket was reopened (queue before reopening)
+    reopenedFromQueueId?: number | null;
+  } | null;
 
   try {
     outcome = await sequelize.transaction(async transaction => {
-      const { ticket, reopened } = await FindOrCreateEmailTicketService({
-        account,
-        contact,
-        threadKey,
-        subject: email.subject,
-        reopen: isInbound,
-        createIfMissing: isInbound,
-        incrementUnread: isInbound,
-        transaction
-      });
+      const { ticket, reopened, previousQueueId } =
+        await FindOrCreateEmailTicketService({
+          account,
+          contact,
+          threadKey,
+          subject: email.subject,
+          reopen: isInbound,
+          createIfMissing: isInbound,
+          incrementUnread: isInbound,
+          transaction
+        });
       if (!ticket) return null;
 
       // Inserted first: a concurrent import of the same message fails here,
@@ -483,6 +555,10 @@ const IngestEmailService = async (
         { transaction }
       );
 
+      // e.g. "oversize": the provider message was too big to import whole;
+      // the inbox renders a hint from dataJson
+      const flags = email.flags || [];
+
       const receivedAt =
         email.receivedAt instanceof Date &&
         !Number.isNaN(email.receivedAt.getTime())
@@ -504,7 +580,9 @@ const IngestEmailService = async (
           // valid JSON: the frontend MessagesList runs JSON.parse on it
           dataJson: JSON.stringify({
             source: EMAIL_CHANNEL,
-            emailMessageId: emailMessage.id
+            emailMessageId: emailMessage.id,
+            flags,
+            ...(flags.includes("oversize") ? { oversize: true } : {})
           }),
           ...(receivedAt ? { createdAt: receivedAt } : {})
         },
@@ -521,7 +599,9 @@ const IngestEmailService = async (
       ticket.changed("updatedAt", true);
       await ticket.save({ transaction });
 
-      return { ticketId: ticket.id, reopened };
+      return reopened
+        ? { ticketId: ticket.id, reopenedFromQueueId: previousQueueId ?? null }
+        : { ticketId: ticket.id };
     });
   } catch (err) {
     // The rows are rolled back; the files are not part of the transaction.
@@ -540,7 +620,12 @@ const IngestEmailService = async (
     return ignored(account, "outbound_without_thread");
   }
 
-  await emitIngested(companyId, outcome.ticketId, messageId, outcome.reopened);
+  await emitIngested(
+    companyId,
+    outcome.ticketId,
+    messageId,
+    outcome.reopenedFromQueueId
+  );
 
   return { status: "created", ticketId: outcome.ticketId, messageId };
 };

@@ -5,6 +5,7 @@ import path from "path";
 import { Op, UniqueConstraintError } from "sequelize";
 import sequelize from "../../../database";
 import AppError from "../../../errors/AppError";
+import Contact from "../../../models/Contact";
 import ContactIdentity from "../../../models/ContactIdentity";
 import EmailAttachment from "../../../models/EmailAttachment";
 import EmailMessage from "../../../models/EmailMessage";
@@ -41,7 +42,11 @@ jest.mock("../../../models/Message", () => ({
 }));
 jest.mock("../../../models/EmailMessage", () => ({
   __esModule: true,
-  default: { findOne: jest.fn(), create: jest.fn() }
+  default: { findOne: jest.fn(), findAll: jest.fn(), create: jest.fn() }
+}));
+jest.mock("../../../models/Contact", () => ({
+  __esModule: true,
+  default: { findOne: jest.fn() }
 }));
 jest.mock("../../../models/EmailAttachment", () => ({
   __esModule: true,
@@ -389,6 +394,10 @@ describe("IngestEmailService", () => {
     (EmailAttachment.create as jest.Mock).mockImplementation(
       create("EmailAttachment")
     );
+    (EmailMessage.findAll as jest.Mock).mockImplementation(
+      findAll("EmailMessage")
+    );
+    (Contact.findOne as jest.Mock).mockResolvedValue(null);
     identityFindOne.mockResolvedValue(null);
 
     findContact.mockResolvedValue({ id: 42, name: "Ana" });
@@ -803,9 +812,10 @@ describe("IngestEmailService", () => {
       expect.objectContaining({ ticketId: closed.id })
     );
     expect(counter).not.toHaveBeenCalled();
+    // the closed lists are cleaned with the queue the ticket had while closed
     expect(emitTicket).toHaveBeenCalledWith(
       expect.objectContaining({ id: closed.id }),
-      expect.arrayContaining(["company-1-closed"])
+      ["company-1-closed", "queue-null-closed"]
     );
   });
 
@@ -833,7 +843,8 @@ describe("IngestEmailService", () => {
       messageId: "first",
       direction: "in",
       providerMessageId: "INBOX:1:1",
-      internetMessageId: "<a1@cliente.com>"
+      internetMessageId: "<a1@cliente.com>",
+      fromAddress: { address: "ana@cliente.com" }
     });
 
     const result = await IngestEmailService(
@@ -943,7 +954,136 @@ describe("IngestEmailService", () => {
     const [message] = tables.Message;
     expect(JSON.parse(message.dataJson)).toEqual({
       source: "email",
-      emailMessageId: tables.EmailMessage[0].id
+      emailMessageId: tables.EmailMessage[0].id,
+      flags: []
+    });
+  });
+
+  it("imports an oversize-flagged email and exposes the hint in dataJson", async () => {
+    const result = await IngestEmailService(
+      account,
+      mail({ text: "", attachments: [], flags: ["oversize"] })
+    );
+
+    expect(result.status).toBe("created");
+    const [message] = tables.Message;
+    expect(message.body).toBe("");
+    expect(JSON.parse(message.dataJson)).toEqual({
+      source: "email",
+      emailMessageId: tables.EmailMessage[0].id,
+      flags: ["oversize"],
+      oversize: true
+    });
+    expect(tables.EmailMessage[0].flags).toEqual(["oversize"]);
+    expect(tables.EmailAttachment).toHaveLength(0);
+  });
+
+  describe("thread hijack protection (In-Reply-To/References)", () => {
+    let ticket: Row;
+    beforeEach(() => {
+      ticket = seedTicket({
+        emailThreadKey: "m:<a1@cliente.com>",
+        status: "open",
+        contactId: 42
+      });
+      insert("EmailMessage", {
+        companyId: 1,
+        emailAccountId: 5,
+        ticketId: ticket.id,
+        messageId: "first",
+        direction: "in",
+        providerMessageId: "INBOX:1:1",
+        internetMessageId: "<a1@cliente.com>",
+        fromAddress: { address: "ana@cliente.com", name: "Ana" },
+        toAddresses: [{ address: "suporte@empresa.com" }],
+        ccAddresses: [{ address: "Bia@Cliente.com" }]
+      });
+    });
+
+    const replyFrom = (address: string, n: number) =>
+      mail({
+        providerMessageId: `INBOX:1:${n}`,
+        internetMessageId: `<h${n}@x.com>`,
+        inReplyTo: "<a1@cliente.com>",
+        references: ["<a1@cliente.com>"],
+        from: { address },
+        subject: "Re: Pedido 123"
+      });
+
+    it("gives a stranger replying with a known Message-ID a new ticket", async () => {
+      findContact.mockResolvedValueOnce({ id: 99 });
+
+      const result = await IngestEmailService(
+        account,
+        replyFrom("intruso@malicioso.com", 2)
+      );
+
+      expect(result.status).toBe("created");
+      expect(result.ticketId).not.toBe(ticket.id);
+      expect(ticket.unreadMessages).toBe(0);
+      expect(tables.Ticket.find(t => t.id === result.ticketId)).toMatchObject({
+        contactId: 99,
+        emailThreadKey: "m:<h2@x.com>"
+      });
+    });
+
+    it("still threads the real customer and a CC'd participant", async () => {
+      const customer = await IngestEmailService(
+        account,
+        replyFrom("ana@cliente.com", 3)
+      );
+      findContact.mockResolvedValueOnce({ id: 55 });
+      const ccd = await IngestEmailService(
+        account,
+        replyFrom("bia@cliente.com", 4)
+      );
+
+      expect(customer.ticketId).toBe(ticket.id);
+      expect(ccd.ticketId).toBe(ticket.id);
+      expect(tables.Ticket).toHaveLength(1);
+    });
+
+    it("threads a sender matching the ticket contact's email", async () => {
+      findContact.mockResolvedValueOnce({ id: 61 });
+      (Contact.findOne as jest.Mock).mockResolvedValueOnce({
+        id: 42,
+        email: "Ana.Pessoal@Cliente.com"
+      });
+
+      const result = await IngestEmailService(
+        account,
+        replyFrom("ana.pessoal@cliente.com", 5)
+      );
+
+      expect(result.ticketId).toBe(ticket.id);
+      expect((Contact.findOne as jest.Mock).mock.calls[0][0].where).toEqual({
+        id: 42,
+        companyId: 1
+      });
+    });
+
+    it("does not let a mail claiming the mailbox's own address join the thread", async () => {
+      findContact.mockResolvedValueOnce({ id: 70 });
+
+      const result = await IngestEmailService(
+        account,
+        replyFrom("suporte@empresa.com", 6)
+      );
+
+      expect(result.ticketId).not.toBe(ticket.id);
+    });
+
+    it("ignores an outbound copy to a stranger that reuses the thread's Message-ID", async () => {
+      const result = await IngestEmailService(
+        account,
+        outbound({
+          inReplyTo: "<a1@cliente.com>",
+          to: [{ address: "outra@pessoa.com" }]
+        })
+      );
+
+      expect(result).toEqual({ status: "ignored" });
+      expect(tables.Message).toHaveLength(0);
     });
   });
 
@@ -1017,6 +1157,19 @@ describe("IngestEmailService", () => {
         ticket: expect.objectContaining({ id: tables.Ticket[0].id })
       })
     );
+  });
+
+  it("skips every websocket event for a non-compliant company but still imports", async () => {
+    (checkCompanyCompliant as jest.Mock).mockResolvedValue(false);
+
+    const result = await IngestEmailService(account, mail());
+
+    expect(result.status).toBe("created");
+    expect(tables.Message).toHaveLength(1);
+    expect(checkCompanyCompliant).toHaveBeenCalledWith(1);
+    expect(emitMessage).not.toHaveBeenCalled();
+    expect(emitTicket).not.toHaveBeenCalled();
+    expect(events).toEqual(["commit"]);
   });
 
   it("still returns created when emitting fails after the commit", async () => {

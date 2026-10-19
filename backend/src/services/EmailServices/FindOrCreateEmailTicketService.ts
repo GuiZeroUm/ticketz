@@ -29,6 +29,8 @@ interface Response {
   ticket: Ticket | null;
   justCreated: boolean;
   reopened: boolean;
+  // queueId the ticket had before being reopened (only when reopened)
+  previousQueueId?: number | null;
 }
 
 const ACTIVE_STATUSES = ["open", "pending"];
@@ -94,6 +96,7 @@ const FindOrCreateEmailTicketService = async ({
     });
 
     if (previous) {
+      const previousQueueId = previous.queueId ?? null;
       if (!reopen) {
         return { ticket: previous, justCreated: false, reopened: false };
       }
@@ -116,7 +119,12 @@ const FindOrCreateEmailTicketService = async ({
         whatsappId: null,
         transaction
       });
-      return { ticket: previous, justCreated: false, reopened: true };
+      return {
+        ticket: previous,
+        justCreated: false,
+        reopened: true,
+        previousQueueId
+      };
     }
 
     if (!createIfMissing) {
