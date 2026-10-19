@@ -1083,6 +1083,8 @@ describe("email routes", () => {
         from: { name: "Cliente", address: "cliente@x.com" },
         to: [{ address: "suporte@empresa.com.br" }],
         cc: [],
+        replyTo: [],
+        oversize: false,
         date: "2026-10-19T10:00:00.000Z",
         text: "Olá, preciso de um orçamento",
         htmlSanitized: "<p>oi</p>",
@@ -1108,6 +1110,38 @@ describe("email routes", () => {
       expect(serialized).not.toContain("storageKey");
       expect(serialized).not.toContain("secret-key");
       secretKeys.forEach(key => expect(serialized).not.toContain(key));
+    });
+
+    it("exposes replyTo when the row has it and [] when it is null", async () => {
+      const messages = emailMessages();
+      (messages[0] as any).replyToAddresses = [
+        { name: "Vendas", address: "vendas@x.com" }
+      ];
+      (messages[1] as any).replyToAddresses = null;
+      setup({ emailMessages: messages });
+      const response = await request(app)
+        .get("/email/tickets/10/thread")
+        .set("x-test-user", asUser(1));
+      expect(response.status).toBe(200);
+      expect(response.body.messages[0].replyTo).toEqual([
+        { name: "Vendas", address: "vendas@x.com" }
+      ]);
+      expect(response.body.messages[1].replyTo).toEqual([]);
+    });
+
+    it("exposes only the oversize boolean, never the rest of the flags", async () => {
+      const messages = emailMessages();
+      (messages[0] as any).flags = ["\\Seen", "oversize"];
+      (messages[1] as any).flags = ["\\Seen"];
+      setup({ emailMessages: messages });
+      const response = await request(app)
+        .get("/email/tickets/10/thread")
+        .set("x-test-user", asUser(1));
+      expect(response.body.messages[0].oversize).toBe(true);
+      expect(response.body.messages[1].oversize).toBe(false);
+      expect(response.body.messages[0]).not.toHaveProperty("flags");
+      expect(response.body.messages[0]).not.toHaveProperty("dataJson");
+      expect(JSON.stringify(response.body)).not.toContain("Seen");
     });
 
     it("flags truncated=false for a short thread", async () => {
