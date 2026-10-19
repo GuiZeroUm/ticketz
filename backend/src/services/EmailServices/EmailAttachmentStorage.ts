@@ -1,5 +1,6 @@
 import fs, { ReadStream } from "fs";
 import path from "path";
+import { Transaction } from "sequelize";
 import { v4 as uuidv4 } from "uuid";
 import AppError from "../../errors/AppError";
 import privateFiles from "../../config/privateFiles";
@@ -72,87 +73,6 @@ export const sanitizeFilename = (filename: string): string => {
 const limited = (value: string | undefined | null): string | null =>
   value ? value.slice(0, 255) : null;
 
-export const saveInboundAttachments = async (
-  companyId: number,
-  emailMessageId: number,
-  atts: NormalizedAttachment[]
-): Promise<EmailAttachment[]> => {
-  const saved: EmailAttachment[] = [];
-  const relativeDir = `${STORAGE_ROOT}/${companyId}/${emailMessageId}`;
-  const absoluteDir = path.join(
-    privateFiles.directory,
-    STORAGE_ROOT,
-    String(companyId),
-    String(emailMessageId)
-  );
-  let storedBytes = 0;
-
-  // eslint-disable-next-line no-restricted-syntax
-  for (const att of atts) {
-    // The declared size comes from the parsed message; trust the real buffer.
-    const size = att.content.length;
-    const base = {
-      companyId,
-      emailMessageId,
-      filename: sanitizeFilename(att.filename),
-      contentType: limited(att.contentType),
-      size,
-      contentId: limited(att.contentId),
-      inline: att.inline
-    };
-
-    let skippedReason: string | null = null;
-    if (size > MAX_ATTACHMENT_BYTES) {
-      skippedReason = "too_large";
-    } else if (storedBytes + size > MAX_INBOUND_ATTACHMENTS_BYTES) {
-      skippedReason = "message_too_large";
-    }
-
-    if (skippedReason) {
-      saved.push(
-        await EmailAttachment.create({
-          ...base,
-          storageKey: null,
-          skippedReason
-        })
-      );
-    } else {
-      const name = uuidv4();
-      const absolutePath = path.join(absoluteDir, name);
-
-      await fs.promises.mkdir(absoluteDir, { recursive: true, mode: 0o700 });
-
-      await fs.promises.writeFile(
-        absolutePath,
-        new Uint8Array(
-          att.content.buffer,
-          att.content.byteOffset,
-          att.content.length
-        ),
-        {
-          flag: "wx",
-          mode: 0o600
-        }
-      );
-      try {
-        saved.push(
-          await EmailAttachment.create({
-            ...base,
-            storageKey: `${relativeDir}/${name}`,
-            skippedReason: null
-          })
-        );
-      } catch (err) {
-        await fs.promises.rm(absolutePath, { force: true });
-        throw err;
-      }
-      storedBytes += size;
-    }
-  }
-
-  return saved;
-};
-
 const resolveStoragePath = (
   companyId: number,
   storageKey: string
@@ -167,6 +87,122 @@ const resolveStoragePath = (
   );
   const resolved = path.resolve(privateFiles.directory, storageKey);
   return resolved.startsWith(companyRoot + path.sep) ? resolved : null;
+};
+
+// Best-effort removal of files written by saveInboundAttachments. Keys that do
+// not have the exact storage shape are ignored, so a bad value can never make
+// this delete anything outside <private>/email/<companyId>/. Never throws.
+//
+// Sequelize 6 has no rollback hook (only transaction.afterCommit), so a caller
+// that passes a transaction must call this in its own catch/rollback path:
+//   removeStoredAttachments(saved.map(a => a.storageKey).filter(Boolean))
+export const removeStoredAttachments = async (
+  storageKeys: (string | null | undefined)[]
+): Promise<void> => {
+  const dirs = new Set<string>();
+  await Promise.all(
+    storageKeys.map(async key => {
+      const match = key ? STORAGE_KEY_PATTERN.exec(key) : null;
+      if (!key || !match) return;
+      const filePath = resolveStoragePath(Number(match[1]), key);
+      if (!filePath) return;
+      try {
+        await fs.promises.rm(filePath, { force: true });
+        dirs.add(path.dirname(filePath));
+      } catch {
+        // best effort
+      }
+    })
+  );
+  // drop the per-message directory when it ended up empty (non-recursive)
+  await Promise.all(
+    Array.from(dirs).map(dir => fs.promises.rmdir(dir).catch(() => undefined))
+  );
+};
+
+export const saveInboundAttachments = async (
+  companyId: number,
+  emailMessageId: number,
+  atts: NormalizedAttachment[],
+  opts: { transaction?: Transaction } = {}
+): Promise<EmailAttachment[]> => {
+  const saved: EmailAttachment[] = [];
+  const writtenKeys: string[] = [];
+  const relativeDir = `${STORAGE_ROOT}/${companyId}/${emailMessageId}`;
+  const absoluteDir = path.join(
+    privateFiles.directory,
+    STORAGE_ROOT,
+    String(companyId),
+    String(emailMessageId)
+  );
+  const createOptions = opts.transaction
+    ? { transaction: opts.transaction }
+    : undefined;
+  let storedBytes = 0;
+
+  try {
+    // eslint-disable-next-line no-restricted-syntax
+    for (const att of atts) {
+      // The declared size comes from the parsed message; trust the real buffer.
+      const size = att.content.length;
+      const base = {
+        companyId,
+        emailMessageId,
+        filename: sanitizeFilename(att.filename),
+        contentType: limited(att.contentType),
+        size,
+        contentId: limited(att.contentId),
+        inline: att.inline
+      };
+
+      let skippedReason: string | null = null;
+      if (size > MAX_ATTACHMENT_BYTES) {
+        skippedReason = "too_large";
+      } else if (storedBytes + size > MAX_INBOUND_ATTACHMENTS_BYTES) {
+        skippedReason = "message_too_large";
+      }
+
+      if (skippedReason) {
+        saved.push(
+          await EmailAttachment.create(
+            { ...base, storageKey: null, skippedReason },
+            createOptions
+          )
+        );
+      } else {
+        const name = uuidv4();
+        const storageKey = `${relativeDir}/${name}`;
+
+        await fs.promises.mkdir(absoluteDir, { recursive: true, mode: 0o700 });
+        // registered before the write so a partial write is cleaned up too
+        writtenKeys.push(storageKey);
+
+        await fs.promises.writeFile(
+          path.join(absoluteDir, name),
+          new Uint8Array(
+            att.content.buffer,
+            att.content.byteOffset,
+            att.content.length
+          ),
+          { flag: "wx", mode: 0o600 }
+        );
+        saved.push(
+          await EmailAttachment.create(
+            { ...base, storageKey, skippedReason: null },
+            createOptions
+          )
+        );
+        storedBytes += size;
+      }
+    }
+  } catch (err) {
+    // Whatever this call wrote is removed before rethrowing, with or without
+    // a transaction: the caller is going to roll back / abort anyway.
+    await removeStoredAttachments(writtenKeys);
+    throw err;
+  }
+
+  return saved;
 };
 
 export const openAttachment = async (

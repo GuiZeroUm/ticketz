@@ -16,6 +16,7 @@ jest.mock("../../../config/privateFiles", () => ({
 
 import {
   openAttachment,
+  removeStoredAttachments,
   safeInlineContentType,
   saveInboundAttachments
 } from "../EmailAttachmentStorage";
@@ -70,7 +71,7 @@ describe("EmailAttachmentStorage", () => {
     expect(files[0]).not.toContain("secret-plan");
     expect(fs.readFileSync(path.join(dir, files[0]), "utf8")).toBe("PDFDATA");
 
-    expect(create).toHaveBeenCalledWith(
+    expect(create.mock.calls[0][0]).toEqual(
       expect.objectContaining({
         companyId: 7,
         emailMessageId: 42,
@@ -185,6 +186,128 @@ describe("EmailAttachmentStorage", () => {
     expect(listFiles(path.join(mockPrivateDir, "email", "7", "48"))).toEqual(
       []
     );
+  });
+
+  it("removes every file written by the call when a later create fails (no transaction)", async () => {
+    let calls = 0;
+    const create = jest
+      .spyOn(EmailAttachment, "create")
+      .mockImplementation((async (values: unknown) => {
+        calls += 1;
+        if (calls === 3) throw new Error("db down");
+        return { id: calls, ...(values as object) };
+      }) as never);
+    await expect(
+      saveInboundAttachments(7, 60, [att(), att(), att(), att()])
+    ).rejects.toThrow("db down");
+    expect(create).toHaveBeenCalledTimes(3);
+    expect(listFiles(path.join(mockPrivateDir, "email", "7", "60"))).toEqual(
+      []
+    );
+  });
+
+  it("removes files already written when a write itself fails midway", async () => {
+    mockCreate();
+    const realWrite = fs.promises.writeFile;
+    let writes = 0;
+    jest.spyOn(fs.promises, "writeFile").mockImplementation((async (
+      ...args: unknown[]
+    ) => {
+      writes += 1;
+      if (writes === 2) {
+        // leave a partial file behind, then fail
+        await (realWrite as (...a: unknown[]) => Promise<void>)(
+          args[0],
+          "par",
+          args[2]
+        );
+        throw new Error("ENOSPC");
+      }
+      return (realWrite as (...a: unknown[]) => Promise<void>)(...args);
+    }) as never);
+    await expect(
+      saveInboundAttachments(7, 61, [att(), att(), att()])
+    ).rejects.toThrow("ENOSPC");
+    expect(listFiles(path.join(mockPrivateDir, "email", "7", "61"))).toEqual(
+      []
+    );
+  });
+
+  describe("with a transaction", () => {
+    const tx = { id: "tx" } as never;
+
+    it("passes the transaction to every EmailAttachment.create (stored and skipped)", async () => {
+      const create = mockCreate();
+      await saveInboundAttachments(
+        7,
+        62,
+        [att(), att({ content: Buffer.alloc(MAX_ATTACHMENT_BYTES + 1) })],
+        { transaction: tx }
+      );
+      expect(create).toHaveBeenCalledTimes(2);
+      create.mock.calls.forEach(call => {
+        expect(call[1]).toEqual({ transaction: tx });
+      });
+    });
+
+    it("omits the transaction option when none is given", async () => {
+      const create = mockCreate();
+      await saveInboundAttachments(7, 63, [att()]);
+      expect(create.mock.calls[0][1]).toBeUndefined();
+    });
+
+    it("removes this call's files if a create fails inside the transaction", async () => {
+      let calls = 0;
+      jest.spyOn(EmailAttachment, "create").mockImplementation((async (
+        values: unknown
+      ) => {
+        calls += 1;
+        if (calls === 2) throw new Error("tx aborted");
+        return { id: calls, ...(values as object) };
+      }) as never);
+      await expect(
+        saveInboundAttachments(7, 64, [att(), att()], { transaction: tx })
+      ).rejects.toThrow("tx aborted");
+      expect(listFiles(path.join(mockPrivateDir, "email", "7", "64"))).toEqual(
+        []
+      );
+    });
+
+    it("keeps the files on success; the caller removes them on rollback via removeStoredAttachments", async () => {
+      mockCreate();
+      const saved = await saveInboundAttachments(7, 65, [att(), att()], {
+        transaction: tx
+      });
+      const dir = path.join(mockPrivateDir, "email", "7", "65");
+      expect(listFiles(dir)).toHaveLength(2);
+
+      // Task 8's catch block after a rollback
+      await removeStoredAttachments(saved.map(a => a.storageKey));
+      expect(fs.existsSync(dir)).toBe(false);
+    });
+  });
+
+  describe("removeStoredAttachments", () => {
+    it("ignores null, malformed and escaping keys, never throws, and deletes nothing outside email/<companyId>", async () => {
+      const outside = path.join(mockPrivateDir, "keep.txt");
+      fs.writeFileSync(outside, "keep");
+      const other = path.join(mockPrivateDir, "email", "8", "1");
+      fs.mkdirSync(other, { recursive: true });
+      fs.writeFileSync(path.join(other, "file"), "other");
+      await expect(
+        removeStoredAttachments([
+          null,
+          undefined,
+          "",
+          "../keep.txt",
+          "email/7/../../keep.txt",
+          "/etc/passwd",
+          "email/7/1/does-not-exist"
+        ])
+      ).resolves.toBeUndefined();
+      expect(fs.readFileSync(outside, "utf8")).toBe("keep");
+      expect(fs.readFileSync(path.join(other, "file"), "utf8")).toBe("other");
+    });
   });
 
   it("returns an empty list without touching disk for no attachments", async () => {
