@@ -52,3 +52,65 @@ describe("EmailThreadView send status", () => {
     expect(screen.queryByText(/ERR_/)).toBeNull();
   });
 });
+
+describe("EmailThreadView headers and notices", () => {
+  beforeAll(() => i18n.changeLanguage("pt"));
+
+  const inbound = extra => ({
+    messageId: `in-${Math.random()}`,
+    direction: "in",
+    from: { address: "carla@cliente.com", name: "Carla" },
+    to: [{ address: "contato@empresa.com" }],
+    cc: [],
+    date: "2026-10-19T10:00:00.000Z",
+    text: "",
+    attachments: [],
+    ...extra
+  });
+
+  const renderThread = messages =>
+    render(
+      <EmailThreadView
+        ticket={{ id: 1, contact: { name: "Carla" } }}
+        thread={{
+          subject: "Proposta",
+          account: { status: "active" },
+          messages
+        }}
+      />
+    );
+
+  it("shows Reply-To next to To when it differs from From", () => {
+    renderThread([
+      inbound({ replyTo: [{ address: "vendas@cliente.com", name: "Vendas" }] })
+    ]);
+    expect(
+      screen.getByText(content =>
+        content.includes(
+          i18n.t("emailChannel.inbox.thread.replyTo", {
+            list: "vendas@cliente.com"
+          })
+        )
+      )
+    ).toBeTruthy();
+  });
+
+  it("hides an empty, missing or redundant Reply-To", () => {
+    renderThread([
+      inbound({ replyTo: [] }),
+      inbound({}),
+      inbound({ replyTo: [{ address: "CARLA@cliente.com" }] })
+    ]);
+    const label = i18n
+      .t("emailChannel.inbox.thread.replyTo", { list: "" })
+      .trim();
+    expect(screen.queryByText(content => content.includes(label))).toBeNull();
+  });
+
+  it("shows the oversize notice only for headers-only messages", () => {
+    renderThread([inbound({ oversize: true }), inbound({ oversize: false })]);
+    expect(
+      screen.getAllByText(i18n.t("emailChannel.inbox.thread.oversize"))
+    ).toHaveLength(1);
+  });
+});

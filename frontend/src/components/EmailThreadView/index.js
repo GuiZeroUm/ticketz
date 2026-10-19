@@ -7,6 +7,7 @@ import {
   Check,
   Clock,
   FileText,
+  FileWarning,
   FileX
 } from "lucide-react";
 
@@ -155,6 +156,19 @@ const useStyles = makeStyles(theme => {
       lineHeight: 1.55,
       whiteSpace: "pre-wrap",
       overflowWrap: "anywhere"
+    },
+    oversize: {
+      marginTop: 12,
+      display: "flex",
+      alignItems: "flex-start",
+      gap: 8,
+      padding: "8px 12px",
+      border: `1px dashed ${dark ? theme.palette.divider : "#D4D4D8"}`,
+      borderRadius: 8,
+      color: theme.palette.text.secondary,
+      fontSize: 12.5,
+      lineHeight: 1.45,
+      "& svg": { flex: "none", marginTop: 1 }
     },
     htmlBody: {
       marginTop: 12,
@@ -347,6 +361,15 @@ const EmailCard = ({ message, contactColor, onFrameResize }) => {
   const fromName = addressLabel(from);
   const to = addressList(message.to).map(addressLabel).join(", ");
   const cc = addressList(message.cc).map(addressLabel).join(", ");
+  // Reply-To only when it says something From does not: replies go there.
+  const replyTo = addressList(message.replyTo)
+    .filter(
+      item =>
+        String(item.address).toLowerCase() !==
+        String(from?.address || "").toLowerCase()
+    )
+    .map(item => item.address)
+    .join(", ");
   const attachments = Array.isArray(message.attachments)
     ? message.attachments
     : [];
@@ -368,11 +391,15 @@ const EmailCard = ({ message, contactColor, onFrameResize }) => {
               <span className={classes.muted}>&lt;{from.address}&gt;</span>
             )}
           </div>
-          {(to || cc) && (
+          {(to || cc || replyTo) && (
             <div className={classes.toLine}>
-              {to && ti("thread.to", { list: to })}
-              {to && cc && " · "}
-              {cc && ti("thread.cc", { list: cc })}
+              {[
+                to && ti("thread.to", { list: to }),
+                cc && ti("thread.cc", { list: cc }),
+                replyTo && ti("thread.replyTo", { list: replyTo })
+              ]
+                .filter(Boolean)
+                .join(" · ")}
             </div>
           )}
         </div>
@@ -391,6 +418,12 @@ const EmailCard = ({ message, contactColor, onFrameResize }) => {
         </div>
       ) : (
         message.text && <div className={classes.body}>{message.text}</div>
+      )}
+      {message.oversize === true && (
+        <div className={classes.oversize} role="note">
+          <FileWarning size={14} aria-hidden="true" />
+          <span>{ti("thread.oversize")}</span>
+        </div>
       )}
       {attachments.length > 0 && (
         <div className={classes.attachments}>

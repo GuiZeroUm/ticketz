@@ -60,6 +60,32 @@ describe("emailInbox helpers", () => {
     );
   });
 
+  it("skips a Reply-To that is the account itself, like the backend", () => {
+    const ownFirst = {
+      ...thread,
+      messages: [
+        {
+          ...thread.messages[0],
+          replyTo: [
+            { address: "Comercial@empresa.com" },
+            { address: "vendas@cliente.com" }
+          ]
+        }
+      ]
+    };
+    expect(defaultRecipients(ownFirst, "reply").to).toBe("vendas@cliente.com");
+    const onlyOwn = {
+      ...thread,
+      messages: [
+        {
+          ...thread.messages[0],
+          replyTo: [{ address: "comercial@empresa.com" }]
+        }
+      ]
+    };
+    expect(defaultRecipients(onlyOwn, "reply").to).toBe("carla@cliente.com");
+  });
+
   it("translates send error codes, including server status codes", () => {
     expect(translateEmailSendError("ERR_EMAIL_BOUNCED")).toBe(
       i18n.t("backendErrors.ERR_EMAIL_BOUNCED")

@@ -425,7 +425,10 @@ const ptInbox = {
     empty: "Nenhum e-mail nesta conversa ainda.",
     frameTitle: "Conteúdo do e-mail de {{from}}",
     attachmentSkipped: "Anexo não importado (muito grande)",
-    download: "Baixar {{name}}"
+    download: "Baixar {{name}}",
+    replyTo: "responder para {{list}}",
+    oversize:
+      "Mensagem grande demais para ser importada; abra na caixa de e-mail original."
   },
   status: {
     queued: "Na fila",
@@ -488,7 +491,10 @@ const enInbox = {
     empty: "No emails in this conversation yet.",
     frameTitle: "Email content from {{from}}",
     attachmentSkipped: "Attachment not imported (too large)",
-    download: "Download {{name}}"
+    download: "Download {{name}}",
+    replyTo: "reply to {{list}}",
+    oversize:
+      "Message too large to be imported; open it in the original mailbox."
   },
   status: {
     queued: "Queued",
@@ -571,7 +577,33 @@ const ptBackendErrors = {
   ERR_EMAIL_HOST_NOT_ALLOWED:
     "Este servidor de e-mail não é permitido. Use o endereço público do servidor.",
   ERR_EMAIL_PORT_NOT_ALLOWED:
-    "Esta porta não é permitida para o servidor de e-mail."
+    "Esta porta não é permitida para o servidor de e-mail.",
+  ERR_EMAIL_MESSAGE_SKIPPED:
+    "Um e-mail não pôde ser importado e foi ignorado. Os demais continuam chegando normalmente.",
+  ERR_EMAIL_ACCOUNT_NOT_FOUND: "Conta de e-mail não encontrada.",
+  ERR_EMAIL_ACCOUNT_EXISTS: "Esta caixa de e-mail já está conectada.",
+  ERR_EMAIL_INVALID_ACCOUNT:
+    "Os dados da conta de e-mail são inválidos. Confira os campos e tente de novo.",
+  ERR_EMAIL_SEND_FAILED: "Não foi possível enviar o e-mail.",
+  ERR_INVALID_CHANNEL: "Canal inválido para esta operação.",
+  ERR_EMAIL_EMPTY_MESSAGE:
+    "Escreva uma mensagem ou anexe um arquivo antes de enviar.",
+  ERR_EMAIL_INVALID_MODE: "Tipo de resposta inválido.",
+  ERR_EMAIL_INVALID_TICKET: "Este atendimento não é de e-mail.",
+  ERR_EMAIL_INVALID_IDEMPOTENCY_KEY:
+    "Não foi possível identificar este envio. Recarregue a página e tente de novo.",
+  ERR_EMAIL_IDEMPOTENCY_CONFLICT:
+    "Este envio conflita com outro já registrado. Recarregue a página e tente de novo.",
+  ERR_EMAIL_SYNC_ENQUEUE_FAILED:
+    "Não foi possível iniciar a sincronização agora. Tente de novo em instantes.",
+  ERR_EMAIL_SYNC_FAILED:
+    "Falha ao sincronizar a caixa de e-mail. Uma nova tentativa é feita automaticamente.",
+  ERR_GMAIL_OAUTH_FAILED:
+    "Não foi possível concluir a conexão com o Google. Tente conectar de novo.",
+  ERR_GMAIL_NOT_CONFIGURED:
+    "A conexão com o Gmail não está configurada neste servidor. Fale com o administrador do sistema.",
+  ERR_GMAIL_ACCOUNT_MISMATCH:
+    "A conta Google escolhida não é a da conexão que você está reconectando. Entre com a mesma conta."
 };
 
 const enBackendErrors = {
@@ -610,7 +642,32 @@ const enBackendErrors = {
     "This type of mailbox is not supported yet.",
   ERR_EMAIL_HOST_NOT_ALLOWED:
     "This mail server is not allowed. Use the server's public address.",
-  ERR_EMAIL_PORT_NOT_ALLOWED: "This port is not allowed for the mail server."
+  ERR_EMAIL_PORT_NOT_ALLOWED: "This port is not allowed for the mail server.",
+  ERR_EMAIL_MESSAGE_SKIPPED:
+    "An email could not be imported and was skipped. The others keep arriving normally.",
+  ERR_EMAIL_ACCOUNT_NOT_FOUND: "Email account not found.",
+  ERR_EMAIL_ACCOUNT_EXISTS: "This mailbox is already connected.",
+  ERR_EMAIL_INVALID_ACCOUNT:
+    "The email account details are invalid. Check the fields and try again.",
+  ERR_EMAIL_SEND_FAILED: "The email could not be sent.",
+  ERR_INVALID_CHANNEL: "Invalid channel for this operation.",
+  ERR_EMAIL_EMPTY_MESSAGE: "Write a message or attach a file before sending.",
+  ERR_EMAIL_INVALID_MODE: "Invalid reply type.",
+  ERR_EMAIL_INVALID_TICKET: "This ticket is not an email ticket.",
+  ERR_EMAIL_INVALID_IDEMPOTENCY_KEY:
+    "This send could not be identified. Reload the page and try again.",
+  ERR_EMAIL_IDEMPOTENCY_CONFLICT:
+    "This send conflicts with another one already recorded. Reload the page and try again.",
+  ERR_EMAIL_SYNC_ENQUEUE_FAILED:
+    "The sync could not be started right now. Try again in a moment.",
+  ERR_EMAIL_SYNC_FAILED:
+    "Failed to sync the mailbox. It is retried automatically.",
+  ERR_GMAIL_OAUTH_FAILED:
+    "The connection with Google could not be completed. Try connecting again.",
+  ERR_GMAIL_NOT_CONFIGURED:
+    "Gmail connection is not configured on this server. Contact the system administrator.",
+  ERR_GMAIL_ACCOUNT_MISMATCH:
+    "The Google account you chose is not the one of the connection you are reconnecting. Sign in with the same account."
 };
 
 const pt = {
@@ -659,4 +716,191 @@ const en = {
   backendErrors: enBackendErrors
 };
 
-export const emailChannelMessages = { pt, pt_PT: ptPT, en };
+// Other languages: only the strings added for the Gmail finish step, Reply-To,
+// the oversize notice and the remaining error codes; the rest of the email
+// channel falls back like the other overlays.
+const extraLanguage = ({ replyTo, oversize, errors }) => ({
+  emailChannel: { inbox: { thread: { replyTo, oversize } } },
+  backendErrors: errors
+});
+
+const esExtra = extraLanguage({
+  replyTo: "responder a {{list}}",
+  oversize:
+    "Mensaje demasiado grande para importarlo; ábrelo en el buzón de correo original.",
+  errors: {
+    ERR_EMAIL_MESSAGE_SKIPPED:
+      "Un correo no se pudo importar y se omitió. Los demás siguen llegando con normalidad.",
+    ERR_EMAIL_ACCOUNT_NOT_FOUND: "Cuenta de correo no encontrada.",
+    ERR_EMAIL_ACCOUNT_EXISTS: "Este buzón de correo ya está conectado.",
+    ERR_EMAIL_INVALID_ACCOUNT:
+      "Los datos de la cuenta de correo no son válidos. Revisa los campos e inténtalo de nuevo.",
+    ERR_EMAIL_SEND_FAILED: "No se pudo enviar el correo.",
+    ERR_INVALID_CHANNEL: "Canal no válido para esta operación.",
+    ERR_EMAIL_EMPTY_MESSAGE:
+      "Escribe un mensaje o adjunta un archivo antes de enviar.",
+    ERR_EMAIL_INVALID_MODE: "Tipo de respuesta no válido.",
+    ERR_EMAIL_INVALID_TICKET: "Esta atención no es de correo.",
+    ERR_EMAIL_INVALID_IDEMPOTENCY_KEY:
+      "No se pudo identificar este envío. Recarga la página e inténtalo de nuevo.",
+    ERR_EMAIL_IDEMPOTENCY_CONFLICT:
+      "Este envío entra en conflicto con otro ya registrado. Recarga la página e inténtalo de nuevo.",
+    ERR_EMAIL_SYNC_ENQUEUE_FAILED:
+      "No se pudo iniciar la sincronización ahora. Inténtalo de nuevo en unos instantes.",
+    ERR_EMAIL_SYNC_FAILED:
+      "Error al sincronizar el buzón de correo. Se reintenta automáticamente.",
+    ERR_GMAIL_OAUTH_FAILED:
+      "No se pudo completar la conexión con Google. Intenta conectar de nuevo.",
+    ERR_GMAIL_NOT_CONFIGURED:
+      "La conexión con Gmail no está configurada en este servidor. Habla con el administrador del sistema.",
+    ERR_GMAIL_ACCOUNT_MISMATCH:
+      "La cuenta de Google elegida no es la de la conexión que estás reconectando. Inicia sesión con la misma cuenta."
+  }
+});
+
+const frExtra = extraLanguage({
+  replyTo: "répondre à {{list}}",
+  oversize:
+    "Message trop volumineux pour être importé ; ouvrez-le dans la boîte mail d'origine.",
+  errors: {
+    ERR_EMAIL_MESSAGE_SKIPPED:
+      "Un e-mail n'a pas pu être importé et a été ignoré. Les autres continuent d'arriver normalement.",
+    ERR_EMAIL_ACCOUNT_NOT_FOUND: "Compte e-mail introuvable.",
+    ERR_EMAIL_ACCOUNT_EXISTS: "Cette boîte mail est déjà connectée.",
+    ERR_EMAIL_INVALID_ACCOUNT:
+      "Les informations du compte e-mail ne sont pas valides. Vérifiez les champs et réessayez.",
+    ERR_EMAIL_SEND_FAILED: "L'e-mail n'a pas pu être envoyé.",
+    ERR_INVALID_CHANNEL: "Canal non valide pour cette opération.",
+    ERR_EMAIL_EMPTY_MESSAGE:
+      "Écrivez un message ou joignez un fichier avant d'envoyer.",
+    ERR_EMAIL_INVALID_MODE: "Type de réponse non valide.",
+    ERR_EMAIL_INVALID_TICKET: "Ce ticket n'est pas un ticket e-mail.",
+    ERR_EMAIL_INVALID_IDEMPOTENCY_KEY:
+      "Cet envoi n'a pas pu être identifié. Rechargez la page et réessayez.",
+    ERR_EMAIL_IDEMPOTENCY_CONFLICT:
+      "Cet envoi est en conflit avec un autre déjà enregistré. Rechargez la page et réessayez.",
+    ERR_EMAIL_SYNC_ENQUEUE_FAILED:
+      "La synchronisation n'a pas pu démarrer pour le moment. Réessayez dans un instant.",
+    ERR_EMAIL_SYNC_FAILED:
+      "Échec de la synchronisation de la boîte mail. Une nouvelle tentative est faite automatiquement.",
+    ERR_GMAIL_OAUTH_FAILED:
+      "La connexion avec Google n'a pas pu être finalisée. Essayez de vous reconnecter.",
+    ERR_GMAIL_NOT_CONFIGURED:
+      "La connexion Gmail n'est pas configurée sur ce serveur. Contactez l'administrateur du système.",
+    ERR_GMAIL_ACCOUNT_MISMATCH:
+      "Le compte Google choisi n'est pas celui de la connexion que vous reconnectez. Connectez-vous avec le même compte."
+  }
+});
+
+const deExtra = extraLanguage({
+  replyTo: "Antwort an {{list}}",
+  oversize:
+    "Nachricht zu groß für den Import; öffne sie im ursprünglichen Postfach.",
+  errors: {
+    ERR_EMAIL_MESSAGE_SKIPPED:
+      "Eine E-Mail konnte nicht importiert werden und wurde übersprungen. Die übrigen kommen weiterhin normal an.",
+    ERR_EMAIL_ACCOUNT_NOT_FOUND: "E-Mail-Konto nicht gefunden.",
+    ERR_EMAIL_ACCOUNT_EXISTS: "Dieses Postfach ist bereits verbunden.",
+    ERR_EMAIL_INVALID_ACCOUNT:
+      "Die Daten des E-Mail-Kontos sind ungültig. Prüfe die Felder und versuche es erneut.",
+    ERR_EMAIL_SEND_FAILED: "Die E-Mail konnte nicht gesendet werden.",
+    ERR_INVALID_CHANNEL: "Ungültiger Kanal für diesen Vorgang.",
+    ERR_EMAIL_EMPTY_MESSAGE:
+      "Schreibe eine Nachricht oder hänge eine Datei an, bevor du sendest.",
+    ERR_EMAIL_INVALID_MODE: "Ungültige Antwortart.",
+    ERR_EMAIL_INVALID_TICKET: "Dieses Ticket ist kein E-Mail-Ticket.",
+    ERR_EMAIL_INVALID_IDEMPOTENCY_KEY:
+      "Dieser Versand konnte nicht zugeordnet werden. Lade die Seite neu und versuche es erneut.",
+    ERR_EMAIL_IDEMPOTENCY_CONFLICT:
+      "Dieser Versand steht im Konflikt mit einem bereits erfassten. Lade die Seite neu und versuche es erneut.",
+    ERR_EMAIL_SYNC_ENQUEUE_FAILED:
+      "Die Synchronisierung konnte gerade nicht gestartet werden. Versuche es gleich noch einmal.",
+    ERR_EMAIL_SYNC_FAILED:
+      "Das Postfach konnte nicht synchronisiert werden. Es wird automatisch erneut versucht.",
+    ERR_GMAIL_OAUTH_FAILED:
+      "Die Verbindung mit Google konnte nicht abgeschlossen werden. Versuche es erneut.",
+    ERR_GMAIL_NOT_CONFIGURED:
+      "Die Gmail-Verbindung ist auf diesem Server nicht eingerichtet. Wende dich an den Systemadministrator.",
+    ERR_GMAIL_ACCOUNT_MISMATCH:
+      "Das gewählte Google-Konto gehört nicht zu der Verbindung, die du neu verbindest. Melde dich mit demselben Konto an."
+  }
+});
+
+const itExtra = extraLanguage({
+  replyTo: "rispondi a {{list}}",
+  oversize:
+    "Messaggio troppo grande per essere importato; aprilo nella casella di posta originale.",
+  errors: {
+    ERR_EMAIL_MESSAGE_SKIPPED:
+      "Un'email non è stata importata ed è stata saltata. Le altre continuano ad arrivare normalmente.",
+    ERR_EMAIL_ACCOUNT_NOT_FOUND: "Account email non trovato.",
+    ERR_EMAIL_ACCOUNT_EXISTS: "Questa casella di posta è già collegata.",
+    ERR_EMAIL_INVALID_ACCOUNT:
+      "I dati dell'account email non sono validi. Controlla i campi e riprova.",
+    ERR_EMAIL_SEND_FAILED: "Non è stato possibile inviare l'email.",
+    ERR_INVALID_CHANNEL: "Canale non valido per questa operazione.",
+    ERR_EMAIL_EMPTY_MESSAGE:
+      "Scrivi un messaggio o allega un file prima di inviare.",
+    ERR_EMAIL_INVALID_MODE: "Tipo di risposta non valido.",
+    ERR_EMAIL_INVALID_TICKET: "Questo ticket non è un ticket email.",
+    ERR_EMAIL_INVALID_IDEMPOTENCY_KEY:
+      "Non è stato possibile identificare questo invio. Ricarica la pagina e riprova.",
+    ERR_EMAIL_IDEMPOTENCY_CONFLICT:
+      "Questo invio è in conflitto con un altro già registrato. Ricarica la pagina e riprova.",
+    ERR_EMAIL_SYNC_ENQUEUE_FAILED:
+      "Non è stato possibile avviare la sincronizzazione adesso. Riprova tra poco.",
+    ERR_EMAIL_SYNC_FAILED:
+      "Sincronizzazione della casella di posta non riuscita. Viene ritentata automaticamente.",
+    ERR_GMAIL_OAUTH_FAILED:
+      "Non è stato possibile completare la connessione con Google. Prova a collegarti di nuovo.",
+    ERR_GMAIL_NOT_CONFIGURED:
+      "La connessione Gmail non è configurata su questo server. Contatta l'amministratore di sistema.",
+    ERR_GMAIL_ACCOUNT_MISMATCH:
+      "L'account Google scelto non è quello della connessione che stai ricollegando. Accedi con lo stesso account."
+  }
+});
+
+const idExtra = extraLanguage({
+  replyTo: "balas ke {{list}}",
+  oversize:
+    "Pesan terlalu besar untuk diimpor; buka di kotak surat email aslinya.",
+  errors: {
+    ERR_EMAIL_MESSAGE_SKIPPED:
+      "Satu email tidak dapat diimpor dan dilewati. Email lainnya tetap masuk seperti biasa.",
+    ERR_EMAIL_ACCOUNT_NOT_FOUND: "Akun email tidak ditemukan.",
+    ERR_EMAIL_ACCOUNT_EXISTS: "Kotak surat ini sudah terhubung.",
+    ERR_EMAIL_INVALID_ACCOUNT:
+      "Data akun email tidak valid. Periksa kolomnya lalu coba lagi.",
+    ERR_EMAIL_SEND_FAILED: "Email tidak dapat dikirim.",
+    ERR_INVALID_CHANNEL: "Kanal tidak valid untuk operasi ini.",
+    ERR_EMAIL_EMPTY_MESSAGE:
+      "Tulis pesan atau lampirkan file sebelum mengirim.",
+    ERR_EMAIL_INVALID_MODE: "Jenis balasan tidak valid.",
+    ERR_EMAIL_INVALID_TICKET: "Tiket ini bukan tiket email.",
+    ERR_EMAIL_INVALID_IDEMPOTENCY_KEY:
+      "Pengiriman ini tidak dapat dikenali. Muat ulang halaman lalu coba lagi.",
+    ERR_EMAIL_IDEMPOTENCY_CONFLICT:
+      "Pengiriman ini bentrok dengan pengiriman lain yang sudah tercatat. Muat ulang halaman lalu coba lagi.",
+    ERR_EMAIL_SYNC_ENQUEUE_FAILED:
+      "Sinkronisasi tidak dapat dimulai sekarang. Coba lagi sebentar lagi.",
+    ERR_EMAIL_SYNC_FAILED:
+      "Gagal menyinkronkan kotak surat. Akan dicoba lagi secara otomatis.",
+    ERR_GMAIL_OAUTH_FAILED:
+      "Koneksi dengan Google tidak dapat diselesaikan. Coba hubungkan lagi.",
+    ERR_GMAIL_NOT_CONFIGURED:
+      "Koneksi Gmail belum dikonfigurasi di server ini. Hubungi administrator sistem.",
+    ERR_GMAIL_ACCOUNT_MISMATCH:
+      "Akun Google yang dipilih bukan akun dari koneksi yang sedang Anda hubungkan ulang. Masuk dengan akun yang sama."
+  }
+});
+
+export const emailChannelMessages = {
+  pt,
+  pt_PT: ptPT,
+  en,
+  es: esExtra,
+  fr: frExtra,
+  de: deExtra,
+  it: itExtra,
+  id: idExtra
+};

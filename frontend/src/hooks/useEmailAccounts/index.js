@@ -19,7 +19,9 @@ const upsertAccount = (list, account) => {
  * @param {boolean} [enabled=true] - pass `useEmailAvailability().enabled`;
  *   when false nothing is fetched or subscribed (the email routes answer
  *   ERR_EMAIL_CHANNEL_DISABLED) and the list stays empty.
- * @returns {{ accounts: object[], loading: boolean, reload: function }}
+ * @returns {{ accounts: object[], loading: boolean, reload: function,
+ *   upsert: function }} `upsert(account)` inserts or updates one account
+ *   locally (e.g. the account returned by the Gmail OAuth finish call).
  */
 const useEmailAccounts = (enabled = true) => {
   const { user } = useContext(AuthContext) || {};
@@ -100,10 +102,15 @@ const useEmailAccounts = (enabled = true) => {
     };
   }, [sourceKey, companyId, socketManager, reload]);
 
+  const upsert = useCallback(account => {
+    if (account?.id) setAccounts(list => upsertAccount(list, account));
+  }, []);
+
   return {
     accounts: sourceKey ? accounts : [],
     loading: Boolean(sourceKey) && loadedKey !== sourceKey,
-    reload
+    reload,
+    upsert
   };
 };
 

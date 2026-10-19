@@ -107,9 +107,14 @@ export const emailErrorCode = err =>
     ? err
     : err?.response?.data?.error || err?.message || null;
 
+// Connection-specific wording first, then the app-wide backendErrors map
+// (send/sync codes such as an account's lastError).
 export const translateEmailError = code => {
+  if (!code || typeof code !== "string") return null;
   const key = `emailChannel.connections.errors.${code}`;
-  if (code && i18n.exists(key)) return i18n.t(key);
+  if (i18n.exists(key)) return i18n.t(key);
+  if (/^ERR_(EMAIL|GMAIL)_/.test(code) && i18n.exists(`backendErrors.${code}`))
+    return i18n.t(`backendErrors.${code}`);
   return null;
 };
 
@@ -129,10 +134,24 @@ export const toastEmailError = err => {
   toastError(err);
 };
 
-export const startGmailOAuth = async ({ name, queueId }) => {
+// `accountId` reconnects an existing Gmail account (reauth_required/error):
+// the backend keeps the account and checks Google returns the same mailbox.
+export const startGmailOAuth = async ({ name, queueId, accountId }) => {
   const body = { name };
   if (queueId) body.queueId = queueId;
+  if (accountId) body.accountId = accountId;
   const { data } = await api.post("/email/oauth/google/start", body);
   if (!data?.url) throw new Error("ERR_GMAIL_STATE");
   window.location.assign(data.url);
+};
+
+// Second half of the Gmail connection (ruling R27): the callback only parks
+// the authorization under a single-use handle; the logged-in admin who
+// started it exchanges it here. Resolves with the account, in the same shape
+// as the items of GET /email/accounts.
+export const finishGmailOAuth = async handle => {
+  if (!handle) throw new Error("ERR_GMAIL_STATE");
+  const { data } = await api.post("/email/oauth/google/finish", { handle });
+  if (!data?.id) throw new Error("ERR_GMAIL_OAUTH_FAILED");
+  return data;
 };

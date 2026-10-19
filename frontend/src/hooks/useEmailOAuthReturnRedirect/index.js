@@ -7,8 +7,10 @@ import {
 
 /**
  * Used by the logged-in layout. After the Google OAuth callback the auth
- * redirects land the user on "/"; when a Gmail connect result is pending,
- * send them back to /connections once so the Connections page can show it.
+ * redirects land the user on "/"; when a Gmail connect result is waiting
+ * (a handle to finish or an error to show), send them back to /connections
+ * once so the Connections page can finish it. Only peeks: the handle itself
+ * is handed out by consumeEmailOAuthReturn() on the Connections page.
  *
  * @param {boolean} authenticated - true once the user is loaded.
  */

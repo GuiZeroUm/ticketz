@@ -143,7 +143,10 @@ export const defaultRecipients = (thread, mode) => {
   const own = thread?.account?.address;
   const last = lastInbound(thread?.messages);
   if (!last) return { to: "", cc: "" };
-  const replyTo = firstAddress(last.replyTo) || firstAddress(last.from);
+  // first Reply-To that is not the account itself, else the sender
+  const replyTo =
+    addressList(last.replyTo).find(item => !sameAddress(item.address, own)) ||
+    firstAddress(last.from);
   const to = replyTo && !sameAddress(replyTo.address, own) ? [replyTo] : [];
   if (mode !== "replyAll") return { to: joinAddresses(to), cc: "" };
   const seen = new Set(to.map(item => item.address.toLowerCase()));

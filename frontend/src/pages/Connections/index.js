@@ -1,6 +1,12 @@
 import { AuthContext } from "../../context/Auth/AuthContext";
 import StardewEmblem from "../../components/StardewEmblem";
-import React, { useState, useCallback, useContext, useEffect } from "react";
+import React, {
+  useState,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef
+} from "react";
 import { toast } from "react-toastify";
 import { format, parseISO } from "date-fns";
 
@@ -72,6 +78,7 @@ import {
   CONNECTION_PROVIDERS,
   ChannelIcon,
   emailProviderKey,
+  finishGmailOAuth,
   providerColors,
   startGmailOAuth,
   toastEmailError,
@@ -333,8 +340,23 @@ const Connections = () => {
   const {
     accounts: emailAccounts,
     loading: emailLoading,
-    reload: reloadEmailAccounts
+    reload: reloadEmailAccounts,
+    upsert: upsertEmailAccount
   } = useEmailAccounts(emailEnabled);
+  // Latest list actions for the Gmail OAuth finish below, which outlives the
+  // render that started it.
+  const emailAccountActionsRef = useRef({});
+  emailAccountActionsRef.current = {
+    upsert: upsertEmailAccount,
+    reload: reloadEmailAccounts
+  };
+  const mountedRef = useRef(true);
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+    },
+    []
+  );
   const [channelFilter, setChannelFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [addConnectionOpen, setAddConnectionOpen] = useState(false);
@@ -345,18 +367,32 @@ const Connections = () => {
     account: null
   });
 
-  // Google OAuth comes back to /connections?email=connected|error&code=...
-  // src/index.js stores that result before the app renders (the query does
-  // not survive the auth redirects); show it once availability is known.
+  // Google OAuth comes back to /connections?email=pending&handle=... (or
+  // ?email=error&code=...). src/index.js takes that result off the URL before
+  // the app renders (the query does not survive the auth redirects); once
+  // availability is known it is consumed here, exactly once: a pending
+  // handle is finished with POST /email/oauth/google/finish (ruling R27).
   useEffect(() => {
     if (emailAvailabilityLoading) return;
     const oauthReturn = consumeEmailOAuthReturn();
     if (!oauthReturn) return;
-    if (oauthReturn.result === "connected") {
-      toast.success(te("toasts.gmailConnected"));
-    } else {
+    if (oauthReturn.result === "error") {
       toastEmailError(oauthReturn.code || "generic");
+      return;
     }
+    if (oauthReturn.result === "connected") {
+      // older backends finished the connection in the callback itself
+      toast.success(te("toasts.gmailConnected"));
+      return;
+    }
+    finishGmailOAuth(oauthReturn.handle)
+      .then(account => {
+        toast.success(te("toasts.gmailConnected"));
+        if (!mountedRef.current) return;
+        emailAccountActionsRef.current.upsert(account);
+        emailAccountActionsRef.current.reload();
+      })
+      .catch(err => toastEmailError(err));
   }, [emailAvailabilityLoading]);
 
   useEffect(() => {
@@ -589,7 +625,12 @@ const Connections = () => {
       return;
     }
     try {
-      await startGmailOAuth({ name: account.name, queueId: account.queueId });
+      await startGmailOAuth({
+        name: account.name,
+        queueId: account.queueId,
+        // only Gmail API accounts can be reconnected in place
+        accountId: account.provider === "gmail_api" ? account.id : undefined
+      });
     } catch (err) {
       toastEmailError(err);
     }
