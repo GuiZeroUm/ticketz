@@ -97,6 +97,10 @@ const UpdateContactService = async ({
     throw new AppError("ERR_NO_CONTACT_FOUND", 404);
   }
 
+  if (number === "" && contact.channel !== "email") {
+    throw new AppError("ERR_CHECK_NUMBER", 400);
+  }
+
   if (extraInfo) {
     const ownedIds = new Set(contact.extraInfo.map(field => field.id));
     const providedIds = extraInfo

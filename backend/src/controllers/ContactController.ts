@@ -289,7 +289,12 @@ export const update = async (
 
   const schema = Yup.object().shape({
     name: Yup.string(),
-    number: Yup.string().matches(/^\d+(@lid)?$/, "ERR_CHECK_NUMBER")
+    // Número em branco passa na validação porque contato do canal e-mail não
+    // tem telefone; o UpdateContactService recusa o branco nos demais canais.
+    number: Yup.string().matches(/^\d+(@lid)?$/, {
+      message: "ERR_CHECK_NUMBER",
+      excludeEmptyString: true
+    })
   });
 
   try {

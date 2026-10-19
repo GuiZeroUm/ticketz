@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { Op } from "sequelize";
 import { isWebPushConfigured } from "../../config/webPush";
 import { getIO } from "../../libs/socket";
 import { GetCompanySetting } from "../../helpers/CheckSettings";
@@ -247,14 +248,31 @@ describe("campaign recipients", () => {
       { id: 4, number: "5511912345678@lid" }
     ]);
 
-    expect(recipients.map(item => item.id)).toEqual([1, 4]);
+    // Só NULL sai; número em branco segue como antes (R12).
+    expect(recipients.map(item => item.id)).toEqual([1, 3, 4]);
   });
 
-  it("excludes NULL numbers from the recipient query", () => {
+  it("excludes only NULL numbers from the recipient query", () => {
     const where = campaignRecipientWhere();
 
     expect(where.isWhatsappValid).toBe(true);
-    expect(Object.getOwnPropertySymbols(where.number)).toHaveLength(1);
+    expect(where.number[Op.ne]).toBeNull();
+  });
+
+  it("query and filter agree on blank and null numbers", () => {
+    const where = campaignRecipientWhere();
+    const keptByQuery = (number: string | null) =>
+      number !== where.number[Op.ne];
+    const items = [
+      { id: 1, number: "" },
+      { id: 2, number: null }
+    ];
+
+    const keptByFilter = filterCampaignRecipients(items).map(item => item.id);
+
+    expect(keptByQuery("")).toBe(true);
+    expect(keptByQuery(null)).toBe(false);
+    expect(keptByFilter).toEqual([1]);
   });
 });
 
@@ -358,6 +376,65 @@ describe("contact updates for the email channel", () => {
     expect(res.status).toHaveBeenCalledWith(200);
   });
 
+  const callUpdate = (body: Record<string, unknown>) => {
+    const res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn()
+    } as unknown as Response;
+    return {
+      res,
+      promise: updateContactController(
+        {
+          body,
+          params: { contactId: "12" },
+          user: { companyId: 2 }
+        } as unknown as Request,
+        res
+      )
+    };
+  };
+
+  it("ContactController.update accepts a blank number for an email contact and keeps it null", async () => {
+    const contact = makeContact({ channel: "email", number: null });
+    jest
+      .spyOn(Contact, "findOne")
+      .mockResolvedValue(contact as unknown as Contact);
+
+    const { res, promise } = callUpdate({ name: "Maria", number: "" });
+    await promise;
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(CheckContactNumber).not.toHaveBeenCalled();
+    expect(contact.update.mock.calls[0][0]).not.toHaveProperty("number");
+    expect((contact as { number?: string | null }).number).toBeNull();
+  });
+
+  it("ContactController.update rejects a blank number for a WhatsApp contact with ERR_CHECK_NUMBER", async () => {
+    const contact = makeContact({
+      channel: "whatsapp",
+      number: "5511900000000"
+    });
+    jest
+      .spyOn(Contact, "findOne")
+      .mockResolvedValue(contact as unknown as Contact);
+
+    const { promise } = callUpdate({ name: "Maria", number: "" });
+
+    await expect(promise).rejects.toMatchObject({
+      message: "ERR_CHECK_NUMBER",
+      statusCode: 400
+    });
+    expect(contact.update).not.toHaveBeenCalled();
+  });
+
+  it("ContactController.update still rejects malformed numbers", async () => {
+    const { promise } = callUpdate({ name: "Maria", number: "12ab" });
+
+    await expect(promise).rejects.toMatchObject({
+      message: "ERR_CHECK_NUMBER"
+    });
+  });
+
   it("ContactController.update still checks numbers sent for WhatsApp contacts", async () => {
     (CheckContactNumber as jest.Mock).mockResolvedValue(null);
     jest.spyOn(Contact, "findOne").mockResolvedValue(
@@ -398,6 +475,12 @@ describe("UpdateTicketService messages by channel", () => {
     typeof SendWhatsAppMessage
   >;
   const wbotSendMessage = jest.fn();
+  let tracking: {
+    startedAt: null;
+    finishedAt: Date | null;
+    ratingAt: Date | null;
+    save: jest.Mock;
+  };
 
   const makeTicket = (data: Record<string, unknown>) => {
     const ticket: Record<string, unknown> & {
@@ -448,12 +531,13 @@ describe("UpdateTicketService messages by channel", () => {
       profile: "admin"
     } as User);
     showTicket.mockResolvedValue(ticket);
-    findTracking.mockResolvedValue({
+    tracking = {
       startedAt: null,
       finishedAt: null,
       ratingAt: null,
       save: jest.fn()
-    } as never);
+    };
+    findTracking.mockResolvedValue(tracking as never);
     resolveTransfer.mockImplementation(async ({ ticket: current }) => ({
       whatsappId: current.whatsappId,
       connectionChanged: false,
@@ -499,6 +583,18 @@ describe("UpdateTicketService messages by channel", () => {
 
     expectNoWhatsAppTraffic();
     expect(result.ticket.status).toBe("closed");
+    // Com avaliação ligada, o ticket de WhatsApp pararia aqui esperando a nota
+    // (ratingAt preenchido e retorno antecipado). No e-mail o fechamento segue.
+    expect(tracking.ratingAt).toBeNull();
+    expect(tracking.finishedAt).toBeInstanceOf(Date);
+  });
+
+  it("waits for the rating on WhatsApp tickets with the same settings", async () => {
+    sendWhatsAppMessage.mockResolvedValue({} as never);
+
+    await run(makeTicket({}), { status: "closed" }, { userRating: "enabled" });
+
+    expect(tracking.ratingAt).toBeInstanceOf(Date);
   });
 
   it("does not call SendWhatsAppMessage for channel email on accept", async () => {
