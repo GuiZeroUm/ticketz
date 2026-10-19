@@ -18,6 +18,11 @@ import { i18n } from "../../translate/i18n";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { SocketContext } from "../../context/Socket/SocketContext";
 import toastError from "../../errors/toastError";
+import { ti } from "../../helpers/emailInbox";
+import {
+  ticketMatchesChannel,
+  ticketMatchesConnection
+} from "../../helpers/inboxConnections";
 
 const useStyles = makeStyles(theme => ({
   ticketsListHeader: {
@@ -173,7 +178,11 @@ const TicketsListCustom = props => {
     style,
     setTabOpen,
     showTabGroups,
-    channel
+    channel,
+    whatsappId,
+    emailAccountId,
+    // a channel or connection filter is on: the empty state says so
+    filtered
   } = props;
   const classes = useStyles();
   const [paginationCursor, setPaginationCursor] = useState({
@@ -205,7 +214,9 @@ const TicketsListCustom = props => {
     users,
     selectedQueueIds,
     groupMode,
-    channel
+    channel,
+    whatsappId,
+    emailAccountId
   ]);
 
   const {
@@ -229,7 +240,9 @@ const TicketsListCustom = props => {
     tags: JSON.stringify(tags),
     users: JSON.stringify(users),
     queueIds: JSON.stringify(selectedQueueIds),
-    channel
+    channel,
+    whatsappId,
+    emailAccountId
   });
 
   useEffect(() => {
@@ -262,7 +275,8 @@ const TicketsListCustom = props => {
         (!users?.length || users.some(u => u === ticket.userId)) &&
         (!ticket.userId || ticket.userId === user?.id || showAll) &&
         (!ticket.queueId || selectedQueueIds.indexOf(ticket.queueId) > -1) &&
-        (!channel || (ticket.channel || "whatsapp") === channel)
+        ticketMatchesChannel(ticket, channel) &&
+        ticketMatchesConnection(ticket, { whatsappId, emailAccountId })
       );
     };
 
@@ -434,7 +448,9 @@ const TicketsListCustom = props => {
     queues,
     socketManager,
     refetchTickets,
-    channel
+    channel,
+    whatsappId,
+    emailAccountId
   ]);
 
   useEffect(() => {
@@ -475,10 +491,14 @@ const TicketsListCustom = props => {
         {ticketsList.length === 0 && !loading ? (
           <div className={classes.noTicketsDiv}>
             <span className={classes.noTicketsTitle}>
-              {i18n.t("ticketsList.noTicketsTitle")}
+              {filtered
+                ? ti("empty.title")
+                : i18n.t("ticketsList.noTicketsTitle")}
             </span>
             <p className={classes.noTicketsText}>
-              {i18n.t("ticketsList.noTicketsMessage")}
+              {filtered
+                ? ti("empty.message")
+                : i18n.t("ticketsList.noTicketsMessage")}
             </p>
           </div>
         ) : (

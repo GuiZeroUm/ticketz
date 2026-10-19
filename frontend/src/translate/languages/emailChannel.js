@@ -95,6 +95,10 @@ const ptConnections = {
     subtitle: "Escolha o canal que você quer atender.",
     footer:
       "Cada conexão aparece nos atendimentos com o ícone do canal e o nome que você der.",
+    gmailUnavailable: {
+      tag: "Indisponível",
+      hint: "O Gmail não está configurado neste servidor. Fale com o administrador do sistema."
+    },
     soon: "Em breve",
     groups: {
       whatsapp: "WhatsApp",
@@ -299,6 +303,10 @@ const enConnections = {
     subtitle: "Choose the channel you want to serve.",
     footer:
       "Each connection shows up in tickets with the channel icon and the name you give it.",
+    gmailUnavailable: {
+      tag: "Unavailable",
+      hint: "Gmail is not configured on this server. Contact the system administrator."
+    },
     soon: "Coming soon",
     groups: {
       whatsapp: "WhatsApp",
@@ -408,9 +416,15 @@ const ptInbox = {
   filters: {
     label: "Canal",
     groupLabel: "Filtrar por canal",
+    connection: "Filtrar por conexão",
+    allConnections: "Todas as conexões",
     all: "Todos",
     whatsapp: "WhatsApp",
     email: "E-mail"
+  },
+  empty: {
+    title: "Nada aqui!",
+    message: "Nenhum atendimento encontrado com esse canal, conexão ou status"
   },
   noSubject: "(sem assunto)",
   thread: {
@@ -423,6 +437,8 @@ const ptInbox = {
     loadError: "Não foi possível carregar os e-mails deste atendimento.",
     retry: "Tentar de novo",
     empty: "Nenhum e-mail nesta conversa ainda.",
+    truncated:
+      "As mensagens mais antigas desta conversa foram omitidas. Abra a caixa de e-mail original para ver o histórico completo.",
     frameTitle: "Conteúdo do e-mail de {{from}}",
     attachmentSkipped: "Anexo não importado (muito grande)",
     download: "Baixar {{name}}",
@@ -459,6 +475,16 @@ const ptInbox = {
     send: "Enviar e-mail",
     sending: "Enviando…",
     reauth: "A autorização desta caixa venceu. Reconecte em Conexões.",
+    blocked: {
+      connecting:
+        "Esta caixa ainda está conectando. O envio fica disponível depois da primeira sincronização.",
+      error:
+        "Esta caixa está com erro de conexão. Confira em Conexões antes de enviar.",
+      disabled:
+        "Esta caixa foi desconectada. Reconecte em Conexões para enviar.",
+      unavailable:
+        "Esta caixa não está disponível para envio. Confira em Conexões."
+    },
     replyPrefix: "Re:",
     forwardPrefix: "Enc:"
   },
@@ -474,9 +500,15 @@ const enInbox = {
   filters: {
     label: "Channel",
     groupLabel: "Filter by channel",
+    connection: "Filter by connection",
+    allConnections: "All connections",
     all: "All",
     whatsapp: "WhatsApp",
     email: "Email"
+  },
+  empty: {
+    title: "Nothing here!",
+    message: "No tickets found with this channel, connection or status"
   },
   noSubject: "(no subject)",
   thread: {
@@ -489,6 +521,8 @@ const enInbox = {
     loadError: "Could not load the emails of this ticket.",
     retry: "Try again",
     empty: "No emails in this conversation yet.",
+    truncated:
+      "Older messages of this conversation were omitted. Open the original mailbox to see the full history.",
     frameTitle: "Email content from {{from}}",
     attachmentSkipped: "Attachment not imported (too large)",
     download: "Download {{name}}",
@@ -526,6 +560,16 @@ const enInbox = {
     sending: "Sending…",
     reauth:
       "This mailbox authorization has expired. Reconnect it in Connections.",
+    blocked: {
+      connecting:
+        "This mailbox is still connecting. Sending becomes available after the first sync.",
+      error:
+        "This mailbox has a connection error. Check it in Connections before sending.",
+      disabled:
+        "This mailbox was disconnected. Reconnect it in Connections to send.",
+      unavailable:
+        "This mailbox is not available for sending. Check it in Connections."
+    },
     replyPrefix: "Re:",
     forwardPrefix: "Fwd:"
   },
@@ -540,6 +584,16 @@ const enInbox = {
 // Merged into the app-wide `backendErrors` map so toastError translates these
 // codes anywhere they come back from the API.
 const ptBackendErrors = {
+  ERR_QUEUE_NOT_FOUND: "Fila não encontrada.",
+  ERR_EMAIL_ENCRYPTION_NOT_CONFIGURED:
+    "A criptografia das credenciais de e-mail não está configurada neste servidor. Fale com o administrador do sistema.",
+  ERR_EMAIL_INVALID_ADDRESS: "Endereço de e-mail inválido.",
+  ERR_EMAIL_ACCOUNT_MISMATCH:
+    "O e-mail não pertence a esta caixa e não foi importado.",
+  ERR_EMAIL_TICKET_WITHOUT_CONTACT:
+    "Não foi possível abrir o atendimento: o e-mail não tem um contato associado.",
+  ERR_EMAIL_SEND_UNCONFIRMED:
+    "O servidor não confirmou o envio. Confira a caixa antes de reenviar.",
   ERR_CONTACT_HAS_NO_PHONE:
     "Este contato não tem telefone. Atendimentos e agendamentos de WhatsApp precisam de um número.",
   ERR_EMAIL_CHANNEL_DISABLED:
@@ -610,6 +664,16 @@ const ptBackendErrors = {
 };
 
 const enBackendErrors = {
+  ERR_QUEUE_NOT_FOUND: "Queue not found.",
+  ERR_EMAIL_ENCRYPTION_NOT_CONFIGURED:
+    "Encryption of email credentials is not configured on this server. Contact the system administrator.",
+  ERR_EMAIL_INVALID_ADDRESS: "Invalid email address.",
+  ERR_EMAIL_ACCOUNT_MISMATCH:
+    "The email does not belong to this mailbox and was not imported.",
+  ERR_EMAIL_TICKET_WITHOUT_CONTACT:
+    "The ticket could not be opened: the email has no associated contact.",
+  ERR_EMAIL_SEND_UNCONFIRMED:
+    "The server did not confirm the send. Check the mailbox before resending.",
   ERR_CONTACT_HAS_NO_PHONE:
     "This contact has no phone number. WhatsApp tickets and schedules need a number.",
   ERR_EMAIL_CHANNEL_DISABLED:
@@ -821,6 +885,10 @@ const esConnections = {
     subtitle: "Elige el canal que quieres atender.",
     footer:
       "Cada conexión aparece en las atenciones con el icono del canal y el nombre que le des.",
+    gmailUnavailable: {
+      tag: "No disponible",
+      hint: "Gmail no está configurado en este servidor. Habla con el administrador del sistema."
+    },
     soon: "Próximamente",
     groups: {
       whatsapp: "WhatsApp",
@@ -937,9 +1005,15 @@ const esInbox = {
   filters: {
     label: "Canal",
     groupLabel: "Filtrar por canal",
+    connection: "Filtrar por conexión",
+    allConnections: "Todas las conexiones",
     all: "Todos",
     whatsapp: "WhatsApp",
     email: "Correo"
+  },
+  empty: {
+    title: "¡Nada aquí!",
+    message: "No se encontraron atenciones con ese canal, conexión o estado"
   },
   noSubject: "(sin asunto)",
   thread: {
@@ -952,6 +1026,8 @@ const esInbox = {
     loadError: "No se pudieron cargar los correos de esta atención.",
     retry: "Intentar de nuevo",
     empty: "Aún no hay correos en esta conversación.",
+    truncated:
+      "Se omitieron los mensajes más antiguos de esta conversación. Abre el buzón original para ver el historial completo.",
     frameTitle: "Contenido del correo de {{from}}",
     attachmentSkipped: "Adjunto no importado (demasiado grande)",
     download: "Descargar {{name}}",
@@ -989,6 +1065,16 @@ const esInbox = {
     sending: "Enviando…",
     reauth:
       "La autorización de este buzón caducó. Vuelve a conectarlo en Conexiones.",
+    blocked: {
+      connecting:
+        "Este buzón todavía se está conectando. El envío estará disponible después de la primera sincronización.",
+      error:
+        "Este buzón tiene un error de conexión. Revísalo en Conexiones antes de enviar.",
+      disabled:
+        "Este buzón fue desconectado. Vuelve a conectarlo en Conexiones para enviar.",
+      unavailable:
+        "Este buzón no está disponible para enviar. Revísalo en Conexiones."
+    },
     replyPrefix: "Re:",
     forwardPrefix: "Fwd:"
   },
@@ -1002,6 +1088,16 @@ const esInbox = {
 };
 
 const esBackendErrors = {
+  ERR_QUEUE_NOT_FOUND: "Cola no encontrada.",
+  ERR_EMAIL_ENCRYPTION_NOT_CONFIGURED:
+    "El cifrado de las credenciales de correo no está configurado en este servidor. Habla con el administrador del sistema.",
+  ERR_EMAIL_INVALID_ADDRESS: "Dirección de correo no válida.",
+  ERR_EMAIL_ACCOUNT_MISMATCH:
+    "El correo no pertenece a este buzón y no se importó.",
+  ERR_EMAIL_TICKET_WITHOUT_CONTACT:
+    "No se pudo abrir la atención: el correo no tiene un contacto asociado.",
+  ERR_EMAIL_SEND_UNCONFIRMED:
+    "El servidor no confirmó el envío. Revisa el buzón antes de reenviar.",
   ERR_CONTACT_HAS_NO_PHONE:
     "Este contacto no tiene teléfono. Las atenciones y programaciones de WhatsApp necesitan un número.",
   ERR_EMAIL_CHANNEL_DISABLED:
@@ -1184,6 +1280,10 @@ const frConnections = {
     subtitle: "Choisissez le canal que vous voulez traiter.",
     footer:
       "Chaque connexion apparaît dans les tickets avec l'icône du canal et le nom que vous lui donnez.",
+    gmailUnavailable: {
+      tag: "Indisponible",
+      hint: "Gmail n'est pas configuré sur ce serveur. Contactez l'administrateur du système."
+    },
     soon: "Bientôt",
     groups: {
       whatsapp: "WhatsApp",
@@ -1301,9 +1401,16 @@ const frInbox = {
   filters: {
     label: "Canal",
     groupLabel: "Filtrer par canal",
+    connection: "Filtrer par connexion",
+    allConnections: "Toutes les connexions",
     all: "Tous",
     whatsapp: "WhatsApp",
     email: "E-mail"
+  },
+  empty: {
+    title: "Rien ici !",
+    message:
+      "Aucune intervention trouvée avec ce canal, cette connexion ou ce statut"
   },
   noSubject: "(sans objet)",
   thread: {
@@ -1316,6 +1423,8 @@ const frInbox = {
     loadError: "Impossible de charger les e-mails de ce ticket.",
     retry: "Réessayer",
     empty: "Aucun e-mail dans cette conversation pour l'instant.",
+    truncated:
+      "Les messages les plus anciens de cette conversation ont été omis. Ouvrez la boîte mail d'origine pour voir tout l'historique.",
     frameTitle: "Contenu de l'e-mail de {{from}}",
     attachmentSkipped: "Pièce jointe non importée (trop volumineuse)",
     download: "Télécharger {{name}}",
@@ -1353,6 +1462,16 @@ const frInbox = {
     sending: "Envoi…",
     reauth:
       "L'autorisation de cette boîte a expiré. Reconnectez-la dans Connexions.",
+    blocked: {
+      connecting:
+        "Cette boîte mail est encore en cours de connexion. L'envoi sera disponible après la première synchronisation.",
+      error:
+        "Cette boîte mail a une erreur de connexion. Vérifiez-la dans Connexions avant d'envoyer.",
+      disabled:
+        "Cette boîte mail a été déconnectée. Reconnectez-la dans Connexions pour envoyer.",
+      unavailable:
+        "Cette boîte mail n'est pas disponible pour l'envoi. Vérifiez-la dans Connexions."
+    },
     replyPrefix: "Re:",
     forwardPrefix: "Fwd:"
   },
@@ -1365,6 +1484,16 @@ const frInbox = {
 };
 
 const frBackendErrors = {
+  ERR_QUEUE_NOT_FOUND: "File introuvable.",
+  ERR_EMAIL_ENCRYPTION_NOT_CONFIGURED:
+    "Le chiffrement des identifiants e-mail n'est pas configuré sur ce serveur. Contactez l'administrateur du système.",
+  ERR_EMAIL_INVALID_ADDRESS: "Adresse e-mail invalide.",
+  ERR_EMAIL_ACCOUNT_MISMATCH:
+    "L'e-mail n'appartient pas à cette boîte mail et n'a pas été importé.",
+  ERR_EMAIL_TICKET_WITHOUT_CONTACT:
+    "Impossible d'ouvrir l'intervention : l'e-mail n'a pas de contact associé.",
+  ERR_EMAIL_SEND_UNCONFIRMED:
+    "Le serveur n'a pas confirmé l'envoi. Vérifiez la boîte mail avant de renvoyer.",
   ERR_CONTACT_HAS_NO_PHONE:
     "Ce contact n'a pas de numéro de téléphone. Les tickets et rendez-vous WhatsApp ont besoin d'un numéro.",
   ERR_EMAIL_CHANNEL_DISABLED:
@@ -1550,6 +1679,10 @@ const deConnections = {
     subtitle: "Wählen Sie den Kanal, den Sie bedienen möchten.",
     footer:
       "Jede Verbindung erscheint in den Tickets mit dem Kanalsymbol und dem Namen, den Sie ihr geben.",
+    gmailUnavailable: {
+      tag: "Nicht verfügbar",
+      hint: "Gmail ist auf diesem Server nicht konfiguriert. Wenden Sie sich an den Systemadministrator."
+    },
     soon: "Demnächst",
     groups: {
       whatsapp: "WhatsApp",
@@ -1666,9 +1799,16 @@ const deInbox = {
   filters: {
     label: "Kanal",
     groupLabel: "Nach Kanal filtern",
+    connection: "Nach Verbindung filtern",
+    allConnections: "Alle Verbindungen",
     all: "Alle",
     whatsapp: "WhatsApp",
     email: "E-Mail"
+  },
+  empty: {
+    title: "Nichts hier!",
+    message:
+      "Keine Tickets mit diesem Kanal, dieser Verbindung oder diesem Status gefunden"
   },
   noSubject: "(kein Betreff)",
   thread: {
@@ -1681,6 +1821,8 @@ const deInbox = {
     loadError: "Die E-Mails dieses Tickets konnten nicht geladen werden.",
     retry: "Erneut versuchen",
     empty: "Noch keine E-Mails in dieser Unterhaltung.",
+    truncated:
+      "Ältere Nachrichten dieser Unterhaltung wurden ausgelassen. Öffnen Sie das ursprüngliche Postfach, um den vollständigen Verlauf zu sehen.",
     frameTitle: "E-Mail-Inhalt von {{from}}",
     attachmentSkipped: "Anhang nicht importiert (zu groß)",
     download: "{{name}} herunterladen",
@@ -1718,6 +1860,16 @@ const deInbox = {
     sending: "Wird gesendet…",
     reauth:
       "Die Autorisierung dieses Postfachs ist abgelaufen. Verbinden Sie es unter Verbindungen erneut.",
+    blocked: {
+      connecting:
+        "Dieses Postfach wird noch verbunden. Senden ist nach der ersten Synchronisierung möglich.",
+      error:
+        "Dieses Postfach hat einen Verbindungsfehler. Prüfen Sie es unter Verbindungen, bevor Sie senden.",
+      disabled:
+        "Dieses Postfach wurde getrennt. Verbinden Sie es unter Verbindungen neu, um zu senden.",
+      unavailable:
+        "Dieses Postfach ist zum Senden nicht verfügbar. Prüfen Sie es unter Verbindungen."
+    },
     replyPrefix: "AW:",
     forwardPrefix: "WG:"
   },
@@ -1731,6 +1883,16 @@ const deInbox = {
 };
 
 const deBackendErrors = {
+  ERR_QUEUE_NOT_FOUND: "Warteschlange nicht gefunden.",
+  ERR_EMAIL_ENCRYPTION_NOT_CONFIGURED:
+    "Die Verschlüsselung der E-Mail-Zugangsdaten ist auf diesem Server nicht konfiguriert. Wenden Sie sich an den Systemadministrator.",
+  ERR_EMAIL_INVALID_ADDRESS: "Ungültige E-Mail-Adresse.",
+  ERR_EMAIL_ACCOUNT_MISMATCH:
+    "Die E-Mail gehört nicht zu diesem Postfach und wurde nicht importiert.",
+  ERR_EMAIL_TICKET_WITHOUT_CONTACT:
+    "Das Ticket konnte nicht geöffnet werden: Der E-Mail ist kein Kontakt zugeordnet.",
+  ERR_EMAIL_SEND_UNCONFIRMED:
+    "Der Server hat den Versand nicht bestätigt. Prüfen Sie das Postfach, bevor Sie erneut senden.",
   ERR_CONTACT_HAS_NO_PHONE:
     "Dieser Kontakt hat keine Telefonnummer. WhatsApp-Tickets und -Termine benötigen eine Nummer.",
   ERR_EMAIL_CHANNEL_DISABLED:
@@ -1914,6 +2076,10 @@ const itConnections = {
     subtitle: "Scegli il canale che vuoi gestire.",
     footer:
       "Ogni connessione appare nei ticket con l'icona del canale e il nome che le dai.",
+    gmailUnavailable: {
+      tag: "Non disponibile",
+      hint: "Gmail non è configurato su questo server. Contatta l'amministratore di sistema."
+    },
     soon: "Prossimamente",
     groups: {
       whatsapp: "WhatsApp",
@@ -2027,9 +2193,15 @@ const itInbox = {
   filters: {
     label: "Canale",
     groupLabel: "Filtra per canale",
+    connection: "Filtra per connessione",
+    allConnections: "Tutte le connessioni",
     all: "Tutti",
     whatsapp: "WhatsApp",
     email: "Email"
+  },
+  empty: {
+    title: "Niente qui!",
+    message: "Nessun ticket trovato con questo canale, connessione o stato"
   },
   noSubject: "(nessun oggetto)",
   thread: {
@@ -2042,6 +2214,8 @@ const itInbox = {
     loadError: "Impossibile caricare le email di questo ticket.",
     retry: "Riprova",
     empty: "Ancora nessuna email in questa conversazione.",
+    truncated:
+      "I messaggi più vecchi di questa conversazione sono stati omessi. Apri la casella di posta originale per vedere tutta la cronologia.",
     frameTitle: "Contenuto dell'email di {{from}}",
     attachmentSkipped: "Allegato non importato (troppo grande)",
     download: "Scarica {{name}}",
@@ -2079,6 +2253,16 @@ const itInbox = {
     sending: "Invio in corso…",
     reauth:
       "L'autorizzazione di questa casella è scaduta. Ricollegala in Connessioni.",
+    blocked: {
+      connecting:
+        "Questa casella è ancora in fase di connessione. L'invio sarà disponibile dopo la prima sincronizzazione.",
+      error:
+        "Questa casella ha un errore di connessione. Controllala in Connessioni prima di inviare.",
+      disabled:
+        "Questa casella è stata disconnessa. Ricollegala in Connessioni per inviare.",
+      unavailable:
+        "Questa casella non è disponibile per l'invio. Controllala in Connessioni."
+    },
     replyPrefix: "Re:",
     forwardPrefix: "Fwd:"
   },
@@ -2091,6 +2275,16 @@ const itInbox = {
 };
 
 const itBackendErrors = {
+  ERR_QUEUE_NOT_FOUND: "Coda non trovata.",
+  ERR_EMAIL_ENCRYPTION_NOT_CONFIGURED:
+    "La cifratura delle credenziali email non è configurata su questo server. Contatta l'amministratore di sistema.",
+  ERR_EMAIL_INVALID_ADDRESS: "Indirizzo email non valido.",
+  ERR_EMAIL_ACCOUNT_MISMATCH:
+    "L'email non appartiene a questa casella e non è stata importata.",
+  ERR_EMAIL_TICKET_WITHOUT_CONTACT:
+    "Impossibile aprire il ticket: l'email non ha un contatto associato.",
+  ERR_EMAIL_SEND_UNCONFIRMED:
+    "Il server non ha confermato l'invio. Controlla la casella prima di inviare di nuovo.",
   ERR_CONTACT_HAS_NO_PHONE:
     "Questo contatto non ha un numero di telefono. I ticket e le pianificazioni WhatsApp richiedono un numero.",
   ERR_EMAIL_CHANNEL_DISABLED:
@@ -2270,6 +2464,10 @@ const idConnections = {
     subtitle: "Pilih kanal yang ingin Anda layani.",
     footer:
       "Setiap koneksi muncul di tiket dengan ikon kanal dan nama yang Anda berikan.",
+    gmailUnavailable: {
+      tag: "Tidak tersedia",
+      hint: "Gmail belum dikonfigurasi di server ini. Hubungi administrator sistem."
+    },
     soon: "Segera hadir",
     groups: {
       whatsapp: "WhatsApp",
@@ -2383,9 +2581,16 @@ const idInbox = {
   filters: {
     label: "Kanal",
     groupLabel: "Filter menurut kanal",
+    connection: "Filter berdasarkan koneksi",
+    allConnections: "Semua koneksi",
     all: "Semua",
     whatsapp: "WhatsApp",
     email: "Email"
+  },
+  empty: {
+    title: "Tidak ada apa-apa di sini!",
+    message:
+      "Tidak ada tiket yang ditemukan dengan kanal, koneksi, atau status ini"
   },
   noSubject: "(tanpa subjek)",
   thread: {
@@ -2398,6 +2603,8 @@ const idInbox = {
     loadError: "Tidak dapat memuat email tiket ini.",
     retry: "Coba lagi",
     empty: "Belum ada email dalam percakapan ini.",
+    truncated:
+      "Pesan yang lebih lama dari percakapan ini dihilangkan. Buka kotak surat asli untuk melihat riwayat lengkapnya.",
     frameTitle: "Isi email dari {{from}}",
     attachmentSkipped: "Lampiran tidak diimpor (terlalu besar)",
     download: "Unduh {{name}}",
@@ -2435,6 +2642,16 @@ const idInbox = {
     sending: "Mengirim…",
     reauth:
       "Otorisasi kotak surat ini sudah kedaluwarsa. Hubungkan ulang di Koneksi.",
+    blocked: {
+      connecting:
+        "Kotak surat ini masih menghubungkan. Pengiriman tersedia setelah sinkronisasi pertama.",
+      error:
+        "Kotak surat ini mengalami kesalahan koneksi. Periksa di Koneksi sebelum mengirim.",
+      disabled:
+        "Kotak surat ini telah diputus. Hubungkan ulang di Koneksi untuk mengirim.",
+      unavailable:
+        "Kotak surat ini tidak tersedia untuk pengiriman. Periksa di Koneksi."
+    },
     replyPrefix: "Re:",
     forwardPrefix: "Fwd:"
   },
@@ -2447,6 +2664,16 @@ const idInbox = {
 };
 
 const idBackendErrors = {
+  ERR_QUEUE_NOT_FOUND: "Antrean tidak ditemukan.",
+  ERR_EMAIL_ENCRYPTION_NOT_CONFIGURED:
+    "Enkripsi kredensial email belum dikonfigurasi di server ini. Hubungi administrator sistem.",
+  ERR_EMAIL_INVALID_ADDRESS: "Alamat email tidak valid.",
+  ERR_EMAIL_ACCOUNT_MISMATCH:
+    "Email ini bukan milik kotak surat ini dan tidak diimpor.",
+  ERR_EMAIL_TICKET_WITHOUT_CONTACT:
+    "Tiket tidak dapat dibuka: email tidak memiliki kontak terkait.",
+  ERR_EMAIL_SEND_UNCONFIRMED:
+    "Server tidak mengonfirmasi pengiriman. Periksa kotak surat sebelum mengirim ulang.",
   ERR_CONTACT_HAS_NO_PHONE:
     "Kontak ini tidak memiliki nomor telepon. Tiket dan jadwal WhatsApp memerlukan nomor.",
   ERR_EMAIL_CHANNEL_DISABLED:

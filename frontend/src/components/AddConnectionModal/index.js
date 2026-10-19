@@ -138,7 +138,14 @@ const useStyles = makeStyles(theme => ({
 
 const t = key => i18n.t(`emailChannel.connections.${key}`);
 
-const PickerOption = ({ providerKey, labelKey, disabled, tag, onPick }) => {
+const PickerOption = ({
+  providerKey,
+  labelKey,
+  disabled,
+  tag,
+  hint,
+  onPick
+}) => {
   const classes = useStyles();
   const theme = useTheme();
   const provider = CONNECTION_PROVIDERS[providerKey];
@@ -161,7 +168,7 @@ const PickerOption = ({ providerKey, labelKey, disabled, tag, onPick }) => {
           {tag && <span className={classes.tag}>{tag}</span>}
         </span>
         <span className={classes.optionHint}>
-          {t(`picker.options.${labelKey}.hint`)}
+          {hint || t(`picker.options.${labelKey}.hint`)}
         </span>
       </span>
     </ButtonBase>
@@ -172,16 +179,20 @@ const PickerOption = ({ providerKey, labelKey, disabled, tag, onPick }) => {
  * "Adicionar conexão" picker. The WhatsApp group offers only the flow the
  * company already has (QR Code for "normal", API Oficial for "meta"); both
  * hand off to the existing WhatsApp add flow through `onPickWhatsApp`.
+ * `gmailConfigured === false` (no Google OAuth credentials on the server)
+ * keeps the Gmail option visible but disabled, with the reason as its hint.
  */
 const AddConnectionModal = ({
   open,
   onClose,
   whatsappMode,
+  gmailConfigured = true,
   onPickWhatsApp,
   onPickEmail
 }) => {
   const classes = useStyles();
   const isMeta = whatsappMode === "meta";
+  const gmailUnavailable = gmailConfigured === false;
 
   return (
     <Dialog
@@ -241,6 +252,9 @@ const AddConnectionModal = ({
             <PickerOption
               providerKey="gmail"
               labelKey="gmail"
+              disabled={gmailUnavailable}
+              tag={gmailUnavailable ? t("picker.gmailUnavailable.tag") : null}
+              hint={gmailUnavailable ? t("picker.gmailUnavailable.hint") : null}
               onPick={() => onPickEmail("gmail")}
             />
             <PickerOption

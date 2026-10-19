@@ -21,7 +21,9 @@ const useTickets = ({
   withUnreadMessages,
   notClosed,
   all,
-  channel
+  channel,
+  whatsappId,
+  emailAccountId
 }) => {
   const [loading, setLoading] = useState(true);
   const [tickets, setTickets] = useState([]);
@@ -52,7 +54,9 @@ const useTickets = ({
               withUnreadMessages,
               notClosed,
               all,
-              channel
+              channel,
+              whatsappId,
+              emailAccountId
             }
           });
           setTickets(groups ? data.groups : data.tickets);
@@ -84,6 +88,8 @@ const useTickets = ({
     notClosed,
     all,
     channel,
+    whatsappId,
+    emailAccountId,
     refreshTrigger
   ]);
 
@@ -112,6 +118,8 @@ const useTickets = ({
           notClosed,
           all,
           channel,
+          whatsappId,
+          emailAccountId,
           minUpdatedAt
         }
       });
@@ -133,7 +141,9 @@ const useTickets = ({
       withUnreadMessages,
       notClosed,
       all,
-      channel
+      channel,
+      whatsappId,
+      emailAccountId
     ]
   );
 

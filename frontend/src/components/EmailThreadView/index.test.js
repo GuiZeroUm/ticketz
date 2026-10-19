@@ -113,4 +113,35 @@ describe("EmailThreadView headers and notices", () => {
       screen.getAllByText(i18n.t("emailChannel.inbox.thread.oversize"))
     ).toHaveLength(1);
   });
+
+  it("tells when older messages were omitted from a truncated thread", () => {
+    const { rerender } = render(
+      <EmailThreadView
+        ticket={{ id: 1, contact: { name: "Carla" } }}
+        thread={{
+          subject: "Proposta",
+          account: { status: "active" },
+          truncated: true,
+          messages: [inbound({})]
+        }}
+      />
+    );
+    expect(
+      screen.getByText(i18n.t("emailChannel.inbox.thread.truncated"))
+    ).toBeTruthy();
+    rerender(
+      <EmailThreadView
+        ticket={{ id: 1, contact: { name: "Carla" } }}
+        thread={{
+          subject: "Proposta",
+          account: { status: "active" },
+          truncated: false,
+          messages: [inbound({})]
+        }}
+      />
+    );
+    expect(
+      screen.queryByText(i18n.t("emailChannel.inbox.thread.truncated"))
+    ).toBeNull();
+  });
 });

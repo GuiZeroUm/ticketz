@@ -105,25 +105,53 @@ describe("EmailComposer", () => {
     expect(sentKey(api.post.mock.calls[2])).not.toBe(sentKey(first));
   });
 
-  it.each(["reauth_required", "disabled"])(
-    "shows the reconnect banner and disables send when the account is %s",
-    status => {
+  it.each([
+    ["reauth_required", "reauth"],
+    ["connecting", "blocked.connecting"],
+    ["error", "blocked.error"],
+    ["disabled", "blocked.disabled"],
+    ["something_new", "blocked.unavailable"]
+  ])(
+    "shows the reason banner and disables send when the account is %s",
+    async (status, reasonKey) => {
       render(<EmailComposer ticket={ticket} thread={threadWith(status)} />);
       expect(
-        screen.getByText(i18n.t("emailChannel.inbox.composer.reauth"))
+        screen.getByText(i18n.t(`emailChannel.inbox.composer.${reasonKey}`))
       ).toBeTruthy();
-      typeBody("Olá");
-      expect(screen.getByText(sendLabel()).closest("button").disabled).toBe(
-        true
+      expect(screen.getByRole("alert").textContent).not.toMatch(
+        /emailChannel|ERR_/
       );
+      typeBody("Olá");
+      const button = screen.getByText(sendLabel()).closest("button");
+      expect(button.disabled).toBe(true);
+      await act(async () => {
+        fireEvent.click(button);
+      });
+      expect(api.post).not.toHaveBeenCalled();
     }
   );
 
+  it("does not block on the ticket account, which carries no status", () => {
+    render(
+      <EmailComposer
+        ticket={{
+          ...ticket,
+          emailAccount: {
+            id: 1,
+            name: "Contato",
+            address: "contato@empresa.com",
+            preset: "custom"
+          }
+        }}
+        thread={null}
+      />
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("has no banner and an enabled send button for an active account", () => {
     render(<EmailComposer ticket={ticket} thread={threadWith("active")} />);
-    expect(
-      screen.queryByText(i18n.t("emailChannel.inbox.composer.reauth"))
-    ).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
     typeBody("Olá");
     expect(screen.getByText(sendLabel()).closest("button").disabled).toBe(
       false

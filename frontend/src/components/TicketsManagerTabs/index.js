@@ -41,6 +41,13 @@ import useTicketChannelCounts, {
 } from "../../hooks/useTicketChannelCounts";
 import { ChannelIcon, providerColors } from "../../helpers/emailConnections";
 import { ti } from "../../helpers/emailInbox";
+import {
+  ALL_CONNECTIONS,
+  connectionOptions,
+  connectionParams
+} from "../../helpers/inboxConnections";
+import { WhatsAppsContext } from "../../context/WhatsApp/WhatsAppsContext";
+import useEmailAccountOptions from "../../hooks/useEmailAccountOptions";
 
 const useStyles = makeStyles(theme => ({
   ticketsWrapper: {
@@ -172,8 +179,67 @@ const useStyles = makeStyles(theme => ({
     fontSize: 11,
     fontWeight: 600,
     color: theme.palette.text.secondary
+  },
+
+  connectionFilter: {
+    flex: "none",
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    height: 32,
+    margin: "6px 10px 0",
+    padding: "0 10px",
+    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: 8,
+    boxSizing: "border-box",
+    color: theme.palette.text.secondary
+  },
+
+  connectionSelect: {
+    flex: 1,
+    minWidth: 0,
+    border: 0,
+    outline: "none",
+    background: "transparent",
+    font: "inherit",
+    fontSize: 12.5,
+    color: theme.palette.text.primary,
+    cursor: "pointer",
+    "& option": {
+      background: theme.palette.background.paper,
+      color: theme.palette.text.primary
+    }
+  },
+
+  srOnly: {
+    position: "absolute",
+    whiteSpace: "nowrap",
+    width: 1,
+    height: 1,
+    overflow: "hidden",
+    clip: "rect(0 0 0 0)"
   }
 }));
+
+// Link icon of the design's "Filtrar por conexão" select.
+const ConnectionIcon = () => (
+  <svg
+    aria-hidden="true"
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    style={{ flex: "none" }}
+  >
+    <path d="M9 17H7A5 5 0 0 1 7 7h2" />
+    <path d="M15 7h2a5 5 0 1 1 0 10h-2" />
+    <path d="M8 12h8" />
+  </svg>
+);
 
 const CHANNEL_FILTERS = [
   { key: "all", icon: "all" },
@@ -216,10 +282,27 @@ const TicketsManagerTabs = () => {
   const socketManager = useContext(SocketContext);
   const { enabled: emailEnabled } = useEmailAvailability();
   const [channelFilter, setChannelFilter] = useState("all");
-  // Without the email channel the lists get no channel filter at all, so the
-  // inbox requests and behaves exactly as before.
+  const [connectionFilter, setConnectionFilter] = useState(ALL_CONNECTIONS);
+  const { whatsApps } = useContext(WhatsAppsContext) || {};
+  // Every user gets the company's email accounts from the read-only options
+  // endpoint; if it fails the select offers WhatsApp connections only.
+  const emailAccounts = useEmailAccountOptions(emailEnabled);
+  // Without the email channel the lists get no channel or connection filter
+  // at all, so the inbox requests and behaves exactly as before.
   const channel =
     emailEnabled && channelFilter !== "all" ? channelFilter : undefined;
+  const connectionChoices = connectionOptions({
+    whatsApps,
+    emailAccounts,
+    channel: channelFilter
+  });
+  const connection =
+    emailEnabled &&
+    connectionChoices.some(option => option.value === connectionFilter)
+      ? connectionParams(connectionFilter)
+      : {};
+  const { whatsappId, emailAccountId } = connection;
+  const filtered = Boolean(channel || whatsappId || emailAccountId);
   const countStatus =
     tab === "open" && ["open", "pending"].includes(tabOpen) ? tabOpen : null;
   const channelCounts = useTicketChannelCounts({
@@ -231,8 +314,17 @@ const TicketsManagerTabs = () => {
   });
 
   useEffect(() => {
-    if (!emailEnabled) setChannelFilter("all");
+    if (!emailEnabled) {
+      setChannelFilter("all");
+      setConnectionFilter(ALL_CONNECTIONS);
+    }
   }, [emailEnabled]);
+
+  // As in the design: picking a channel starts over from every connection.
+  const pickChannel = key => {
+    setChannelFilter(key);
+    setConnectionFilter(ALL_CONNECTIONS);
+  };
 
   useEffect(() => {
     if (profile !== "admin") {
@@ -441,7 +533,7 @@ const TicketsManagerTabs = () => {
                   className={`${classes.channelChip} ${
                     selected ? classes.channelChipSelected : ""
                   }`}
-                  onClick={() => setChannelFilter(filter.key)}
+                  onClick={() => pickChannel(filter.key)}
                 >
                   <ChannelIcon
                     name={filter.icon}
@@ -489,6 +581,25 @@ const TicketsManagerTabs = () => {
           <Plus size={16} />
         </BotaoIcone>
       </div>
+      {emailEnabled && tab !== "groups" && (
+        <label className={classes.connectionFilter}>
+          <span className={classes.srOnly}>{ti("filters.connection")}</span>
+          <ConnectionIcon />
+          <select
+            className={classes.connectionSelect}
+            value={
+              whatsappId || emailAccountId ? connectionFilter : ALL_CONNECTIONS
+            }
+            onChange={event => setConnectionFilter(event.target.value)}
+          >
+            {connectionChoices.map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <div className="fila-atalhos">
         <Botao
           variante="ghost"
@@ -560,6 +671,9 @@ const TicketsManagerTabs = () => {
             showAll={showAllTickets}
             selectedQueueIds={selectedQueueIds}
             channel={channel}
+            whatsappId={whatsappId}
+            emailAccountId={emailAccountId}
+            filtered={filtered}
             updateCount={val => setOpenCount(val)}
             style={applyPanelStyle("open")}
             setTabOpen={setTabOpen}
@@ -569,6 +683,9 @@ const TicketsManagerTabs = () => {
             status="pending"
             selectedQueueIds={selectedQueueIds}
             channel={channel}
+            whatsappId={whatsappId}
+            emailAccountId={emailAccountId}
+            filtered={filtered}
             updateCount={val => setPendingCount(val)}
             style={applyPanelStyle("pending")}
             setTabOpen={setTabOpen}
@@ -582,6 +699,9 @@ const TicketsManagerTabs = () => {
           showAll={true}
           selectedQueueIds={selectedQueueIds}
           channel={channel}
+          whatsappId={whatsappId}
+          emailAccountId={emailAccountId}
+          filtered={filtered}
           showTabGroups={showTabGroups}
         />
       </TabPanel>
@@ -662,6 +782,9 @@ const TicketsManagerTabs = () => {
           users={selectedUsers}
           selectedQueueIds={selectedQueueIds}
           channel={channel}
+          whatsappId={whatsappId}
+          emailAccountId={emailAccountId}
+          filtered={filtered}
           showTabGroups={showTabGroups}
         />
       </TabPanel>

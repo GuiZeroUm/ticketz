@@ -335,8 +335,11 @@ const Connections = () => {
 
   // Email channel: everything below is inert while the company has the
   // channel disabled, so the page stays exactly as it was.
-  const { enabled: emailEnabled, loading: emailAvailabilityLoading } =
-    useEmailAvailability();
+  const {
+    enabled: emailEnabled,
+    loading: emailAvailabilityLoading,
+    gmailConfigured
+  } = useEmailAvailability();
   const {
     accounts: emailAccounts,
     loading: emailLoading,
@@ -1051,6 +1054,7 @@ const Connections = () => {
             open={addConnectionOpen}
             onClose={() => setAddConnectionOpen(false)}
             whatsappMode={user?.company?.whatsappMode}
+            gmailConfigured={gmailConfigured}
             onPickWhatsApp={handlePickWhatsApp}
             onPickEmail={handlePickEmail}
           />
