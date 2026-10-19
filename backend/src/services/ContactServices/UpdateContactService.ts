@@ -133,10 +133,15 @@ const UpdateContactService = async ({
   // formulário não pode sobrescrever o NULL, então a chave nem entra no update.
   // Um contato de e-mail que ganha telefone passa a ser de WhatsApp; os
   // vínculos de e-mail (ContactIdentities) continuam ligados a ele.
+  // Só o contato de e-mail é aparado: "   " não é telefone e não troca o canal.
+  const emailNumber =
+    contact.channel === "email" && typeof number === "string"
+      ? number.trim()
+      : "";
   const numberChange =
     contact.channel === "email"
-      ? number
-        ? { number, channel: "whatsapp" }
+      ? emailNumber
+        ? { number: emailNumber, channel: "whatsapp" }
         : {}
       : { number };
 
