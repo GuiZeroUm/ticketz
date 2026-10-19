@@ -73,6 +73,8 @@ let tokenResponse: { status: number; body: any };
 let refreshResponse: { status: number; body: any };
 let profileResponse: { status: number; body: any };
 let revokeResponse: { status: number; body: any };
+let watchResponse: { status: number; body: any };
+let stopResponse: { status: number; body: any };
 
 const json = ({ status, body }: { status: number; body: any }) =>
   new Response(JSON.stringify(body), {
@@ -112,6 +114,18 @@ const fakeFetch = async (url: string, init: any): Promise<Response> => {
     "https://oauth2.googleapis.com/revoke"
   ) {
     return json(revokeResponse);
+  }
+  if (
+    target.origin + target.pathname ===
+    "https://gmail.googleapis.com/gmail/v1/users/me/watch"
+  ) {
+    return json(watchResponse);
+  }
+  if (
+    target.origin + target.pathname ===
+    "https://gmail.googleapis.com/gmail/v1/users/me/stop"
+  ) {
+    return json(stopResponse);
   }
   return json({ status: 404, body: { error: "not_found" } });
 };
@@ -212,6 +226,13 @@ beforeEach(() => {
     body: { emailAddress: "Caixa@Gmail.com", historyId: "98765" }
   };
   revokeResponse = { status: 200, body: {} };
+  watchResponse = {
+    status: 200,
+    body: { historyId: "98770", expiration: "1761480000000" }
+  };
+  stopResponse = { status: 204, body: {} };
+  delete process.env.GMAIL_PUBSUB_TOPIC;
+  jest.spyOn(EmailAccount, "update").mockResolvedValue([1] as any);
 
   jest
     .spyOn(Gaxios.prototype as any, "_defaultAdapter")
@@ -844,6 +865,51 @@ describe("FinishGmailOAuthService", () => {
     expect(accounts).toHaveLength(0);
   });
 
+  it("does not call users.watch without GMAIL_PUBSUB_TOPIC", async () => {
+    await connect();
+    expect(sentTo("users/me/watch")).toHaveLength(0);
+    expect(EmailAccount.update).not.toHaveBeenCalled();
+  });
+
+  it("starts the Gmail push watch after the upsert when GMAIL_PUBSUB_TOPIC is set", async () => {
+    process.env.GMAIL_PUBSUB_TOPIC = "projects/espaco/topics/gmail-push";
+    await connect();
+    const [account] = accounts;
+    const watches = sentTo("users/me/watch");
+    expect(watches).toHaveLength(1);
+    expect(JSON.parse(watches[0].body)).toEqual({
+      topicName: "projects/espaco/topics/gmail-push",
+      labelIds: ["INBOX", "SENT"],
+      labelFilterBehavior: "include"
+    });
+    expect(EmailAccount.update).toHaveBeenCalledWith(
+      { watchExpiresAt: new Date(1761480000000) },
+      {
+        where: { id: account.id, provider: "gmail_api", status: "active" },
+        silent: true
+      }
+    );
+    expect(enqueueAccountSync).toHaveBeenCalledWith(account.id);
+  });
+
+  it("a failed watch does not fail the connection and logs only a reason", async () => {
+    process.env.GMAIL_PUBSUB_TOPIC = "projects/espaco/topics/gmail-push";
+    watchResponse = {
+      status: 403,
+      body: { error: { code: 403, message: "topic SECRET-ish text" } }
+    };
+    const result = await connect();
+    expect(result).toMatchObject({ status: "active", provider: "gmail_api" });
+    expect(accounts[0].status).toBe("active");
+    expect(EmailAccount.update).not.toHaveBeenCalled();
+    expect(enqueueAccountSync).toHaveBeenCalledWith(accounts[0].id);
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: "HTTP_403" }),
+      "Could not start Gmail watch"
+    );
+    expect(loggedText()).not.toContain("SECRET");
+  });
+
   it("never logs tokens, codes, handles, state or the client secret", async () => {
     const { url } = await start();
     const state = stateOf(url)!;
@@ -980,6 +1046,46 @@ describe("revocation", () => {
     const account = makeAccount({ companyId: 1 }, REFRESH_TOKEN);
     await revokeGmailAccount(account);
     expect(sentTo("revoke")).toHaveLength(0);
+  });
+
+  it("disableEmailAccount stops a running push watch before revoking the token", async () => {
+    const account = makeAccount(
+      { watchExpiresAt: new Date(Date.now() + 86_400_000) },
+      REFRESH_TOKEN
+    );
+    await disableEmailAccount(account);
+    const paths = sent.map(item => new URL(item.url).pathname);
+    const stopAt = paths.indexOf("/gmail/v1/users/me/stop");
+    const revokeAt = paths.indexOf("/revoke");
+    expect(stopAt).toBeGreaterThanOrEqual(0);
+    expect(revokeAt).toBeGreaterThan(stopAt);
+    expect(account.status).toBe("disabled");
+    expect(account.watchExpiresAt).toBeNull();
+    expect(account.getCredentials()).toBeNull();
+  });
+
+  it("a failed watch stop does not keep the account connected", async () => {
+    stopResponse = { status: 500, body: { error: { code: 500 } } };
+    const account = makeAccount(
+      { watchExpiresAt: new Date(Date.now() + 86_400_000) },
+      REFRESH_TOKEN
+    );
+    await expect(disableEmailAccount(account)).resolves.toBeUndefined();
+    expect(account.status).toBe("disabled");
+    expect(sentTo("oauth2.googleapis.com/revoke")).toHaveLength(1);
+    expect(loggedText()).not.toContain("SECRET");
+  });
+
+  it("keeps the push watch (and the grant) while another company uses the same mailbox", async () => {
+    makeAccount({ companyId: 2 }, "1//other-company");
+    const account = makeAccount(
+      { companyId: 1, watchExpiresAt: new Date(Date.now() + 86_400_000) },
+      REFRESH_TOKEN
+    );
+    await disableEmailAccount(account);
+    expect(sentTo("users/me/stop")).toHaveLength(0);
+    expect(sentTo("revoke")).toHaveLength(0);
+    expect(account.status).toBe("disabled");
   });
 
   it("does nothing for IMAP accounts", async () => {

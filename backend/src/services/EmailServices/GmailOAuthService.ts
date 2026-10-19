@@ -19,6 +19,7 @@ import {
   gmailGrantInUse,
   revokeGoogleToken
 } from "./GmailAuthClient";
+import { watchGmailAccount } from "./GmailWatchService";
 
 // Dedicated Gmail OAuth (connect a mailbox), separate from the Clerk login.
 // Flow (ruling R27):
@@ -617,7 +618,9 @@ export const FinishGmailOAuthService = async ({
   }
 
   const { account, action } = result;
-  // Extension point (Task 16): watchGmailAccount(account) goes here.
+  // Push watch (Task 16, only with GMAIL_PUBSUB_TOPIC). Best effort: it never
+  // throws, and without it the minute tick keeps syncing the account.
+  await watchGmailAccount(account);
   try {
     await enqueueAccountSync(account.id);
   } catch {

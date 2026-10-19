@@ -21,7 +21,7 @@ Os arquivos do login (`ClerkGoogleAuthService.ts`, `googleAuth.js`, `config/cler
 | `GMAIL_OAUTH_REDIRECT_URI` | sim | URL pública do callback, igual à cadastrada no Google. Exemplo: `https://app.espacowhats.com.br/backend/email/oauth/google/callback`. |
 | `FRONTEND_URL` | sim (já existe) | Destino padrão do retorno: `${FRONTEND_URL}/connections?...`. Sem ela, o Gmail fica como não configurado, para não haver redirecionamento relativo ao host do backend. |
 | `FRONTEND_CUSTOM_URL`, `FRONTEND_URL_REGEX` | já existem | As mesmas regras do CORS decidem para quais origens do frontend o callback pode voltar (ver "Multi-tenant" abaixo). |
-| `GMAIL_PUBSUB_TOPIC`, `GMAIL_PUBSUB_AUDIENCE`, `GMAIL_PUBSUB_SERVICE_ACCOUNT` | não | Push do Gmail (Task 16). Sem elas, a sincronização usa polling. |
+| `GMAIL_PUBSUB_TOPIC`, `GMAIL_PUBSUB_AUDIENCE`, `GMAIL_PUBSUB_SERVICE_ACCOUNT` | não | Push do Gmail (ver "Push do Gmail (Pub/Sub)" abaixo). Sem elas, a sincronização usa só o polling de 1 minuto. |
 
 Sem as três primeiras ou sem `FRONTEND_URL`, `POST /email/oauth/google/start` responde `ERR_GMAIL_NOT_CONFIGURED` e nada é chamado no Google.
 
@@ -127,6 +127,8 @@ No callback, a origem é validada de novo. Com `state` inválido, o redirecionam
 
 `DELETE /email/accounts/:id` chama `disableEmailAccount`. Para uma conta Gmail, essa função tenta revogar o token em `POST https://oauth2.googleapis.com/revoke` antes de apagar as credenciais. Uma falha na revogação só gera log, e a conta é desconectada mesmo assim.
 
+Antes da revogação, `stopGmailWatch` encerra o watch do push (`users.stop`), se houver um ativo (`watchExpiresAt` no futuro). Também é melhor esforço e é pulado quando a mesma caixa continua conectada em outra empresa, porque o watch é da caixa, não da linha.
+
 A revogação remove toda a autorização daquela conta Google para o nosso cliente OAuth. Por isso, se a mesma caixa continua conectada em outra empresa, a revogação é pulada e só as credenciais locais são apagadas. Pelo mesmo motivo, uma autorização parcial cujo endereço não pôde ser lido não é revogada. Isso foi inferido da documentação do Google e precisa ser confirmado no teste funcional.
 
 ### Rotação do refresh token (para a Task 15)
@@ -134,6 +136,57 @@ A revogação remove toda a autorização daquela conta Google para o nosso clie
 `getGmailAuthClient(account)` devolve um `OAuth2Client` que renova o access token sozinho. `invalid_grant` vira `EmailAuthError` e as outras falhas viram `EmailTransientError`, sem texto do servidor.
 
 Se o Google devolver um refresh token novo, ele fica em `client.rotatedRefreshToken` e **não é gravado dentro da rodada de sincronização** (ruling R23). Quem usa o cliente chama `persistRotatedRefreshToken(account, client)` fora da rodada: no envio, ou depois da escrita final de status da rodada. Essa função grava só `credentials`, condicionada ao `updatedAt` atual e a um status diferente de `disabled`.
+
+## Push do Gmail (Pub/Sub)
+
+Opcional. Sem push, cada conta Gmail ativa é sincronizada pelo tick de 1 minuto. Com push, o Gmail avisa o backend quando chega ou sai um e-mail, e a sincronização começa em segundos. O polling continua ligado: o push só adianta a rodada, e um aviso perdido custa no máximo um tick.
+
+### Como funciona
+
+1. Ao conectar ou reconectar uma caixa (`POST /email/oauth/google/finish`), o backend chama `users.watch` com `topicName = GMAIL_PUBSUB_TOPIC`, `labelIds = ["INBOX", "SENT"]` e `labelFilterBehavior = "include"`. São os mesmos rótulos que a ingestão aceita (ruling R31). A data de expiração devolvida fica em `EmailAccounts.watchExpiresAt`. Uma falha aqui só gera log, e a conexão termina normalmente.
+2. O Gmail publica `{ emailAddress, historyId }` no tópico. A assinatura push do Pub/Sub entrega em `POST /webhooks/gmail/push`.
+3. O webhook confere o token OIDC e enfileira a sincronização (`enqueueAccountSync`) de **todas** as contas Gmail `active` com esse endereço, em empresas com o canal habilitado e atendidas por este runtime (`runtimeCompanyWhere`/`runtimeOwnsCompany`). A mesma caixa pode estar em mais de uma empresa. Avisos repetidos caem no mesmo `jobId` (`sync-<id>`) e não duplicam rodadas. O `historyId` do aviso não é usado: a rodada parte do cursor salvo.
+4. Um watch dura 7 dias. O job repetível `GmailWatchRenew` (fila `EmailSync`, cron `0 4 * * *`, horário do servidor) renova as contas Gmail `active` com `watchExpiresAt` vazio ou a menos de 48 h, só em empresas habilitadas e deste runtime. Contas `disabled`, `reauth_required` ou `error` não são tocadas, e a gravação de `watchExpiresAt` só acontece se a conta ainda estiver `active` (não ressuscita uma conta desconectada e não mexe em credenciais). No boot, com o tópico configurado, uma rodada extra de renovação roda após 1 minuto, para contas conectadas antes de o push ser configurado.
+5. Ao desconectar, `stopGmailWatch` encerra o watch (ver "Desconectar e revogar").
+
+Sem `GMAIL_PUBSUB_TOPIC`, nada disso roda: nenhum watch é criado, o job repetível é removido da fila no boot e a renovação não faz nada.
+
+### Respostas do webhook
+
+| Resposta | Quando |
+| --- | --- |
+| `404` | Push não configurado (falta `GMAIL_PUBSUB_TOPIC`, `GMAIL_PUBSUB_AUDIENCE` ou `GMAIL_PUBSUB_SERVICE_ACCOUNT`). Escolhemos 404 para a rota se comportar como inexistente. |
+| `401` | Sem `Authorization: Bearer <token>`, token inválido ou expirado, `aud` diferente de `GMAIL_PUBSUB_AUDIENCE`, ou token que não é da conta de serviço configurada (`email` diferente ou `email_verified` falso). |
+| `413` | Corpo acima de 64 KB (um aviso do Gmail tem poucas centenas de bytes). |
+| `204` | Token válido. A resposta sai **antes** do trabalho, inclusive com corpo malformado, para o Pub/Sub não reenviar. O corpo nunca é ecoado nem registrado em log. |
+
+A rota não usa `isAuth`. O CORS não bloqueia (o Pub/Sub não manda `Origin`) e não há rate limiter global. O `app.ts` monta um parser JSON de 64 KB só para essa rota, antes do parser global de 10 MB.
+
+### Configuração no Google Cloud
+
+Use o mesmo projeto do cliente OAuth do Gmail.
+
+1. Ative a **Cloud Pub/Sub API**.
+2. Crie o tópico, por exemplo `gmail-push`. O nome completo vai em `GMAIL_PUBSUB_TOPIC`: `projects/<id-do-projeto>/topics/gmail-push`.
+3. No tópico, em **Permissões**, dê o papel **Publicador do Pub/Sub** (`roles/pubsub.publisher`) ao principal `gmail-api-push@system.gserviceaccount.com`. Sem isso, `users.watch` falha com 403.
+4. Crie uma conta de serviço só para o push, por exemplo `gmail-push-invoker@<id-do-projeto>.iam.gserviceaccount.com`. Ela não precisa de papéis no projeto. O e-mail dela vai em `GMAIL_PUBSUB_SERVICE_ACCOUNT`.
+5. Crie uma assinatura do tópico com tipo de entrega **Push**:
+   - Endpoint: a URL pública do backend + `/webhooks/gmail/push`, por exemplo `https://app.espacowhats.com.br/backend/webhooks/gmail/push`. Precisa ser HTTPS.
+   - Marque **Ativar autenticação** e escolha a conta de serviço do passo 4.
+   - Público-alvo (audience): use um valor fixo, de preferência a própria URL do endpoint. O mesmo valor vai em `GMAIL_PUBSUB_AUDIENCE`. Se o campo ficar vazio, o Google usa a URL do endpoint como audience.
+   - Prazo de confirmação: o padrão (10 s) basta.
+   - A conta de serviço do Pub/Sub do projeto (`service-<número-do-projeto>@gcp-sa-pubsub.iam.gserviceaccount.com`) precisa do papel **Criador de token da conta de serviço** (`roles/iam.serviceAccountTokenCreator`) na conta do passo 4. Projetos criados depois de abril de 2021 já têm isso.
+6. Preencha as três variáveis no `.env` do backend e reinicie. As contas já conectadas recebem o watch na rodada de renovação do boot (1 minuto depois) e, depois, todo dia às 04:00.
+
+Exemplo:
+
+```env
+GMAIL_PUBSUB_TOPIC=projects/espaco-whats/topics/gmail-push
+GMAIL_PUBSUB_AUDIENCE=https://app.espacowhats.com.br/backend/webhooks/gmail/push
+GMAIL_PUBSUB_SERVICE_ACCOUNT=gmail-push-invoker@espaco-whats.iam.gserviceaccount.com
+```
+
+Para conferir: envie um e-mail para a caixa conectada. O ticket deve aparecer em poucos segundos, sem esperar o tick. Em `EmailAccounts`, `watchExpiresAt` deve ficar cerca de 7 dias no futuro.
 
 ## Teste funcional (passo 5 da Task 14)
 
