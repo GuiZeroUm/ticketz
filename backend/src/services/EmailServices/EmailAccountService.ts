@@ -11,6 +11,7 @@ import {
   emitEmailAccount
 } from "./EmailAccountStatusService";
 import { revokeGmailAccount } from "./GmailAuthClient";
+import { stopGmailWatch } from "./GmailWatchService";
 import { EMAIL_PRESETS } from "./presets";
 
 type Endpoint = { host: string; port: number; secure: boolean };
@@ -379,8 +380,12 @@ export const disableEmailAccount = async (
   account: EmailAccount
 ): Promise<void> => {
   // Best effort (never throws, logs no secret): a Google outage must not keep
-  // the user from disconnecting. Needs the token, so it runs before the wipe.
-  if (account.provider === "gmail_api") await revokeGmailAccount(account);
+  // the user from disconnecting. Both need the token, so they run before the
+  // wipe, and the watch is stopped before the token is revoked.
+  if (account.provider === "gmail_api") {
+    await stopGmailWatch(account);
+    await revokeGmailAccount(account);
+  }
   account.setCredentials(null);
   account.set({
     status: "disabled",

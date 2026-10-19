@@ -19,9 +19,9 @@ Os arquivos do login (`ClerkGoogleAuthService.ts`, `googleAuth.js`, `config/cler
 | `GMAIL_OAUTH_CLIENT_ID` | sim | Client ID do cliente OAuth "Aplicativo da Web". |
 | `GMAIL_OAUTH_CLIENT_SECRET` | sim | Client secret desse cliente. Nunca vai para o frontend. |
 | `GMAIL_OAUTH_REDIRECT_URI` | sim | URL pública do callback, igual à cadastrada no Google. Exemplo: `https://app.espacowhats.com.br/backend/email/oauth/google/callback`. |
-| `FRONTEND_URL` | sim (já existe) | Destino padrão do retorno: `${FRONTEND_URL}/connections?...`. Sem ela, o Gmail fica como não configurado, para não haver redirecionamento relativo ao host do backend. |
+| `FRONTEND_URL` | sim (já existe) | Destino padrão do retorno: `${FRONTEND_URL}/connections#...`. Sem ela, o Gmail fica como não configurado, para não haver redirecionamento relativo ao host do backend. |
 | `FRONTEND_CUSTOM_URL`, `FRONTEND_URL_REGEX` | já existem | As mesmas regras do CORS decidem para quais origens do frontend o callback pode voltar (ver "Multi-tenant" abaixo). |
-| `GMAIL_PUBSUB_TOPIC`, `GMAIL_PUBSUB_AUDIENCE`, `GMAIL_PUBSUB_SERVICE_ACCOUNT` | não | Push do Gmail (Task 16). Sem elas, a sincronização usa polling. |
+| `GMAIL_PUBSUB_TOPIC`, `GMAIL_PUBSUB_AUDIENCE`, `GMAIL_PUBSUB_SERVICE_ACCOUNT` | não | Push do Gmail (ver "Push do Gmail (Pub/Sub)" abaixo). Sem elas, a sincronização usa só o polling de 1 minuto. |
 
 Sem as três primeiras ou sem `FRONTEND_URL`, `POST /email/oauth/google/start` responde `ERR_GMAIL_NOT_CONFIGURED` e nada é chamado no Google.
 
@@ -65,7 +65,7 @@ Planeje isso antes de prometer o Gmail para todos os clientes. iCloud e e-mail p
 3. O Google redireciona o navegador para `GET /email/oauth/google/callback`, que não exige login. O callback:
    - consome o `state` com get+del atômico; um `state` desconhecido, expirado ou já usado é recusado;
    - **não troca o código**. Guarda `{ registro do state, código }` no Redis com um *handle* novo, também de 32 bytes aleatórios, de uso único e válido por 300 s;
-   - redireciona para `<origem>/connections?email=pending&handle=<handle>`.
+   - redireciona para `<origem>/connections#email=pending&handle=<handle>`. Os parâmetros vão no fragmento (`#`), não na query (ruling R32): o fragmento não é enviado ao servidor, não aparece em logs de acesso de proxies nem no `Referer`. O frontend aceita as duas formas.
 4. O frontend, já logado, chama `POST /email/oauth/google/finish` com `{ handle }`. A rota exige login, perfil admin e o canal habilitado. O backend:
    - consome o handle com get+del atômico, depois de validar o formato;
    - recusa com `ERR_GMAIL_OAUTH_FAILED` (403) se quem chama não for o **mesmo usuário da mesma empresa** que iniciou o fluxo. O handle já foi consumido nesse ponto;
@@ -76,7 +76,7 @@ Planeje isso antes de prometer o Gmail para todos os clientes. iCloud e e-mail p
 
 **Por que o passo extra (`finish`).** O callback chega sem sessão, porque o navegador volta do Google. Se ele trocasse o código e gravasse a conta, um admin mal-intencionado poderia mandar a URL de consentimento para outra pessoa. Se ela aceitasse, a caixa dela seria ligada à empresa do admin. Com o `finish`, a troca só acontece para o usuário logado que iniciou o fluxo. O handle na URL não serve para mais ninguém: é de uso único, vale 5 minutos e fica preso à empresa e ao usuário.
 
-Erros do callback continuam voltando como `<origem>/connections?email=error&code=<código>`. Erros do `finish` vêm na resposta da API, como `{ error: "<código>" }`.
+Erros do callback voltam como `<origem>/connections#email=error&code=<código>`. Erros do `finish` vêm na resposta da API, como `{ error: "<código>" }`.
 
 Se já existe uma conta Gmail com o mesmo endereço na empresa (precisando de reautenticação ou desconectada), o `finish` reutiliza essa linha. Assim os tickets dela continuam ligados à conta.
 - Uma conta que só precisava de reautenticação mantém o cursor, porque o mesmo endereço é a mesma caixa. Assim não se perde o que chegou nesse meio-tempo.
@@ -87,7 +87,7 @@ Se já existe uma conta Gmail com o mesmo endereço na empresa (precisando de re
 
 ### Códigos de erro
 
-Callback (`?email=error&code=`):
+Callback (`#email=error&code=`):
 
 | Código | Quando |
 | --- | --- |
@@ -127,6 +127,8 @@ No callback, a origem é validada de novo. Com `state` inválido, o redirecionam
 
 `DELETE /email/accounts/:id` chama `disableEmailAccount`. Para uma conta Gmail, essa função tenta revogar o token em `POST https://oauth2.googleapis.com/revoke` antes de apagar as credenciais. Uma falha na revogação só gera log, e a conta é desconectada mesmo assim.
 
+Antes da revogação, `stopGmailWatch` encerra o watch do push (`users.stop`), se houver um ativo (`watchExpiresAt` no futuro). Também é melhor esforço e é pulado quando a mesma caixa continua conectada em outra empresa, porque o watch é da caixa, não da linha.
+
 A revogação remove toda a autorização daquela conta Google para o nosso cliente OAuth. Por isso, se a mesma caixa continua conectada em outra empresa, a revogação é pulada e só as credenciais locais são apagadas. Pelo mesmo motivo, uma autorização parcial cujo endereço não pôde ser lido não é revogada. Isso foi inferido da documentação do Google e precisa ser confirmado no teste funcional.
 
 ### Rotação do refresh token (para a Task 15)
@@ -134,6 +136,60 @@ A revogação remove toda a autorização daquela conta Google para o nosso clie
 `getGmailAuthClient(account)` devolve um `OAuth2Client` que renova o access token sozinho. `invalid_grant` vira `EmailAuthError` e as outras falhas viram `EmailTransientError`, sem texto do servidor.
 
 Se o Google devolver um refresh token novo, ele fica em `client.rotatedRefreshToken` e **não é gravado dentro da rodada de sincronização** (ruling R23). Quem usa o cliente chama `persistRotatedRefreshToken(account, client)` fora da rodada: no envio, ou depois da escrita final de status da rodada. Essa função grava só `credentials`, condicionada ao `updatedAt` atual e a um status diferente de `disabled`.
+
+## Push do Gmail (Pub/Sub)
+
+Opcional. Sem push, cada conta Gmail ativa é sincronizada pelo tick de 1 minuto. Com push, o Gmail avisa o backend quando chega ou sai um e-mail, e a sincronização começa em segundos. O polling continua ligado: o push só adianta a rodada, e um aviso perdido custa no máximo um tick.
+
+### Como funciona
+
+1. Ao conectar ou reconectar uma caixa (`POST /email/oauth/google/finish`), o backend chama `users.watch` com `topicName = GMAIL_PUBSUB_TOPIC`, `labelIds = ["INBOX", "SENT"]` e `labelFilterBehavior = "include"`. São os mesmos rótulos que a ingestão aceita (ruling R31). A data de expiração devolvida fica em `EmailAccounts.watchExpiresAt`. Essa chamada tem limite de 5 s. Uma falha aqui só gera log, e a conexão termina normalmente; a renovação do boot ou a diária cria o watch depois.
+2. O Gmail publica `{ emailAddress, historyId }` no tópico. A assinatura push do Pub/Sub entrega em `POST /webhooks/gmail/push`.
+3. O webhook confere o token OIDC e enfileira a sincronização (`enqueueAccountSync`) de **todas** as contas Gmail `active` com esse endereço, em empresas com o canal habilitado e atendidas por este runtime (`runtimeCompanyWhere`/`runtimeOwnsCompany`). A mesma caixa pode estar em mais de uma empresa. Avisos repetidos caem no mesmo `jobId` (`sync-<id>`) e não duplicam rodadas. O `historyId` do aviso não é usado: a rodada parte do cursor salvo.
+4. Um watch dura 7 dias. O job repetível `GmailWatchRenew` (fila `EmailSync`, cron `0 4 * * *`, horário do servidor) renova as contas Gmail `active` com `watchExpiresAt` vazio ou a menos de 48 h, só em empresas habilitadas e deste runtime. Contas `disabled`, `reauth_required` ou `error` não são tocadas, e a gravação de `watchExpiresAt` só acontece se a conta ainda estiver `active` (não ressuscita uma conta desconectada e não mexe em credenciais). No boot, com o tópico configurado, uma rodada extra de renovação roda após 1 minuto, para contas conectadas antes de o push ser configurado.
+5. Ao desconectar, `stopGmailWatch` encerra o watch (ver "Desconectar e revogar").
+
+O push só liga com as **três** variáveis (`GMAIL_PUBSUB_TOPIC`, `GMAIL_PUBSUB_AUDIENCE` e `GMAIL_PUBSUB_SERVICE_ACCOUNT`). Com qualquer uma faltando, nada disso roda: nenhum watch é criado, o job repetível é removido da fila no boot e a renovação não faz nada. Assim o Gmail nunca publica para um webhook que responderia 404, o que faria o Pub/Sub reenviar sem parar.
+
+### Respostas do webhook
+
+| Resposta | Quando |
+| --- | --- |
+| `404` | Push não configurado (falta `GMAIL_PUBSUB_TOPIC`, `GMAIL_PUBSUB_AUDIENCE` ou `GMAIL_PUBSUB_SERVICE_ACCOUNT`). Escolhemos 404 para a rota se comportar como inexistente. |
+| `401` | Sem `Authorization: Bearer <token>`, token inválido ou expirado, `aud` diferente de `GMAIL_PUBSUB_AUDIENCE`, ou token que não é da conta de serviço configurada (`email` diferente ou `email_verified` falso). |
+| `413` | Corpo acima de 64 KB (um aviso do Gmail tem poucas centenas de bytes). |
+| `204` | Token válido. A resposta sai **antes** do trabalho, inclusive com corpo malformado, para o Pub/Sub não reenviar. O corpo nunca é ecoado nem registrado em log. |
+
+As recusas com `401` são registradas só em nível `debug`, para que chamadas sem autenticação não lotem o log.
+
+A rota não usa `isAuth`. O CORS não bloqueia (o Pub/Sub não manda `Origin`) e não há rate limiter global. O `app.ts` monta um parser JSON de 64 KB só para essa rota, antes do parser global de 10 MB.
+
+### Configuração no Google Cloud
+
+Use o mesmo projeto do cliente OAuth do Gmail.
+
+1. Ative a **Cloud Pub/Sub API**.
+2. Crie o tópico, por exemplo `gmail-push`. O nome completo vai em `GMAIL_PUBSUB_TOPIC`: `projects/<id-do-projeto>/topics/gmail-push`.
+3. No tópico, em **Permissões**, dê o papel **Publicador do Pub/Sub** (`roles/pubsub.publisher`) ao principal `gmail-api-push@system.gserviceaccount.com`. Sem isso, `users.watch` falha com 403.
+4. Crie uma conta de serviço só para o push, por exemplo `gmail-push-invoker@<id-do-projeto>.iam.gserviceaccount.com`. Ela não precisa de papéis no projeto. O e-mail dela vai em `GMAIL_PUBSUB_SERVICE_ACCOUNT`.
+5. Crie uma assinatura do tópico com tipo de entrega **Push**:
+   - Endpoint: a URL pública do backend + `/webhooks/gmail/push`, por exemplo `https://app.espacowhats.com.br/backend/webhooks/gmail/push`. Precisa ser HTTPS.
+   - Marque **Ativar autenticação** e escolha a conta de serviço do passo 4.
+   - Público-alvo (audience): use um valor fixo, de preferência a própria URL do endpoint. O mesmo valor vai em `GMAIL_PUBSUB_AUDIENCE`. Se o campo ficar vazio, o Google usa a URL do endpoint como audience.
+   - Prazo de confirmação: o padrão (10 s) basta.
+   - Quem cria a assinatura precisa da permissão `iam.serviceAccounts.actAs` na conta do passo 4, por exemplo com o papel **Usuário da conta de serviço** (`roles/iam.serviceAccountUser`) nessa conta. Sem isso, o Google recusa ativar a autenticação com ela.
+   - Só para projetos criados **antes de 8 de abril de 2021**: a conta de serviço do Pub/Sub do projeto (`service-<número-do-projeto>@gcp-sa-pubsub.iam.gserviceaccount.com`) precisa do papel **Criador de token da conta de serviço** (`roles/iam.serviceAccountTokenCreator`) no projeto. Projetos mais novos já têm o necessário.
+6. Preencha as três variáveis no `.env` do backend e reinicie. As contas já conectadas recebem o watch na rodada de renovação do boot (1 minuto depois) e, depois, todo dia às 04:00.
+
+Exemplo:
+
+```env
+GMAIL_PUBSUB_TOPIC=projects/espaco-whats/topics/gmail-push
+GMAIL_PUBSUB_AUDIENCE=https://app.espacowhats.com.br/backend/webhooks/gmail/push
+GMAIL_PUBSUB_SERVICE_ACCOUNT=gmail-push-invoker@espaco-whats.iam.gserviceaccount.com
+```
+
+Para conferir: envie um e-mail para a caixa conectada. O ticket deve aparecer em poucos segundos, sem esperar o tick. Em `EmailAccounts`, `watchExpiresAt` deve ficar cerca de 7 dias no futuro.
 
 ## Teste funcional (passo 5 da Task 14)
 
@@ -144,7 +200,7 @@ Roteiro para o responsável:
 1. Crie o cliente OAuth "Aplicativo da Web" em modo de teste, como descrito acima, e adicione uma caixa Gmail de teste como usuário de teste.
 2. Preencha `GMAIL_OAUTH_CLIENT_ID`, `GMAIL_OAUTH_CLIENT_SECRET` e `GMAIL_OAUTH_REDIRECT_URI` no `.env` local e reinicie o backend.
 3. Habilite o canal de e-mail para a empresa (super admin, em Configurações › Empresas).
-4. Em Conexões, escolha Gmail e autorize leitura e envio. A volta deve ser para `/connections?email=pending&handle=...`. O frontend chama `POST /email/oauth/google/finish` e mostra "Gmail conectado com sucesso".
+4. Em Conexões, escolha Gmail e autorize leitura e envio. A volta deve ser para `/connections#email=pending&handle=...`. O frontend chama `POST /email/oauth/google/finish` e mostra "Gmail conectado com sucesso".
 5. Na tabela `EmailAccounts`, confira:
    - `address` correto;
    - `provider = gmail_api` e `status = active`;
@@ -155,7 +211,7 @@ Roteiro para o responsável:
 8. Faça logout e entre com "Entrar com Google". O login deve funcionar **sem** a tela de consentimento do Gmail.
 9. Opcional, para multi-tenant: inicie a conexão a partir de um subdomínio de tenant e confira que a volta é para o mesmo subdomínio.
 10. Opcional: conecte a mesma caixa em duas empresas, desconecte uma e confira que a outra continua sincronizando.
-11. Abra a URL `...connections?email=pending&handle=...` logado com outro usuário. O `finish` deve ser recusado e a caixa não deve ser conectada.
+11. Abra a URL `...connections#email=pending&handle=...` logado com outro usuário. O `finish` deve ser recusado e a caixa não deve ser conectada.
 
 Registre aqui a data e o resultado de cada item.
 

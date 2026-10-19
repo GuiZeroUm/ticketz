@@ -7,6 +7,10 @@ import {
 import EmailAccount from "../models/EmailAccount";
 import { emailEnabledForCompany } from "../services/EmailServices/EmailAccessService";
 import emailRedis from "../services/EmailServices/emailRedis";
+import {
+  gmailPushConfigured,
+  renewExpiringWatches
+} from "../services/EmailServices/GmailWatchService";
 import ImapIdleManager from "../services/EmailServices/ImapIdleManager";
 import ProcessEmailSendJob from "../services/EmailServices/ProcessEmailSendJob";
 import SyncEmailAccountService from "../services/EmailServices/SyncEmailAccountService";
@@ -34,6 +38,8 @@ export const TICK_JOB = "EmailSyncTick";
 export const SYNC_CONCURRENCY = 5;
 export const SEND_JOB = "EmailSend";
 export const SEND_CONCURRENCY = 5;
+export const WATCH_RENEW_JOB = "GmailWatchRenew";
+export const WATCH_RENEW_CRON = "0 4 * * *";
 
 const BACKOFF_BASE_MS = 60 * 1000;
 const BACKOFF_MAX_MS = 15 * 60 * 1000;
@@ -192,6 +198,67 @@ export const handleSyncCompleted = async (
   }
 };
 
+// Maintenance jobs (the minute tick and the daily Gmail watch renewal) share
+// one processor loop: every process() call adds its concurrency to the whole
+// queue (see emailSendQueue), so a separate renew processor would let one
+// more sync round run at a time. Sync jobs keep their own named processor,
+// which Bull prefers over "*".
+export const handleMaintenanceJob = async (
+  job: Pick<Job, "name">
+): Promise<void> => {
+  if (job.name === TICK_JOB) {
+    await runEmailSyncTick();
+    return;
+  }
+  if (job.name === WATCH_RENEW_JOB) {
+    const renewed = await renewExpiringWatches();
+    if (renewed) logger.info({ renewed }, "Gmail watches renewed");
+    return;
+  }
+  throw new Error("Unknown email maintenance job");
+};
+
+// Idempotent across restarts and replicas: Bull keys a repeatable job by
+// name + cron, so adding the same one again changes nothing. Stale entries
+// (another cron from an older version) are removed, and unless push is fully
+// configured (topic, audience and service account) the repeatable is removed
+// altogether. With push configured, a one-off run is also queued at startup
+// (fixed jobId, dropped while one is pending), so accounts connected before
+// push was configured get a watch without waiting for 04:00.
+export const scheduleGmailWatchRenew = async (): Promise<void> => {
+  const enabled = gmailPushConfigured();
+  const repeatables = await emailQueue.getRepeatableJobs();
+  // eslint-disable-next-line no-restricted-syntax
+  for (const job of repeatables) {
+    if (
+      job.name === WATCH_RENEW_JOB &&
+      (!enabled || job.cron !== WATCH_RENEW_CRON)
+    ) {
+      await emailQueue.removeRepeatableByKey(job.key);
+    }
+  }
+  if (!enabled) return;
+  await emailQueue.add(
+    WATCH_RENEW_JOB,
+    {},
+    {
+      repeat: { cron: WATCH_RENEW_CRON },
+      removeOnComplete: true,
+      removeOnFail: true
+    }
+  );
+  await emailQueue.add(
+    WATCH_RENEW_JOB,
+    {},
+    {
+      jobId: "gmail-watch-renew-startup",
+      delay: 60 * 1000,
+      removeOnComplete: true,
+      removeOnFail: true
+    }
+  );
+};
+
 export const sendJobId = (emailMessageId: number, attempt = 0): string =>
   attempt
     ? `send-${emailMessageId}-retry-${attempt}`
@@ -237,9 +304,7 @@ export const handleSendJob = async (
 };
 
 export const startEmailQueue = (): void => {
-  emailQueue.process(TICK_JOB, async () => {
-    await runEmailSyncTick();
-  });
+  emailQueue.process("*", 1, handleMaintenanceJob);
   emailQueue.process(SYNC_JOB, SYNC_CONCURRENCY, handleSyncAccountJob);
   emailQueue.on("completed", handleSyncCompleted);
   emailQueue.on("failed", (job, err) => {
@@ -262,4 +327,8 @@ export const startEmailQueue = (): void => {
       }
     )
     .catch(() => logger.warn("Could not schedule email sync tick"));
+
+  scheduleGmailWatchRenew().catch(() =>
+    logger.warn("Could not schedule Gmail watch renewal")
+  );
 };

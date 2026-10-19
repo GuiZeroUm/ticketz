@@ -53,6 +53,7 @@ import agentRoutes from "./agentRoutes";
 
 import metaWhatsappRoutes from "./metaWhatsappRoutes";
 import metaWhatsappWebhookRoutes from "./metaWhatsappWebhookRoutes";
+import gmailPushRoutes from "./gmailPushRoutes";
 
 const routes = Router();
 routes.use(agentRoutes);
@@ -109,5 +110,6 @@ routes.use(ogRoutes);
 
 routes.use(metaWhatsappRoutes);
 routes.use(metaWhatsappWebhookRoutes);
+routes.use(gmailPushRoutes);
 
 export default routes;

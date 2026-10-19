@@ -815,7 +815,7 @@ describe("email routes", () => {
       });
       (CompleteGmailOAuthService as jest.Mock).mockResolvedValue({
         redirectTo:
-          "https://teste.espacowhats.com.br/connections?email=connected"
+          "https://teste.espacowhats.com.br/connections#email=pending&handle=h"
       });
     });
 
@@ -930,7 +930,7 @@ describe("email routes", () => {
       );
       expect(response.status).toBe(302);
       expect(response.headers.location).toBe(
-        "https://teste.espacowhats.com.br/connections?email=connected"
+        "https://teste.espacowhats.com.br/connections#email=pending&handle=h"
       );
       expect(response.headers["cache-control"]).toBe("no-store");
       expect(response.headers["referrer-policy"]).toBe("no-referrer");
@@ -952,7 +952,7 @@ describe("email routes", () => {
       );
       expect(response.status).toBe(302);
       expect(response.headers.location).toBe(
-        "https://app.espacowhats.com.br/connections?email=error&code=ERR_GMAIL_OAUTH_FAILED"
+        "https://app.espacowhats.com.br/connections#email=error&code=ERR_GMAIL_OAUTH_FAILED"
       );
     });
   });

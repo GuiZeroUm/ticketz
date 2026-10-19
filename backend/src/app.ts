@@ -15,6 +15,10 @@ import routes from "./routes";
 import { logger } from "./utils/logger";
 import { sendScheduledMessages } from "./queues";
 import { corsOrigin } from "./helpers/corsOrigin";
+import {
+  GMAIL_PUSH_PATH,
+  gmailPushBodyParser
+} from "./controllers/GmailPushController";
 
 class SystemError extends Error {
   code?: string;
@@ -44,6 +48,9 @@ app.use(
   })
 );
 app.use(cookieParser());
+// Gmail Pub/Sub push: its own small body limit. It runs first, so the global
+// 10 MB parser below skips the body it already read.
+app.post(GMAIL_PUSH_PATH, gmailPushBodyParser);
 app.use(
   express.json({
     limit: "10mb",
