@@ -210,8 +210,58 @@ describe("email routes", () => {
       const response = await request(app)
         .get("/email/availability")
         .set("x-test-user", asUser(1));
-      expect(response.body).toEqual({ enabled: false });
+      expect(response.body).toEqual({
+        enabled: false,
+        gmailConfigured: expect.any(Boolean)
+      });
       expect(assertEmailEnabled).not.toHaveBeenCalled();
+    });
+
+    describe("gmailConfigured", () => {
+      const KEYS = [
+        "GMAIL_OAUTH_CLIENT_ID",
+        "GMAIL_OAUTH_CLIENT_SECRET",
+        "GMAIL_OAUTH_REDIRECT_URI",
+        "FRONTEND_URL"
+      ];
+      const saved: Record<string, string | undefined> = {};
+      beforeEach(() => {
+        KEYS.forEach(key => {
+          saved[key] = process.env[key];
+        });
+      });
+      afterEach(() => {
+        KEYS.forEach(key => {
+          if (saved[key] === undefined) delete process.env[key];
+          else process.env[key] = saved[key];
+        });
+      });
+
+      const availability = () =>
+        request(app).get("/email/availability").set("x-test-user", asUser(1));
+
+      it("is true when the Gmail OAuth variables are set", async () => {
+        process.env.GMAIL_OAUTH_CLIENT_ID = "id";
+        process.env.GMAIL_OAUTH_CLIENT_SECRET = "secret";
+        process.env.GMAIL_OAUTH_REDIRECT_URI =
+          "https://dev.espacowhats.com.br/backend/email/oauth/google/callback";
+        process.env.FRONTEND_URL = "https://dev.espacowhats.com.br";
+        const response = await availability();
+        expect(response.body).toEqual({ enabled: true, gmailConfigured: true });
+        expect(JSON.stringify(response.body)).not.toContain("secret");
+      });
+
+      it("is false when any of them is missing", async () => {
+        process.env.GMAIL_OAUTH_CLIENT_ID = "id";
+        delete process.env.GMAIL_OAUTH_CLIENT_SECRET;
+        process.env.GMAIL_OAUTH_REDIRECT_URI = "https://x/cb";
+        process.env.FRONTEND_URL = "https://x";
+        const response = await availability();
+        expect(response.body).toEqual({
+          enabled: true,
+          gmailConfigured: false
+        });
+      });
     });
 
     it("returns 403 ERR_EMAIL_CHANNEL_DISABLED on every email route when disabled", async () => {

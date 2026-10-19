@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import AppError from "../errors/AppError";
+import { getGmailConfig } from "../config/gmail";
 import {
   assertEmailEnabled,
   emailEnabledForCompany
@@ -45,7 +46,10 @@ export const availability = async (
 ): Promise<Response> => {
   const enabled = await emailEnabledForCompany(req.user.companyId);
 
-  return res.status(200).json({ enabled });
+  // Lets the frontend show Gmail as unavailable instead of failing on start.
+  return res
+    .status(200)
+    .json({ enabled, gmailConfigured: getGmailConfig().enabled });
 };
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
