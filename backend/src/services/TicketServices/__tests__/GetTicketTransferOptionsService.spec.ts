@@ -1,9 +1,11 @@
+import EmailAccount from "../../../models/EmailAccount";
 import Queue from "../../../models/Queue";
 import Ticket from "../../../models/Ticket";
 import Whatsapp from "../../../models/Whatsapp";
 import GetTicketTransferOptionsService from "../GetTicketTransferOptionsService";
 import ShowTicketService from "../ShowTicketService";
 
+jest.mock("../../../models/EmailAccount");
 jest.mock("../../../models/Queue");
 jest.mock("../../../models/Whatsapp");
 jest.mock("../ShowTicketService");
@@ -78,4 +80,95 @@ it("returns only global or explicitly linked queues for each connection", async 
       ]
     })
   ]);
+});
+
+describe("email tickets", () => {
+  const emailTicket = (data: Record<string, unknown> = {}) =>
+    ({
+      id: 10,
+      companyId: 7,
+      whatsappId: null,
+      emailAccountId: 55,
+      channel: "email",
+      isGroup: false,
+      contact: { isGroup: false },
+      ...data
+    }) as unknown as Ticket;
+
+  const queues = [
+    { id: 10, name: "Legado", color: "#111111", whatsapps: [] },
+    { id: 12, name: "Filial", color: "#333333", whatsapps: [{ id: 2 }] }
+  ] as unknown as Queue[];
+
+  it("offers the email account as the only option with every company queue", async () => {
+    showTicket.mockResolvedValue(emailTicket());
+    (EmailAccount.findOne as jest.Mock).mockResolvedValue({
+      id: 55,
+      name: "Suporte",
+      address: "suporte@empresa.com",
+      status: "active"
+    });
+    queueFindAll.mockResolvedValue(queues);
+
+    const result = await GetTicketTransferOptionsService({
+      ticketId: 10,
+      companyId: 7
+    });
+
+    expect(whatsappFindAll).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      currentWhatsappId: 55,
+      isGroup: false,
+      connections: [
+        {
+          id: 55,
+          name: "Suporte",
+          channel: "email",
+          status: "active",
+          isCurrent: true,
+          queues: [
+            { id: 10, name: "Legado", color: "#111111" },
+            { id: 12, name: "Filial", color: "#333333" }
+          ]
+        }
+      ]
+    });
+  });
+
+  it("loads the account with the default scope, restricted by company and without secrets", async () => {
+    showTicket.mockResolvedValue(emailTicket());
+    (EmailAccount.findOne as jest.Mock).mockResolvedValue({
+      id: 55,
+      name: null,
+      address: "suporte@empresa.com",
+      status: "active"
+    });
+    queueFindAll.mockResolvedValue(queues);
+
+    const result = await GetTicketTransferOptionsService({
+      ticketId: 10,
+      companyId: 7
+    });
+
+    expect(EmailAccount.scope).not.toHaveBeenCalled();
+    const options = (EmailAccount.findOne as jest.Mock).mock.calls[0][0];
+    expect(options.where).toEqual({ id: 55, companyId: 7 });
+    expect(options.attributes).not.toContain("credentials");
+    expect(options.attributes).not.toContain("syncCursor");
+    expect(result.connections[0].name).toBe("suporte@empresa.com");
+  });
+
+  it("returns no option when the ticket has no email account", async () => {
+    showTicket.mockResolvedValue(emailTicket({ emailAccountId: null }));
+    queueFindAll.mockResolvedValue(queues);
+
+    const result = await GetTicketTransferOptionsService({
+      ticketId: 10,
+      companyId: 7
+    });
+
+    expect(EmailAccount.findOne).not.toHaveBeenCalled();
+    expect(result.connections).toEqual([]);
+    expect(result.currentWhatsappId).toBeNull();
+  });
 });

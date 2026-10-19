@@ -1,5 +1,7 @@
 import Queue from "../../models/Queue";
+import Ticket from "../../models/Ticket";
 import Whatsapp from "../../models/Whatsapp";
+import EmailAccount from "../../models/EmailAccount";
 import ShowTicketService from "./ShowTicketService";
 
 interface Request {
@@ -28,12 +30,63 @@ interface Response {
   connections: ConnectionOption[];
 }
 
+// Ticket de e-mail não tem conexão WhatsApp. A conta de e-mail faz o papel da
+// única "conexão" para a tela de transferência continuar igual; qualquer fila
+// da empresa é destino válido. O id enviado de volta como whatsappId é ignorado
+// pelo UpdateTicketService nos tickets de e-mail.
+const getEmailTransferOptions = async (
+  ticket: Ticket,
+  companyId: number
+): Promise<Response> => {
+  const [account, queues] = await Promise.all([
+    ticket.emailAccountId
+      ? EmailAccount.findOne({
+          where: { id: ticket.emailAccountId, companyId },
+          attributes: ["id", "name", "address", "status"]
+        })
+      : null,
+    Queue.findAll({
+      where: { companyId },
+      attributes: ["id", "name", "color", "order"],
+      order: [
+        ["order", "ASC"],
+        ["name", "ASC"]
+      ]
+    })
+  ]);
+
+  return {
+    currentWhatsappId: ticket.emailAccountId,
+    isGroup: false,
+    connections: account
+      ? [
+          {
+            id: account.id,
+            name: account.name || account.address,
+            channel: "email",
+            status: account.status,
+            isCurrent: true,
+            queues: queues.map(queue => ({
+              id: queue.id,
+              name: queue.name,
+              color: queue.color
+            }))
+          }
+        ]
+      : []
+  };
+};
+
 const GetTicketTransferOptionsService = async ({
   ticketId,
   companyId
 }: Request): Promise<Response> => {
   const ticket = await ShowTicketService(ticketId, companyId);
   const channel = ticket.channel || "whatsapp";
+
+  if (channel === "email") {
+    return getEmailTransferOptions(ticket, companyId);
+  }
 
   const [connections, queues] = await Promise.all([
     Whatsapp.findAll({

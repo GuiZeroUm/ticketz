@@ -1,6 +1,7 @@
 import { buildMetaWbot } from "../MetaWhatsAppServices/MetaWbotAdapter";
 import Whatsapp from "../../models/Whatsapp";
 import moment from "moment";
+import { Op } from "sequelize";
 import CheckContactOpenTickets from "../../helpers/CheckContactOpenTickets";
 import SetTicketMessagesAsRead from "../../helpers/SetTicketMessagesAsRead";
 import { getIO } from "../../libs/socket";
@@ -20,6 +21,7 @@ import { getJidOf } from "../WbotServices/getJidOf";
 import { _t } from "../TranslationServices/i18nService";
 import ResolveTicketTransferService from "./ResolveTicketTransferService";
 import GroupQueue from "../../models/GroupQueue";
+import Queue from "../../models/Queue";
 
 export interface UpdateTicketData {
   status?: string;
@@ -44,6 +46,55 @@ interface Response {
   oldStatus: string;
   oldUserId: number | undefined;
 }
+
+interface TransferTarget {
+  whatsappId: number | null;
+  connectionChanged: boolean;
+  conflictingTicketId: number | null;
+}
+
+const resolveEmailTicketTransfer = async (
+  ticket: Ticket,
+  queueId?: number | null
+): Promise<TransferTarget> => {
+  if (queueId !== undefined && queueId !== null) {
+    const targetQueue = await Queue.findOne({
+      where: { id: queueId, companyId: ticket.companyId },
+      attributes: ["id"]
+    });
+
+    if (!targetQueue) {
+      throw new AppError("ERR_QUEUE_NOT_FOUND", 404);
+    }
+  }
+
+  return {
+    whatsappId: null,
+    connectionChanged: false,
+    conflictingTicketId: null
+  };
+};
+
+// No e-mail a unicidade é por thread, não por contato: o mesmo remetente pode
+// ter várias conversas ativas, mas cada thread tem um único ticket ativo.
+const assertEmailThreadHasNoOtherActiveTicket = async (ticket: Ticket) => {
+  if (!ticket.emailThreadKey) return;
+
+  const other = await Ticket.findOne({
+    where: {
+      id: { [Op.ne]: ticket.id },
+      companyId: ticket.companyId,
+      emailAccountId: ticket.emailAccountId,
+      emailThreadKey: ticket.emailThreadKey,
+      status: { [Op.in]: ["open", "pending"] }
+    },
+    attributes: ["id"]
+  });
+
+  if (other) {
+    throw new AppError("ERR_OTHER_OPEN_TICKET");
+  }
+};
 
 const sendFormattedMessage = async (
   message: string,
@@ -141,8 +192,12 @@ const UpdateTicketService = async ({
     // encerramento, aceite, transferência e chatbot são mensagens de WhatsApp e
     // não rodam nele. Só "email" é excluído, para não mudar tickets legados.
     const isEmailTicket = ticket.channel === "email";
-    const transferTarget =
-      ticketData.whatsappId !== undefined || queueId !== undefined
+    // Ticket de e-mail nunca troca de conexão: whatsappId continua NULL e
+    // emailAccountId não é tocado. Só a fila é validada (mesma empresa).
+    // Tickets de WhatsApp (QR e API oficial) seguem pelo resolvedor de sempre.
+    const transferTarget: TransferTarget = isEmailTicket
+      ? await resolveEmailTicketTransfer(ticket, queueId)
+      : ticketData.whatsappId !== undefined || queueId !== undefined
         ? await ResolveTicketTransferService({
             ticket,
             whatsappId: ticketData.whatsappId,
@@ -199,10 +254,14 @@ const UpdateTicketService = async ({
     }
 
     if (oldStatus === "closed") {
-      await CheckContactOpenTickets(
-        ticket.contactId,
-        transferTarget.whatsappId
-      );
+      if (isEmailTicket) {
+        await assertEmailThreadHasNoOtherActiveTicket(ticket);
+      } else {
+        await CheckContactOpenTickets(
+          ticket.contactId,
+          transferTarget.whatsappId
+        );
+      }
       chatbot = null;
       queueOptionId = null;
     }

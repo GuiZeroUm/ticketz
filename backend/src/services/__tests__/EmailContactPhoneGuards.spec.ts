@@ -9,6 +9,7 @@ import GetTicketWbot from "../../helpers/GetTicketWbot";
 import Contact from "../../models/Contact";
 import ContactCustomField from "../../models/ContactCustomField";
 import Message from "../../models/Message";
+import Queue from "../../models/Queue";
 import Ticket from "../../models/Ticket";
 import User from "../../models/User";
 import { update as updateContactController } from "../../controllers/ContactController";
@@ -608,6 +609,7 @@ describe("UpdateTicketService messages by channel", () => {
   });
 
   it("does not call SendWhatsAppMessage or start the chatbot for channel email on transfer", async () => {
+    jest.spyOn(Queue, "findOne").mockResolvedValue({ id: 8 } as Queue);
     await run(
       emailTicket({ status: "pending", userId: null, queueId: 7 }),
       { status: "pending", queueId: 8 },

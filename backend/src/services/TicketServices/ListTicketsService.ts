@@ -147,6 +147,9 @@ const ListTicketsService = async ({
     {
       model: Whatsapp,
       as: "whatsapp",
+      // Ticket de e-mail não tem conexão WhatsApp (whatsappId NULL): o include
+      // não pode eliminar a linha.
+      required: false,
       attributes: ["id", "name", "apiMode"]
     }
   ];
