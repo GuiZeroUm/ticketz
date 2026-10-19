@@ -27,3 +27,6 @@ graphify-out/
 .env-frontend-acme
 .env-frontend-cloudflare
 .env-frontend-local
+
+# local mail server certificate for the email channel (docker-compose-email-dev.yaml)
+/greenmail-dev/

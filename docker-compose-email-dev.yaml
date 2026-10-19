@@ -1,0 +1,46 @@
+# Local mail server for developing and testing the email channel (IMAP/SMTP).
+# NEVER use it in production. Guide: docs/email-channel.md, "Servidor de e-mail local".
+#
+# Before the first start, generate the dev certificate into ./greenmail-dev
+# (git-ignored) with the commands in the guide: GreenMail's built-in
+# certificate has no localhost name, and the backend never turns off TLS
+# certificate checks.
+#
+#   docker compose -f docker-compose-email-dev.yaml up -d
+#
+# Mailboxes (login = full address):
+#   caixa-a@empresa-a.test / senha123   -> connect it in company A (Conexões > E-mail próprio)
+#   caixa-b@empresa-b.test / senha123   -> connect it in company B
+#   cliente@externo.test   / senha123   -> the "customer" who writes in and gets the replies
+#
+# Ports (host side, bound to 127.0.0.1 only):
+#   993  IMAPS (TLS) -> container 3993   used by the backend
+#   465  SMTPS (TLS) -> container 3465   used by the backend
+#   3025 SMTP and 3143 IMAP, plain       for the "customer" side (scripts, mail clients)
+#   8083 GreenMail REST API              create/delete users, purge mail
+# The backend only accepts the standard ports (IMAP 993/143, SMTP 465/587),
+# hence the 993/465 mappings.
+
+services:
+  greenmail:
+    image: greenmail/standalone:2.1.13
+    environment:
+      - JAVA_OPTS=-Djava.net.preferIPv4Stack=true -Xmx256m
+      - >-
+        GREENMAIL_OPTS=-Dgreenmail.hostname=0.0.0.0
+        -Dgreenmail.smtp.port=3025 -Dgreenmail.smtps.port=3465
+        -Dgreenmail.imap.port=3143 -Dgreenmail.imaps.port=3993
+        -Dgreenmail.api.port=8080 -Dgreenmail.api.hostname=0.0.0.0
+        -Dgreenmail.tls.keystore.file=/home/greenmail/tls/greenmail.p12
+        -Dgreenmail.tls.keystore.password=changeit
+        -Dgreenmail.users=caixa-a:senha123@empresa-a.test,caixa-b:senha123@empresa-b.test,cliente:senha123@externo.test
+        -Dgreenmail.users.login=email
+    volumes:
+      - ./greenmail-dev/greenmail.p12:/home/greenmail/tls/greenmail.p12:ro
+    ports:
+      - 127.0.0.1:993:3993
+      - 127.0.0.1:465:3465
+      - 127.0.0.1:3025:3025
+      - 127.0.0.1:3143:3143
+      - 127.0.0.1:8083:8080
+    restart: unless-stopped

@@ -158,3 +158,188 @@ Roteiro para o responsável:
 11. Abra a URL `...connections?email=pending&handle=...` logado com outro usuário. O `finish` deve ser recusado e a caixa não deve ser conectada.
 
 Registre aqui a data e o resultado de cada item.
+
+# Canal de e-mail: configuração, ambiente local e aceite
+
+Esta parte vale para os três tipos de caixa (Gmail, iCloud e e-mail próprio) e para qualquer empresa, seja ela de WhatsApp por QR code (`whatsappMode = normal`) ou da API oficial da Meta (`whatsappMode = meta`). O canal de e-mail não lê `whatsappMode` nem `apiMode` em nenhum ponto.
+
+## Variáveis de ambiente do canal
+
+| Variável | Obrigatória | Uso |
+| --- | --- | --- |
+| `ENCRYPTION_KEY` | **sim** | Cifra senhas IMAP/SMTP, senhas de app e refresh tokens do Gmail (AES-256-GCM). É a mesma chave já usada para o token da Meta. Sem ela, conectar uma caixa falha e as caixas já conectadas não sincronizam. Gere uma vez com `openssl rand -hex 32` e não troque depois: trocar a chave obriga a reconectar todas as caixas. |
+| `GMAIL_OAUTH_*`, `GMAIL_PUBSUB_*` | só para Gmail | Ver as seções do Gmail acima. iCloud e e-mail próprio não precisam delas. |
+| `EMAIL_IMAP_IDLE` | não | IMAP IDLE (e-mail novo chega em cerca de 1 s). Vem ligado. Com `false`, sobra o polling de 1 minuto. |
+| `EMAIL_IMAP_IDLE_MAX` | não | Máximo de conexões IDLE por processo do backend. O padrão é `200`, e `0` desliga. As caixas acima do limite continuam no polling de 1 minuto. |
+| `EMAIL_ALLOW_PRIVATE_HOSTS` | **só desenvolvimento** | Com `true`, aceita servidor IMAP/SMTP em `localhost` ou numa rede privada (por exemplo, o GreenMail local). É **ignorada** quando `NODE_ENV=production`. Nunca use em produção: o bloqueio de hosts privados impede que um admin use o backend para sondar a rede interna. |
+| `NODE_EXTRA_CA_CERTS` | **só desenvolvimento** | Caminho de um certificado extra em que o Node confia. Serve para o certificado de teste do GreenMail. O backend nunca desliga a verificação de TLS. O Node lê essa variável **ao iniciar**, então ela precisa estar no ambiente do processo: o `.env` não serve, porque o dotenv carrega depois. |
+
+Portas aceitas para servidores próprios: IMAP 993 (TLS) ou 143 (STARTTLS) e SMTP 465 (TLS) ou 587 (STARTTLS). Outras portas são recusadas com `ERR_EMAIL_PORT_NOT_ALLOWED`.
+
+## Como ligar o canal por empresa
+
+O canal vem desligado em toda empresa. Só o super admin liga:
+
+1. Entre como super admin e abra **Configurações › Empresas**.
+2. Edite a empresa, mude **Canal de e-mail** para **Habilitado** e salve. Isso grava a setting `emailChannelEnabled = "true"` da empresa.
+3. O admin da empresa passa a ver o e-mail em **Conexões** e no atendimento. Ele conecta a caixa em **Conexões › Nova conexão › E-mail** (Gmail, iCloud ou E-mail próprio).
+
+O admin da empresa não consegue ligar o canal sozinho: `PUT /settings/emailChannelEnabled` responde 403.
+
+Com o canal desligado:
+
+- os menus somem (`GET /email/availability` devolve `{ "enabled": false }`);
+- as rotas de e-mail e o envio respondem 403 `ERR_EMAIL_CHANNEL_DISABLED`;
+- a sincronização e o IDLE param para as caixas da empresa;
+- as caixas e o cursor ficam guardados.
+
+Ao religar, o que chegou nesse intervalo entra no próximo tick (até 1 minuto).
+
+## Servidor de e-mail local (GreenMail)
+
+O `docker-compose-email-dev.yaml` sobe um GreenMail com três caixas de teste. Assim dá para testar o canal de ponta a ponta sem conta real. O caminho testado é o do **backend rodando direto do código** (`npm run dev:server`), com Postgres e Redis do `docker-compose-dev.yaml`.
+
+| Caixa (login = endereço) | Senha | Papel |
+| --- | --- | --- |
+| `caixa-a@empresa-a.test` | `senha123` | Caixa da empresa A (conectada no Ticketz). |
+| `caixa-b@empresa-b.test` | `senha123` | Caixa da empresa B. |
+| `cliente@externo.test` | `senha123` | O "cliente", que escreve e recebe as respostas. |
+
+### 1. Certificado de teste (uma vez)
+
+O certificado que vem no GreenMail não tem o nome `localhost`, e o backend sempre verifica o certificado. Gere um certificado próprio na raiz do repositório. A pasta `greenmail-dev/` está no `.gitignore`.
+
+```sh
+mkdir -p greenmail-dev
+cat > greenmail-dev/server.cnf <<'CNF'
+[req]
+distinguished_name = dn
+x509_extensions = ext
+prompt = no
+[dn]
+CN = localhost
+[ext]
+subjectAltName = DNS:localhost,DNS:host.docker.internal,IP:127.0.0.1
+basicConstraints = critical,CA:TRUE
+keyUsage = critical,digitalSignature,keyEncipherment,keyCertSign
+extendedKeyUsage = serverAuth
+CNF
+openssl req -x509 -newkey rsa:2048 -nodes -days 825 -config greenmail-dev/server.cnf \
+  -keyout greenmail-dev/server.key -out greenmail-dev/server.pem
+openssl pkcs12 -export -name greenmail -in greenmail-dev/server.pem -inkey greenmail-dev/server.key \
+  -passout pass:changeit -out greenmail-dev/greenmail.p12
+chmod 644 greenmail-dev/greenmail.p12
+```
+
+### 2. Subir o GreenMail
+
+```sh
+docker compose -f docker-compose-email-dev.yaml up -d
+```
+
+Portas no host (só em `127.0.0.1`):
+
+| Porta | Uso |
+| --- | --- |
+| 993 | IMAPS do backend. |
+| 465 | SMTPS do backend. |
+| 3025, 3143 | SMTP e IMAP sem TLS, para o lado do cliente. |
+| 8083 | API REST do GreenMail. |
+
+O GreenMail guarda tudo em memória: reiniciar o container apaga os e-mails.
+
+### 3. Backend
+
+No `backend/.env`, além do que você já usa:
+
+```sh
+ENCRYPTION_KEY=<valor gerado com openssl rand -hex 32>
+EMAIL_ALLOW_PRIVATE_HOSTS=true
+# opcional; já vem ligado
+EMAIL_IMAP_IDLE=true
+```
+
+`NODE_ENV` não pode ser `production`. Inicie o backend passando o certificado no ambiente do processo:
+
+```sh
+cd backend
+NODE_EXTRA_CA_CERTS="$PWD/../greenmail-dev/server.pem" npm run dev:server
+```
+
+Backend em container (`docker-compose-local.yaml`): a imagem usa `NODE_ENV=production`, então `EMAIL_ALLOW_PRIVATE_HOSTS` é ignorada e o GreenMail é recusado. Para testar o canal com o GreenMail, rode o backend pelo código, como acima.
+
+### 4. Conectar as caixas
+
+1. Ligue o canal para a empresa (super admin, ver acima).
+2. Como admin da empresa, abra **Conexões › Nova conexão › E-mail › E-mail próprio** e preencha:
+   - **E-mail:** `caixa-a@empresa-a.test`; **Senha:** `senha123`;
+   - **IMAP:** `localhost`, porta 993, TLS;
+   - **SMTP:** `localhost`, porta 465, TLS.
+3. **Testar conexão** e salvar. A conta aparece como ativa.
+
+Para testar duas empresas, repita com `caixa-b@empresa-b.test` na outra empresa.
+
+### 5. Mandar e ler e-mails como o cliente
+
+Com `curl`, que já vem no macOS:
+
+```sh
+printf 'From: Cliente <cliente@externo.test>\r\nTo: caixa-a@empresa-a.test\r\nSubject: Primeiro contato\r\nMessage-ID: <primeiro-contato-1@externo.test>\r\n\r\nOla, quero um orcamento.\r\n' > /tmp/mail.txt
+curl smtp://127.0.0.1:3025 --mail-from cliente@externo.test --mail-rcpt caixa-a@empresa-a.test --upload-file /tmp/mail.txt
+
+# o que chegou na caixa do cliente (as respostas do atendente)
+curl "imap://127.0.0.1:3143/INBOX" -u cliente@externo.test:senha123 -X "SEARCH ALL"
+curl "imap://127.0.0.1:3143/INBOX;UID=1;SECTION=HEADER.FIELDS%20(FROM%20SUBJECT%20IN-REPLY-TO)" -u cliente@externo.test:senha123
+```
+
+Um cliente de e-mail, como o Thunderbird, também funciona com `cliente@externo.test` em `127.0.0.1`: IMAP na porta 3143 e SMTP na 3025, sem TLS.
+
+Outras ações pela API do GreenMail:
+
+```sh
+# criar outra caixa
+curl -X POST localhost:8083/api/user -H 'Content-Type: application/json' \
+  -d '{"email":"outra@externo.test","login":"outra@externo.test","password":"senha123"}'
+# apagar todos os e-mails
+curl -X POST localhost:8083/api/mail/purge
+```
+
+### Problemas comuns
+
+| Sintoma | Causa |
+| --- | --- |
+| `ERR_EMAIL_HOST_NOT_ALLOWED` | Falta `EMAIL_ALLOW_PRIVATE_HOSTS=true`, ou o backend está com `NODE_ENV=production`. |
+| `ERR_EMAIL_CONNECTION_FAILED` logo no teste | O backend não confia no certificado. Inicie com `NODE_EXTRA_CA_CERTS` no ambiente, não no `.env`. Confira com `openssl s_client -connect localhost:993 -CAfile greenmail-dev/server.pem`, que deve terminar em `Verify return code: 0`. |
+| `ERR_EMAIL_PORT_NOT_ALLOWED` | Porta diferente de 993/143 (IMAP) ou 465/587 (SMTP). Use as portas mapeadas do compose. |
+| `ERR_EMAIL_AUTH_FAILED` | Login ou senha errados. O login é o endereço completo. |
+
+## Checklist de aceite
+
+Rodado em 2026-10-19 contra o backend real (`node dist/server.js`), o GreenMail 2.1.13 e duas empresas:
+
+- **Empresa Meta:** `whatsappMode = meta`, caixa `alpha@empresa-a.test`;
+- **Empresa QR:** `whatsappMode = normal`, caixa `beta@empresa-b.test`.
+
+Tudo foi feito pela API HTTP, logado como o admin de cada empresa e como o super admin. As duas empresas tiveram o mesmo resultado em todos os itens. Os testes automatizados (`npx jest`) rodaram completos, sem regressão.
+
+| # | Item | Resultado |
+| --- | --- | --- |
+| A | Ligar o canal nas duas empresas pelo super admin e conectar uma caixa própria em cada uma. | OK. Antes de ligar: 403 `ERR_EMAIL_CHANNEL_DISABLED`. Senha errada no teste: `ERR_EMAIL_AUTH_FAILED`. Credenciais cifradas no banco. |
+| B | Cliente escreve com Cc e anexo, o ticket aparece e o atendente responde pela API. | OK nas duas empresas. A resposta chega ao cliente com `From` = caixa da empresa e `In-Reply-To`/`References` certos. Também verificados: anexo nos dois sentidos, responder a todos (o Cc recebe), Cc digitado no compositor, resposta do cliente caindo no mesmo ticket, HTML sanitizado (`<script>` removido) e `*negrito*`/`_itálico_` virando `<strong>`/`<em>`. |
+| C | IMAP IDLE. | OK. Com IDLE, o e-mail entra em cerca de 0,5 s (4 de 4 amostras). Só com polling, entra em 10,8 s, 40,4 s e 51,6 s (tick de 1 minuto). |
+| D | Reiniciar o backend. | OK. Conversas intactas e nenhuma linha duplicada em `EmailMessages` (mesma contagem antes e depois, em três reinícios). Um e-mail recebido com o backend parado entrou no primeiro tick depois da subida. |
+| E | Isolamento entre empresas. | OK. A empresa B recebe 404 na conta (PUT, sync, DELETE), na thread e no anexo da empresa A. A listagem da B mostra só a caixa dela. |
+| F | Senha inválida. | OK. A conta vai para `reauth_required` com `lastError.code = ERR_EMAIL_AUTH`, que o compositor mostra pela thread. O envio é recusado com `ERR_EMAIL_ACCOUNT_UNAVAILABLE`. Corrigir a senha em Conexões reativa a conta, e o e-mail recebido durante a reautenticação entra em seguida. |
+| G | Envio com o servidor fora do ar. | OK. Servidor parado (conexão recusada): o envio fica `queued`, é refeito e é entregue **uma vez** quando o servidor volta. Servidor travado depois do `DATA`: o envio fica `unknown` (`ERR_EMAIL_SEND_AMBIGUOUS`, "envio não confirmado") e **não** é reenviado. Repetir a requisição com a mesma `idempotencyKey` não cria outro envio. |
+| H | Desligar e religar o canal. | OK. Desligado: rotas e envio respondem 403, `lastSyncAt` para e a outra empresa continua normal. Religado: o e-mail recebido no intervalo entra no tick seguinte e o IDLE volta. |
+| I | Regressão do WhatsApp. | OK. As suítes de WhatsApp (QR e Meta) passam. Nenhum ponto do canal de e-mail decide nada por `whatsappMode` ou `apiMode`. |
+
+Limitação conhecida (IMAP): se uma pasta for recriada no servidor (o `UIDVALIDITY` muda, o que é raro: migração de servidor ou caixa apagada e criada de novo), o cursor recomeça do fim da pasta. Os e-mails que chegaram entre a última sincronização e a recriação não são importados. Trocar a senha não muda o `UIDVALIDITY`.
+
+Pendentes, para o responsável, porque dependem de contas reais (os itens do Gmail também precisam do projeto no Google Cloud):
+
+- Gmail: conectar, receber e responder um e-mail real; e "Entrar com Google" sem pedir acesso ao e-mail (roteiro em "Teste funcional" acima).
+- Gmail: revogar o acesso em https://myaccount.google.com/permissions. A conta deve mostrar "Autorização expirada" e o compositor deve avisar.
+- Gmail: cursor expirado. Grave um `historyId` antigo em `EmailAccounts.syncCursor`; a próxima rodada deve refazer a janela recente sem duplicar.
+- Gmail: push duplicado. O mesmo aviso do Pub/Sub entregue duas vezes deve gerar uma única rodada.
+- iCloud com senha de app: conectar uma caixa real e repetir os itens B e F.
