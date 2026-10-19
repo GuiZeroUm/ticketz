@@ -1,5 +1,6 @@
 import dns from "dns";
 import { resolveSafeMailEndpoint } from "../mailEndpoint";
+import { EmailTransientError } from "../adapters/errors";
 import { EMAIL_PRESETS } from "../presets";
 
 const mockLookup = (addresses: string[]) =>
@@ -225,6 +226,42 @@ describe("resolveSafeMailEndpoint", () => {
       "ERR_EMAIL_HOST_NOT_ALLOWED"
     );
   });
+
+  it.each(["ENOTFOUND", "ENODATA"])(
+    "treats %s (the name does not exist) as a host not allowed",
+    async code => {
+      jest
+        .spyOn(dns.promises, "lookup")
+        .mockRejectedValue(Object.assign(new Error("dns"), { code }));
+      await expectCode(
+        resolveSafeMailEndpoint({
+          host: "nx.example.com",
+          port: 993,
+          kind: "imap"
+        }),
+        "ERR_EMAIL_HOST_NOT_ALLOWED"
+      );
+    }
+  );
+
+  it.each(["EAI_AGAIN", "ETIMEOUT", "ESERVFAIL", "ECONNREFUSED"])(
+    "treats the resolver failure %s as transient, not as a refused host",
+    async code => {
+      jest
+        .spyOn(dns.promises, "lookup")
+        .mockRejectedValue(Object.assign(new Error("dns"), { code }));
+      const promise = resolveSafeMailEndpoint({
+        host: "imap.example.com",
+        port: 993,
+        kind: "imap"
+      });
+      await expect(promise).rejects.toBeInstanceOf(EmailTransientError);
+      await expect(promise).rejects.toMatchObject({
+        message: "ERR_EMAIL_TRANSIENT",
+        reason: `DNS_${code}`
+      });
+    }
+  );
 
   it("rejects port 25 for smtp and 110 for imap", async () => {
     mockLookup(["93.184.216.34"]);

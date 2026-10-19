@@ -1722,6 +1722,16 @@ describe("ImapSmtpAdapter.send", () => {
     ]);
   });
 
+  it("lets a DNS outage reach the send job as a transient failure", async () => {
+    resolveMock.mockRejectedValueOnce(
+      new EmailTransientError(undefined, "DNS_EAI_AGAIN")
+    );
+    await expect(
+      adapter.send(makeAccount(), outgoing())
+    ).rejects.toBeInstanceOf(EmailTransientError);
+    expect(smtpState.transports).toHaveLength(0);
+  });
+
   it("uses implicit TLS on 465", async () => {
     await adapter.send(
       makeAccount(null, { smtpPort: 465, smtpSecure: true }),
@@ -2063,6 +2073,21 @@ describe("testImapSmtp", () => {
     expect(error).toBeInstanceOf(AppError);
     expect(error.message).toBe("ERR_EMAIL_CONNECTION_FAILED");
     expect(error.statusCode).toBe(400);
+  });
+
+  it("throws ERR_EMAIL_CONNECTION_FAILED when the SMTP host cannot be resolved right now", async () => {
+    resolveMock
+      .mockImplementationOnce(async () => ({
+        address: "203.0.113.10",
+        servername: "imap.empresa.com",
+        port: 993
+      }))
+      .mockRejectedValueOnce(
+        new EmailTransientError(undefined, "DNS_EAI_AGAIN")
+      );
+    const error = await testImapSmtp(config).catch(e => e);
+    expect(error).toBeInstanceOf(AppError);
+    expect(error.message).toBe("ERR_EMAIL_CONNECTION_FAILED");
   });
 
   it("throws AppError ERR_EMAIL_CONNECTION_FAILED when the SMTP server cannot be reached", async () => {

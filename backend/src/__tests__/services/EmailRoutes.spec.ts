@@ -1183,6 +1183,33 @@ describe("email routes", () => {
       });
     });
 
+    it("keeps the Gmail API refusal codes (ERR_GMAIL_SEND_<status>)", async () => {
+      const messages = emailMessages();
+      messages[1].sendError = { code: "ERR_GMAIL_SEND_403" } as any;
+      setup({ emailMessages: messages });
+      const response = await request(app)
+        .get("/email/tickets/10/thread")
+        .set("x-test-user", asUser(1));
+      expect(response.body.messages[1].sendError).toEqual({
+        code: "ERR_GMAIL_SEND_403"
+      });
+    });
+
+    it.each(["ERR_GMAIL_SEND_40", "ERR_GMAIL_SEND_4031", "ERR_GMAIL_OTHER"])(
+      "still replaces the look-alike code %s",
+      async code => {
+        const messages = emailMessages();
+        messages[1].sendError = { code } as any;
+        setup({ emailMessages: messages });
+        const response = await request(app)
+          .get("/email/tickets/10/thread")
+          .set("x-test-user", asUser(1));
+        expect(response.body.messages[1].sendError).toEqual({
+          code: "ERR_EMAIL_SEND_FAILED"
+        });
+      }
+    );
+
     it("scopes every query to the company and the ticket", async () => {
       const { findEmailMessages, findMessages } = setup();
       await request(app)

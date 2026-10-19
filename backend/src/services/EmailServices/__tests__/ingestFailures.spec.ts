@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   ConnectionRefusedError,
+  DatabaseError,
+  ForeignKeyConstraintError,
   TimeoutError,
   ValidationError
 } from "sequelize";
@@ -57,5 +59,47 @@ describe("ingest failure counters", () => {
     expect(isInfrastructureError(new ValidationError("bad", []))).toBe(false);
     expect(isInfrastructureError(new Error("boom"))).toBe(false);
     expect(isInfrastructureError(undefined)).toBe(false);
+  });
+  it.each(["ENOSPC", "EDQUOT", "EMFILE", "ENFILE", "EACCES", "EIO"])(
+    "treats the storage/system error %s as infrastructure",
+    code => {
+      expect(
+        isInfrastructureError(Object.assign(new Error("fs"), { code }))
+      ).toBe(true);
+    }
+  );
+
+  const dbError = (code: string) =>
+    new DatabaseError(Object.assign(new Error("pg"), { code, sql: "" }) as any);
+
+  it.each([
+    "08006", // connection failure
+    "08P01", // protocol violation
+    "53100", // disk full
+    "53300", // too many connections
+    "57014", // query canceled (statement timeout)
+    "57P01", // admin shutdown
+    "40001", // serialization failure
+    "40P01" // deadlock detected
+  ])("treats SQLSTATE %s as infrastructure", code => {
+    expect(isInfrastructureError(dbError(code))).toBe(true);
+    // raw driver error, not wrapped by Sequelize
+    expect(
+      isInfrastructureError(Object.assign(new Error("pg"), { code }))
+    ).toBe(true);
+  });
+
+  it.each(["22001", "22P02", "23502", "42703", "40002"])(
+    "keeps counting data errors such as SQLSTATE %s",
+    code => {
+      expect(isInfrastructureError(dbError(code))).toBe(false);
+    }
+  );
+
+  it("keeps counting constraint violations", () => {
+    const fk = new ForeignKeyConstraintError({
+      parent: Object.assign(new Error("fk"), { code: "23503", sql: "" }) as any
+    });
+    expect(isInfrastructureError(fk)).toBe(false);
   });
 });

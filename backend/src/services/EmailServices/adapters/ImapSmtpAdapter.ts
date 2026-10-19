@@ -1007,7 +1007,13 @@ export const testImapSmtp = async (config: MailboxConfig): Promise<void> => {
   }
   await closeImap(client);
 
-  const transport = await createSmtpTransport(config);
+  let transport: Awaited<ReturnType<typeof createSmtpTransport>>;
+  try {
+    transport = await createSmtpTransport(config);
+  } catch (error) {
+    if (error instanceof EmailTransientError) throw connectionFailed();
+    throw error;
+  }
   try {
     await transport.verify();
   } catch (error) {
