@@ -77,7 +77,6 @@ describe("ingest failure counters", () => {
     "08P01", // protocol violation
     "53100", // disk full
     "53300", // too many connections
-    "57014", // query canceled (statement timeout)
     "57P01", // admin shutdown
     "40001", // serialization failure
     "40P01" // deadlock detected
@@ -87,6 +86,15 @@ describe("ingest failure counters", () => {
     expect(
       isInfrastructureError(Object.assign(new Error("pg"), { code }))
     ).toBe(true);
+  });
+
+  // A statement that always times out on one message is that message's
+  // problem: it must still reach the poison skip.
+  it("keeps counting a statement timeout (SQLSTATE 57014)", () => {
+    expect(isInfrastructureError(dbError("57014"))).toBe(false);
+    expect(
+      isInfrastructureError(Object.assign(new Error("pg"), { code: "57014" }))
+    ).toBe(false);
   });
 
   it.each(["22001", "22P02", "23502", "42703", "40002"])(

@@ -36,15 +36,19 @@ const SYSTEM_CODES = new Set([
   "EIO"
 ]);
 // PostgreSQL SQLSTATE: 08 connection exception, 53 insufficient resources,
-// 57 operator intervention (statement timeout, shutdown), plus serialization
-// failure and deadlock (retryable by definition).
+// 57 operator intervention (shutdown, crash), plus serialization failure and
+// deadlock (retryable by definition). 57014 (query canceled: statement
+// timeout) is left out: a message whose ingestion always times out must
+// still reach the poison skip.
 const SQLSTATE_RE = /^[0-9A-Z]{5}$/;
 const INFRA_SQLSTATE_CLASSES = new Set(["08", "53", "57"]);
 const RETRYABLE_SQLSTATES = new Set(["40001", "40P01"]);
+const COUNTED_SQLSTATES = new Set(["57014"]);
 
 const isInfraSqlState = (code: unknown): boolean =>
   typeof code === "string" &&
   SQLSTATE_RE.test(code) &&
+  !COUNTED_SQLSTATES.has(code) &&
   (INFRA_SQLSTATE_CLASSES.has(code.slice(0, 2)) ||
     RETRYABLE_SQLSTATES.has(code));
 
