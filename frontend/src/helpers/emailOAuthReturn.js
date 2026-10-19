@@ -1,61 +1,97 @@
-// The Google OAuth callback redirects to /connections?email=pending&handle=...
-// (or /connections?email=error&code=ERR_...) with a full page load. On that
-// load the auth state is not restored yet, so the private route redirects
-// through /login to "/" and the query is lost.
+// The Google OAuth callback redirects with a full page load to
+// /connections#email=pending&handle=... (ruling R32; errors as
+// #email=error&code=ERR_...). Older backends put the same parameters in the
+// query string (?email=...), which is still read. On that load the auth state
+// is not restored yet, so the private route redirects through /login to "/"
+// and the URL would be lost.
 // - captureEmailOAuthReturn() runs before the app renders (src/index.js),
-//   strips the query from the URL at once (a refresh never replays it) and
-//   keeps the result;
+//   takes the parameters off the URL (fragment and query) with replaceState,
+//   so a refresh never replays them, and keeps the result;
 // - the logged-in layout peeks at it and sends the user back to /connections
 //   once (markEmailOAuthReturnRedirected);
 // - the Connections page consumes it: a pending result is finished with
 //   POST /email/oauth/google/finish, then the toast is shown.
 //
-// The handle is a single-use secret: it lives only in this module's memory
-// (the redirects above are client-side, so it survives them), is handed out
-// once by consumeEmailOAuthReturn() and is never logged nor written to any
-// storage. sessionStorage only keeps the non-secret part (result, error code,
-// timestamp), so the layout redirect still happens.
+// The handle is a single-use secret (5 min, bound to the user who started the
+// flow). The fragment is never sent to any server nor in a Referer header. The
+// legacy query form is visible to requests made before this module runs (the
+// HTML document, its stylesheets and inline fetches); public/index.html and
+// nginx set Referrer-Policy strict-origin-when-cross-origin so cross-origin
+// requests only see the origin. Once captured, the handle lives only in this
+// module's memory (the redirects above are client-side, so it survives them),
+// is handed out once by consumeEmailOAuthReturn() and is never logged nor
+// written to any storage. sessionStorage only keeps the non-secret part
+// (result, error code, timestamp), so the layout redirect still happens; when
+// sessionStorage is unavailable that marker is kept in memory instead.
 // `email=connected` is no longer sent by the backend; it is still accepted.
 
 const STORAGE_KEY = "emailOAuthReturn";
 const MAX_AGE_MS = 10 * 60 * 1000;
 const RESULTS = ["pending", "connected", "error"];
+const PARAMS = ["email", "handle", "code"];
 // The backend handle is 32 random bytes in base64url (43 characters).
 const HANDLE_PATTERN = /^[A-Za-z0-9_-]{16,128}$/;
 
 let pendingHandle = null;
+// Non-secret marker, used when sessionStorage throws.
+let memoryMarker = null;
 
-const read = () => {
+const isValid = value =>
+  RESULTS.includes(value?.result) &&
+  typeof value.at === "number" &&
+  Date.now() - value.at < MAX_AGE_MS;
+
+const storedMarker = () => {
   try {
     const raw = window.sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    const valid =
-      RESULTS.includes(parsed?.result) &&
-      typeof parsed.at === "number" &&
-      Date.now() - parsed.at < MAX_AGE_MS;
-    if (!valid) {
-      window.sessionStorage.removeItem(STORAGE_KEY);
-      return null;
-    }
-    return parsed;
+    return raw ? JSON.parse(raw) : null;
   } catch (_) {
     return null;
   }
 };
 
+const clear = () => {
+  memoryMarker = null;
+  try {
+    window.sessionStorage.removeItem(STORAGE_KEY);
+  } catch (_) {
+    // storage unavailable: the memory copy is gone already
+  }
+};
+
+const read = () => {
+  const current = storedMarker() || memoryMarker;
+  if (!current) return null;
+  if (!isValid(current)) {
+    clear();
+    return null;
+  }
+  return current;
+};
+
 const write = value => {
+  memoryMarker = value;
   try {
     window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(value));
   } catch (_) {
-    // storage unavailable: the toast is simply not shown
+    // storage unavailable: the memory copy above is used for this page load
   }
+};
+
+const withoutParams = params => {
+  PARAMS.forEach(name => params.delete(name));
+  return params.toString();
 };
 
 export const captureEmailOAuthReturn = () => {
   try {
     if (!/^\/connections\/?$/.test(window.location.pathname)) return;
-    const params = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(
+      window.location.hash.replace(/^#/, "")
+    );
+    const queryParams = new URLSearchParams(window.location.search);
+    const fromHash = hashParams.has("email");
+    const params = fromHash ? hashParams : queryParams;
     const result = params.get("email");
     if (!result) return;
     if (RESULTS.includes(result)) {
@@ -71,16 +107,17 @@ export const captureEmailOAuthReturn = () => {
         redirected: false
       });
     }
-    params.delete("email");
-    params.delete("code");
-    params.delete("handle");
-    const search = params.toString();
+    // Strip both forms; an unrelated fragment is left as it was.
+    const search = withoutParams(queryParams);
+    let hash = window.location.hash;
+    if (fromHash) {
+      const rest = withoutParams(hashParams);
+      hash = rest ? `#${rest}` : "";
+    }
     window.history.replaceState(
       window.history.state,
       "",
-      `${window.location.pathname}${search ? `?${search}` : ""}${
-        window.location.hash
-      }`
+      `${window.location.pathname}${search ? `?${search}` : ""}${hash}`
     );
   } catch (_) {
     // history unavailable: nothing to strip
@@ -105,11 +142,7 @@ export const consumeEmailOAuthReturn = () => {
   const handle = pendingHandle;
   pendingHandle = null;
   if (!current) return null;
-  try {
-    window.sessionStorage.removeItem(STORAGE_KEY);
-  } catch (_) {
-    // ignore
-  }
+  clear();
   return {
     result: current.result,
     code: current.code,
