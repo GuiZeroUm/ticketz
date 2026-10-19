@@ -20,7 +20,9 @@ const useTicketChannelCounts = ({
   status,
   showAll,
   queueIds,
-  userQueueIds
+  userQueueIds,
+  whatsappId,
+  emailAccountId
 }) => {
   const socketManager = useContext(SocketContext);
   const [counts, setCounts] = useState(null);
@@ -46,6 +48,8 @@ const useTicketChannelCounts = ({
                 status,
                 showAll,
                 queueIds,
+                whatsappId,
+                emailAccountId,
                 channel: channel === "all" ? undefined : channel
               }
             })
@@ -72,7 +76,16 @@ const useTicketChannelCounts = ({
       alive = false;
       clearTimeout(timer);
     };
-  }, [active, status, showAll, queueIds, userQueueIds, refreshKey]);
+  }, [
+    active,
+    status,
+    showAll,
+    queueIds,
+    userQueueIds,
+    whatsappId,
+    emailAccountId,
+    refreshKey
+  ]);
 
   useEffect(() => {
     if (!active) return undefined;

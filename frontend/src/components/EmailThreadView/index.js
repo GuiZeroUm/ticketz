@@ -8,7 +8,8 @@ import {
   Clock,
   FileText,
   FileWarning,
-  FileX
+  FileX,
+  Info
 } from "lucide-react";
 
 import EmailHtmlFrame from "../EmailHtmlFrame";
@@ -165,6 +166,21 @@ const useStyles = makeStyles(theme => {
       padding: "8px 12px",
       border: `1px dashed ${dark ? theme.palette.divider : "#D4D4D8"}`,
       borderRadius: 8,
+      color: theme.palette.text.secondary,
+      fontSize: 12.5,
+      lineHeight: 1.45,
+      "& svg": { flex: "none", marginTop: 1 }
+    },
+    // Older messages cut by the thread cap (THREAD_MESSAGE_LIMIT on the
+    // backend); shown above the oldest message that was kept.
+    truncated: {
+      display: "flex",
+      alignItems: "flex-start",
+      gap: 8,
+      padding: "8px 12px",
+      border: `1px dashed ${dark ? theme.palette.divider : "#D4D4D8"}`,
+      borderRadius: 8,
+      background: theme.palette.background.paper,
       color: theme.palette.text.secondary,
       fontSize: 12.5,
       lineHeight: 1.45,
@@ -514,6 +530,12 @@ const EmailThreadView = ({ ticket, thread, loading, error, onRetry }) => {
           {tiCount("thread.count", count)}
         </span>
       </div>
+      {thread.truncated === true && (
+        <div className={classes.truncated} role="note">
+          <Info size={14} aria-hidden="true" />
+          <span>{ti("thread.truncated")}</span>
+        </div>
+      )}
       {count === 0 && (
         <div className={classes.placeholder}>{ti("thread.empty")}</div>
       )}

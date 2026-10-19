@@ -31,6 +31,8 @@ const initialState = companyId => {
   return {
     companyId,
     enabled: cached === true,
+    // Older backends do not send gmailConfigured: keep offering Gmail.
+    gmailConfigured: true,
     loading: Boolean(companyId) && cached === undefined
   };
 };
@@ -53,7 +55,12 @@ const useEmailAvailability = () => {
         if (active && requestId === requestRef.current) {
           const enabled = data?.enabled === true;
           writeCache(companyId, enabled);
-          setState({ companyId, enabled, loading: false });
+          setState({
+            companyId,
+            enabled,
+            gmailConfigured: data?.gmailConfigured !== false,
+            loading: false
+          });
         }
       } catch (_) {
         if (active && requestId === requestRef.current)
@@ -61,6 +68,8 @@ const useEmailAvailability = () => {
             companyId,
             // keep a cached answer on a transient failure
             enabled: current.companyId === companyId && current.enabled,
+            gmailConfigured:
+              current.companyId !== companyId || current.gmailConfigured,
             loading: false
           }));
       }
@@ -76,11 +85,13 @@ const useEmailAvailability = () => {
     };
   }, [companyId]);
 
-  if (state.companyId === companyId) {
-    return { enabled: state.enabled, loading: state.loading };
-  }
-  const fallback = initialState(companyId);
-  return { enabled: fallback.enabled, loading: fallback.loading };
+  const current =
+    state.companyId === companyId ? state : initialState(companyId);
+  return {
+    enabled: current.enabled,
+    loading: current.loading,
+    gmailConfigured: current.gmailConfigured
+  };
 };
 
 export default useEmailAvailability;

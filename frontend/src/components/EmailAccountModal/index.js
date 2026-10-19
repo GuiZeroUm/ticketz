@@ -149,6 +149,21 @@ const emptyForm = {
   secure: true
 };
 
+// Well-known ports decide TLS on their own: IMAP 993 / SMTP 465 are implicit
+// TLS, IMAP 143 / SMTP 587 start plain and upgrade with STARTTLS. The
+// checkbox only presets the ports; for any other port it is the user's
+// choice. IMAP 993 with SMTP 587 (iCloud, Gmail, Outlook) is common, so one
+// value for both servers would be wrong.
+const PORT_SECURITY = {
+  imap: { 993: true, 143: false },
+  smtp: { 465: true, 587: false }
+};
+
+export const secureForPort = (kind, port, fallback) => {
+  const known = PORT_SECURITY[kind]?.[Number(port)];
+  return typeof known === "boolean" ? known : Boolean(fallback);
+};
+
 const validPort = value => {
   const port = Number(value);
   return Number.isInteger(port) && port > 0 && port <= 65535;
@@ -266,12 +281,12 @@ const EmailAccountModal = ({
       body.imap = {
         host: form.imapHost.trim(),
         port: Number(form.imapPort),
-        secure: form.secure
+        secure: secureForPort("imap", form.imapPort, form.secure)
       };
       body.smtp = {
         host: form.smtpHost.trim(),
         port: Number(form.smtpPort),
-        secure: form.secure
+        secure: secureForPort("smtp", form.smtpPort, form.secure)
       };
     }
     return body;
@@ -401,6 +416,7 @@ const EmailAccountModal = ({
 
   const passwordField = (labelKey, placeholderKey) => (
     <TextField
+      id="email-account-password"
       label={t(labelKey)}
       type="password"
       value={form.password}
@@ -426,6 +442,7 @@ const EmailAccountModal = ({
 
   const textField = (field, labelKey, placeholderKey, extra = {}) => (
     <TextField
+      id={`email-account-${field}`}
       label={t(labelKey)}
       value={form[field]}
       onChange={setField(field)}

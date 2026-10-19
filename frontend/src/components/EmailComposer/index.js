@@ -14,9 +14,9 @@ import {
   providerColors
 } from "../../helpers/emailConnections";
 import {
-  EMAIL_ACCOUNT_BLOCKED_STATUSES,
   MAX_OUTBOUND_ATTACHMENTS_BYTES,
   defaultRecipients,
+  emailAccountBlockedReason,
   formatFileSize,
   replySubject,
   ti,
@@ -231,7 +231,8 @@ const EmailComposer = ({ ticket, thread, onSent }) => {
   const [sending, setSending] = useState(false);
 
   const account = thread?.account || ticket?.emailAccount || null;
-  const blocked = EMAIL_ACCOUNT_BLOCKED_STATUSES.includes(account?.status);
+  const blockedReason = emailAccountBlockedReason(account);
+  const blocked = Boolean(blockedReason);
   const closed = ticket?.status === "closed";
   const baseSubject = thread?.subject || ticket?.subject || "";
 
@@ -340,7 +341,7 @@ const EmailComposer = ({ ticket, thread, onSent }) => {
       {blocked && (
         <div className={classes.warning} role="alert">
           <AlertTriangle size={15} aria-hidden="true" />
-          {ti("composer.reauth")}
+          {ti(`composer.${blockedReason}`)}
         </div>
       )}
       <div

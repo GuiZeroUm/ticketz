@@ -5,8 +5,25 @@ import toastError from "../errors/toastError";
 // Mirrors MAX_OUTBOUND_ATTACHMENTS_BYTES on the backend (EmailServices/limits.ts).
 export const MAX_OUTBOUND_ATTACHMENTS_BYTES = 25 * 1024 * 1024;
 
-// Account states that cannot send: the composer shows the reconnect warning.
-export const EMAIL_ACCOUNT_BLOCKED_STATUSES = ["reauth_required", "disabled"];
+// Only an "active" account sends. For every other state the composer shows a
+// banner with the reason and disables sending. Keys are under
+// emailChannel.inbox.composer.
+const BLOCKED_REASON_KEYS = {
+  reauth_required: "reauth",
+  connecting: "blocked.connecting",
+  error: "blocked.error",
+  disabled: "blocked.disabled"
+};
+
+// Translation key of the reason an account cannot send, or null when it can.
+// An account without a status (ticket.emailAccount carries only
+// id/name/address/preset) is not blocked here: the thread's account, which
+// has the status, decides once it loads.
+export const emailAccountBlockedReason = account => {
+  const status = account?.status;
+  if (!status || status === "active") return null;
+  return BLOCKED_REASON_KEYS[status] || "blocked.unavailable";
+};
 
 export const isEmailTicket = ticket => ticket?.channel === "email";
 
