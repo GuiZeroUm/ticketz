@@ -160,17 +160,12 @@ export const defaultRecipients = (thread, mode) => {
 export const isEmailErrorCode = code =>
   typeof code === "string" && /^ERR_(EMAIL|GMAIL)_/.test(code);
 
-// Error codes stay as keys on the API. Known ones live in backendErrors; SMTP
-// and Gmail rejections carry the server status in the code itself. Unknown
-// codes get a generic sentence: the raw key is never shown.
+// Error codes stay as keys on the API and are translated from backendErrors.
+// Unknown codes get a generic sentence: the raw key is never shown.
 export const translateEmailSendError = code => {
   if (!code) return ti("status.failed");
   if (i18n.exists(`backendErrors.${code}`))
     return i18n.t(`backendErrors.${code}`);
-  const smtp = /^ERR_EMAIL_REJECTED_(\d+)$/.exec(code);
-  if (smtp) return ti("errors.rejected", { code: smtp[1] });
-  const gmail = /^ERR_GMAIL_SEND_(\d+)$/.exec(code);
-  if (gmail) return ti("errors.gmailRejected", { code: gmail[1] });
   return ti("errors.generic");
 };
 

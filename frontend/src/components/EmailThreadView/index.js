@@ -240,8 +240,11 @@ const SendStatus = ({ message }) => {
   const classes = useStyles();
   const status = message.sendStatus;
   if (message.direction !== "out" || !STATUS_ICONS[status]) return null;
-  const Icon = STATUS_ICONS[status];
   const code = message.sendError?.code || message.error?.code || null;
+  const Icon =
+    status === "sent" && code === "ERR_EMAIL_PARTIAL_REJECTION"
+      ? AlertTriangle
+      : STATUS_ICONS[status];
   let label = ti(`status.${status}`);
   let title = label;
   if (status === "failed" && code) {
@@ -251,12 +254,20 @@ const SendStatus = ({ message }) => {
     title = label;
   }
   if (status === "unknown") title = ti("status.unknownHint");
-  const tone = {
-    queued: classes.statusQueued,
-    sent: classes.statusSent,
-    failed: classes.statusFailed,
-    unknown: classes.statusUnknown
-  }[status];
+  // Sent, but the server refused some recipients: a warning, not a failure.
+  const partial = status === "sent" && code === "ERR_EMAIL_PARTIAL_REJECTION";
+  if (partial) {
+    label = ti("status.partial");
+    title = translateEmailSendError(code);
+  }
+  const tone = partial
+    ? classes.statusUnknown
+    : {
+        queued: classes.statusQueued,
+        sent: classes.statusSent,
+        failed: classes.statusFailed,
+        unknown: classes.statusUnknown
+      }[status];
   return (
     <span className={`${classes.status} ${tone}`} title={title}>
       <Icon size={12} aria-hidden="true" />

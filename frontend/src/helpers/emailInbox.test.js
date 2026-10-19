@@ -64,8 +64,17 @@ describe("emailInbox helpers", () => {
     expect(translateEmailSendError("ERR_EMAIL_BOUNCED")).toBe(
       i18n.t("backendErrors.ERR_EMAIL_BOUNCED")
     );
-    expect(translateEmailSendError("ERR_EMAIL_REJECTED_550")).toContain("550");
-    expect(translateEmailSendError("ERR_GMAIL_SEND_403")).toContain("403");
+    expect(translateEmailSendError("ERR_EMAIL_REJECTED")).toBe(
+      i18n.t("backendErrors.ERR_EMAIL_REJECTED")
+    );
+    expect(translateEmailSendError("ERR_EMAIL_INVALID_MESSAGE")).toBe(
+      i18n.t("backendErrors.ERR_EMAIL_INVALID_MESSAGE")
+    );
+    // Legacy codes are covered by the generic fallback.
+    expect(translateEmailSendError("ERR_EMAIL_REJECTED_550")).not.toMatch(
+      /ERR_/
+    );
+    expect(translateEmailSendError("ERR_GMAIL_SEND_403")).not.toMatch(/ERR_/);
     expect(translateEmailSendError("ERR_EMAIL_WHATEVER")).not.toMatch(/ERR_/);
     expect(translateEmailSendError("ERR_EMAIL_AUTH_FAILED")).toBe(
       i18n.t("backendErrors.ERR_EMAIL_AUTH_FAILED")

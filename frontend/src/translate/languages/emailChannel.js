@@ -433,6 +433,7 @@ const ptInbox = {
     failed: "Falhou",
     failedWithReason: "Falhou: {{reason}}",
     unknown: "Envio não confirmado",
+    partial: "Enviado — alguns destinatários foram recusados",
     unknownHint:
       "O servidor não confirmou o envio. A mensagem não é reenviada automaticamente e passa a enviada quando a cópia aparecer na caixa."
   },
@@ -459,8 +460,6 @@ const ptInbox = {
     forwardPrefix: "Enc:"
   },
   errors: {
-    rejected: "O servidor de e-mail recusou o envio (código {{code}}).",
-    gmailRejected: "O Gmail recusou o envio (código {{code}}).",
     generic: "Não foi possível enviar o e-mail. Tente de novo em instantes."
   },
   contacts: {
@@ -497,6 +496,7 @@ const enInbox = {
     failed: "Failed",
     failedWithReason: "Failed: {{reason}}",
     unknown: "Delivery not confirmed",
+    partial: "Sent — some recipients were refused",
     unknownHint:
       "The server did not confirm the send. The message is not resent automatically and becomes sent once the copy shows up in the mailbox."
   },
@@ -524,8 +524,6 @@ const enInbox = {
     forwardPrefix: "Fwd:"
   },
   errors: {
-    rejected: "The mail server rejected the message (code {{code}}).",
-    gmailRejected: "Gmail rejected the message (code {{code}}).",
     generic: "The email could not be sent. Try again in a moment."
   },
   contacts: {
@@ -563,10 +561,11 @@ const ptBackendErrors = {
     "O servidor não confirmou o envio. Confira a caixa antes de reenviar.",
   ERR_EMAIL_ATTACHMENT_MISSING:
     "Um anexo não está mais disponível. Anexe o arquivo de novo e reenvie.",
-  ERR_EMAIL_REJECTED_EENVELOPE:
-    "O servidor recusou os destinatários. Confira os endereços e tente de novo.",
-  ERR_EMAIL_REJECTED_EMESSAGE:
-    "O servidor recusou o conteúdo do e-mail. Revise a mensagem e os anexos.",
+  ERR_EMAIL_INVALID_MESSAGE:
+    "A mensagem não pôde ser enviada: verifique os destinatários e os anexos.",
+  ERR_EMAIL_REJECTED: "O servidor de e-mail recusou o envio.",
+  ERR_EMAIL_PARTIAL_REJECTION:
+    "O e-mail foi enviado, mas alguns destinatários foram recusados pelo servidor.",
   ERR_EMAIL_PROVIDER_NOT_SUPPORTED:
     "Este tipo de caixa de e-mail ainda não é suportado.",
   ERR_EMAIL_HOST_NOT_ALLOWED:
@@ -602,10 +601,11 @@ const enBackendErrors = {
     "The server did not confirm the send. Check the mailbox before resending.",
   ERR_EMAIL_ATTACHMENT_MISSING:
     "An attachment is no longer available. Attach the file again and resend.",
-  ERR_EMAIL_REJECTED_EENVELOPE:
-    "The server refused the recipients. Check the addresses and try again.",
-  ERR_EMAIL_REJECTED_EMESSAGE:
-    "The server refused the email content. Review the message and attachments.",
+  ERR_EMAIL_INVALID_MESSAGE:
+    "The message could not be sent: check the recipients and attachments.",
+  ERR_EMAIL_REJECTED: "The mail server rejected the message.",
+  ERR_EMAIL_PARTIAL_REJECTION:
+    "The email was sent, but the server refused some recipients.",
   ERR_EMAIL_PROVIDER_NOT_SUPPORTED:
     "This type of mailbox is not supported yet.",
   ERR_EMAIL_HOST_NOT_ALLOWED:
