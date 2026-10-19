@@ -54,7 +54,8 @@ async function startServer() {
     startQueueProcess();
     // Near-real-time IMAP inbound; polling keeps working without it.
     if (process.env.EMAIL_IMAP_IDLE !== "false") {
-      await ImapIdleManager.start().catch(error =>
+      // Not awaited: the first refresh must not delay the rest of startup.
+      ImapIdleManager.start().catch(error =>
         logger.error({ error }, "Unable to start IMAP IDLE manager")
       );
     }
@@ -101,10 +102,13 @@ i18nReady.then(() => {
       stopVoiceEventBridge();
       // Closes every IMAP IDLE connection and releases its Redis lease (bounded
       // inside the manager, within the 30s shutdown budget).
-      await ImapIdleManager.stop().catch(error =>
-        logger.error({ error }, "Unable to stop IMAP IDLE manager")
-      );
-      await stopAgentContextWorker();
+      // In parallel: a slow IDLE close must not eat the worker's cleanup time.
+      await Promise.all([
+        ImapIdleManager.stop().catch(error =>
+          logger.error({ error }, "Unable to stop IMAP IDLE manager")
+        ),
+        stopAgentContextWorker()
+      ]);
     },
     finally: () => {
       logger.info("Server has shut down.");

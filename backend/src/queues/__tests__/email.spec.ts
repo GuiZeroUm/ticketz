@@ -4,9 +4,12 @@ import { emailEnabledForCompany } from "../../services/EmailServices/EmailAccess
 import SyncEmailAccountService from "../../services/EmailServices/SyncEmailAccountService";
 import ProcessEmailSendJob from "../../services/EmailServices/ProcessEmailSendJob";
 import ImapIdleManager from "../../services/EmailServices/ImapIdleManager";
+import emailRedis from "../../services/EmailServices/emailRedis";
 import {
   backoffMs,
   emailQueue,
+  markSyncDirtyIfActive,
+  syncDirtyKey,
   emailSendQueue,
   enqueueAccountSync,
   enqueueEmailSend,
@@ -27,6 +30,7 @@ jest.mock("bull", () => {
     default: jest.fn((name: string) => {
       queues[name] = queues[name] || {
         add: jest.fn().mockResolvedValue({}),
+        getJob: jest.fn(),
         process: jest.fn(),
         on: jest.fn()
       };
@@ -42,6 +46,10 @@ jest.mock("../../services/EmailServices/EmailAccessService", () => ({
   emailEnabledForCompany: jest.fn()
 }));
 jest.mock("../../services/EmailServices/SyncEmailAccountService", () => ({
+  __esModule: true,
+  default: jest.fn()
+}));
+jest.mock("../../services/EmailServices/emailRedis", () => ({
   __esModule: true,
   default: jest.fn()
 }));
@@ -68,8 +76,19 @@ const acct = (id: number, companyId: number, over: any = {}) => ({
   ...over
 });
 
+const redisMock = {
+  set: jest.fn(),
+  eval: jest.fn()
+};
+
 beforeEach(() => {
   jest.clearAllMocks();
+  redisMock.set.mockResolvedValue("OK");
+  // no dirty flag unless a test sets one
+  redisMock.eval.mockReset();
+  redisMock.eval.mockResolvedValue(null);
+  (emailRedis as jest.Mock).mockReturnValue(redisMock);
+  queue.getJob.mockReset();
   (emailEnabledForCompany as jest.Mock).mockResolvedValue(true);
   queue.add.mockResolvedValue({});
   sendQueue.add.mockResolvedValue({});
@@ -140,6 +159,60 @@ describe("EmailSync queue", () => {
     await handleSyncCompleted({ data: { accountId: 3 } }, { hasMore: false });
     await handleSyncCompleted({ data: { accountId: 3 } }, undefined);
     expect(queue.add).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-enqueues when IDLE flagged new mail during the round, even without hasMore", async () => {
+    redisMock.eval.mockResolvedValue("1");
+    await handleSyncCompleted({ data: { accountId: 3 } }, { hasMore: false });
+    expect(redisMock.eval).toHaveBeenCalledWith(
+      expect.stringContaining("del"),
+      1,
+      syncDirtyKey(3)
+    );
+    expect(queue.add).toHaveBeenCalledTimes(1);
+    expect(queue.add.mock.calls[0][2].jobId).toBe("sync-3");
+
+    queue.add.mockClear();
+    await handleSyncCompleted({ data: { accountId: 3 } }, undefined);
+    expect(queue.add).toHaveBeenCalledTimes(1);
+  });
+
+  it("queues one round, not two, when both hasMore and the dirty flag are set", async () => {
+    redisMock.eval.mockResolvedValue("1");
+    await handleSyncCompleted({ data: { accountId: 3 } }, { hasMore: true });
+    expect(queue.add).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not re-enqueue without hasMore or the dirty flag, and a Redis failure is harmless", async () => {
+    await handleSyncCompleted({ data: { accountId: 3 } }, { hasMore: false });
+    expect(queue.add).not.toHaveBeenCalled();
+    redisMock.eval.mockRejectedValue(new Error("redis down"));
+    await expect(
+      handleSyncCompleted({ data: { accountId: 3 } }, { hasMore: false })
+    ).resolves.toBeUndefined();
+    expect(queue.add).not.toHaveBeenCalled();
+    // hasMore still works with Redis down
+    await handleSyncCompleted({ data: { accountId: 3 } }, { hasMore: true });
+    expect(queue.add).toHaveBeenCalledTimes(1);
+  });
+
+  it("markSyncDirtyIfActive sets the flag (5 min TTL) only while the account's job is active", async () => {
+    queue.getJob.mockResolvedValue({ isActive: async () => true });
+    await markSyncDirtyIfActive(9);
+    expect(queue.getJob).toHaveBeenCalledWith("sync-9");
+    expect(redisMock.set).toHaveBeenCalledWith(
+      "email:sync-dirty:9",
+      "1",
+      "PX",
+      300000
+    );
+
+    redisMock.set.mockClear();
+    queue.getJob.mockResolvedValue({ isActive: async () => false });
+    await markSyncDirtyIfActive(9);
+    queue.getJob.mockResolvedValue(null);
+    await markSyncDirtyIfActive(9);
+    expect(redisMock.set).not.toHaveBeenCalled();
   });
 
   it("a failing re-enqueue does not throw", async () => {

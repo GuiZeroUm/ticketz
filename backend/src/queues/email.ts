@@ -6,6 +6,7 @@ import {
 } from "../helpers/tenantRuntime";
 import EmailAccount from "../models/EmailAccount";
 import { emailEnabledForCompany } from "../services/EmailServices/EmailAccessService";
+import emailRedis from "../services/EmailServices/emailRedis";
 import ImapIdleManager from "../services/EmailServices/ImapIdleManager";
 import ProcessEmailSendJob from "../services/EmailServices/ProcessEmailSendJob";
 import SyncEmailAccountService from "../services/EmailServices/SyncEmailAccountService";
@@ -69,6 +70,46 @@ export const enqueueAccountSync = async (accountId: number): Promise<void> => {
   );
 };
 
+// "More mail arrived while a round was running" marker (set by IMAP IDLE).
+// enqueueAccountSync is dropped while the account's job is active, and that
+// round may already have listed the mailbox, so the new mail would wait for the
+// next tick. handleSyncCompleted re-enqueues when it finds this key.
+export const SYNC_DIRTY_TTL_MS = 5 * 60 * 1000;
+export const syncDirtyKey = (accountId: number): string =>
+  `email:sync-dirty:${accountId}`;
+
+// GET + DEL in one step (GETDEL needs Redis 6.2).
+const TAKE_DIRTY_SCRIPT =
+  "local v = redis.call('get', KEYS[1]); if v then redis.call('del', KEYS[1]) end; return v";
+
+export const markSyncDirtyIfActive = async (
+  accountId: number
+): Promise<void> => {
+  const job = await emailQueue.getJob(syncJobId(accountId));
+  if (job && (await job.isActive())) {
+    await emailRedis().set(
+      syncDirtyKey(accountId),
+      "1",
+      "PX",
+      SYNC_DIRTY_TTL_MS
+    );
+  }
+};
+
+const takeSyncDirty = async (accountId: number): Promise<boolean> => {
+  try {
+    const value = await emailRedis().eval(
+      TAKE_DIRTY_SCRIPT,
+      1,
+      syncDirtyKey(accountId)
+    );
+    return value !== null && value !== undefined;
+  } catch {
+    // Unknown: the next tick covers it.
+    return false;
+  }
+};
+
 const inBackoff = (account: EmailAccount, now: number): boolean => {
   const at = account.lastError?.at ? Date.parse(account.lastError.at) : NaN;
   if (Number.isNaN(at)) return false;
@@ -129,14 +170,16 @@ export const handleSyncAccountJob = async (
   job: Pick<Job<{ accountId: number }>, "data">
 ) => SyncEmailAccountService(job.data.accountId);
 
-// With hasMore the next round is queued once this job has left the queue (its
-// id is still taken while active, so adding from inside the job would be
-// dropped). If this misses, the next tick picks the account up anyway.
+// With hasMore, or when IDLE flagged new mail during the round (dirty key), the
+// next round is queued once this job has left the queue (its id is still taken
+// while active, so adding from inside the job would be dropped). If this
+// misses, the next tick picks the account up anyway.
 export const handleSyncCompleted = async (
   job: Pick<Job<{ accountId: number }>, "data">,
   result: { hasMore?: boolean } | undefined
 ): Promise<void> => {
-  if (!result?.hasMore) return;
+  const dirty = await takeSyncDirty(job.data.accountId);
+  if (!result?.hasMore && !dirty) return;
   try {
     await enqueueAccountSync(job.data.accountId);
   } catch {

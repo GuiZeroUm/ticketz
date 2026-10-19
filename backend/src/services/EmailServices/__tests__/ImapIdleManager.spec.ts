@@ -2,7 +2,10 @@
 import { EventEmitter } from "events";
 import { inspect } from "util";
 import EmailAccount from "../../../models/EmailAccount";
-import { enqueueAccountSync } from "../../../queues/email";
+import {
+  enqueueAccountSync,
+  markSyncDirtyIfActive
+} from "../../../queues/email";
 import { logger } from "../../../utils/logger";
 import { RELEASE_SCRIPT } from "../accountLock";
 import { EmailAuthError, EmailTransientError } from "../adapters/errors";
@@ -12,7 +15,10 @@ import emailRedis from "../emailRedis";
 import ImapIdleManager, {
   BACKOFF_MAX_MS,
   BACKOFF_MIN_MS,
+  LEASE_RENEW_MS,
   LEASE_TTL_MS,
+  STOP_TIMEOUT_MS,
+  TOMBSTONE_TTL_MS,
   idleLeaseKey
 } from "../ImapIdleManager";
 
@@ -27,7 +33,8 @@ jest.mock("../EmailAccessService", () => ({
   emailEnabledForCompany: jest.fn()
 }));
 jest.mock("../../../queues/email", () => ({
-  enqueueAccountSync: jest.fn()
+  enqueueAccountSync: jest.fn(),
+  markSyncDirtyIfActive: jest.fn()
 }));
 jest.mock("../adapters/ImapSmtpAdapter", () => ({
   openImapIdleClient: jest.fn()
@@ -157,6 +164,8 @@ beforeEach(() => {
   (emailEnabledForCompany as jest.Mock).mockResolvedValue(true);
   (enqueueAccountSync as jest.Mock).mockReset();
   (enqueueAccountSync as jest.Mock).mockResolvedValue(undefined);
+  (markSyncDirtyIfActive as jest.Mock).mockReset();
+  (markSyncDirtyIfActive as jest.Mock).mockResolvedValue(undefined);
   connectMock.mockReset();
   connectMock.mockImplementation(async () => {
     const client = new FakeClient();
@@ -517,6 +526,188 @@ describe("ImapIdleManager", () => {
       await expect(ImapIdleManager.start()).resolves.toBeUndefined();
       await flush();
       expect(connectMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("hardening round", () => {
+    it("flags the account as dirty after enqueueing, so a running round is followed by another", async () => {
+      await startManager();
+      lastClient().emit("exists", { path: "INBOX", count: 2, prevCount: 1 });
+      await flush();
+      expect(enqueueAccountSync).toHaveBeenCalledWith(1);
+      expect(markSyncDirtyIfActive).toHaveBeenCalledWith(1);
+      const order = [
+        (enqueueAccountSync as jest.Mock).mock.invocationCallOrder[0],
+        (markSyncDirtyIfActive as jest.Mock).mock.invocationCallOrder[0]
+      ];
+      expect(order[0]).toBeLessThan(order[1]);
+
+      // a failure of the flag never breaks the connection
+      (markSyncDirtyIfActive as jest.Mock).mockRejectedValue(new Error("x"));
+      lastClient().emit("exists", { path: "INBOX", count: 3, prevCount: 2 });
+      await flush();
+      expect(lastClient().usable).toBe(true);
+    });
+
+    it("accepts IMAP4rev2 as IDLE-capable (IDLE is part of the base protocol)", async () => {
+      connectMock.mockImplementation(async () => {
+        const client = new FakeClient();
+        client.capabilities = new Map<string, boolean | number>([
+          ["IMAP4REV2", true]
+        ]);
+        clients.push(client);
+        return client;
+      });
+      await startManager();
+      expect(clients[0].idle).toHaveBeenCalledTimes(1);
+      expect(clients[0].usable).toBe(true);
+    });
+
+    describe("lease renewal errors", () => {
+      beforeEach(() => fakeTimers());
+
+      it("stops IDLE once the TTL passed without a successful renewal (eval rejecting)", async () => {
+        await startManager();
+        redis.eval.mockRejectedValue(new Error("redis down"));
+
+        // still within the TTL after two failed renewals: keep going
+        await advance(LEASE_RENEW_MS * 2);
+        await flush();
+        expect(clients[0].usable).toBe(true);
+
+        await advance(LEASE_TTL_MS - LEASE_RENEW_MS * 2);
+        await flush();
+        expect(clients[0].usable).toBe(false);
+        // not reconnected here while Redis is unusable
+        await advance(BACKOFF_MAX_MS);
+        await flush();
+        expect(connectMock).toHaveBeenCalledTimes(1);
+      });
+
+      it("a success in between resets the clock", async () => {
+        await startManager();
+        redis.eval.mockRejectedValueOnce(new Error("blip"));
+        await advance(LEASE_RENEW_MS);
+        await flush();
+        // later renewals succeed (default fake), the lease is fine for long
+        await advance(LEASE_TTL_MS * 3);
+        await flush();
+        expect(clients[0].usable).toBe(true);
+      });
+
+      it("stops IDLE when renewals hang instead of failing", async () => {
+        await startManager();
+        (redis.eval as jest.Mock).mockImplementation(
+          () => new Promise(() => undefined)
+        );
+        await advance(LEASE_TTL_MS + LEASE_RENEW_MS);
+        await flush();
+        expect(clients[0].usable).toBe(false);
+      });
+    });
+
+    describe("tombstone expiry", () => {
+      beforeEach(() => fakeTimers());
+
+      it("retries an auth_failed account after the tombstone TTL", async () => {
+        connectMock.mockRejectedValue(new EmailAuthError());
+        await startManager();
+        expect(connectMock).toHaveBeenCalledTimes(1);
+
+        await advance(TOMBSTONE_TTL_MS - 1);
+        await flush();
+        expect(connectMock).toHaveBeenCalledTimes(1);
+
+        await advance(1);
+        await flush();
+        expect(connectMock).toHaveBeenCalledTimes(2);
+      });
+
+      it("retries a no_idle account after the tombstone TTL", async () => {
+        connectMock.mockImplementation(async () => {
+          const client = new FakeClient();
+          client.capabilities.delete("IDLE");
+          clients.push(client);
+          return client;
+        });
+        await startManager();
+        await advance(TOMBSTONE_TTL_MS - 1);
+        await flush();
+        expect(connectMock).toHaveBeenCalledTimes(1);
+        await advance(1);
+        await flush();
+        expect(connectMock).toHaveBeenCalledTimes(2);
+      });
+
+      it("a tombstone is still cleared when the account leaves and comes back active", async () => {
+        connectMock.mockRejectedValueOnce(new EmailAuthError());
+        await startManager();
+        expect(connectMock).toHaveBeenCalledTimes(1);
+
+        rows[0].status = "reauth_required";
+        await ImapIdleManager.refresh();
+        await flush();
+        rows[0].status = "active";
+        await ImapIdleManager.refresh();
+        await flush();
+        expect(connectMock).toHaveBeenCalledTimes(2);
+        expect(clients[0].usable).toBe(true);
+      });
+    });
+
+    describe("bounded shutdown", () => {
+      it("stop does not wait forever for a hung refresh, and the refresh cannot start anything afterwards", async () => {
+        await startManager();
+        expect(connectMock).toHaveBeenCalledTimes(1);
+        fakeTimers();
+
+        let release: (value: Row[]) => void = () => undefined;
+        findAll.mockImplementation(
+          () =>
+            new Promise<Row[]>(resolve => {
+              release = resolve;
+            })
+        );
+        rows.push(row(2));
+        const hung = ImapIdleManager.refresh();
+        await flush();
+
+        const stopping = ImapIdleManager.stop();
+        await flush();
+        // current connections are closed right away
+        expect(clients[0].usable).toBe(false);
+        await advance(STOP_TIMEOUT_MS);
+        await expect(stopping).resolves.toBeUndefined();
+
+        // the late refresh finishes: it must not open or lease anything
+        release(rows);
+        await hung;
+        await flush();
+        expect(connectMock).toHaveBeenCalledTimes(1);
+        expect(redis.store.size).toBe(0);
+      });
+
+      it("stop closes entries a refresh added while it was waiting for that refresh", async () => {
+        await ImapIdleManager.start();
+        await flush();
+        expect(connectMock).toHaveBeenCalledTimes(1);
+
+        let release: (value: Row[]) => void = () => undefined;
+        findAll.mockImplementation(
+          () =>
+            new Promise<Row[]>(resolve => {
+              release = resolve;
+            })
+        );
+        const inFlight = ImapIdleManager.refresh();
+        await flush();
+        const stopping = ImapIdleManager.stop();
+        release([row(1)]);
+        await Promise.all([stopping, inFlight]);
+        await flush();
+        expect(clients.every(c => !c.usable)).toBe(true);
+        expect(redis.store.size).toBe(0);
+      });
     });
   });
 

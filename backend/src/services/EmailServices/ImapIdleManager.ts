@@ -5,7 +5,7 @@ import { runtimeCompanyWhere } from "../../helpers/tenantRuntime";
 import EmailAccount from "../../models/EmailAccount";
 // Circular with queues/email (its tick calls refresh()); both sides only use
 // the other at call time, never while loading.
-import { enqueueAccountSync } from "../../queues/email";
+import { enqueueAccountSync, markSyncDirtyIfActive } from "../../queues/email";
 import { logger } from "../../utils/logger";
 import { RELEASE_SCRIPT, RENEW_SCRIPT } from "./accountLock";
 import { EmailAuthError } from "./adapters/errors";
@@ -43,13 +43,21 @@ export const DEFAULT_IDLE_MAX = 200;
 // A connection that stayed up this long counts as healthy: the next drop
 // starts from the minimum backoff again.
 const STABLE_MS = 60 * 1000;
-// imapflow restarts IDLE this often (servers drop it after ~30 min, RFC 2177).
+// Upper bound for one IDLE command (imapflow breaks and the loop below issues
+// a new one; servers drop IDLE after ~30 min, RFC 2177). It is NOT the
+// keepalive: the adapter's 90 s socketTimeout is. After 90 s without traffic
+// imapflow itself breaks IDLE, sends a NOOP to prove the server is alive (or
+// closes the connection if it is not) and returns from idle(), and the loop
+// below re-enters IDLE.
 const MAX_IDLE_TIME_MS = 20 * 60 * 1000;
+// auth_failed / no_idle tombstones expire so a transient cause (a provider
+// outage answered as a login failure, a server upgrade) is retried.
+export const TOMBSTONE_TTL_MS = 30 * 60 * 1000;
 // Spreads the connections of a process that starts with many accounts.
 const STARTUP_JITTER_MS = 5 * 1000;
 const IDLE_RESTART_GAP_MS = 1000;
 const CLOSE_TIMEOUT_MS = 3 * 1000;
-const STOP_TIMEOUT_MS = 10 * 1000;
+export const STOP_TIMEOUT_MS = 10 * 1000;
 
 type EntryState = "running" | "auth_failed" | "no_idle";
 
@@ -59,6 +67,10 @@ type Entry = {
   // "running" holds a lease and a connection loop; the other two are tombstones
   // that keep the account from being retried until its settings change.
   state: EntryState;
+  // when the entry became a tombstone (auth_failed / no_idle)
+  tombstonedAt: number;
+  // last time the lease was confirmed (set or renewed) by Redis
+  lastRenewOkAt: number;
   stopped: boolean;
   token: string | null;
   leaseTimer: NodeJS.Timeout | null;
@@ -209,10 +221,24 @@ const startLeaseRenewal = (entry: Entry): void => {
   const timer = setInterval(() => {
     const { token } = entry;
     if (!token || entry.stopped) return;
+    // A renewal that neither succeeds nor fails (hung Redis) must not keep
+    // IDLE alive past the TTL either.
+    if (Date.now() - entry.lastRenewOkAt >= LEASE_TTL_MS) {
+      logger.warn(
+        { emailAccountId: entry.accountId },
+        "Email idle lease could not be renewed in time; stopping IDLE here"
+      );
+      stopEntry(entry, false).catch(() => undefined);
+      return;
+    }
     emailRedis()
       .eval(RENEW_SCRIPT, 1, idleLeaseKey(entry.accountId), token, LEASE_TTL_MS)
       .then(renewed => {
-        if (Number(renewed) === 1 || entry.stopped) return;
+        if (Number(renewed) === 1) {
+          entry.lastRenewOkAt = Date.now();
+          return;
+        }
+        if (entry.stopped) return;
         // Taken over (or expired and taken): another process owns IDLE now.
         logger.warn(
           { emailAccountId: entry.accountId },
@@ -220,12 +246,21 @@ const startLeaseRenewal = (entry: Entry): void => {
         );
         return stopEntry(entry, false);
       })
-      .catch(() =>
+      .catch(() => {
         logger.warn(
           { emailAccountId: entry.accountId },
           "Could not extend email idle lease"
-        )
-      );
+        );
+        // Redis unreachable: once the lease may have expired another process
+        // can legitimately own IDLE, so stop here instead of holding on.
+        if (
+          !entry.stopped &&
+          Date.now() - entry.lastRenewOkAt >= LEASE_TTL_MS
+        ) {
+          return stopEntry(entry, false);
+        }
+        return undefined;
+      });
   }, LEASE_RENEW_MS);
   timer.unref?.();
 
@@ -271,22 +306,32 @@ const runEntry = async (entry: Entry): Promise<void> => {
 
       client.on("exists", (event: { count: number; prevCount: number }) => {
         if (!(event?.count > event?.prevCount)) return;
-        enqueueAccountSync(accountId).catch(() =>
-          logger.warn(
-            { emailAccountId: accountId },
-            "Could not enqueue email sync from IDLE"
-          )
-        );
+        // The add is dropped while this account's round is running; flag it so
+        // the round's completion queues another one.
+        enqueueAccountSync(accountId)
+          .then(() => markSyncDirtyIfActive(accountId))
+          .catch(() =>
+            logger.warn(
+              { emailAccountId: accountId },
+              "Could not enqueue email sync from IDLE"
+            )
+          );
       });
 
       await client.mailboxOpen("INBOX", { readOnly: true });
-      if (!client.capabilities?.has("IDLE")) {
+      // IMAP4rev2 (RFC 9051) made IDLE part of the base protocol, so servers
+      // that only announce it no longer list IDLE separately.
+      if (
+        !client.capabilities?.has("IDLE") &&
+        !client.capabilities?.has("IMAP4REV2")
+      ) {
         logger.info(
           { emailAccountId: accountId },
           "Email server has no IDLE capability; polling only"
         );
 
         entry.state = "no_idle";
+        entry.tombstonedAt = Date.now();
         await releaseLease(entry);
         await closeClient(client);
         return;
@@ -312,6 +357,7 @@ const runEntry = async (entry: Entry): Promise<void> => {
         );
 
         entry.state = "auth_failed";
+        entry.tombstonedAt = Date.now();
         await releaseLease(entry);
         await closeClient(client);
         return;
@@ -351,11 +397,20 @@ const startEntry = async (account: AccountRow): Promise<boolean> => {
     "NX"
   );
   if (taken !== "OK") return false;
+  if (!started) {
+    // stop() ran while the lease was being taken: give it back at once
+    await emailRedis()
+      .eval(RELEASE_SCRIPT, 1, idleLeaseKey(account.id), token)
+      .catch(() => undefined);
+    return false;
+  }
 
   const entry: Entry = {
     accountId: account.id,
     fingerprint: fingerprintOf(account),
     state: "running",
+    tombstonedAt: 0,
+    lastRenewOkAt: Date.now(),
     stopped: false,
     token,
     leaseTimer: null,
@@ -421,7 +476,14 @@ const doRefresh = async (): Promise<void> => {
   await Promise.all(
     [...entries.values()].map(async entry => {
       const row = eligibleById.get(entry.accountId);
-      if (!row || fingerprintOf(row) !== entry.fingerprint) {
+      const expiredTombstone =
+        entry.state !== "running" &&
+        Date.now() - entry.tombstonedAt >= TOMBSTONE_TTL_MS;
+      if (
+        !row ||
+        expiredTombstone ||
+        fingerprintOf(row) !== entry.fingerprint
+      ) {
         await stopEntry(entry);
       }
     })
@@ -475,19 +537,32 @@ const stop = async (): Promise<void> => {
     clearInterval(refreshTimer);
     refreshTimer = null;
   }
-  if (refreshing) await refreshing;
 
-  const all = [...entries.values()];
+  // Everything, including waiting for a refresh in flight (its DB or Redis
+  // call may hang), sits inside the bound. Current entries are closed first;
+  // a refresh that finishes meanwhile may have added some, closed on the second
+  // pass. One that outlives the bound cannot add any: startEntry gives its
+  // lease back once `started` is false.
+  const stopAll = () =>
+    Promise.all(
+      [...entries.values()].map(async entry => {
+        await stopEntry(entry);
+        await entry.done;
+      })
+    );
+  const work = (async () => {
+    await stopAll();
+    if (refreshing) {
+      await refreshing;
+      await stopAll();
+    }
+  })();
+  work.catch(() => undefined);
+
   let timer: NodeJS.Timeout | undefined;
-  const everything = Promise.all(
-    all.map(async entry => {
-      await stopEntry(entry);
-      await entry.done;
-    })
-  );
   try {
     await Promise.race([
-      everything,
+      work,
       new Promise<void>(resolve => {
         timer = setTimeout(resolve, STOP_TIMEOUT_MS);
         timer.unref?.();
