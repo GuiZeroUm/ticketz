@@ -271,7 +271,9 @@ export default function Options(props) {
       const autoReopenTimeout = settings.find(
         s => s.key === "autoReopenTimeout"
       );
-      setAutoReopenTimeout(autoReopenTimeout?.value || "0");
+      setAutoReopenTimeout(
+        String(Math.max(1440, Number(autoReopenTimeout?.value) || 1440))
+      );
 
       const noQueueTimeout = settings.find(s => s.key === "noQueueTimeout");
       setNoQueueTimeout(noQueueTimeout?.value || "0");
@@ -409,10 +411,11 @@ export default function Options(props) {
   }
 
   async function handleAutoReopenTimeout(value) {
-    setAutoReopenTimeout(value);
+    const minutes = String(Math.max(1440, Number(value) || 1440));
+    setAutoReopenTimeout(minutes);
     await update({
       key: "autoReopenTimeout",
-      value
+      value: minutes
     });
     i18nToast.success("settings.success");
   }
@@ -697,10 +700,12 @@ export default function Options(props) {
           <FormControl className={classes.selectContainer}>
             <TextField
               id="autoreopen-timeout-field"
-              label="Timeout para reabertura automática (minutos)"
+              label="Reabertura automática (minutos)"
+              helperText="Mínimo obrigatório: 1440 minutos (24 horas)"
               variant="standard"
               name="autoReopenTimeout"
               type="number"
+              inputProps={{ min: 1440, step: 1 }}
               value={autoReopenTimeout}
               onChange={e => {
                 setAutoReopenTimeout(e.target.value);

@@ -7,6 +7,10 @@ import ShowTicketService from "../TicketServices/ShowTicketService";
 import Queue from "../../models/Queue";
 import { GetCompanySetting } from "../../helpers/CheckSettings";
 import { usesOwnerTicketAccess } from "../TicketServices/TicketAccessPolicy";
+import {
+  canReadTicket,
+  getHistoryAccessMode
+} from "../TicketServices/TicketHistoryAccess";
 
 interface Request {
   ticketId: string;
@@ -14,6 +18,7 @@ interface Request {
   nextId?: string;
   queues?: number[];
   minUpdatedAt?: string;
+  accessUser: { id: number; profile: string; queueIds: number[] };
 }
 
 interface Response {
@@ -29,7 +34,8 @@ const ListMessagesService = async ({
   ticketId,
   companyId,
   queues = [],
-  minUpdatedAt
+  minUpdatedAt,
+  accessUser
 }: Request): Promise<Response> => {
   const ticket = await ShowTicketService(ticketId, companyId);
 
@@ -45,7 +51,7 @@ const ListMessagesService = async ({
   // to their original ticket so the resolved list stays correctly segmented.
   if (["open", "pending"].includes(ticket.status) && !ticket.isGroup) {
     const conversationTickets = await Ticket.findAll({
-      attributes: ["id"],
+      attributes: ["id", "queueId", "userId"],
       where: {
         id: { [Op.lte]: ticket.id },
         contactId: ticket.contactId,
@@ -56,8 +62,22 @@ const ListMessagesService = async ({
       order: [["id", "DESC"]]
     });
 
+    const accessMode = await getHistoryAccessMode(companyId);
     messageTicketIds = Array.from(
-      new Set([ticket.id, ...conversationTickets.map(item => item.id)])
+      new Set([
+        ticket.id,
+        ...conversationTickets
+          .filter(item =>
+            canReadTicket(
+              accessUser.profile,
+              accessUser.id,
+              accessUser.queueIds,
+              item,
+              accessMode
+            )
+          )
+          .map(item => item.id)
+      ])
     );
   }
 
@@ -107,8 +127,7 @@ const ListMessagesService = async ({
     const cursorMessage = await Message.findOne({
       where: {
         id: nextId,
-        ticketId: ticketIdFilter,
-        companyId
+        ...options.where
       },
       attributes: ["id", "createdAt"]
     });
@@ -132,7 +151,11 @@ const ListMessagesService = async ({
         as: "quotedMsg",
         include: ["contact"],
         where: {
-          companyId: ticket.companyId
+          companyId: ticket.companyId,
+          ticketId: ticketIdFilter,
+          ...(options.where["queueId"]
+            ? { queueId: options.where["queueId"] }
+            : {})
         },
         required: false
       },

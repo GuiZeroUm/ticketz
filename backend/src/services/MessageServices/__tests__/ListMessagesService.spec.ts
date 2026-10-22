@@ -29,6 +29,7 @@ const makeTicket = (data: Partial<Ticket> = {}) =>
 
 const getMessageFindOptions = () =>
   (Message.findAll as jest.Mock).mock.calls[0][0];
+const admin = { id: 1, profile: "admin", queueIds: [] };
 
 describe("ListMessagesService ticket history", () => {
   beforeEach(() => {
@@ -49,12 +50,12 @@ describe("ListMessagesService ticket history", () => {
       .spyOn(Ticket, "findAll")
       .mockResolvedValue([{ id: 22 }, { id: 18 }] as Ticket[]);
 
-    await ListMessagesService({ ticketId: "22", companyId: 1 });
+    await ListMessagesService({ ticketId: "22", companyId: 1, accessUser: admin });
 
     const ticketOptions = (Ticket.findAll as jest.Mock).mock.calls[0][0];
     expect(ticketOptions).toEqual(
       expect.objectContaining({
-        attributes: ["id"],
+        attributes: ["id", "queueId", "userId"],
         where: expect.objectContaining({
           contactId: 10,
           companyId: 1,
@@ -75,7 +76,7 @@ describe("ListMessagesService ticket history", () => {
     showTicket.mockResolvedValue(makeTicket({ status: "closed" }));
     const ticketFindAll = jest.spyOn(Ticket, "findAll");
 
-    await ListMessagesService({ ticketId: "22", companyId: 1 });
+    await ListMessagesService({ ticketId: "22", companyId: 1, accessUser: admin });
 
     expect(ticketFindAll).not.toHaveBeenCalled();
     const options = getMessageFindOptions();
@@ -87,7 +88,7 @@ describe("ListMessagesService ticket history", () => {
     showTicket.mockResolvedValue(makeTicket({ status: "open", isGroup: true }));
     const ticketFindAll = jest.spyOn(Ticket, "findAll");
 
-    await ListMessagesService({ ticketId: "22", companyId: 1 });
+    await ListMessagesService({ ticketId: "22", companyId: 1, accessUser: admin });
 
     expect(ticketFindAll).not.toHaveBeenCalled();
     expect(getMessageFindOptions().where.ticketId).toBe(22);
@@ -108,7 +109,8 @@ describe("ListMessagesService ticket history", () => {
     await ListMessagesService({
       ticketId: "22",
       companyId: 1,
-      nextId: "cursor-message"
+      nextId: "cursor-message",
+      accessUser: admin
     });
 
     const cursorWhere = (findOne as jest.Mock).mock.calls[0][0].where;
@@ -116,5 +118,25 @@ describe("ListMessagesService ticket history", () => {
     expect(getMessageFindOptions().where.createdAt[Op.lt]).toEqual(
       cursorCreatedAt
     );
+  });
+
+  it("excludes an inaccessible earlier ticket and quoted messages from it", async () => {
+    showTicket.mockResolvedValue(makeTicket());
+    jest.spyOn(Ticket, "findAll").mockResolvedValue([
+      makeTicket({ id: 22, queueId: 3, userId: 5 }),
+      makeTicket({ id: 18, queueId: 8, userId: 6 })
+    ]);
+
+    await ListMessagesService({
+      ticketId: "22",
+      companyId: 1,
+      accessUser: { id: 5, profile: "user", queueIds: [3] },
+      queues: [3]
+    });
+
+    const options = getMessageFindOptions();
+    expect(options.where.ticketId).toBe(22);
+    expect(options.include[1].where.ticketId).toBe(22);
+    expect(options.include[1].where.queueId[Op.or]).toBeDefined();
   });
 });

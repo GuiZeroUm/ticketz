@@ -22,6 +22,7 @@ import { buildMetaWbot } from "../MetaWhatsAppServices/MetaWbotAdapter";
 import Whatsapp from "../../models/Whatsapp";
 import { usesOwnerTicketAccess } from "./TicketAccessPolicy";
 import { serializeClaimOnlyTicket } from "./ClaimOnlyTicket";
+import { isActiveTicketUniqueConflict } from "./ActiveTicketConflict";
 
 export interface UpdateTicketData {
   status?: string;
@@ -580,6 +581,9 @@ const UpdateTicketService = async ({
     );
     if (err instanceof AppError) {
       throw err;
+    }
+    if (isActiveTicketUniqueConflict(err)) {
+      throw new AppError("ERR_OTHER_OPEN_TICKET");
     }
     throw new AppError("Error updating ticket", 500);
   }

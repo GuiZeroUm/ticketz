@@ -1,5 +1,4 @@
 import AppError from "../../errors/AppError";
-import CheckContactOpenTickets from "../../helpers/CheckContactOpenTickets";
 import GetDefaultWhatsApp from "../../helpers/GetDefaultWhatsApp";
 import Ticket from "../../models/Ticket";
 import ShowContactService from "../ContactServices/ShowContactService";
@@ -8,6 +7,9 @@ import FindOrCreateATicketTrakingService from "./FindOrCreateATicketTrakingServi
 import Contact from "../../models/Contact";
 import { incrementCounter } from "../CounterServices/IncrementCounter";
 import Whatsapp from "../../models/Whatsapp";
+import sequelize from "../../database";
+import { Op } from "sequelize";
+import { isActiveTicketUniqueConflict } from "./ActiveTicketConflict";
 
 interface Request {
   contactId: number;
@@ -29,12 +31,6 @@ const CreateTicketService = async ({
     : await GetDefaultWhatsApp(companyId);
   if (!defaultWhatsapp) throw new AppError("ERR_WAPP_NOT_FOUND");
 
-  let ticket = await CheckContactOpenTickets(
-    contactId,
-    defaultWhatsapp.id,
-    true
-  );
-
   const include = [
     {
       model: Contact,
@@ -47,40 +43,72 @@ const CreateTicketService = async ({
     "tags"
   ];
 
-  if (ticket) {
-    if (ticket.status === "open" && ticket.userId === userId) {
-      await ticket.reload({
-        include
-      });
-      return ticket;
-    }
-    throw new AppError("ERR_OTHER_OPEN_TICKET");
-  }
-
   const { isGroup } = await ShowContactService(contactId, companyId);
+  const createOrFind = () =>
+    sequelize.transaction(async transaction => {
+      await sequelize.query(
+        "SELECT pg_advisory_xact_lock(:companyId, :contactId)",
+        { replacements: { companyId, contactId }, transaction }
+      );
 
-  ticket = await Ticket.create({
-    contactId,
-    companyId,
-    queueId,
-    whatsappId: defaultWhatsapp.id,
-    status: "open",
-    isGroup,
-    userId
-  });
+      const existing = await Ticket.findOne({
+        where: {
+          contactId,
+          companyId,
+          whatsappId: defaultWhatsapp.id,
+          status: { [Op.in]: ["open", "pending"] }
+        },
+        transaction
+      });
+      if (existing) {
+        if (existing.status === "open" && existing.userId === userId) {
+          return { ticket: existing, created: false };
+        }
+        throw new AppError("ERR_OTHER_OPEN_TICKET");
+      }
+
+      const createdTicket = await Ticket.create(
+        {
+          contactId,
+          companyId,
+          queueId,
+          whatsappId: defaultWhatsapp.id,
+          status: "open",
+          isGroup,
+          userId
+        },
+        { transaction }
+      );
+      await FindOrCreateATicketTrakingService({
+        ticketId: createdTicket.id,
+        companyId,
+        whatsappId: createdTicket.whatsappId,
+        userId,
+        transaction
+      });
+      return { ticket: createdTicket, created: true };
+    });
+  let outcome: Awaited<ReturnType<typeof createOrFind>>;
+  try {
+    outcome = await createOrFind();
+  } catch (error) {
+    if (!isActiveTicketUniqueConflict(error)) throw error;
+    try {
+      outcome = await createOrFind();
+    } catch (retryError) {
+      if (isActiveTicketUniqueConflict(retryError)) {
+        throw new AppError("ERR_OTHER_OPEN_TICKET");
+      }
+      throw retryError;
+    }
+  }
+  const { ticket, created } = outcome;
 
   if (!ticket) {
     throw new AppError("ERR_CREATING_TICKET");
   }
 
-  await FindOrCreateATicketTrakingService({
-    ticketId: ticket.id,
-    companyId: ticket.companyId,
-    whatsappId: ticket.whatsappId,
-    userId: ticket.userId
-  });
-
-  incrementCounter(ticket.companyId, "ticket-create");
+  if (created) incrementCounter(ticket.companyId, "ticket-create");
 
   await ticket.reload({
     include

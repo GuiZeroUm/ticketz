@@ -34,6 +34,11 @@ import GetTicketServiceWindowService from "../services/TicketServices/TicketServ
 import SendTicketTemplateService from "../services/MetaWhatsAppServices/SendTicketTemplateService";
 import normalizeMediaCaption from "../helpers/normalizeMediaCaption";
 import ResolveQuotedMessageService from "../services/MessageServices/ResolveQuotedMessageService";
+import ListContactHistoryService from "../services/MessageServices/ListContactHistoryService";
+import {
+  canReadTicket,
+  getHistoryAccessMode
+} from "../services/TicketServices/TicketHistoryAccess";
 
 type IndexQuery = {
   nextId?: string;
@@ -48,6 +53,24 @@ type ForwardData = {
   queueId: number;
 };
 
+export const contactHistory = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const contactId = Number(req.params.contactId);
+  if (!Number.isInteger(contactId) || contactId <= 0) {
+    throw new AppError("ERR_NO_CONTACT_FOUND", 404);
+  }
+  const data = await ListContactHistoryService({
+    contactId,
+    companyId: req.user.companyId,
+    userId: Number(req.user.id),
+    profile: req.user.profile,
+    cursor: typeof req.query.cursor === "string" ? req.query.cursor : undefined
+  });
+  return res.json(data);
+};
+
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const { ticketId } = req.params;
   const { nextId, markAsRead, minUpdatedAt } = req.query as IndexQuery;
@@ -55,6 +78,7 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
   const queues: number[] = [];
 
   const requestedTicket = await ShowTicketService(ticketId, companyId);
+  if (!requestedTicket) throw new AppError("ERR_NO_TICKET_FOUND", 404);
   if (requestedTicket?.isGroup) {
     await assertGroupAccess(ticketId, req.user);
   } else {
@@ -74,6 +98,18 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
       queues.push(queue.id);
     });
   }
+  if (
+    !requestedTicket.isGroup &&
+    !canReadTicket(
+      profile,
+      Number(req.user.id),
+      queues,
+      requestedTicket,
+      await getHistoryAccessMode(companyId)
+    )
+  ) {
+    throw new AppError("ERR_NO_PERMISSION", 403);
+  }
 
   const {
     count,
@@ -86,7 +122,8 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
     ticketId,
     companyId,
     queues,
-    minUpdatedAt
+    minUpdatedAt,
+    accessUser: { id: Number(req.user.id), profile, queueIds: queues }
   });
 
   if (ticket.channel === "whatsapp" && markAsRead === "true") {

@@ -78,6 +78,38 @@
   text-decoration: none;
 }
 
+.contexto-historico button,
+.contexto-linha-tempo button {
+  border: 1px solid var(--ew-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ew-primary);
+  cursor: pointer;
+  font: inherit;
+  padding: 7px 10px;
+  margin: 0 6px 10px 0;
+}
+
+.contexto-linha-tempo article {
+  border-left: 2px solid var(--ew-border);
+  padding: 9px 10px;
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+
+.contexto-linha-tempo-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--ew-muted);
+  font-size: 11px;
+}
+
+.contexto-linha-tempo article p {
+  white-space: pre-wrap;
+  margin: 6px 0;
+}
+
 .contexto-perfil {
   margin: 8px 0 16px;
   text-align: center;
