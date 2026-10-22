@@ -309,7 +309,13 @@ export const initWASocket = async (
 
         const { state, saveState } = await authState(whatsapp);
 
-        const msgRetryCounterCache = new NodeCache();
+        // Retry IDs only need to live briefly. Without a TTL this cache grows
+        // for the entire lifetime of a WhatsApp connection.
+        const msgRetryCounterCache = new NodeCache({
+          stdTTL: 60 * 60,
+          checkperiod: 60 * 10,
+          useClones: false
+        });
         const internalGroupCache = new NodeCache({
           stdTTL: 5 * 60,
           useClones: false
@@ -440,11 +446,11 @@ export const initWASocket = async (
                   logger.info(`Reconnecting ${name} in 2 seconds`);
                   setTimeout(async () => {
                     await whatsapp.reload();
-                    await StartWhatsAppSession(
-                      whatsapp,
-                      whatsapp.companyId,
-                      true
-                    );
+                    // A transient disconnect should not trigger a full app
+                    // state resync. The socket handles patches as needed; a
+                    // full resync on every reconnect can retain a large patch
+                    // batch while the previous connection is still closing.
+                    await StartWhatsAppSession(whatsapp, whatsapp.companyId);
                   }, 2000);
                 });
               } else {

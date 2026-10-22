@@ -2399,29 +2399,37 @@ const wbotMessageListener = async (
   companyId: number
 ): Promise<void> => {
   try {
+    // WhatsApp may replay a large batch after reconnecting. Keep expensive
+    // media downloads and database writes bounded to one message per session.
+    const messageMutex = new Mutex();
     wbot.ev.on("messages.upsert", async (messageUpsert: ImessageUpsert) => {
       logger.trace({ messageUpsert }, "wbotMessageListener: messages.upsert");
-      const messages = messageUpsert.messages
-        .filter(filterMessages)
-        .map(msg => msg);
+      await messageMutex.runExclusive(async () => {
+        // eslint-disable-next-line no-restricted-syntax
+        for (const message of messageUpsert.messages.filter(filterMessages)) {
+          if (!message?.message) {
+            logger.warn(
+              { message },
+              "wbotMessageListener: messages.upsert without supported content"
+            );
+            continue;
+          }
 
-      if (!messages) return;
+          try {
+            await wbot.sendReceipts([message.key], undefined);
 
-      messages.forEach(async (message: proto.IWebMessageInfo) => {
-        if (!message?.message) {
-          logger.warn(
-            { message },
-            "wbotMessageListener: messages.upsert without supported content"
-          );
-          return;
+            if (await verifyRecentCampaign(message, companyId)) {
+              continue;
+            }
+            await handleMessage(message, wbot, companyId);
+          } catch (error) {
+            Sentry.captureException(error);
+            logger.error(
+              { error, whatsappId: wbot.id },
+              "Error processing WhatsApp message"
+            );
+          }
         }
-
-        await wbot.sendReceipts([message.key], undefined);
-
-        if (await verifyRecentCampaign(message, companyId)) {
-          return;
-        }
-        await handleMessage(message, wbot, companyId);
       });
     });
 
