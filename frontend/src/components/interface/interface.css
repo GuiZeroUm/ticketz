@@ -287,3 +287,21 @@
   color: var(--ew-primary);
   background: color-mix(in srgb, var(--ew-primary) 9%, var(--ew-surface));
 }
+.ew-sr-only {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.ew-panel-head--flutuante {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}

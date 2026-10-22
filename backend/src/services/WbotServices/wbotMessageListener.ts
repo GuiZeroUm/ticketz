@@ -1039,7 +1039,7 @@ export const quickMessage = async (
   debouncedSentMessage();
 };
 
-const isValidMsg = (msg: proto.IWebMessageInfo): boolean => {
+export const isValidMsg = (msg: proto.IWebMessageInfo): boolean => {
   if (msg.key.remoteJid === "status@broadcast") return false;
   try {
     const msgType = getTypeMessage(msg);
@@ -1246,7 +1246,9 @@ export const startQueue = async (
   }
 
   if (filePath) {
-    optionsMsg = await getMessageFileOptions(queue.mediaName, filePath);
+    optionsMsg = wbot.sendChatbotMedia
+      ? {}
+      : await getMessageFileOptions(queue.mediaName, filePath);
   }
 
   /* Tratamento para envio de mensagem quando a fila está fora do expediente */
@@ -1307,17 +1309,35 @@ export const startQueue = async (
     }
 
     if (filePath) {
-      const sentMediaMessage = await wbot.sendMessage(getJidOf(ticket), {
-        ...optionsMsg
-      });
-      await verifyMediaMessage(sentMediaMessage, ticket, contact);
+      if (wbot.sendChatbotMedia) {
+        await wbot.sendChatbotMedia(
+          ticket,
+          filePath,
+          queue.mediaName,
+          optionsMsg.caption
+        );
+      } else {
+        const sentMediaMessage = await wbot.sendMessage(getJidOf(ticket), {
+          ...optionsMsg
+        });
+        await verifyMediaMessage(sentMediaMessage, ticket, contact);
+      }
     }
   } else {
     if (filePath) {
-      const sentMediaMessage = await wbot.sendMessage(getJidOf(ticket), {
-        ...optionsMsg
-      });
-      await verifyMediaMessage(sentMediaMessage, ticket, contact);
+      if (wbot.sendChatbotMedia) {
+        await wbot.sendChatbotMedia(
+          ticket,
+          filePath,
+          queue.mediaName,
+          optionsMsg.caption
+        );
+      } else {
+        const sentMediaMessage = await wbot.sendMessage(getJidOf(ticket), {
+          ...optionsMsg
+        });
+        await verifyMediaMessage(sentMediaMessage, ticket, contact);
+      }
     }
     await sendMenu(wbot, ticket, queue, sendBackToMain);
   }
@@ -1621,10 +1641,9 @@ export const handleChartbot = async (
     }
 
     if (filePath) {
-      optionsMsg = await getMessageFileOptions(
-        currentOption.mediaName,
-        filePath
-      );
+      optionsMsg = wbot.sendChatbotMedia
+        ? {}
+        : await getMessageFileOptions(currentOption.mediaName, filePath);
     }
 
     if (currentOption.exitChatbot || currentOption.forwardQueueId) {
@@ -1632,10 +1651,19 @@ export const handleChartbot = async (
 
       if (filePath) {
         optionsMsg.caption = text || undefined;
-        const sentMessage = await wbot.sendMessage(getJidOf(ticket), {
-          ...optionsMsg
-        });
-        await verifyMediaMessage(sentMessage, ticket, ticket.contact);
+        if (wbot.sendChatbotMedia) {
+          await wbot.sendChatbotMedia(
+            ticket,
+            filePath,
+            currentOption.mediaName,
+            optionsMsg.caption
+          );
+        } else {
+          const sentMessage = await wbot.sendMessage(getJidOf(ticket), {
+            ...optionsMsg
+          });
+          await verifyMediaMessage(sentMessage, ticket, ticket.contact);
+        }
       } else if (text) {
         const sendMsg = await wbot.sendMessage(getJidOf(ticket), { text });
         await verifyMessage(sendMsg, ticket, ticket.contact);
@@ -1667,10 +1695,19 @@ export const handleChartbot = async (
       if (!hasNextOptions) {
         optionsMsg.caption = currentText || undefined;
       }
-      const sentMessage = await wbot.sendMessage(getJidOf(ticket), {
-        ...optionsMsg
-      });
-      await verifyMediaMessage(sentMessage, ticket, ticket.contact);
+      if (wbot.sendChatbotMedia) {
+        await wbot.sendChatbotMedia(
+          ticket,
+          filePath,
+          currentOption.mediaName,
+          optionsMsg.caption
+        );
+      } else {
+        const sentMessage = await wbot.sendMessage(getJidOf(ticket), {
+          ...optionsMsg
+        });
+        await verifyMediaMessage(sentMessage, ticket, ticket.contact);
+      }
     }
 
     if (hasNextOptions) {

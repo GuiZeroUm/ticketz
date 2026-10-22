@@ -11,6 +11,7 @@ import {
   Users,
   Plug,
   Building,
+  Bot,
   CreditCard,
   Languages,
   Handshake,
@@ -18,7 +19,8 @@ import {
   SlidersHorizontal,
   Phone,
   ChevronDown,
-  ArrowUpRight
+  ArrowUpRight,
+  CircleDot
 } from "lucide-react";
 import { i18n } from "../../translate/i18n";
 import { useIdentidade } from "../interface";
@@ -76,6 +78,12 @@ export default function CentralConfiguracoes({
             icone: Building,
             itens: [
               { chave: "empresas", icone: Building, aba: "companies" },
+              { chave: "luizaAgent", icone: Bot, aba: "agent" },
+              {
+                chave: "statusWhatsapp",
+                icone: CircleDot,
+                aba: "whatsappStatus"
+              },
               { chave: "planos", icone: CreditCard, aba: "plans" },
               { chave: "parceiros", icone: Handshake, aba: "partners" },
               { chave: "pagamentos", icone: CreditCard, aba: "paymentGateway" },

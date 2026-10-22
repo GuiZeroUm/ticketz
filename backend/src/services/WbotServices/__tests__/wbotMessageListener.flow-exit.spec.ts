@@ -1,3 +1,4 @@
+import fs from "fs";
 import { WAMessage } from "libzapitu-rf";
 import Ticket from "../../../models/Ticket";
 import Queue from "../../../models/Queue";
@@ -131,3 +132,40 @@ describe("handleChartbot dead-end recovery", () => {
     );
   });
 });
+
+it.each([false, true])(
+  "sends official chatbot media without empty text or duplicate persistence (exit=%s)",
+  async exitChatbot => {
+    const exists = jest.spyOn(fs, "existsSync").mockReturnValue(true);
+    const option = {
+      id: 30,
+      option: "1",
+      message: "Documento",
+      mediaPath: "company2/document.pdf",
+      mediaName: "document.pdf",
+      options: [],
+      exitChatbot,
+      forwardQueueId: null
+    };
+    (Queue.findByPk as jest.Mock).mockResolvedValue({ options: [option] });
+    (QueueOption.findByPk as jest.Mock).mockResolvedValue(option);
+    const ticket = makeTicket();
+    const wbot = {
+      sendMessage: jest.fn(),
+      sendChatbotMedia: jest.fn().mockResolvedValue(undefined)
+    } as unknown as Session;
+    try {
+      await handleChartbot(ticket, inboundMessage, wbot);
+      expect(wbot.sendChatbotMedia).toHaveBeenCalledWith(
+        ticket,
+        expect.stringContaining("document.pdf"),
+        "document.pdf",
+        "Documento"
+      );
+      expect(wbot.sendMessage).not.toHaveBeenCalled();
+      expect(CreateMessageService).not.toHaveBeenCalled();
+    } finally {
+      exists.mockRestore();
+    }
+  }
+);

@@ -1,3 +1,4 @@
+import { assertScheduleProvider } from "./assertScheduleProvider";
 import { Op } from "sequelize";
 import sequelize from "../../database";
 import AppError from "../../errors/AppError";
@@ -5,6 +6,7 @@ import ScheduleDelivery from "../../models/ScheduleDelivery";
 import ShowService from "./ShowService";
 
 const SendNowService = async (id: string | number, companyId: number) => {
+  await assertScheduleProvider(companyId);
   const schedule = await ShowService(id, companyId);
 
   if (

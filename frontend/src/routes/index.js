@@ -14,6 +14,7 @@ import SgaBilling from "../pages/SgaBilling";
 import TicketResponsiveContainer from "../pages/TicketResponsiveContainer";
 import Signup from "../pages/Signup/";
 import Login from "../pages/Login/";
+import MobileLogin from "../pages/MobileLogin";
 import Connections from "../pages/Connections/";
 import SettingsCustom from "../pages/SettingsCustom/";
 import Financeiro from "../pages/Financeiro/";

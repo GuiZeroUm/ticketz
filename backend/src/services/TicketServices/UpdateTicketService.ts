@@ -1,3 +1,5 @@
+import { buildMetaWbot } from "../MetaWhatsAppServices/MetaWbotAdapter";
+import Whatsapp from "../../models/Whatsapp";
 import moment from "moment";
 import CheckContactOpenTickets from "../../helpers/CheckContactOpenTickets";
 import SetTicketMessagesAsRead from "../../helpers/SetTicketMessagesAsRead";
@@ -329,8 +331,6 @@ const UpdateTicketService = async ({
         if (ticket.channel === "whatsapp" && !isGroup) {
           const sentMessage = await SendWhatsAppMessage({ body, ticket });
 
-          // Modo oficial (Cloud API) ja persiste a mensagem dentro do proprio
-          // SendWhatsAppMessage - verifyMessage e Baileys-specific (proto).
           if (ticket.whatsapp?.apiMode !== "official") {
             await verifyMessage(sentMessage, ticket, ticket.contact);
           }

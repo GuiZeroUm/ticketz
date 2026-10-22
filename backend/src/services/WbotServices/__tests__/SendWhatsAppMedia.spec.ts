@@ -74,3 +74,17 @@ describe("SendWhatsAppMedia connection dispatch", () => {
     expect(GetTicketWbot).not.toHaveBeenCalled();
   });
 });
+
+it("does not send media using retained tokens after disconnect", async () => {
+  jest.clearAllMocks();
+  (Whatsapp.findByPk as jest.Mock).mockResolvedValue({
+    id: 5,
+    apiMode: "official",
+    status: "DISCONNECTED"
+  });
+  await expect(
+    SendWhatsAppMedia({ media, ticket: { id: 7, whatsappId: 5 } as Ticket })
+  ).rejects.toMatchObject({ message: "ERR_WAPP_NOT_INITIALIZED" });
+  expect(SendMetaMediaMessageService).not.toHaveBeenCalled();
+  expect(GetTicketWbot).not.toHaveBeenCalled();
+});

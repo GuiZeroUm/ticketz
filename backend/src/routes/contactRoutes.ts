@@ -78,6 +78,13 @@ contactRoutes.post(
 contactRoutes.post("/contacts", apiTokenAuth, isAuth, ContactController.store);
 
 contactRoutes.put(
+  "/contacts/:contactId/extra-info",
+  apiTokenAuth,
+  isAuth,
+  ContactController.updateExtraInfo
+);
+
+contactRoutes.put(
   "/contacts/:contactId",
   apiTokenAuth,
   isAuth,

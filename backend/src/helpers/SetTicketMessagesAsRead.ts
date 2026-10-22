@@ -1,3 +1,4 @@
+import Whatsapp from "../models/Whatsapp";
 import { WASocket, proto } from "libzapitu-rf";
 import { Op, WhereOptions } from "sequelize";
 import { getIO } from "../libs/socket";

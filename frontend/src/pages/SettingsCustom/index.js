@@ -16,8 +16,11 @@ import Options from "../../components/Settings/Options";
 import Whitelabel from "../../components/Settings/Whitelabel";
 import PaymentGateway from "../../components/Settings/PaymentGateway";
 import I18nSettings from "../../components/Settings/I18nSettings";
+import AgentContextManager from "../../components/Settings/AgentContextManager";
+import WhatsappStatusTenants from "../../components/Settings/WhatsappStatusTenants";
 import VoiceSettings from "../../components/VoiceSettings";
 import api from "../../services/api";
+import { canSeeScreen } from "../../helpers/screenAccess";
 
 import { i18n } from "../../translate/i18n.js";
 import { toast } from "react-toastify";
@@ -208,7 +211,7 @@ const SettingsCustom = () => {
   };
 
   const isAdmin = () => {
-    return currentUser.profile === "admin";
+    return canSeeScreen(currentUser, "settings");
   };
 
   const renderizarSecao = tab => (
@@ -299,6 +302,16 @@ const SettingsCustom = () => {
         user={currentUser}
         yes={() => (
           <>
+            <TabPanel className={classes.container} value={tab} name={"agent"}>
+              <AgentContextManager />
+            </TabPanel>
+            <TabPanel
+              className={classes.container}
+              value={tab}
+              name={"whatsappStatus"}
+            >
+              <WhatsappStatusTenants />
+            </TabPanel>
             <TabPanel
               className={classes.container}
               value={tab}

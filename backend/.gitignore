@@ -10,3 +10,7 @@
 /private/*
 !/private/index.html
 /src/generated
+/.hermes-chat-bridge*.log
+
+__pycache__/
+*.pyc

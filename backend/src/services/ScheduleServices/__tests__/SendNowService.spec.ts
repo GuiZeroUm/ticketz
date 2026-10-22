@@ -12,6 +12,7 @@ jest.mock("../../../models/ScheduleDelivery", () => ({
   default: { count: jest.fn(), update: jest.fn() }
 }));
 jest.mock("../ShowService");
+jest.mock("../assertScheduleProvider");
 
 const mockedShow = ShowService as jest.MockedFunction<typeof ShowService>;
 const mockedCount = ScheduleDelivery.count as jest.MockedFunction<

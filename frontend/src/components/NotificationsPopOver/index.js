@@ -90,9 +90,13 @@ const NotificationsPopOver = props => {
   }
 
   useEffect(() => {
-    getSetting("soundGroupNotifications").then(soundGroupNotifications => {
-      setSoundGroupNotifications(soundGroupNotifications === "enabled");
-    });
+    let active = true;
+    getSetting("soundGroupNotifications")
+      .then(soundGroupNotifications => {
+        if (active)
+          setSoundGroupNotifications(soundGroupNotifications === "enabled");
+      })
+      .catch(() => {});
 
     Promise.all([getSetting("CheckMsgIsGroup"), getSetting("groupsTab")]).then(
       ([ignoreGroups, groupsTab]) => {
@@ -328,6 +332,7 @@ const NotificationsPopOver = props => {
           <Badge
             variant="dot"
             color="secondary"
+            overlap="rectangular"
             style={{ marginTop: "-25px" }}
           ></Badge>
         ) : (

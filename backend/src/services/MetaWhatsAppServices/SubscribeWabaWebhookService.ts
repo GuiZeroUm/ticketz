@@ -1,3 +1,4 @@
+import { Op } from "sequelize";
 import { getMetaGraphApiClient, withAuth } from "./MetaGraphApiClient";
 import AppError from "../../errors/AppError";
 import { logger } from "../../utils/logger";
@@ -9,6 +10,22 @@ export const SubscribeWabaWebhookService = async (
   wabaId: string,
   accessToken: string
 ): Promise<void> => {
+  const callback = process.env.META_WEBHOOK_CALLBACK_URL?.trim();
+  const verifyToken = process.env.META_WEBHOOK_VERIFY_TOKEN;
+  if (callback) {
+    let valid = false;
+    try {
+      const url = new URL(callback);
+      valid =
+        url.protocol === "https:" &&
+        !url.username &&
+        !url.password &&
+        !!verifyToken;
+    } catch {
+      // Reject malformed configuration before making a Graph API request.
+    }
+    if (!valid) throw new AppError("ERR_META_WEBHOOK_CONFIG_INVALID", 503);
+  }
   const client = getMetaGraphApiClient();
 
   try {

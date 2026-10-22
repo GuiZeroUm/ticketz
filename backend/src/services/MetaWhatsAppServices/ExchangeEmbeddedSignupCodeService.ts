@@ -7,46 +7,41 @@ interface Response {
   expiresInSeconds: number | null;
 }
 
-// Troca o "code" de curta duracao devolvido pelo Embedded Signup (FB.login)
-// por um access token, e imediatamente troca esse token por um de longa
-// duracao. Nunca aceitamos token colado manualmente pelo cliente - o fluxo
-// e sempre login dele via Facebook.
+// Facebook Login for Business exchanges the one-use code directly for the
+// customer's business integration token. It is not a short-lived personal
+// token: do not run the fb_exchange_token flow on the returned credential.
 const ExchangeEmbeddedSignupCodeService = async (
   code: string
 ): Promise<Response> => {
-  const appId = process.env.META_APP_ID;
-  const appSecret = process.env.META_APP_SECRET;
-
-  if (!appId || !appSecret) {
+  const appId = process.env.META_APP_ID?.trim();
+  const appSecret = process.env.META_APP_SECRET?.trim();
+  if (!appId || !appSecret)
     throw new AppError("ERR_META_APP_NOT_CONFIGURED", 500);
+  if (
+    typeof code !== "string" ||
+    !code ||
+    code.length > 4096 ||
+    /\s/.test(code)
+  ) {
+    throw new AppError("ERR_META_CONNECT_MISSING_FIELDS", 400);
   }
 
-  const client = getMetaGraphApiClient();
-
   try {
-    const shortLived = await client.get("/oauth/access_token", {
-      params: {
-        client_id: appId,
-        client_secret: appSecret,
-        code
-      }
+    const { data } = await getMetaGraphApiClient().get("/oauth/access_token", {
+      params: { client_id: appId, client_secret: appSecret, code }
     });
-
-    const longLived = await client.get("/oauth/access_token", {
-      params: {
-        grant_type: "fb_exchange_token",
-        client_id: appId,
-        client_secret: appSecret,
-        fb_exchange_token: shortLived.data.access_token
-      }
-    });
-
+    if (typeof data?.access_token !== "string" || !data.access_token.trim()) {
+      throw new AppError("ERR_META_CODE_EXCHANGE_FAILED", 502);
+    }
+    const expires = Number(data.expires_in);
     return {
-      accessToken: longLived.data.access_token,
-      expiresInSeconds: longLived.data.expires_in ?? null
+      accessToken: data.access_token,
+      expiresInSeconds: Number.isFinite(expires) && expires > 0 ? expires : null
     };
-  } catch (err) {
-    logger.error({ err }, "Failed to exchange Meta Embedded Signup code");
+  } catch {
+    // Even mocked/custom HTTP clients may throw raw Axios config containing
+    // code, app secret and token. Never log or rethrow that object.
+    logger.error("Failed to exchange Meta Embedded Signup code");
     throw new AppError("ERR_META_CODE_EXCHANGE_FAILED", 502);
   }
 };

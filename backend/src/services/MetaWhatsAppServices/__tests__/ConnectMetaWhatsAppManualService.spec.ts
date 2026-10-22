@@ -5,9 +5,16 @@ import { getIO } from "../../../libs/socket";
 import ConnectMetaWhatsAppManualService from "../ConnectMetaWhatsAppManualService";
 
 jest.mock("../../../models/Whatsapp");
+jest.mock("../ListTicketTemplatesService", () => ({
+  clearTicketTemplatesCache: jest.fn()
+}));
 jest.mock("../RegisterPhoneNumberService");
 jest.mock("../SubscribeWabaWebhookService");
-jest.mock("../../../libs/socket");
+jest.mock("../AssertMetaWabaRuntimeService", () => ({
+  __esModule: true,
+  default: jest.fn().mockResolvedValue(undefined)
+}));
+jest.mock("../../../libs/socket", () => ({ getIO: jest.fn() }));
 
 const registerPhoneNumber = RegisterPhoneNumberService as jest.MockedFunction<
   typeof RegisterPhoneNumberService
@@ -22,6 +29,7 @@ describe("ConnectMetaWhatsAppManualService", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.ENCRYPTION_KEY = "test-only-key";
     (getIO as jest.Mock).mockReturnValue({ to });
   });
 
@@ -55,6 +63,25 @@ describe("ConnectMetaWhatsAppManualService", () => {
       })
     ).rejects.toMatchObject({ message: "ERR_WAPP_NOT_OFFICIAL_MODE" });
 
+    expect(registerPhoneNumber).not.toHaveBeenCalled();
+  });
+
+  it("rejects a phone number already linked to another connection", async () => {
+    (Whatsapp.findOne as jest.Mock).mockResolvedValue({
+      id: 9,
+      companyId: 1,
+      apiMode: "official"
+    });
+    (Whatsapp.count as jest.Mock).mockResolvedValueOnce(1);
+    await expect(
+      ConnectMetaWhatsAppManualService({
+        whatsappId: 9,
+        companyId: 1,
+        wabaId: "waba-1",
+        phoneNumberId: "phone-1",
+        accessToken: "token-1"
+      })
+    ).rejects.toMatchObject({ message: "ERR_META_PHONE_ALREADY_CONNECTED" });
     expect(registerPhoneNumber).not.toHaveBeenCalled();
   });
 

@@ -15,6 +15,8 @@ import AppError from "../errors/AppError";
 import Ticket from "../models/Ticket";
 import { sendWhatsappUpdate } from "../services/WhatsappService/SocketSendWhatsappUpdate";
 import { UnsubscribeWabaWebhookService } from "../services/MetaWhatsAppServices/SubscribeWabaWebhookService";
+import User from "../models/User";
+import { canAccessScreen } from "../helpers/screenAccess";
 
 interface WhatsappData {
   name: string;

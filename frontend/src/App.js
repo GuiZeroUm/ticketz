@@ -66,15 +66,12 @@ function useViewportHeight() {
 const App = () => {
   const [locale, setLocale] = useState();
 
-  const prefersDarkMode = !!window.matchMedia("(prefers-color-scheme: dark)")
-    .matches;
+  // Without a saved choice the app starts light, whatever the system prefers.
   const preferredTheme = window.localStorage.getItem("preferredTheme");
   const [selectedTheme, setSelectedTheme] = useState(
     preferredTheme === "dark" || preferredTheme === "light"
       ? preferredTheme
-      : prefersDarkMode
-        ? "dark"
-        : "light"
+      : "light"
   );
   // Set exclusively by AuthProvider from the authenticated user, never localStorage.
   const [themeCompanyId, setThemeCompany] = useState(null);
@@ -93,10 +90,7 @@ const App = () => {
     setPreferenceCompany(themeCompanyId);
     if (!themeCompanyId) {
       setSelectedTheme(
-        normalizeTheme(
-          localStorage.getItem("preferredTheme") ||
-            (prefersDarkMode ? "dark" : "light")
-        )
+        normalizeTheme(localStorage.getItem("preferredTheme") || "light")
       );
       return;
     }
@@ -105,13 +99,11 @@ const App = () => {
     );
     setSelectedTheme(
       normalizeTheme(
-        saved ||
-          localStorage.getItem("preferredTheme") ||
-          (prefersDarkMode ? "dark" : "light"),
+        saved || localStorage.getItem("preferredTheme") || "light",
         stardewAllowed
       )
     );
-  }, [themeCompanyId, stardewAllowed, prefersDarkMode]);
+  }, [themeCompanyId, stardewAllowed]);
   useLayoutEffect(() => {
     document.documentElement.dataset.theme = themeName;
     document.body.dataset.theme = themeName;

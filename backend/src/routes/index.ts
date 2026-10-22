@@ -62,7 +62,6 @@ routes.use(prospeccaoRoutes);
 routes.use(taskBoardRoutes);
 routes.use(voiceRoutes);
 routes.use(whatsappGroupRoutes);
-routes.use(webPushRoutes);
 routes.use(oauthRoutes);
 routes.use(mcpRoutes);
 routes.use(chatGptRoutes);
@@ -105,7 +104,10 @@ routes.use(ticketzOSSRoutes);
 routes.use(i18nRoutes);
 routes.use(wavoipRoutes);
 routes.use(ogRoutes);
+
 routes.use(metaWhatsappRoutes);
 routes.use(metaWhatsappWebhookRoutes);
+routes.use(whatsappStatusAdminRoutes);
+routes.use(whatsappStatusRoutes);
 
 export default routes;

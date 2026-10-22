@@ -1,3 +1,4 @@
+import { runtimeOwnsCompany } from "../../helpers/tenantRuntime";
 import Whatsapp from "../../models/Whatsapp";
 import Message from "../../models/Message";
 import { logger } from "../../utils/logger";
@@ -31,7 +32,7 @@ const ProcessMetaWebhookEventService = async (payload: any): Promise<void> => {
         where: { metaPhoneNumberId: phoneNumberId, apiMode: "official" }
       });
 
-      if (!whatsapp) {
+      if (!whatsapp || !runtimeOwnsCompany(whatsapp.companyId)) {
         logger.warn(
           { phoneNumberId },
           "Meta webhook event for unknown phoneNumberId, ignoring"

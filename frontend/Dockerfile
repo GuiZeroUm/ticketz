@@ -1,4 +1,4 @@
-FROM node:20-alpine as build-deps
+FROM node:22-alpine as build-deps
 
 WORKDIR /usr/src/app
 COPY . .

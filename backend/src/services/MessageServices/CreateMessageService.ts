@@ -139,7 +139,7 @@ const CreateMessageService = async ({
           {
             model: Whatsapp,
             as: "whatsapp",
-            attributes: ["name", "id"]
+            attributes: ["id", "name", "apiMode"]
           }
         ]
       },

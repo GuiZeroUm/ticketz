@@ -33,6 +33,7 @@ import Title from "../../components/Title";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import toastError from "../../errors/toastError";
 import api from "../../services/api";
+import { canSeeScreen } from "../../helpers/screenAccess";
 import { i18n } from "../../translate/i18n";
 
 const CHATGPT_PLUGIN_URL =
@@ -120,7 +121,7 @@ const ChatGPT = () => {
     load();
   }, [load]);
 
-  if (user?.profile !== "admin") return null;
+  if (!canSeeScreen(user, "chatgpt")) return null;
 
   const copyMcpUrl = async () => {
     await navigator.clipboard.writeText(data.mcpUrl);

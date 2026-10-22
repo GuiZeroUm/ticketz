@@ -2,6 +2,7 @@ import User from "../../models/User";
 import AppError from "../../errors/AppError";
 import Queue from "../../models/Queue";
 import Company from "../../models/Company";
+import Setting from "../../models/Setting";
 
 const ShowUserService = async (
   id: string | number,
@@ -16,6 +17,7 @@ const ShowUserService = async (
       "profilePicUrl",
       "companyId",
       "profile",
+      "visibleScreens",
       "super",
       "tokenVersion"
     ],
@@ -35,9 +37,29 @@ const ShowUserService = async (
           "id",
           "name",
           "slug",
+          "whatsappMode",
+          "whatsappStatusEnabled",
+          "signupSource",
+          "trialStartedAt",
+          "trialExpiresAt",
+          "trialDays",
+          "trialEndsAt",
+          "dueDay",
           "dueDate",
           "status",
           "platformStatus"
+        ],
+        // Only the first-login welcome state, so the app can start empty
+        // before its first paint while the welcome builds it. Other company
+        // settings stay behind their own authorized endpoints.
+        include: [
+          {
+            model: Setting,
+            as: "settings",
+            attributes: ["key", "value"],
+            where: { key: "welcomeTour" },
+            required: false
+          }
         ]
       }
     ],

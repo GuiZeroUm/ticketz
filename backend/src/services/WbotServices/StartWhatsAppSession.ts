@@ -13,6 +13,9 @@ export const StartWhatsAppSession = async (
 ): Promise<void> => {
   assertRuntimeCompany(companyId);
   assertRuntimeCompany(whatsapp.companyId);
+  // Cloud API connections never own a Baileys socket, including direct
+  // refresh/recovery callers that bypass the startup enumeration.
+  if (whatsapp.apiMode === "official") return;
   await whatsapp.update({ status: "OPENING" });
 
   sendWhatsappUpdate(whatsapp);

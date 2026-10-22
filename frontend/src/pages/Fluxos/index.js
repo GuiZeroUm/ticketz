@@ -10,6 +10,7 @@ import MainContainer from "../../components/MainContainer";
 import EditorFluxo from "../../components/EditorFluxo";
 import { Botao, useIdentidade } from "../../components/interface";
 import QueueModal from "../../components/QueueModal";
+import { canSeeScreen } from "../../helpers/screenAccess";
 
 export default function Fluxos() {
   const { user } = useContext(AuthContext);
@@ -33,7 +34,7 @@ export default function Fluxos() {
     carregar();
   }, []);
   const filaAtual = filas.find(fila => fila.id === Number(queueId)) || filas[0];
-  if (user.profile !== "admin") return null;
+  if (!canSeeScreen(user, "fluxos")) return null;
   return (
     <MainContainer>
       <div

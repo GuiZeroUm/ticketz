@@ -20,7 +20,8 @@ import {
   useMediaQuery
 } from "@material-ui/core";
 
-import BusinessOutlined from "@material-ui/icons/BusinessOutlined";
+import AgentAvailability from "../components/AgentPreview/AgentAvailability";
+import WelcomeTour, { useTourNavegacao } from "../components/WelcomeTour";
 import SettingsEthernetIcon from "@material-ui/icons/SettingsEthernet";
 
 import MainListItems from "./MainListItems";
@@ -47,7 +48,6 @@ import { SocketContext } from "../context/Socket/SocketContext";
 import ChatPopover from "../pages/Chat/ChatPopover";
 
 import { useDate } from "../hooks/useDate";
-import useAuth from "../hooks/useAuth.js";
 
 import ThemeSelector, { ThemeOptions } from "../components/ThemeSelector";
 import NestedMenuItem from "material-ui-nested-menu-item";
@@ -75,16 +75,6 @@ const useStyles = makeStyles(theme => ({
     height: "var(--vh)",
     backgroundColor: theme.palette.fancyBackground,
     color: theme.palette.text.primary
-  },
-  organizacao: {
-    margin: "8px 12px",
-    padding: 10,
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    border: `1px solid ${theme.palette.divider}`,
-    borderRadius: 8,
-    minWidth: 0
   },
   novaConversa: { margin: "4px 12px 8px", minWidth: 36 },
   rodapeUsuario: {
@@ -345,23 +335,6 @@ const useStyles = makeStyles(theme => ({
   },
   NotificationsPopOver: {
     // color: theme.barraSuperior.secondary.main,
-  },
-  logo: {
-    maxWidth: "180px",
-    maxHeight: "36px",
-    logo: theme.logo,
-    margin: "auto",
-    content: `url("${theme.calculatedLogo()}")`
-  },
-  logoIcon: {
-    width: "40px",
-    height: "40px",
-    logo: theme.logo,
-    margin: "auto",
-    content: `url("${theme.appLogoFavicon ? theme.appLogoFavicon : "/branding/icon.png"}")`
-  },
-  hideLogo: {
-    display: "none"
   }
 }));
 
@@ -372,7 +345,7 @@ const LoggedInLayout = ({ children, themeToggle }) => {
   const [aboutModalOpen, setAboutModalOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const { handleLogout, loading } = useContext(AuthContext);
+  const { handleLogout, loading, user } = useContext(AuthContext);
   const [drawerOpen, setDrawerOpen] = useState(() => {
     const isDesktop = window.matchMedia("(min-width:600px)").matches;
 
@@ -394,10 +367,8 @@ const LoggedInLayout = ({ children, themeToggle }) => {
 
   const [currentLanguage, setCurrentLanguage] = useState(i18n.language);
 
-  const { getCurrentUserInfo } = useAuth();
-  const [currentUser, setCurrentUser] = useState({});
   const canAccessBackendlogs =
-    currentUser?.super || localStorage.getItem("impersonated") === "true";
+    user?.super || localStorage.getItem("impersonated") === "true";
 
   const [volume, setVolume] = useState(localStorage.getItem("volume") || 1);
 
@@ -455,13 +426,6 @@ const LoggedInLayout = ({ children, themeToggle }) => {
   //   }
   // }, []);
   //##############################################################################
-
-  useEffect(() => {
-    getCurrentUserInfo().then(user => {
-      setCurrentUser(user);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   useEffect(() => {
     const currentLang = localStorage.getItem("language");
@@ -560,6 +524,13 @@ const LoggedInLayout = ({ children, themeToggle }) => {
     handleCloseProfileMenu();
   };
 
+  const abrirNavegacao = () => setDrawerOpen(true);
+  const refazerTour = useTourNavegacao(abrirNavegacao);
+  const handleOpenTour = () => {
+    handleCloseProfileMenu();
+    refazerTour();
+  };
+
   const handleOpenAboutModal = () => {
     setAboutModalOpen(true);
     handleCloseProfileMenu();
@@ -630,16 +601,14 @@ const LoggedInLayout = ({ children, themeToggle }) => {
           onClick={handleDrawerToggle}
           style={{ cursor: "pointer" }}
         >
-          <img
-            className={
-              drawerOpen
-                ? classes.logo
-                : !isMobile
-                  ? classes.logoIcon
-                  : classes.hideLogo
-            }
-            alt="logo"
-          />
+          {(drawerOpen || !isMobile) && (
+            <SidebarBrand
+              expanded={drawerOpen}
+              bannerSrc={theme.calculatedLogo()}
+              iconSrc={theme.appLogoFavicon}
+              name={user?.company?.name || theme.appName}
+            />
+          )}
         </div>
         {drawerOpen && (
           <div className={classes.organizacao}>
@@ -744,6 +713,7 @@ const LoggedInLayout = ({ children, themeToggle }) => {
         open={aboutModalOpen}
         onClose={() => setAboutModalOpen(false)}
       />
+      <WelcomeTour user={user} abrirNavegacao={abrirNavegacao} />
       <Menu
         id="menu-appbar"
         anchorEl={anchorEl}
@@ -795,6 +765,9 @@ const LoggedInLayout = ({ children, themeToggle }) => {
             </MenuItem>
           ))}
         </NestedMenuItem>
+        <MenuItem onClick={handleOpenTour}>
+          {i18n.t("welcomeTour.menu")}
+        </MenuItem>
         <MenuItem onClick={handleOpenAboutModal}>
           {i18n.t("about.aboutthe")} {theme.appName || "Espaço Whats"}
         </MenuItem>

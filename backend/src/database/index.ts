@@ -77,6 +77,8 @@ const dbConfig = require("../config/database");
 const sequelize = new Sequelize(dbConfig);
 
 const models = [
+  AgentTenantPolicy,
+  AgentContextAudit,
   Partner,
   Company,
   User,

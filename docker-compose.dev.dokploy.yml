@@ -101,6 +101,14 @@ services:
     networks:
       - internal
 
+  agent-redis:
+    image: redis:8.2.1-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    restart: unless-stopped
+    mem_limit: 128m
+    networks:
+      - internal
+
   backend:
     build:
       context: ./backend
@@ -112,12 +120,27 @@ services:
         required: false
     environment:
       NODE_ENV: production
-      CLERK_ENVIRONMENT: development
       MOBILE_AUTH_ENABLED: ${MOBILE_AUTH_ENABLED:-true}
+      AGENT_REDIS_URI: redis://agent-redis:6379
+      AGENT_TOOLS_BASE_URL: ${BACKEND_URL}
+      HERMES_CHAT_URL: ${HERMES_CHAT_URL:-}
+      HERMES_CHAT_BRIDGE_KEY: ${HERMES_CHAT_BRIDGE_KEY:-}
+      HERMES_CHAT_COMPANY_IDS: ${HERMES_CHAT_COMPANY_IDS:-}
+      META_APP_ID: ${META_APP_ID:-}
+      META_APP_SECRET: ${META_APP_SECRET:-}
+      META_CONFIG_ID: ${META_CONFIG_ID:-}
+      META_WEBHOOK_VERIFY_TOKEN: ${META_WEBHOOK_VERIFY_TOKEN:-}
+      META_GRAPH_API_VERSION: ${META_GRAPH_API_VERSION:-v21.0}
+      META_ALLOWED_COMPANY_IDS: ${META_ALLOWED_COMPANY_IDS:-}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      CLERK_ENVIRONMENT: development
       CLERK_TENANT_BASE_DOMAIN: dev.espacowhats.com.br
       CLERK_ISSUER: https://trusted-jaybird-7472.clerk.accounts.dev
       CLERK_GOOGLE_ENABLED: ${CLERK_GOOGLE_ENABLED:-true}
       CLERK_AUTHORIZED_PARTIES: ${CLERK_AUTHORIZED_PARTIES:-https://dev.espacowhats.com.br,https://teste.dev.espacowhats.com.br}
+      # Keep the unverified QR Status implementation available only for tests.
+      WHATSAPP_STATUS_VERIFIED_LIBS: 1.0.0-alpha.16
+      BAILEYS_LOG_LEVEL: warn
       PORT: "3000"
       TZ: ${TZ:-America/Rio_Branco}
       DB_DIALECT: postgres
@@ -134,6 +157,7 @@ services:
       FRONTEND_URL_REGEX: ${FRONTEND_URL_REGEX}
       BACKEND_URL: ${BACKEND_URL}
       APP_BASE_DOMAIN: ${APP_BASE_DOMAIN}
+      MASTER_COMPANY_ID: ${MASTER_COMPANY_ID:-1}
       EMAIL_ADDRESS: ${EMAIL_ADDRESS}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       USER_LIMIT: ${USER_LIMIT:-10000}

@@ -1,3 +1,6 @@
+import GetTicketServiceWindowService from "../services/TicketServices/TicketServiceWindowService";
+import ListTicketTemplatesService from "../services/MetaWhatsAppServices/ListTicketTemplatesService";
+import Whatsapp from "../models/Whatsapp";
 import { Request, Response } from "express";
 import { Mutex } from "async-mutex";
 import { getIO } from "../libs/socket";
@@ -290,7 +293,7 @@ export const showFromUUID = async (
 ): Promise<Response> => {
   const { uuid } = req.params;
 
-  const ticket: Ticket = await ShowTicketUUIDService(uuid);
+  const ticket: Ticket = await ShowTicketUUIDService(uuid, req.user.companyId);
 
   if (ticket.companyId !== req.user.companyId) {
     throw new AppError("ERR_NO_TICKET_FOUND", 404);

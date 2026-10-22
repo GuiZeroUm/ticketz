@@ -205,6 +205,13 @@ it.each([
     } else {
       expect(screen.queryByText("Company management")).toBeNull();
     }
+    expect(
+      Boolean(
+        screen.queryByRole("button", {
+          name: /centralConfig.itens.luizaAgent.titulo/
+        })
+      )
+    ).toBe(superuser);
   }
 );
 

@@ -28,6 +28,27 @@ describe("subscription billing notice", () => {
   });
   afterEach(() => jest.useRealTimers());
 
+  it("exposes trial status and delays billing notice until the exact expiration", async () => {
+    const trial = {
+      id: 9,
+      trialEndsAt: "2026-09-25",
+      trialStartedAt: "2026-09-11T18:00:00Z",
+      trialExpiresAt: "2026-09-25T18:00:00Z"
+    };
+    (Company.findByPk as jest.Mock).mockResolvedValue(trial);
+    jest.setSystemTime(new Date("2026-09-25T17:59:59Z"));
+    expect(await SubscriptionNoticeService(9)).toMatchObject({
+      notice: null,
+      trial: { status: "active" }
+    });
+    expect(Invoices.findOne).not.toHaveBeenCalled();
+    jest.setSystemTime(new Date("2026-09-25T18:00:00Z"));
+    expect(await SubscriptionNoticeService(9)).toMatchObject({
+      trial: { status: "expired" }
+    });
+    expect(Invoices.findOne).toHaveBeenCalled();
+  });
+
   it.each([
     [25, "warning", 6],
     [26, "error", 5],

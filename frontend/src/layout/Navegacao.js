@@ -77,6 +77,7 @@ function ItemNavegacao({ item, expandido, aoNavegar }) {
           <ListItem
             button
             className={`ew-nav-motion ${classes.item} ${selecionado ? "ativo" : ""}`}
+            data-tour={item.chave}
             aria-label={titulo}
             aria-expanded={aberto}
             onClick={() => definirAberto(!aberto)}
@@ -96,6 +97,7 @@ function ItemNavegacao({ item, expandido, aoNavegar }) {
                   activeClassName: "ativo"
                 })}
             className={`ew-nav-motion ${classes.item}`}
+            data-tour={item.to}
             aria-label={titulo}
             onClick={item.aoClicar || aoNavegar}
           >

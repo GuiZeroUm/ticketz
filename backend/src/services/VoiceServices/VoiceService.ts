@@ -466,7 +466,7 @@ export const listVoiceConnections = async (companyId: number) => {
   const [connections, whatsapps, serviceHealthy] = await Promise.all([
     VoiceConnection.findAll({ where: { companyId }, order: [["id", "ASC"]] }),
     Whatsapp.findAll({
-      where: { companyId, channel: "whatsapp" },
+      where: { companyId, channel: "whatsapp", apiMode: "baileys" },
       attributes: ["id", "name", "status"],
       order: [["name", "ASC"]]
     }),
@@ -493,6 +493,9 @@ export const pairVoiceConnection = async (
     where: { id: whatsappId, companyId, channel: "whatsapp" }
   });
   if (!whatsapp) throw new AppError("ERR_WAPP_NOT_FOUND", 404);
+  if (whatsapp.apiMode === "official") {
+    throw new AppError("ERR_WAPP_OFFICIAL_MODE_NOT_SUPPORTED", 400);
+  }
 
   const [connection] = await VoiceConnection.findOrCreate({
     where: { companyId, whatsappId },

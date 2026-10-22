@@ -1,6 +1,46 @@
 const messages = {
   pt_PT: {
     translations: {
+      agentPreview: {
+        launcher: "Agente Espaço",
+        subtitle: "Uma ajuda extra na operação",
+        avatarTitle: "Kirby, personagem do Agente Espaço",
+        panel: "Agente Espaço · conversa com Luiza's Agent",
+        greeting: "Olá, {{name}}.",
+        chat: {
+          sources: "Fontes consultadas",
+          contextChanged:
+            "O contexto foi atualizado. Vamos continuar com as permissões e os dados atuais.",
+          badge: "Luiza's Agent · do seu lado, na operação",
+          connected: "Resposta de Luiza's Agent",
+          progress: "A pensar no seu pedido…",
+          progressConnecting: "A ligar os pontos…",
+          progressWorking: "A trabalhar nisso, já volto…",
+          progressPreparing: "A dar forma à sua resposta…",
+          progressContinuing: "Mais um instante, estou consigo…",
+          error: "Não foi possível receber a resposta. Tente novamente.",
+          unavailable:
+            "Luiza's Agent está indisponível de momento. Tente novamente.",
+          timeout: "Luiza's Agent demorou a responder. Tente novamente.",
+          cancelled: "Resposta interrompida.",
+          invalidRequest:
+            "Não foi possível enviar esta mensagem. Reveja o texto e tente novamente.",
+          sessionExpired:
+            "A sua sessão expirou. Entre novamente para continuar.",
+          permissionDenied: "O seu utilizador não tem acesso a esta conversa.",
+          agentDisabled:
+            "O Luiza’s está desativado nesta empresa. O super admin pode ativá-lo em Configurações → Administração → Luiza’s Agent.",
+          moduleBlocked:
+            "O acesso a esta funcionalidade não foi autorizado para o Luiza’s. Peça ao super admin para rever os módulos disponíveis.",
+          busy: "O agente está ocupado. Aguarde um momento e tente novamente.",
+          notConfigured:
+            "A ligação a Luiza's Agent ainda não está configurada.",
+          emptyReply:
+            "Luiza's Agent não devolveu uma resposta. Tente novamente.",
+          retry: "Tentar novamente",
+          placeholder: "O que vamos resolver hoje?"
+        }
+      },
       visual: {
         visualizar: "Visualizar",
         centralAtendimento: "Central de Atendimento",

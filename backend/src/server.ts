@@ -22,6 +22,7 @@ import {
 } from "./services/VoiceServices/VoiceService";
 import { recoverPendingVoiceArtifacts } from "./services/VoiceServices/VoiceArtifactService";
 import { recoverVoiceHistories } from "./services/VoiceServices/VoiceHistoryService";
+import { startAgentContextWorker, stopAgentContextWorker } from "./services/AgentServices/AgentDocumentService";
 
 // Environment Variable Validation
 if (!process.env.PORT) {
@@ -91,6 +92,7 @@ i18nReady.then(() => {
     onShutdown: async () => {
       logger.info("Shutdown initiated. Cleaning up...");
       stopVoiceEventBridge();
+      await stopAgentContextWorker();
     },
     finally: () => {
       logger.info("Server has shut down.");

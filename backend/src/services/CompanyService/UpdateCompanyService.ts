@@ -1,3 +1,4 @@
+import { assertCompanyWhatsAppModeUnchanged } from "./CompanyWhatsAppModeService";
 import { Op, Transaction } from "sequelize";
 import AppError from "../../errors/AppError";
 import Company from "../../models/Company";
@@ -19,6 +20,7 @@ import {
 import { assertCompanyTimezone } from "./CompanyTimezoneService";
 
 interface CompanyData {
+  whatsappMode?: "normal" | "meta";
   name: string;
   id?: number | string;
   phone?: string;
@@ -63,6 +65,11 @@ const UpdateCompanyService = async (
     throw new AppError("ERR_NO_COMPANY_FOUND", 404);
   }
 
+  assertCompanyWhatsAppModeUnchanged(
+    company.whatsappMode,
+    companyData.whatsappMode
+  );
+
   const previousPlanId = company.planId;
   const wasActive = company.status;
   const previousDueDate = company.dueDate;
@@ -103,7 +110,8 @@ const UpdateCompanyService = async (
       moment.utc().format("YYYY-MM-DD"),
       trialDays
     );
-    nextDueDate = firstBillableDueDate(trialEndsAt, dueDay);
+    // The first (prorated) invoice is due on the last trial day.
+    nextDueDate = trialEndsAt;
   } else if (
     hasDueDay &&
     trialEndsAt &&
@@ -113,7 +121,11 @@ const UpdateCompanyService = async (
       where: { companyId: company.id, billingType: "initial_prorata" },
       transaction
     });
-    if (initialIssued === 0)
+    // New companies keep the first charge on the last trial day, whatever the
+    // due day; companies created before that rule had it on the due day.
+    const chargedAtTrialEnd =
+      moment.utc(company.dueDate).format("YYYY-MM-DD") === trialEndsAt;
+    if (initialIssued === 0 && !chargedAtTrialEnd)
       nextDueDate = firstBillableDueDate(trialEndsAt, dueDay);
   }
 

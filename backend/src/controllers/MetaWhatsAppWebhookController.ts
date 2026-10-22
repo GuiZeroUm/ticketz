@@ -13,6 +13,8 @@ export const verify = (req: Request, res: Response): Response => {
 
   if (
     mode === "subscribe" &&
+    typeof token === "string" &&
+    !!process.env.META_WEBHOOK_VERIFY_TOKEN &&
     token === process.env.META_WEBHOOK_VERIFY_TOKEN
   ) {
     return res.status(200).send(challenge);

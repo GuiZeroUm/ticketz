@@ -13,3 +13,17 @@ strix_runs/
 **/.env.*.local
 **/.clerk/
 graphify-out/
+.codex
+.cursor
+.claude
+.agents
+.externalToolBuilders
+.vscode
+
+.env-backend-acme
+.env-backend-cloudflare
+.env-backend-local
+.env-cloudflared
+.env-frontend-acme
+.env-frontend-cloudflare
+.env-frontend-local

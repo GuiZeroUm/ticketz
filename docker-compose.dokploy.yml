@@ -97,7 +97,24 @@ services:
     networks:
       - internal
 
+  agent-redis:
+    image: redis:8.2.1-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    restart: unless-stopped
+    mem_limit: 128m
+    networks:
+      - internal
+
   backend:
+    # Upgrade an existing database without seeds, imports or session resets.
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        dockerize -wait tcp://$${DB_HOST}:$${DB_PORT:-5432} -timeout 60s
+        node scripts/check-production-database.cjs
+        node node_modules/sequelize-cli/lib/sequelize db:migrate --config dist/config/database.js --migrations-path dist/database/migrations
+        exec node dist/server.js
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -106,8 +123,12 @@ services:
         required: false
       - path: /etc/dokploy/secrets/espaco_whats_clerk_production.env
         required: false
+      - path: /etc/dokploy/secrets/espaco_whats_meta.env
+        required: false
     environment:
       NODE_ENV: production
+      AGENT_REDIS_URI: redis://agent-redis:6379
+      AGENT_TOOLS_BASE_URL: ${BACKEND_URL}
       CLERK_ENVIRONMENT: production
       CLERK_TENANT_BASE_DOMAIN: espacowhats.com.br
       CLERK_ISSUER: https://clerk.espacowhats.com.br
@@ -131,6 +152,7 @@ services:
       FRONTEND_URL_REGEX: ${FRONTEND_URL_REGEX}
       BACKEND_URL: ${BACKEND_URL}
       APP_BASE_DOMAIN: ${APP_BASE_DOMAIN}
+      MASTER_COMPANY_ID: ${MASTER_COMPANY_ID:-1}
       EMAIL_ADDRESS: ${EMAIL_ADDRESS}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       USER_LIMIT: ${USER_LIMIT:-10000}

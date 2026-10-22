@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 
 import { makeStyles } from "@material-ui/core/styles";
 import {
@@ -12,7 +12,7 @@ import {
 } from "@material-ui/core";
 
 import { i18n } from "../../translate/i18n";
-import useAuth from "../../hooks/useAuth.js";
+import { AuthContext } from "../../context/Auth/AuthContext";
 import { useTheme } from "@material-ui/core/styles";
 
 import { loadJSON } from "../../helpers/loadJSON";
@@ -50,8 +50,7 @@ const useStyles = makeStyles(theme => ({
 
 const AboutModal = ({ open, onClose }) => {
   const classes = useStyles();
-  const { getCurrentUserInfo } = useAuth();
-  const [currentUser, setCurrentUser] = useState({});
+  const { user: currentUser } = useContext(AuthContext);
   const [backendGitInfo, setBackendGitInfo] = useState(null);
   const theme = useTheme();
 
@@ -60,14 +59,16 @@ const AboutModal = ({ open, onClose }) => {
   };
 
   useEffect(() => {
-    getCurrentUserInfo().then(user => {
-      setCurrentUser(user);
-    });
-
-    api.get("/").then(response => {
-      setBackendGitInfo(response.data);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let active = true;
+    api
+      .get("/")
+      .then(response => {
+        if (active) setBackendGitInfo(response.data);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
   }, []);
 
   return (

@@ -12,10 +12,17 @@ import { announcementsMessages } from "./announcements";
 import { sgaMessages } from "./sga";
 import { loginExperienceMessages } from "./loginExperience";
 import { socialLoginMessages } from "./socialLogin";
-import { mobileLoginMessages } from "./mobileLogin";
 
 import { themeMessages } from "./themes";
 import { subscriptionNoticeMessages } from "./subscriptionNotice";
+
+import { whatsappProvidersMessages } from "./whatsappProviders";
+import { agentContextManagementMessages } from "./agentContextManagement";
+import { welcomeTourMessages } from "./welcomeTour";
+import { mobileLoginMessages } from "./mobileLogin";
+import { documentationMessages } from "./documentation";
+import { whatsappStatusTenantsMessages } from "./whatsappStatusTenants";
+import { whatsappStatusMessages } from "./whatsappStatus";
 
 const mergeTranslations = (base, extra) => {
   const result = { ...base };

@@ -3,6 +3,12 @@ import { Route as RouterRoute, Redirect } from "react-router-dom";
 
 import { AuthContext } from "../context/Auth/AuthContext";
 import BackdropLoading from "../components/BackdropLoading";
+import {
+  canSeeScreen,
+  screenForPath,
+  screenOptions
+} from "../helpers/screenAccess";
+import { i18n } from "../translate/i18n";
 
 const Route = ({
   component: Component,

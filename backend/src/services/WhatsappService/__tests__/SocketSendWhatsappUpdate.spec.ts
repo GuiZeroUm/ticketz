@@ -2,7 +2,7 @@ import { getIO } from "../../../libs/socket";
 import Whatsapp from "../../../models/Whatsapp";
 import { sendWhatsappUpdate } from "../SocketSendWhatsappUpdate";
 
-jest.mock("../../../libs/socket");
+jest.mock("../../../libs/socket", () => ({ getIO: jest.fn() }));
 
 describe("sendWhatsappUpdate", () => {
   it("includes apiMode so a freshly created official connection shows the Meta connect button without a page refresh", () => {

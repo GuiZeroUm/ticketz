@@ -20,7 +20,11 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
   // Em producao (Railway) o TLS termina no edge e o container recebe http, por
   // isso nao da' pra confiar no $scheme repassado. Os dominios de tenant sao
   // sempre https; so' localhost usa http.
-  const isLocal = host.startsWith("localhost") || host.startsWith("127.");
+  const hostname = host.toLowerCase().split(":")[0];
+  const isLocal =
+    hostname === "localhost" ||
+    hostname.endsWith(".localhost") ||
+    hostname.startsWith("127.");
   const proto = isLocal ? "http" : "https";
   const originalUri = String(req.headers["x-original-uri"] || "/");
   const base = `${proto}://${host}`;
@@ -33,7 +37,7 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
         slug: slug || undefined
       });
       return typeof value === "string" ? value : "";
-    } catch (_) {
+    } catch {
       return "";
     }
   };

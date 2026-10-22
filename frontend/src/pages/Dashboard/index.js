@@ -27,7 +27,7 @@ import TableAttendantsStatus from "../../components/Dashboard/TableAttendantsSta
 import { isEmpty } from "lodash";
 import moment from "moment";
 import { i18n } from "../../translate/i18n";
-import useAuth from "../../hooks/useAuth.js";
+import { AuthContext } from "../../context/Auth/AuthContext";
 
 import { SmallPie } from "./SmallPie";
 import { TicketCountersChart } from "./TicketCountersChart";
@@ -36,6 +36,8 @@ import { getTimezoneOffset } from "../../helpers/getTimezoneOffset.js";
 import api from "../../services/api.js";
 import { SocketContext } from "../../context/Socket/SocketContext.js";
 import { formatTimeInterval } from "../../helpers/formatTimeInterval.js";
+import { canSeeScreen } from "../../helpers/screenAccess";
+import ContactFlowReportDialog from "./ContactFlowReportDialog";
 
 const useStyles = makeStyles(() => ({
   selectContainer: { width: "100%" },
@@ -56,14 +58,14 @@ const Dashboard = () => {
   const classes = useStyles();
   const identidade = useIdentidade();
   const [period, setPeriod] = useState(0);
-  const [currentUser, setCurrentUser] = useState({});
+  const [reportOpen, setReportOpen] = useState(false);
+  const { user: currentUser } = useContext(AuthContext);
   const [dateFrom, setDateFrom] = useState(
     moment("1", "D").format("YYYY-MM-DDTHH") + ":00"
   );
   const [dateTo, setDateTo] = useState(
     moment().format("YYYY-MM-DDTHH") + ":59"
   );
-  const { getCurrentUserInfo } = useAuth();
 
   const [usersOnlineTotal, setUsersOnlineTotal] = useState(0);
   const [usersOfflineTotal, setUsersOfflineTotal] = useState(0);
@@ -91,14 +93,10 @@ const Dashboard = () => {
   }, [socketManager, companyId]);
 
   useEffect(() => {
-    getCurrentUserInfo().then(user => {
-      if (user?.profile !== "admin") {
-        window.location.href = "/tickets";
-      }
-      setCurrentUser(user);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (currentUser?.id && !canSeeScreen(currentUser, "dashboard")) {
+      window.location.href = "/tickets";
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     fetchData();
@@ -285,7 +283,7 @@ const Dashboard = () => {
     );
   }
 
-  if (currentUser?.profile !== "admin") {
+  if (!canSeeScreen(currentUser, "dashboard")) {
     return <div></div>;
   }
 
@@ -300,6 +298,11 @@ const Dashboard = () => {
           titulo={i18n.t("redesign.visaoGeral")}
           descricao={i18n.t("redesign.descricaoPainel")}
         />
+        <Botao onClick={() => setReportOpen(true)}>
+          {i18n.t("dashboard.contactReport.button", {
+            defaultValue: "Exportar contatos"
+          })}
+        </Botao>
         <Botao
           onClick={() => {
             fetchData();
@@ -310,6 +313,10 @@ const Dashboard = () => {
           {i18n.t("visual.atualizar")}
         </Botao>
       </header>
+      <ContactFlowReportDialog
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+      />
       <Tabs.Root defaultValue="resumo">
         <Tabs.List className="ew-tabs" aria-label={i18n.t("visual.resumo")}>
           <Tabs.Trigger className="ew-tab" value="resumo">

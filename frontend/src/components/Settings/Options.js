@@ -10,7 +10,7 @@ import { i18nToast } from "../../helpers/i18nToast";
 import { makeStyles } from "@material-ui/core/styles";
 import { grey, blue } from "@material-ui/core/colors";
 import OnlyForSuperUser from "../OnlyForSuperUser";
-import useAuth from "../../hooks/useAuth.js";
+import { AuthContext } from "../../context/Auth/AuthContext";
 import { Delete } from "@material-ui/icons";
 import { IconButton, TextField, Button, Typography } from "@material-ui/core";
 
@@ -139,8 +139,7 @@ export default function Options(props) {
   const [ticketAcceptedMessage, setTicketAcceptedMessage] = useState("");
   const [transferMessage, setTransferMessage] = useState("");
 
-  const { getCurrentUserInfo } = useAuth();
-  const [currentUser, setCurrentUser] = useState({});
+  const { user: currentUser } = useContext(AuthContext);
 
   const downloadLimitInput = useRef(null);
 
@@ -185,10 +184,6 @@ export default function Options(props) {
   }, [socketManager]);
 
   useEffect(() => {
-    getCurrentUserInfo().then(u => {
-      setCurrentUser(u);
-    });
-
     if (Array.isArray(settings) && settings.length) {
       const userRating = settings.find(s => s.key === "userRating");
       if (userRating) {

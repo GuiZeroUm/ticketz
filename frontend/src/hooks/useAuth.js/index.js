@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext, useCallback } from "react";
+import { useState, useEffect, useContext } from "react";
 import { useHistory } from "react-router-dom";
 import { has, isArray } from "lodash";
 
@@ -299,15 +299,6 @@ const useAuth = () => {
     }
   };
 
-  const getCurrentUserInfo = useCallback(async () => {
-    try {
-      const { data } = await api.get("/auth/me");
-      return data;
-    } catch (_) {
-      return null;
-    }
-  }, []);
-
   return {
     isAuth,
     user,
@@ -316,8 +307,7 @@ const useAuth = () => {
     handlePasswordSetup,
     handleSocialLogin,
     handleImpersonate,
-    handleLogout,
-    getCurrentUserInfo
+    handleLogout
   };
 };
 

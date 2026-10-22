@@ -61,7 +61,7 @@ import SendPartnerPayoutsService from "../PartnerServices/SendPartnerPayoutsServ
 import { logger } from "../../utils/logger";
 import sequelize from "../../database";
 import { enqueueWebhook } from "../PlatformServices/PlatformWebhookService";
-import { nextRecurringDueDate } from "../BillingServices/BillingDateService";
+import { dueDateAfterPayment } from "../BillingServices/BillingDateService";
 
 export const payGatewayInitialize = async () => {
   // AbacatePay não requer inicialização de webhook via API (configurado no
@@ -158,11 +158,13 @@ export const processInvoicePaid = async (invoice: Invoices) => {
     if (!company) return;
 
     const dueDay = company.dueDay || moment.utc(company.dueDate).date();
-    const dueDate = nextRecurringDueDate(
-      company.dueDate,
+    const dueDate = dueDateAfterPayment({
+      billingType: lockedInvoice.billingType,
+      periodEnd: lockedInvoice.periodEnd,
+      currentDueDate: company.dueDate,
       dueDay,
-      company.recurrence
-    );
+      recurrence: company.recurrence
+    });
 
     await company.update({ dueDate }, { transaction });
     await lockedInvoice.update(

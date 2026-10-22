@@ -271,7 +271,12 @@ const MainListItems = props => {
         item(
           "/chats",
           "chats",
-          <Badge color="secondary" variant="dot" invisible={invisible}>
+          <Badge
+            color="secondary"
+            variant="dot"
+            overlap="rectangular"
+            invisible={invisible}
+          >
             <ForumIcon />
           </Badge>
         ),
@@ -334,7 +339,11 @@ const MainListItems = props => {
               item(
                 "/connections",
                 "connections",
-                <Badge badgeContent={connectionWarning ? "!" : 0} color="error">
+                <Badge
+                  badgeContent={connectionWarning ? "!" : 0}
+                  color="error"
+                  overlap="rectangular"
+                >
                   <SyncAltIcon />
                 </Badge>
               )
@@ -379,8 +388,34 @@ const MainListItems = props => {
       ]
     }
   ];
+  const visibleGroups = grupos
+    .map(group => ({
+      ...group,
+      itens: group.itens
+        .map(entry =>
+          entry.filhos
+            ? {
+                ...entry,
+                filhos: entry.filhos.filter(child =>
+                  canSeeScreen(user, screenForPath(child.to))
+                )
+              }
+            : entry
+        )
+        .filter(entry =>
+          entry.filhos
+            ? entry.filhos.length > 0
+            : !screenForPath(entry.to) ||
+              canSeeScreen(user, screenForPath(entry.to))
+        )
+    }))
+    .filter(group => group.itens.length);
   return (
-    <Navegacao grupos={grupos} expandido={drawerOpen} aoNavegar={drawerClose} />
+    <Navegacao
+      grupos={visibleGroups}
+      expandido={drawerOpen}
+      aoNavegar={drawerClose}
+    />
   );
 };
 

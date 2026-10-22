@@ -1,3 +1,4 @@
+import { sendWhatsappUpdate } from "../services/WhatsappService/SocketSendWhatsappUpdate";
 import { Request, Response } from "express";
 import {
   getWbot,
@@ -80,6 +81,7 @@ const remove = async (req: Request, res: Response): Promise<Response> => {
       await UnsubscribeWabaWebhookService(whatsapp.id);
     }
     await whatsapp.update({ status: "DISCONNECTED" });
+    sendWhatsappUpdate(whatsapp);
     return res.status(200).json({ message: "Session disconnected." });
   }
 

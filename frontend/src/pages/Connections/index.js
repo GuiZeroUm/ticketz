@@ -116,6 +116,7 @@ const CustomToolTip = ({ title, content, children }) => {
 };
 
 const Connections = () => {
+  const { user } = useContext(AuthContext);
   const classes = useStyles();
   const theme = useTheme();
 
@@ -139,14 +140,51 @@ const Connections = () => {
   const [passkeyModalOpen, setPasskeyModalOpen] = useState(false);
   const [passkeyInitialToken, setPasskeyInitialToken] = useState("");
   const [connectorReady, setConnectorReady] = useState(false);
-  const [metaConfig, setMetaConfig] = useState({ appId: null, configId: null });
+  const [metaConfig, setMetaConfig] = useState({
+    appId: null,
+    configId: null,
+    signupAvailable: false,
+    loading: true
+  });
+  const [metaConfigRefresh, setMetaConfigRefresh] = useState(0);
+  const refreshMetaConfig = useCallback(
+    () => setMetaConfigRefresh(value => value + 1),
+    []
+  );
 
   useEffect(() => {
+    setMetaConfig({
+      appId: null,
+      configId: null,
+      signupAvailable: false,
+      loading: true
+    });
+    if (user?.company?.whatsappMode !== "meta") return undefined;
+    let active = true;
+    const controller = new AbortController();
     api
-      .get("/whatsapp/meta/config")
-      .then(({ data }) => setMetaConfig(data))
-      .catch(() => {});
-  }, []);
+      .get("/whatsapp/meta/config", {
+        signal: controller.signal,
+        timeout: 15000
+      })
+      .then(({ data }) => {
+        if (active) setMetaConfig({ ...data, loading: false, failed: false });
+      })
+      .catch(() => {
+        if (active)
+          setMetaConfig({
+            appId: null,
+            configId: null,
+            signupAvailable: false,
+            loading: false,
+            failed: true
+          });
+      });
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [user?.companyId, user?.company?.whatsappMode, metaConfigRefresh]);
 
   const handleStartWhatsAppSession = async whatsAppId => {
     try {
@@ -302,14 +340,13 @@ const Connections = () => {
     if (isOfficial) {
       return (
         <>
-          {whatsApp.status !== "CONNECTED" && (
-            <MetaEmbeddedSignupButton
-              whatsAppId={whatsApp.id}
-              appId={metaConfig.appId}
-              configId={metaConfig.configId}
-              onConnected={() => window.location.reload()}
-            />
-          )}
+          <MetaOnboardingStatus
+            key={`${user?.companyId}-${whatsApp.id}`}
+            whatsapp={whatsApp}
+            config={metaConfig}
+            onRefreshConfig={refreshMetaConfig}
+            companyId={user?.companyId}
+          />
           {(whatsApp.status === "CONNECTED" ||
             whatsApp.status === "PAIRING" ||
             whatsApp.status === "TIMEOUT") && (

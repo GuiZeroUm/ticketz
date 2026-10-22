@@ -56,6 +56,16 @@ class Company extends Model<Company> {
   @Column(DataType.DATEONLY)
   trialEndsAt: string;
 
+  @Default("admin")
+  @Column(DataType.STRING(30))
+  signupSource: "admin" | "self_service" | "partner";
+
+  @Column(DataType.DATE)
+  trialStartedAt: Date;
+
+  @Column(DataType.DATE)
+  trialExpiresAt: Date;
+
   @Column(DataType.SMALLINT)
   dueDay: number;
 
@@ -83,13 +93,15 @@ class Company extends Model<Company> {
   @Column
   slug: string;
 
-  // "normal" (Baileys) ou "meta" (WhatsApp Cloud API oficial). Decidido uma
-  // unica vez (na criacao/ativacao do tenant) e imutavel depois: nunca pode
-  // ser revertido, para nao arriscar misturar os dois modos no mesmo numero
-  // e reintroduzir o risco de ban que motivou essa distincao.
   @Default("normal")
   @Column(DataType.STRING)
-  whatsappMode: string;
+  whatsappMode: "normal" | "meta";
+
+  // WhatsApp Status (stories) stays off for every tenant until a super admin
+  // switches it on.
+  @Default(false)
+  @Column(DataType.BOOLEAN)
+  whatsappStatusEnabled: boolean;
 
   @Column
   platformStatus: string;
@@ -99,6 +111,10 @@ class Company extends Model<Company> {
 
   @Column
   platformBilling: string;
+
+  // AI package chosen at signup on plans where AI is billed separately.
+  @Column
+  aiAddon: string;
 
   @Column
   platformPartnerRef: string;

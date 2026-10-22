@@ -1,6 +1,45 @@
 const messages = {
   en: {
     translations: {
+      agentPreview: {
+        launcher: "Espaço Agent",
+        subtitle: "An extra hand in your operation",
+        avatarTitle: "Kirby, the Espaço Agent character",
+        panel: "Espaço Agent · Luiza's Agent chat",
+        greeting: "Hello, {{name}}.",
+        chat: {
+          sources: "Sources consulted",
+          contextChanged:
+            "The context has changed. Continuing with current permissions and data.",
+          badge: "Luiza's Agent · by your side at work",
+          connected: "Reply from Luiza's Agent",
+          progress: "Thinking about your request…",
+          progressConnecting: "Connecting the dots…",
+          progressWorking: "Working on it, be right back…",
+          progressPreparing: "Putting care into your answer…",
+          progressContinuing: "Just a moment, I'm still with you…",
+          error: "Could not receive a reply. Please try again.",
+          unavailable:
+            "Luiza's Agent is unavailable right now. Please try again.",
+          timeout: "Luiza's Agent took too long to reply. Please try again.",
+          cancelled: "Reply stopped.",
+          invalidRequest:
+            "Could not send this message. Review the text and try again.",
+          sessionExpired:
+            "Your session has expired. Sign in again to continue.",
+          permissionDenied: "Your account does not have access to this chat.",
+          agentDisabled:
+            "Luiza’s is disabled for this company. The super admin can enable it in Settings → Administration → Luiza’s Agent.",
+          moduleBlocked:
+            "Luiza’s cannot access this feature. Ask the super admin to review the available modules.",
+          busy: "The agent is busy. Wait a moment and try again.",
+          notConfigured:
+            "The connection to Luiza's Agent has not been configured yet.",
+          emptyReply: "Luiza's Agent returned no reply. Please try again.",
+          retry: "Try again",
+          placeholder: "What shall we work on today?"
+        }
+      },
       visual: {
         visualizar: "View",
         centralAtendimento: "Support center",
@@ -466,6 +505,17 @@ const messages = {
         token: "Token"
       },
       dashboard: {
+        contactReport: {
+          button: "Export contacts",
+          title: "Export contact flow",
+          columns: "Report columns",
+          contactedAt: "Contact date",
+          name: "Name",
+          number: "Number",
+          notes: "Internal notes",
+          historyNotice:
+            "Changes made before this history was enabled cannot be reconstructed."
+        },
         usersOnline: "Users online",
         ticketsWaiting: "Tickets waiting",
         ticketsOpen: "Open tickets",
@@ -508,8 +558,7 @@ const messages = {
       connections: {
         title: "Connections",
         toasts: {
-          deleted: "WhatsApp connection successfully deleted!",
-          metaConnected: "Successfully connected to the Meta Official API!"
+          deleted: "WhatsApp connection successfully deleted!"
         },
         confirmationModal: {
           deleteTitle: "Delete",
@@ -525,12 +574,9 @@ const messages = {
           tryAgain: "Try Again",
           qrcode: "QR CODE",
           newQr: "New QR CODE",
-          connecting: "Connecting",
-          connectMeta: "Connect via Meta"
+          connecting: "Connecting"
         },
         toolTips: {
-          notAvailableOfficial:
-            "Not available yet for Meta Official API connections.",
           disconnected: {
             title: "Failed to initiate WhatsApp session",
             content:
@@ -757,7 +803,10 @@ const messages = {
           name: "Name",
           email: "Email",
           password: "Password",
-          profile: "Profile"
+          profile: "Profile",
+          visibleScreens: "Visible screens",
+          screenAccessHint:
+            "Regular users can view selected screens. Administrative actions remain limited to administrators."
         },
         buttons: {
           okAdd: "Add",
@@ -1046,6 +1095,7 @@ const messages = {
           annoucements: "Announcements",
           chats: "Internal Chat",
           financeiro: "Financial",
+          subscription: "Subscription",
           cobranca: "Billing",
           prospeccao: "Prospecting",
           logout: "Logout",
@@ -1934,6 +1984,8 @@ const messages = {
 
       contactDrawer: {
         header: "Contact Information",
+        addExtraInfo: "Additional information",
+        fieldAddedAt: "Added on",
         groupHeader: "Group information",
         buttons: {
           edit: "Edit Contact"

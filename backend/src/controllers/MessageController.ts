@@ -1,3 +1,7 @@
+import Whatsapp from "../models/Whatsapp";
+import SendMetaReactionService from "../services/MetaWhatsAppServices/SendMetaReactionService";
+import GetTicketServiceWindowService from "../services/TicketServices/TicketServiceWindowService";
+import SendTicketTemplateService from "../services/MetaWhatsAppServices/SendTicketTemplateService";
 import { Request, Response } from "express";
 import fs from "fs";
 import AppError from "../errors/AppError";
@@ -6,7 +10,6 @@ import SetTicketMessagesAsRead from "../helpers/SetTicketMessagesAsRead";
 import { getIO } from "../libs/socket";
 import Queue from "../models/Queue";
 import User from "../models/User";
-import Whatsapp from "../models/Whatsapp";
 
 import ListMessagesService from "../services/MessageServices/ListMessagesService";
 import ShowTicketService from "../services/TicketServices/ShowTicketService";
@@ -324,6 +327,16 @@ export const react = async (req: Request, res: Response): Promise<Response> => {
   if (ticket.whatsapp?.apiMode === "official") {
     await SendMetaReactionService({
       connection: ticket.whatsapp,
+      ticket,
+      messageId,
+      emoji,
+      userId: Number(req.user.id) || null
+    });
+    return res.send();
+  }
+  if (ticket.whatsapp?.apiMode === "official") {
+    await SendMetaReactionService({
+      connection: await Whatsapp.findByPk(ticket.whatsappId),
       ticket,
       messageId,
       emoji,

@@ -1,3 +1,4 @@
+import CompanyWhatsAppModeField from "../CompanyWhatsAppModeField";
 import React, { useState, useEffect, useContext } from "react";
 import {
   makeStyles,
@@ -92,15 +93,8 @@ const useStyles = makeStyles(theme => ({
 }));
 
 export function CompanyForm(props) {
-  const {
-    onSubmit,
-    onDelete,
-    onImpersonate,
-    onCancel,
-    onSetWhatsappMode,
-    initialValue,
-    loading
-  } = props;
+  const { onSubmit, onDelete, onImpersonate, onCancel, initialValue, loading } =
+    props;
   const classes = useStyles();
   const [plans, setPlans] = useState([]);
   const [partners, setPartners] = useState([]);
@@ -116,6 +110,7 @@ export function CompanyForm(props) {
   }, [initialValue.id, initialValue.whatsappMode]);
 
   const [record, setRecord] = useState({
+    whatsappMode: "normal",
     name: "",
     email: "",
     phone: "",
@@ -170,6 +165,7 @@ export function CompanyForm(props) {
       return {
         ...prev,
         ...initialValue,
+        whatsappMode: initialValue.whatsappMode || "normal",
         timezone: initialValue.timezone || "",
         dueDate,
         trialDays: initialValue.trialDays ?? 0,
@@ -218,8 +214,9 @@ export function CompanyForm(props) {
         "recurrence"
       ].forEach(field => delete normalizedData[field]);
     }
-    onSubmit(normalizedData);
-    setRecord({ ...initialValue, dueDate: "" });
+    // The parent resets only after the request succeeds. Keep the selected
+    // provider and entered data intact when validation or the network fails.
+    await onSubmit(normalizedData);
   };
 
   const handleOpenModalUsers = async () => {
@@ -291,16 +288,18 @@ export function CompanyForm(props) {
         enableReinitialize
         className={classes.fullWidth}
         initialValues={record}
-        onSubmit={(values, { resetForm }) =>
-          setTimeout(() => {
-            handleSubmit(values);
-            resetForm();
-          }, 500)
-        }
+        onSubmit={handleSubmit}
       >
         {(values, setValues) => (
           <Form className={classes.fullWidth}>
             <Grid spacing={2} justifyContent="flex-end" container>
+              <Grid xs={12} sm={6} item>
+                <CompanyWhatsAppModeField
+                  value={values.values.whatsappMode}
+                  onChange={values.handleChange}
+                  disabled={record.id !== undefined}
+                />
+              </Grid>
               <Grid xs={12} sm={6} md={4} item>
                 <Field
                   as={TextField}
@@ -858,17 +857,15 @@ export function CompaniesManagerGrid(props) {
 
 export default function CompaniesManager() {
   const classes = useStyles();
-  const { list, save, update, remove, updateWhatsappMode } = useCompanies();
+  const { list, save, update, remove } = useCompanies();
 
   const [showConfirmDeleteDialog, setShowConfirmDeleteDialog] = useState(false);
   const [showConfirmImpersonateDialog, setShowConfirmImpersonateDialog] =
     useState(false);
-  const [showConfirmWhatsappModeDialog, setShowConfirmWhatsappModeDialog] =
-    useState(false);
-  const [pendingWhatsappMode, setPendingWhatsappMode] = useState(null);
   const [loading, setLoading] = useState(false);
   const [records, setRecords] = useState([]);
   const [record, setRecord] = useState({
+    whatsappMode: "normal",
     name: "",
     email: "",
     phone: "",
@@ -943,30 +940,6 @@ export default function CompaniesManager() {
     handleImpersonate(record.id);
   };
 
-  const handleRequestSetWhatsappMode = (companyId, whatsappMode) => {
-    setPendingWhatsappMode({ companyId, whatsappMode });
-    setShowConfirmWhatsappModeDialog(true);
-  };
-
-  const handleConfirmSetWhatsappMode = async () => {
-    if (!pendingWhatsappMode) return;
-    setLoading(true);
-    try {
-      await updateWhatsappMode(
-        pendingWhatsappMode.companyId,
-        pendingWhatsappMode.whatsappMode
-      );
-      await loadPlans();
-      toast.success("Modo WhatsApp atualizado!");
-    } catch (e) {
-      toast.error(
-        "Não foi possível alterar o modo (empresa fora da allowlist ou já possui conexões no modo oposto)."
-      );
-    }
-    setPendingWhatsappMode(null);
-    setLoading(false);
-  };
-
   const handleOpenDeleteDialog = () => {
     setShowConfirmDeleteDialog(true);
   };
@@ -978,6 +951,9 @@ export default function CompaniesManager() {
   const handleCancel = () => {
     setRecord(prev => ({
       ...prev,
+      id: undefined,
+      slug: "",
+      whatsappMode: "normal",
       name: "",
       email: "",
       phone: "",
@@ -1017,6 +993,7 @@ export default function CompaniesManager() {
 
     setRecord(prev => ({
       ...prev,
+      whatsappMode: data.whatsappMode || "normal",
       id: data.id,
       name: data.name || "",
       phone: data.phone || "",
@@ -1036,8 +1013,7 @@ export default function CompaniesManager() {
       partnerId: data.partnerId || "",
       saleValue: data.saleValue ?? "",
       introValue: data.introValue ?? "",
-      introMonths: data.introMonths ?? "",
-      whatsappMode: data.whatsappMode || "normal"
+      introMonths: data.introMonths ?? ""
     }));
   };
 
@@ -1051,7 +1027,6 @@ export default function CompaniesManager() {
             onImpersonate={handleOpenImpersonateDialog}
             onSubmit={handleSubmit}
             onCancel={handleCancel}
-            onSetWhatsappMode={handleRequestSetWhatsappMode}
             loading={loading}
           />
         </Grid>
@@ -1074,19 +1049,6 @@ export default function CompaniesManager() {
         onConfirm={() => onImpersonate()}
       >
         Deseja acessar o sistema como esta empresa?
-      </ConfirmationModal>
-      <ConfirmationModal
-        title="Travar modo WhatsApp"
-        open={showConfirmWhatsappModeDialog}
-        onClose={() => setShowConfirmWhatsappModeDialog(false)}
-        onConfirm={() => handleConfirmSetWhatsappMode()}
-      >
-        Essa decisão é permanente e não pode ser desfeita depois - a empresa
-        nunca poderá voltar ao modo anterior. Confirma a mudança para{" "}
-        {pendingWhatsappMode?.whatsappMode === "meta"
-          ? "API Oficial (Meta)"
-          : "Normal"}
-        ?
       </ConfirmationModal>
     </Paper>
   );

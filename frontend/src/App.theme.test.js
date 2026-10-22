@@ -243,7 +243,7 @@ it("waits for authenticated company details before enabling the tenant-only them
   expectTheme("stardew", "light");
 });
 
-it("respects the system dark preference when there is no saved choice", () => {
+it("starts in the light theme without a saved choice, even if the system prefers dark", () => {
   window.matchMedia = jest.fn(() => ({
     matches: true,
     addListener: jest.fn(),
@@ -251,5 +251,5 @@ it("respects the system dark preference when there is no saved choice", () => {
   }));
   authenticate(1);
   render(<App />);
-  expectTheme("dark");
+  expectTheme("light");
 });
