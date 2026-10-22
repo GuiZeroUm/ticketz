@@ -10,6 +10,8 @@ import CreateMessageService from "../MessageServices/CreateMessageService";
 import FindOrCreateATicketTrakingService from "../TicketServices/FindOrCreateATicketTrakingService";
 import { websocketUpdateTicket } from "../TicketServices/UpdateTicketService";
 import { digits } from "../SgaServices/normalize";
+import sequelize from "../../database";
+import { Op } from "sequelize";
 
 export type BillingDelivery = {
   id: string;
@@ -50,12 +52,7 @@ const parsePayload = (raw: string | null, messageId: string, body: string) => {
   };
 };
 
-/**
- * Projects a successful SGA send into the normal Ticketz conversation model.
- * It never reuses a customer's active ticket: billing sends get their own
- * pending ticket and a stage-specific tag, so they are visible in Aguardando
- * and can be filtered without changing assignment or queue state.
- */
+/** Projects a successful SGA send into the customer's active conversation. */
 export const syncBillingDeliveryVisibility = async (
   delivery: BillingDelivery
 ): Promise<void> => {
@@ -66,25 +63,6 @@ export const syncBillingDeliveryVisibility = async (
     !delivery.whatsappId
   )
     return;
-
-  const existingMessage = await Message.findOne({
-    where: {
-      id: delivery.messageId,
-      companyId: delivery.companyId
-    },
-    attributes: ["id"]
-  });
-  if (existingMessage) return;
-
-  // A cobranca inicia um atendimento do setor financeiro. Resolver a fila
-  // dentro do tenant evita atrelar o envio a um ID que muda entre ambientes.
-  const billingQueue = await Queue.findOne({
-    where: { companyId: delivery.companyId, name: "BOLETOS" },
-    attributes: ["id"]
-  });
-  if (!billingQueue) {
-    throw new Error(`BOLETOS queue missing for company ${delivery.companyId}`);
-  }
 
   const contact = await Contact.findOne({
     where: {
@@ -98,73 +76,6 @@ export const syncBillingDeliveryVisibility = async (
     attributes: ["id"]
   });
   if (!contact || !whatsapp) return;
-
-  const [tag] = await Tag.findOrCreate({
-    where: {
-      companyId: delivery.companyId,
-      name: billingTagName(delivery.stage)
-    },
-    defaults: {
-      companyId: delivery.companyId,
-      name: billingTagName(delivery.stage),
-      color: "#f97316",
-      kanban: 0
-    }
-  });
-
-  let ticket = await Ticket.findOne({
-    where: {
-      companyId: delivery.companyId,
-      contactId: contact.id,
-      whatsappId: whatsapp.id,
-      status: "pending"
-    },
-    include: [
-      {
-        model: Tag,
-        as: "tags",
-        where: { id: tag.id },
-        required: true,
-        attributes: ["id", "name", "color"]
-      }
-    ],
-    order: [["id", "DESC"]]
-  });
-
-  if (!ticket) {
-    ticket = await Ticket.create({
-      companyId: delivery.companyId,
-      contactId: contact.id,
-      whatsappId: whatsapp.id,
-      status: "pending",
-      channel: "whatsapp",
-      isGroup: false,
-      userId: null,
-      queueId: billingQueue.id,
-      chatbot: false,
-      queueOptionId: null,
-      unreadMessages: 0,
-      lastMessage:
-        delivery.body?.replace(/\s+/g, " ").slice(0, 255) || "Cobrança enviada"
-    });
-    await TicketTag.create({ ticketId: ticket.id, tagId: tag.id });
-    await FindOrCreateATicketTrakingService({
-      ticketId: ticket.id,
-      companyId: delivery.companyId,
-      whatsappId: whatsapp.id
-    });
-  } else {
-    await ticket.update({
-      status: "pending",
-      userId: null,
-      queueId: billingQueue.id,
-      chatbot: false,
-      queueOptionId: null,
-      unreadMessages: 0,
-      lastMessage:
-        delivery.body?.replace(/\s+/g, " ").slice(0, 255) || "Cobrança enviada"
-    });
-  }
 
   const outOfTicket = await OutOfTicketMessage.findByPk(delivery.messageId, {
     attributes: ["dataJson"]
@@ -180,6 +91,144 @@ export const syncBillingDeliveryVisibility = async (
     dataJson?.message?.documentWithCaptionMessage?.message?.documentMessage;
   const filename =
     document?.fileName || (delivery.stage <= 0 ? "boleto-ac-norte.pdf" : "");
+
+  const [tag] = await Tag.findOrCreate({
+    where: {
+      companyId: delivery.companyId,
+      name: billingTagName(delivery.stage)
+    },
+    defaults: {
+      companyId: delivery.companyId,
+      name: billingTagName(delivery.stage),
+      color: "#f97316",
+      kanban: 0
+    }
+  });
+
+  const { ticket, createdMessage } = await sequelize.transaction(
+    async transaction => {
+      await sequelize.query(
+        "SELECT pg_advisory_xact_lock(:companyId, :contactId)",
+        {
+          replacements: {
+            companyId: delivery.companyId,
+            contactId: contact.id
+          },
+          transaction
+        }
+      );
+      const priorMessage = await Message.findOne({
+        where: { id: delivery.messageId, companyId: delivery.companyId },
+        attributes: ["id", "ticketId"],
+        transaction
+      });
+      if (priorMessage) {
+        const priorTicket = await Ticket.findOne({
+          where: {
+            id: priorMessage.ticketId,
+            companyId: delivery.companyId,
+            contactId: contact.id,
+            whatsappId: whatsapp.id
+          },
+          transaction
+        });
+        if (!priorTicket) {
+          throw new Error(
+            `Billing message ${delivery.messageId} has a different ticket`
+          );
+        }
+        await TicketTag.findOrCreate({
+          where: { ticketId: priorTicket.id, tagId: tag.id },
+          defaults: { ticketId: priorTicket.id, tagId: tag.id },
+          transaction
+        });
+        return { ticket: priorTicket, createdMessage: false };
+      }
+
+      let selected = await Ticket.findOne({
+        where: {
+          companyId: delivery.companyId,
+          contactId: contact.id,
+          whatsappId: whatsapp.id,
+          channel: "whatsapp",
+          isGroup: false,
+          status: { [Op.in]: ["open", "pending"] }
+        },
+        order: [["id", "DESC"]],
+        transaction
+      });
+
+      if (!selected) {
+        const billingQueue = await Queue.findOne({
+          where: { companyId: delivery.companyId, name: "BOLETOS" },
+          attributes: ["id"],
+          transaction
+        });
+        if (!billingQueue) {
+          throw new Error(
+            `BOLETOS queue missing for company ${delivery.companyId}`
+          );
+        }
+        selected = await Ticket.create(
+          {
+            companyId: delivery.companyId,
+            contactId: contact.id,
+            whatsappId: whatsapp.id,
+            status: "pending",
+            channel: "whatsapp",
+            isGroup: false,
+            userId: null,
+            queueId: billingQueue.id,
+            chatbot: false,
+            queueOptionId: null,
+            unreadMessages: 0,
+            lastMessage:
+              delivery.body?.replace(/\s+/g, " ").slice(0, 255) ||
+              "Cobrança enviada"
+          },
+          { transaction }
+        );
+        await FindOrCreateATicketTrakingService({
+          ticketId: selected.id,
+          companyId: delivery.companyId,
+          whatsappId: whatsapp.id,
+          transaction
+        });
+      }
+
+      await TicketTag.findOrCreate({
+        where: { ticketId: selected.id, tagId: tag.id },
+        defaults: { ticketId: selected.id, tagId: tag.id },
+        transaction
+      });
+      const [message, created] = await Message.findOrCreate({
+        where: { id: delivery.messageId, companyId: delivery.companyId },
+        defaults: {
+          id: delivery.messageId,
+          ticketId: selected.id,
+          contactId: contact.id,
+          remoteJid: `${digits(contact.number)}@s.whatsapp.net`,
+          body,
+          fromMe: true,
+          read: true,
+          ack: 3,
+          mediaType: filename ? "document" : null,
+          dataJson: JSON.stringify(dataJson),
+          channel: "whatsapp",
+          companyId: delivery.companyId
+        },
+        transaction
+      });
+      if (message.ticketId !== selected.id) {
+        throw new Error(
+          `Billing message ${delivery.messageId} changed ticket during projection`
+        );
+      }
+      return { ticket: selected, createdMessage: created };
+    }
+  );
+
+  if (!createdMessage) return;
 
   await ticket.update({
     lastMessage: filename

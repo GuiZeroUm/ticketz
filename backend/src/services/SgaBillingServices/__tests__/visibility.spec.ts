@@ -11,13 +11,21 @@ import FindOrCreateATicketTrakingService from "../../TicketServices/FindOrCreate
 import { websocketUpdateTicket } from "../../TicketServices/UpdateTicketService";
 import { syncBillingDeliveryVisibility } from "../visibility";
 
+jest.mock("../../../database", () => ({
+  __esModule: true,
+  default: {
+    transaction: jest.fn(async callback => callback({})),
+    query: jest.fn()
+  }
+}));
+
 jest.mock("../../../models/Contact", () => ({
   __esModule: true,
   default: { findOne: jest.fn() }
 }));
 jest.mock("../../../models/Message", () => ({
   __esModule: true,
-  default: { findOne: jest.fn() }
+  default: { findOne: jest.fn(), findOrCreate: jest.fn() }
 }));
 jest.mock("../../../models/OutOfTicketMessages", () => ({
   __esModule: true,
@@ -37,7 +45,7 @@ jest.mock("../../../models/Ticket", () => ({
 }));
 jest.mock("../../../models/TicketTag", () => ({
   __esModule: true,
-  default: { create: jest.fn() }
+  default: { findOrCreate: jest.fn() }
 }));
 jest.mock("../../../models/Whatsapp", () => ({
   __esModule: true,
@@ -75,6 +83,10 @@ const ticket = {
 beforeEach(() => {
   jest.clearAllMocks();
   (Message.findOne as jest.Mock).mockResolvedValue(null);
+  (Message.findOrCreate as jest.Mock).mockResolvedValue([
+    { id: delivery.messageId, ticketId: 77 },
+    true
+  ]);
   (Queue.findOne as jest.Mock).mockResolvedValue({ id: 11 });
   (Contact.findOne as jest.Mock).mockResolvedValue({
     id: 42,
@@ -92,10 +104,12 @@ beforeEach(() => {
 it("places a sent billing message in the tenant's Boletos queue before the customer replies", async () => {
   await syncBillingDeliveryVisibility(delivery);
 
-  expect(Queue.findOne).toHaveBeenCalledWith({
-    where: { companyId: 9, name: "BOLETOS" },
-    attributes: ["id"]
-  });
+  expect(Queue.findOne).toHaveBeenCalledWith(
+    expect.objectContaining({
+      where: { companyId: 9, name: "BOLETOS" },
+      attributes: ["id"]
+    })
+  );
   expect(Ticket.create).toHaveBeenCalledWith(
     expect.objectContaining({
       companyId: 9,
@@ -105,7 +119,8 @@ it("places a sent billing message in the tenant's Boletos queue before the custo
       queueId: 11,
       chatbot: false,
       queueOptionId: null
-    })
+    }),
+    expect.objectContaining({ transaction: expect.any(Object) })
   );
   expect(CreateMessageService).toHaveBeenCalledWith(
     expect.objectContaining({
@@ -116,22 +131,38 @@ it("places a sent billing message in the tenant's Boletos queue before the custo
   expect(websocketUpdateTicket).toHaveBeenCalledWith(ticket);
 });
 
-it("returns a reused pending billing ticket to Boletos and exits its chatbot", async () => {
+it("keeps the active ticket's owner and queue while adding the billing message", async () => {
   (Ticket.findOne as jest.Mock).mockResolvedValue(ticket);
 
   await syncBillingDeliveryVisibility(delivery);
 
   expect(Ticket.create).not.toHaveBeenCalled();
+  expect(Queue.findOne).not.toHaveBeenCalled();
   expect(ticket.update).toHaveBeenCalledWith(
-    expect.objectContaining({
-      queueId: 11,
-      chatbot: false,
-      queueOptionId: null,
-      status: "pending"
-    })
+    expect.objectContaining({ lastMessage: expect.any(String) })
+  );
+  expect(ticket.update).not.toHaveBeenCalledWith(
+    expect.objectContaining({ userId: null })
   );
   expect(FindOrCreateATicketTrakingService).not.toHaveBeenCalled();
-  expect(TicketTag.create).not.toHaveBeenCalled();
+  expect(TicketTag.findOrCreate).toHaveBeenCalledWith(
+    expect.objectContaining({ where: { ticketId: 77, tagId: 5 } })
+  );
+});
+
+it("does not project a sent billing message twice", async () => {
+  (Message.findOne as jest.Mock).mockResolvedValue({
+    id: delivery.messageId,
+    ticketId: 77
+  });
+  (Ticket.findOne as jest.Mock).mockResolvedValue(ticket);
+  await syncBillingDeliveryVisibility(delivery);
+  expect(Ticket.findOne).toHaveBeenCalledWith(
+    expect.objectContaining({ where: expect.objectContaining({ id: 77 }) })
+  );
+  expect(TicketTag.findOrCreate).toHaveBeenCalled();
+  expect(Message.findOrCreate).not.toHaveBeenCalled();
+  expect(CreateMessageService).not.toHaveBeenCalled();
 });
 
 it("does not leave a sent cobrança in an unassigned queue when Boletos is absent", async () => {
