@@ -10,6 +10,13 @@ const messageRoutes = Router();
 
 const upload = multer(uploadConfig);
 
+messageRoutes.get(
+  "/contacts/:contactId/conversation-history",
+  isAuth,
+  isCompliant,
+  MessageController.contactHistory
+);
+
 messageRoutes.post(
   "/messages/forward",
   isAuth,

@@ -20,6 +20,7 @@ import { getJidOf } from "../WbotServices/getJidOf";
 import { _t } from "../TranslationServices/i18nService";
 import ResolveTicketTransferService from "./ResolveTicketTransferService";
 import GroupQueue from "../../models/GroupQueue";
+import { isActiveTicketUniqueConflict } from "./ActiveTicketConflict";
 
 export interface UpdateTicketData {
   status?: string;
@@ -508,6 +509,9 @@ const UpdateTicketService = async ({
     );
     if (err instanceof AppError) {
       throw err;
+    }
+    if (isActiveTicketUniqueConflict(err)) {
+      throw new AppError("ERR_OTHER_OPEN_TICKET");
     }
     throw new AppError("Error updating ticket", 500);
   }

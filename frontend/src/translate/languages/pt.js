@@ -136,6 +136,13 @@ const messages = {
         semHistorico: "Nenhum atendimento anterior disponível.",
         semFila: "Sem fila",
         verConversa: "Ver conversa",
+        conversaCompleta: "Ver conversa completa",
+        voltarAtendimentos: "Voltar aos atendimentos",
+        carregarAnteriores: "Carregar mensagens anteriores",
+        semMensagens: "Nenhuma mensagem disponível.",
+        equipe: "Equipe",
+        cliente: "Cliente",
+        midia: "Mídia",
         protocolo: "Protocolo",
         responsavel: "Responsável",
         fila: "Fila"

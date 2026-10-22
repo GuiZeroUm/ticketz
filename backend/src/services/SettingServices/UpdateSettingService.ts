@@ -23,6 +23,14 @@ const UpdateSettingService = async ({
   arquivoNovo = false
 }: Request): Promise<Setting | undefined> => {
   validateLoginBranding(key, value);
+  if (
+    key === "autoReopenTimeout" &&
+    (!/^[0-9]+$/.test(value) ||
+      !Number.isSafeInteger(Number(value)) ||
+      Number(value) < 1440)
+  ) {
+    throw new AppError("ERR_INVALID_AUTO_REOPEN_TIMEOUT", 400);
+  }
   let anterior: string;
   const persistir = async transaction => {
     const [setting] = await Setting.findOrCreate({

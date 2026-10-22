@@ -9,6 +9,8 @@ import { GetCompanySetting } from "../../helpers/CheckSettings";
 import sequelize from "../../database";
 import Whatsapp from "../../models/Whatsapp";
 import Queue from "../../models/Queue";
+import User from "../../models/User";
+import { isActiveTicketUniqueConflict } from "./ActiveTicketConflict";
 import { incrementCounter } from "../CounterServices/IncrementCounter";
 
 const createTicketMutex = new Mutex();
@@ -43,18 +45,14 @@ const internalFindOrCreateTicketService = async (
   const isGroupConversation =
     !!groupContact && groupContact.groupMode !== "ticket";
   const result = await sequelize.transaction(async transaction => {
-    if (groupContact) {
-      // A group is a tenant-wide conversation. The same WhatsApp group can be
-      // present in multiple connections, so serialize creation by tenant and
-      // group instead of allowing one ticket per connection.
-      await sequelize.query(
-        "SELECT pg_advisory_xact_lock(:companyId, :contactId)",
-        {
-          replacements: { companyId, contactId: groupContact.id },
-          transaction
-        }
-      );
-    }
+    // Serialize every creation/reopen for a contact across runtime processes.
+    await sequelize.query(
+      "SELECT pg_advisory_xact_lock(:companyId, :contactId)",
+      {
+        replacements: { companyId, contactId: groupContact?.id || contact.id },
+        transaction
+      }
+    );
 
     let ticket = await Ticket.findOne({
       where: {
@@ -63,6 +61,7 @@ const internalFindOrCreateTicketService = async (
         },
         contactId: groupContact ? groupContact.id : contact.id,
         ...getConnectionScope(groupContact, whatsappId),
+        channel: "whatsapp",
         companyId
       },
       order: [["id", "DESC"]],
@@ -112,33 +111,49 @@ const internalFindOrCreateTicketService = async (
     }
 
     if (!doNotReopen && !ticket && !groupContact) {
-      const reopenTimeout = parseInt(
+      const configuredTimeout = parseInt(
         await GetCompanySetting(companyId, "autoReopenTimeout", "0"),
         10
       );
-      ticket =
-        reopenTimeout &&
-        (await Ticket.findOne({
-          where: {
-            updatedAt: {
-              [Op.between]: [
-                +subMinutes(new Date(), reopenTimeout),
-                +new Date()
-              ]
-            },
-            contactId: contact.id,
-            whatsappId,
-            companyId
-          },
-          order: [["updatedAt", "DESC"]],
-          transaction
-        }));
+      const reopenTimeout = Math.max(
+        1440,
+        Number.isFinite(configuredTimeout) ? configuredTimeout : 1440
+      );
+      ticket = await Ticket.findOne({
+        where: {
+          status: "closed",
+          channel: "whatsapp",
+          isGroup: false,
+          closedAt: { [Op.gte]: subMinutes(new Date(), reopenTimeout) },
+          contactId: contact.id,
+          whatsappId,
+          companyId
+        },
+        order: [
+          ["closedAt", "DESC"],
+          ["id", "DESC"]
+        ],
+        transaction
+      });
 
       if (ticket) {
+        const previousUser = ticket.userId
+          ? await User.findOne({
+              where: { id: ticket.userId, companyId },
+              include: [{ model: Queue, as: "queues", attributes: ["id"] }],
+              transaction
+            })
+          : null;
+        const keepPreviousUser =
+          !!previousUser &&
+          !!ticket.queueId &&
+          previousUser.queues?.some(item => item.id === ticket.queueId);
         await ticket.update(
           {
-            status: "pending",
-            userId: null,
+            status: keepPreviousUser ? "open" : "pending",
+            userId: keepPreviousUser ? previousUser.id : null,
+            chatbot: false,
+            queueOptionId: null,
             unreadMessages: incrementUnread
               ? ticket.unreadMessages + 1
               : ticket.unreadMessages,
@@ -220,12 +235,24 @@ const FindOrCreateTicketService = async (
   const release = await createTicketMutex.acquire();
 
   try {
-    return await internalFindOrCreateTicketService(
-      contact,
-      whatsappId,
-      companyId,
-      options
-    );
+    try {
+      return await internalFindOrCreateTicketService(
+        contact,
+        whatsappId,
+        companyId,
+        options
+      );
+    } catch (error) {
+      if (!isActiveTicketUniqueConflict(error)) throw error;
+      // A writer that did not take the advisory lock may have won the race.
+      // Read its committed ticket instead of exposing a database error.
+      return internalFindOrCreateTicketService(
+        contact,
+        whatsappId,
+        companyId,
+        options
+      );
+    }
   } finally {
     release();
   }

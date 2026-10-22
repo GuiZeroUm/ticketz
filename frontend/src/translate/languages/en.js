@@ -135,6 +135,13 @@ const messages = {
         semHistorico: "No previous tickets available.",
         semFila: "No queue",
         verConversa: "View conversation",
+        conversaCompleta: "View complete conversation",
+        voltarAtendimentos: "Back to tickets",
+        carregarAnteriores: "Load older messages",
+        semMensagens: "No messages available.",
+        equipe: "Team",
+        cliente: "Customer",
+        midia: "Media",
         protocolo: "Ticket",
         responsavel: "Assigned to",
         fila: "Queue"
