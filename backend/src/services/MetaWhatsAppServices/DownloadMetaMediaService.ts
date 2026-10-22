@@ -31,12 +31,16 @@ const DownloadMetaMediaService = async (
   }
 
   // Host proprio da Meta (lookaside.fbsbx.com), fora do baseURL do client.
-  const { data } = await axios.get(metadata.url as string, {
-    ...auth,
-    responseType: "arraybuffer",
-    timeout: 120000,
-    maxContentLength: 100 * 1024 * 1024
-  });
+  const { data } = await axios
+    .get(metadata.url as string, {
+      ...auth,
+      responseType: "arraybuffer",
+      timeout: 120000,
+      maxContentLength: 100 * 1024 * 1024
+    })
+    .catch(() => {
+      throw new AppError("ERR_META_MEDIA_DOWNLOAD_FAILED", 502);
+    });
 
   return {
     content: Buffer.from(data),

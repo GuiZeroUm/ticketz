@@ -173,6 +173,8 @@ export const SendWhatsAppMedia = async ({
   const connection = await Whatsapp.findByPk(ticket.whatsappId);
 
   if (connection?.apiMode === "official") {
+    if (connection.status !== "CONNECTED")
+      throw new AppError("ERR_WAPP_NOT_INITIALIZED", 400);
     return SendMetaMediaMessageService({
       media,
       ticket,

@@ -17,10 +17,12 @@ export interface MetaTemplate {
   status: string;
   language: string;
   category?: string;
+  parameter_format?: string;
   components?: {
     type: string;
     format?: string;
     text?: string;
+    buttons?: { type: string; url?: string }[];
   }[];
   rejected_reason?: string;
 }
@@ -42,18 +44,49 @@ export const listMetaTemplates = async (
 ): Promise<MetaTemplate[]> => {
   requireWaba(whatsapp);
 
-  const { data } = await getMetaGraphApiClient().get(
-    `/${whatsapp.metaWabaId}/message_templates`,
-    {
-      ...withAuth(whatsapp.metaAccessToken),
-      params: {
-        limit: 200,
-        fields: "id,name,status,language,category,components,rejected_reason"
+  const templates: MetaTemplate[] = [];
+  const seen = new Set<string>();
+  let after: string | undefined;
+  for (let page = 0; page < 100; page += 1) {
+    const { data } = await getMetaGraphApiClient().get(
+      `/${whatsapp.metaWabaId}/message_templates`,
+      {
+        ...withAuth(whatsapp.metaAccessToken),
+        params: {
+          limit: 200,
+          fields:
+            "id,name,status,language,category,components,rejected_reason",
+          ...(after ? { after } : {})
+        }
       }
+    );
+    templates.push(...((data?.data as MetaTemplate[]) || []));
+    if (!data?.paging?.next) return templates;
+    // Never follow a supplied URL with our bearer token. Validate the origin
+    // and resource, then use only the cursor on our fixed Graph endpoint.
+    let next: URL;
+    try {
+      next = new URL(data.paging.next);
+    } catch {
+      throw new AppError("ERR_META_TEMPLATE_PAGINATION", 502);
     }
-  );
-
-  return (data?.data as MetaTemplate[]) || [];
+    const expectedSuffix = `/${whatsapp.metaWabaId}/message_templates`;
+    const pathname = next.pathname.replace(/^\/v\d+\.\d+/, "");
+    after = next.searchParams.get("after") || undefined;
+    if (
+      next.protocol !== "https:" ||
+      next.host !== "graph.facebook.com" ||
+      next.username ||
+      next.password ||
+      pathname !== expectedSuffix ||
+      !after ||
+      seen.has(after)
+    ) {
+      throw new AppError("ERR_META_TEMPLATE_PAGINATION", 502);
+    }
+    seen.add(after);
+  }
+  throw new AppError("ERR_META_TEMPLATE_PAGINATION", 502);
 };
 
 // A tela de cobranca precisa do status de cada etapa, mas nao pode quebrar se

@@ -28,17 +28,12 @@ const RegisterPhoneNumberService = async (
       withAuth(accessToken)
     );
   } catch (err) {
-    const alreadyRegistered =
-      err?.graphCode === 133010 || err?.graphCode === 133000;
-    if (alreadyRegistered) {
-      logger.info(
-        { phoneNumberId },
-        "Meta phone number already registered, continuing"
-      );
-      return;
-    }
     logger.error(
-      { err, phoneNumberId },
+      {
+        phoneNumberId,
+        status: err.response?.status,
+        graphCode: err.response?.data?.error?.code
+      },
       "Failed to register Meta phone number"
     );
     throw new AppError("ERR_META_PHONE_REGISTER_FAILED", 502);

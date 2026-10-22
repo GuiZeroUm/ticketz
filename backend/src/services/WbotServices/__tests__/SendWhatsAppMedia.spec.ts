@@ -59,7 +59,7 @@ describe("SendWhatsAppMedia connection dispatch", () => {
   });
 
   it("envia pela Cloud API e nao encosta na sessao Baileys numa conexao oficial", async () => {
-    const connection = { id: 5, apiMode: "official" };
+    const connection = { id: 5, apiMode: "official", status: "CONNECTED" };
     (Whatsapp.findByPk as jest.Mock).mockResolvedValue(connection);
     const ticket = { whatsappId: 5 } as Ticket;
 

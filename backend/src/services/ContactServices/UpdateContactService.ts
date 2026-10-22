@@ -100,13 +100,13 @@ const UpdateContactService = async ({
   if (extraInfo) {
     const ownedIds = new Set(contact.extraInfo.map(field => field.id));
     const providedIds = extraInfo
-      .filter(field => field.id)
+      .filter(field => field.id && !field.managedBy)
       .map(field => field.id);
-    if (
-      new Set(providedIds).size !== providedIds.length ||
-      providedIds.some(id => !ownedIds.has(id))
-    ) {
+    if (new Set(providedIds).size !== providedIds.length) {
       throw new AppError("ERR_INVALID_CONTACT_FIELD", 400);
+    }
+    if (providedIds.some(id => !ownedIds.has(id))) {
+      throw new AppError("ERR_NO_PERMISSION", 403);
     }
     await Promise.all(
       extraInfo.map(async info => {

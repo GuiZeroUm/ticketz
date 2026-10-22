@@ -29,7 +29,13 @@ export const SubscribeWabaWebhookService = async (
   const client = getMetaGraphApiClient();
 
   try {
-    await client.post(`/${wabaId}/subscribed_apps`, {}, withAuth(accessToken));
+    await client.post(
+      `/${wabaId}/subscribed_apps`,
+      callback
+        ? { override_callback_uri: callback, verify_token: verifyToken }
+        : {},
+      withAuth(accessToken)
+    );
   } catch (err) {
     logger.error({ err, wabaId }, "Failed to subscribe Meta WABA webhook");
     throw new AppError("ERR_META_WEBHOOK_SUBSCRIBE_FAILED", 502);
@@ -58,6 +64,18 @@ export const UnsubscribeWabaWebhookService = async (
     );
     return;
   }
+
+  // WABA subscriptions cover every number: disconnecting one tenant must
+  // not stop delivery to another connection using the same business account.
+  const otherConnections = await Whatsapp.count({
+    where: {
+      metaWabaId: connection.metaWabaId,
+      apiMode: "official",
+      status: { [Op.ne]: "DISCONNECTED" },
+      id: { [Op.ne]: whatsappId }
+    }
+  });
+  if (otherConnections > 0) return;
 
   const client = getMetaGraphApiClient();
 

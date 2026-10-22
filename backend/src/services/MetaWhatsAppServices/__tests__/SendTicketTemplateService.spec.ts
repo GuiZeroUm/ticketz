@@ -42,7 +42,8 @@ beforeEach(() => {
   jest.clearAllMocks();
   findConnection.mockResolvedValue({
     id: 16,
-    apiMode: "official"
+    apiMode: "official",
+    status: "CONNECTED"
   } as unknown as Whatsapp);
   listTemplates.mockResolvedValue([approved]);
   sendTemplate.mockResolvedValue("wamid.1");
@@ -57,6 +58,21 @@ describe("renderTemplateBody", () => {
 });
 
 describe("SendTicketTemplateService", () => {
+  it("refuses disconnected connections before reading templates or sending", async () => {
+    findConnection.mockResolvedValue({
+      id: 16,
+      apiMode: "official",
+      status: "DISCONNECTED",
+      metaAccessToken: "still-stored"
+    } as unknown as Whatsapp);
+    await expect(
+      SendTicketTemplateService({ ticket, name: "primeiro_contato" })
+    ).rejects.toMatchObject({ message: "ERR_WAPP_NOT_INITIALIZED" });
+    expect(listTemplates).not.toHaveBeenCalled();
+    expect(sendTemplate).not.toHaveBeenCalled();
+    expect(persist).not.toHaveBeenCalled();
+  });
+
   it("sends the template and stores what the customer received", async () => {
     await SendTicketTemplateService({
       ticket,

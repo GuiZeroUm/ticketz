@@ -49,6 +49,10 @@ const SendTicketTemplateService = async ({
     throw new AppError("ERR_WAPP_OFFICIAL_MODE_ONLY", 400);
   }
 
+  if (connection.status !== "CONNECTED") {
+    throw new AppError("ERR_WAPP_NOT_INITIALIZED", 400);
+  }
+
   const templates = await ListTicketTemplatesService(connection);
   const template = templates.find(
     item => item.name === name && (!language || item.language === language)

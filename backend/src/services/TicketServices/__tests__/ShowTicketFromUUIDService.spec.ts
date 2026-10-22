@@ -26,7 +26,7 @@ it.each(["official", "baileys"])(
     const options = (Ticket.findOne as jest.Mock).mock.calls[0][0];
     expect(
       options.include.find(item => item.as === "whatsapp").attributes
-    ).toEqual(["id", "name", "apiMode"]);
+    ).toEqual(["id", "name", "channel", "apiMode"]);
   }
 );
 

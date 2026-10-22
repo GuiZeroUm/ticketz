@@ -72,6 +72,7 @@ import ProspeccaoSchedule from "../models/ProspeccaoSchedule";
 import ProspeccaoExecution from "../models/ProspeccaoExecution";
 import AgentTenantPolicy from "../models/AgentTenantPolicy";
 import AgentContextAudit from "../models/AgentContextAudit";
+import WhatsappStatusPost from "../models/WhatsappStatusPost";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const dbConfig = require("../config/database");
@@ -151,7 +152,8 @@ const models = [
   ProspeccaoExecution,
   ProspeccaoLead,
   WebPushSubscription,
-  PushSubscription
+  PushSubscription,
+  WhatsappStatusPost
 ];
 
 sequelize.addModels(models);
