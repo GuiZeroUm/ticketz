@@ -138,5 +138,8 @@ describe("ListMessagesService ticket history", () => {
     expect(options.where.ticketId).toBe(22);
     expect(options.include[1].where.ticketId).toBe(22);
     expect(options.include[1].where.queueId[Op.or]).toBeDefined();
+    expect(options.include[2].where.companyId).toBe(1);
+    expect(options.include[2].where.ticketId).toBe(22);
+    expect(options.include[2].where.queueId[Op.or]).toBeDefined();
   });
 });

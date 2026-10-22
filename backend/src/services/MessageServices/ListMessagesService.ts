@@ -160,7 +160,11 @@ const ListMessagesService = async ({
         model: Message,
         as: "replies",
         where: {
-          ticketId: ticketIdFilter
+          companyId: ticket.companyId,
+          ticketId: ticketIdFilter,
+          ...(options.where["queueId"]
+            ? { queueId: options.where["queueId"] }
+            : {})
         },
         include: ["contact"],
         required: false
