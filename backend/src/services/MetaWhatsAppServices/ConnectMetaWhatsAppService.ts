@@ -91,6 +91,8 @@ const ConnectMetaWhatsAppService = async ({
     status: "CONNECTED"
   });
 
+  clearTicketTemplatesCache(whatsapp.id);
+
   const sanitized = await ShowWhatsAppService(whatsapp.id);
 
   const io = getIO();
