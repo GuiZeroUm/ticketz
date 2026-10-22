@@ -229,60 +229,6 @@ const HandleMetaInboundMessageService = async (
     }
   }
 
-  const body = isMedia ? payload?.caption || "" : describe(message);
-  let media: {
-    mediaUrl: string;
-    mimetype: string;
-    filename: string;
-    label: string;
-  } | null = null;
-
-  if (payload?.id) {
-    const downloaded = await DownloadMetaMediaService(whatsapp, payload.id);
-    const mimetype = payload.mime_type?.split(";")[0] || downloaded.mimetype;
-    // So documento chega com nome de verdade; nos outros tipos inventamos um a
-    // partir do wamid, que serve pra gravar em disco mas nao pode ir pra tela.
-    const filename =
-      payload.filename || `${message.id}.${mime.extension(mimetype) || "bin"}`;
-
-    media = {
-      mediaUrl: await saveMediaToFile(
-        { data: downloaded.content, mimetype, filename },
-        { destination: ticket }
-      ),
-      mimetype,
-      filename,
-      label: mediaLabel(message.type, payload.filename)
-    };
-  }
-
-  const dataJson: Record<string, unknown> = {
-    wamid: message.id,
-    source: "meta-cloud-api"
-  };
-
-  const selectionId = flowInput(message);
-  if (selectionId && selectionId !== body) {
-    dataJson.interactiveSelectionId = selectionId;
-  }
-
-  if (media) {
-    dataJson.mimetype = media.mimetype;
-    // Mesmo contrato do envio: o MessagesList precisa do documentMessage pra
-    // renderizar previa e botao de download em vez de um video quebrado.
-    if (message.type === "document") {
-      dataJson.message = {
-        documentMessage: {
-          fileName: media.filename,
-          mimetype: media.mimetype
-        }
-      };
-    }
-    if (message.type === "sticker") {
-      dataJson.message = { stickerMessage: { mimetype: media.mimetype } };
-    }
-  }
-
   const sentAt = new Date(Number(message.timestamp) * 1000);
   const validSentAt =
     Number.isFinite(sentAt.getTime()) &&

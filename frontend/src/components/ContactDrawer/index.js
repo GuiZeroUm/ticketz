@@ -31,6 +31,7 @@ import ContactDrawerSkeleton from "../ContactDrawerSkeleton";
 import WhatsMarked from "react-whatsmarked";
 import { CardHeader } from "@material-ui/core";
 import ContactModal from "../ContactModal";
+import ExtraInfoDialog from "./ExtraInfoDialog";
 import SgaContactCard from "../SgaContactCard";
 import { TicketNotes } from "../TicketNotes";
 import { corAvatar as generateColor } from "../../helpers/coresAvatar";

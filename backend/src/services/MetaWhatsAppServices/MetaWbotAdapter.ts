@@ -1,13 +1,19 @@
+import fs from "fs";
+import mime from "mime-types";
+import path from "path";
+import SendMetaMediaMessageService from "./SendMetaMediaMessageService";
 import { proto } from "libzapitu-rf";
 import AppError from "../../errors/AppError";
 import Ticket from "../../models/Ticket";
 import Whatsapp from "../../models/Whatsapp";
 import { Session } from "../../libs/wbot";
-import { postMetaText } from "./SendMetaTextMessageService";
+import SendMetaTextMessageService, {
+  postMetaText
+} from "./SendMetaTextMessageService";
 import { postMetaInteractiveMenu } from "./SendMetaInteractiveMessageService";
 
 // Saudacao, fora de horario, menu de fila, chatbot e avaliacao vivem no
-// wbotMessageListener e usam o wbot so para enviar texto - nenhuma delas chama
+// wbotMessageListener e usam texto, menus e midia - nenhuma delas chama
 // API propria do Baileys. Este adaptador entrega um objeto com a mesma forma
 // que elas esperam, para que o caminho oficial reaproveite a logica em vez de
 // duplicar centenas de linhas (e voltar a divergir na proxima mudanca).
@@ -25,6 +31,29 @@ export const buildMetaWbot = (connection: Whatsapp): Session => {
 
   return {
     id: connection.id,
+    sendChatbotMedia: async (ticket, filePath, filename, caption) => {
+      const stats = await fs.promises.stat(filePath);
+      const mimetype =
+        mime.lookup(filename || filePath) || "application/octet-stream";
+      const separateCaption = mimetype.startsWith("audio/") && caption;
+      await SendMetaMediaMessageService({
+        connection,
+        ticket,
+        caption: separateCaption ? undefined : caption,
+        media: {
+          path: filePath,
+          originalname: Buffer.from(
+            filename || path.basename(filePath),
+            "utf8"
+          ).toString("latin1"),
+          mimetype,
+          size: stats.size
+        } as Express.Multer.File
+      });
+      if (separateCaption) {
+        await SendMetaTextMessageService({ connection, ticket, body: caption });
+      }
+    },
     sendMessage: async (jid: string, content: { text?: string }) => {
       const to = jid.replace(/\D/g, "");
       const body = content.text || "";

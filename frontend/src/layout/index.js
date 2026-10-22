@@ -25,6 +25,8 @@ import WelcomeTour, { useTourNavegacao } from "../components/WelcomeTour";
 import SettingsEthernetIcon from "@material-ui/icons/SettingsEthernet";
 
 import MainListItems from "./MainListItems";
+import SidebarBrand from "./SidebarBrand";
+import BusinessOutlined from "@material-ui/icons/BusinessOutlined";
 import AtalhosAtendimento from "./AtalhosAtendimento";
 import CaminhoPagina from "./CaminhoPagina";
 import FerramentasBarra from "./FerramentasBarra";
@@ -357,7 +359,6 @@ const LoggedInLayout = ({ children, themeToggle }) => {
   });
   const [drawerVariant, setDrawerVariant] = useState("permanent");
   // const [dueDate, setDueDate] = useState("");
-  const { user } = useContext(AuthContext);
   const supplierPortal = isSupplierPortal();
   const isAcNorteLayout = isAcNorte(user) || supplierPortal;
 
@@ -872,7 +873,7 @@ const LoggedInLayout = ({ children, themeToggle }) => {
         {!isAcNorteLayout && <div className={classes.appBarSpacer} />}
         {!supplierPortal && (
           <OnlyForSuperUser
-            user={currentUser}
+            user={user}
             yes={() => <GoogleAnalytics />}
           />
         )}

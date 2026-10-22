@@ -12,6 +12,7 @@ import { websocketUpdateTicket } from "../TicketServices/UpdateTicketService";
 import { digits } from "../SgaServices/normalize";
 import sequelize from "../../database";
 import { Op } from "sequelize";
+import { isActiveTicketUniqueConflict } from "../TicketServices/ActiveTicketConflict";
 
 export type BillingDelivery = {
   id: string;
@@ -105,7 +106,7 @@ export const syncBillingDeliveryVisibility = async (
     }
   });
 
-  const { ticket, createdMessage } = await sequelize.transaction(
+  const project = () => sequelize.transaction(
     async transaction => {
       await sequelize.query(
         "SELECT pg_advisory_xact_lock(:companyId, :contactId)",
@@ -227,6 +228,15 @@ export const syncBillingDeliveryVisibility = async (
       return { ticket: selected, createdMessage: created };
     }
   );
+
+  let projection: Awaited<ReturnType<typeof project>>;
+  try {
+    projection = await project();
+  } catch (error) {
+    if (!isActiveTicketUniqueConflict(error)) throw error;
+    projection = await project();
+  }
+  const { ticket, createdMessage } = projection;
 
   if (!createdMessage) return;
 

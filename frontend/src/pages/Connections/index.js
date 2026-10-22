@@ -1,4 +1,5 @@
 import StardewEmblem from "../../components/StardewEmblem";
+import { AuthContext } from "../../context/Auth/AuthContext";
 import React, { useState, useCallback, useContext, useEffect } from "react";
 import { toast } from "react-toastify";
 import { format, parseISO } from "date-fns";
@@ -60,6 +61,7 @@ import wavoipIcon from "../../assets/wavoip.webp";
 import WavoipModal from "../../components/WavoipModal";
 import { wavoipAvailable } from "../../helpers/wavoipCallManager";
 import MetaEmbeddedSignupButton from "../../components/MetaEmbeddedSignupButton";
+import MetaOnboardingStatus from "../../components/MetaOnboardingStatus";
 import { formatWhatsappDigits } from "../../helpers/formatWhatsappDisplay";
 
 const useStyles = makeStyles(theme => ({

@@ -45,7 +45,6 @@ import ToDoList from "../pages/ToDoList/";
 import Subscription from "../pages/Subscription/";
 import PlatformAccess from "../pages/PlatformAccess";
 import PlatformActivation from "../pages/PlatformActivation";
-import MobileLogin from "../pages/MobileLogin";
 import SupplierAccess from "../pages/SupplierAccess";
 import { isSupplierPortal } from "../helpers/supplierPortal";
 

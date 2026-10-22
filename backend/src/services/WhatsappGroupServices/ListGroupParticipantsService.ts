@@ -1,5 +1,3 @@
-import AppError from "../../errors/AppError";
-import Whatsapp from "../../models/Whatsapp";
 import { Op } from "sequelize";
 import AppError from "../../errors/AppError";
 import Contact from "../../models/Contact";

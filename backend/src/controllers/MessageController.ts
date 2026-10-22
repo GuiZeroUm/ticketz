@@ -1,7 +1,4 @@
 import Whatsapp from "../models/Whatsapp";
-import SendMetaReactionService from "../services/MetaWhatsAppServices/SendMetaReactionService";
-import GetTicketServiceWindowService from "../services/TicketServices/TicketServiceWindowService";
-import SendTicketTemplateService from "../services/MetaWhatsAppServices/SendTicketTemplateService";
 import { Request, Response } from "express";
 import fs from "fs";
 import AppError from "../errors/AppError";

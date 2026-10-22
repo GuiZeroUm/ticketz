@@ -52,6 +52,8 @@ import webPushRoutes from "./webPushRoutes";
 import billingAdminRoutes from "./billingAdminRoutes";
 import prospeccaoRoutes from "./prospeccaoRoutes";
 import pushRoutes from "./pushRoutes";
+import whatsappStatusAdminRoutes from "./whatsappStatusAdminRoutes";
+import whatsappStatusRoutes from "./whatsappStatusRoutes";
 
 const routes = Router();
 routes.use(sgaRoutes);

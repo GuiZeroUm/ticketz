@@ -10,6 +10,7 @@ import CreateMessageService from "../../MessageServices/CreateMessageService";
 import FindOrCreateATicketTrakingService from "../../TicketServices/FindOrCreateATicketTrakingService";
 import { websocketUpdateTicket } from "../../TicketServices/UpdateTicketService";
 import { syncBillingDeliveryVisibility } from "../visibility";
+import sequelize from "../../../database";
 
 jest.mock("../../../database", () => ({
   __esModule: true,
@@ -163,6 +164,21 @@ it("does not project a sent billing message twice", async () => {
   expect(TicketTag.findOrCreate).toHaveBeenCalled();
   expect(Message.findOrCreate).not.toHaveBeenCalled();
   expect(CreateMessageService).not.toHaveBeenCalled();
+});
+
+it("reuses the winner after a concurrent active-ticket index conflict", async () => {
+  (sequelize.transaction as jest.Mock)
+    .mockRejectedValueOnce({
+      parent: { constraint: "tickets_one_active_individual_whatsapp" }
+    })
+    .mockImplementationOnce(async callback => callback({}));
+  (Ticket.findOne as jest.Mock).mockResolvedValue(ticket);
+
+  await syncBillingDeliveryVisibility(delivery);
+
+  expect(sequelize.transaction).toHaveBeenCalledTimes(2);
+  expect(Ticket.create).not.toHaveBeenCalled();
+  expect(CreateMessageService).toHaveBeenCalledTimes(1);
 });
 
 it("does not leave a sent cobrança in an unassigned queue when Boletos is absent", async () => {

@@ -1,5 +1,3 @@
-import { buildMetaWbot } from "../MetaWhatsAppServices/MetaWbotAdapter";
-import Whatsapp from "../../models/Whatsapp";
 import moment from "moment";
 import CheckContactOpenTickets from "../../helpers/CheckContactOpenTickets";
 import SetTicketMessagesAsRead from "../../helpers/SetTicketMessagesAsRead";

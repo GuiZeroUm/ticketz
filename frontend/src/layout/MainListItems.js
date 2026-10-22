@@ -37,6 +37,7 @@ import toastError from "../errors/toastError";
 import isAcNorte from "../helpers/isAcNorte";
 import { isSupplierPortal } from "../helpers/supplierPortal";
 import config from "../services/config";
+import { canSeeScreen, screenForPath } from "../helpers/screenAccess";
 
 const reducer = (state, action) => {
   if (action.type === "LOAD_CHATS") {

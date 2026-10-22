@@ -93,7 +93,7 @@ const useStyles = makeStyles(theme => ({
 }));
 
 export function CompanyForm(props) {
-  const { onSubmit, onDelete, onImpersonate, onCancel, initialValue, loading } =
+  const { onSubmit, onDelete, onImpersonate, onCancel, onSetWhatsappMode, initialValue, loading } =
     props;
   const classes = useStyles();
   const [plans, setPlans] = useState([]);
@@ -857,7 +857,7 @@ export function CompaniesManagerGrid(props) {
 
 export default function CompaniesManager() {
   const classes = useStyles();
-  const { list, save, update, remove } = useCompanies();
+  const { list, save, update, remove, updateWhatsappMode } = useCompanies();
 
   const [showConfirmDeleteDialog, setShowConfirmDeleteDialog] = useState(false);
   const [showConfirmImpersonateDialog, setShowConfirmImpersonateDialog] =
@@ -921,6 +921,20 @@ export default function CompaniesManager() {
       );
     }
     setLoading(false);
+  };
+
+  const handleSetWhatsappMode = async (id, whatsappMode) => {
+    setLoading(true);
+    try {
+      await updateWhatsappMode(id, whatsappMode);
+      await loadPlans();
+      setRecord(previous => ({ ...previous, whatsappMode }));
+      toast.success("Modo WhatsApp atualizado com sucesso!");
+    } catch (error) {
+      toast.error("Não foi possível atualizar o modo WhatsApp");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -1026,6 +1040,7 @@ export default function CompaniesManager() {
             onDelete={handleOpenDeleteDialog}
             onImpersonate={handleOpenImpersonateDialog}
             onSubmit={handleSubmit}
+            onSetWhatsappMode={handleSetWhatsappMode}
             onCancel={handleCancel}
             loading={loading}
           />
