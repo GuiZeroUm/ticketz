@@ -31,12 +31,25 @@ beforeEach(() => {
 });
 
 it("lets a company administrator access every group", async () => {
+  findUser.mockResolvedValue({ profile: "admin", queues: [] } as User);
   await expect(
     assertGroupAccess(15, { id: 3, companyId: 7, profile: "admin" })
   ).resolves.toBe(ticket);
 
-  expect(findUser).not.toHaveBeenCalled();
+  expect(findUser).toHaveBeenCalled();
   expect(findGroupQueues).not.toHaveBeenCalled();
+});
+
+it("uses the current database role after an administrator is demoted", async () => {
+  findUser.mockResolvedValue({
+    profile: "user",
+    queues: [],
+    groupAccessIds: []
+  } as User);
+
+  await expect(
+    assertGroupAccess(15, { id: 9, companyId: 7, profile: "admin" })
+  ).rejects.toMatchObject({ message: "ERR_NO_PERMISSION", statusCode: 403 });
 });
 
 it("lets an attendant access a group when one queue intersects", async () => {
@@ -137,8 +150,6 @@ it("routes conversation events only to admins and authorized users", async () =>
   findGroupQueues.mockResolvedValue([{ queueId: 4 }] as GroupQueue[]);
 
   await expect(listGroupRecipientIds(31, 7, "conversation")).resolves.toEqual([
-    1,
-    3,
-    4
+    1, 3, 4
   ]);
 });

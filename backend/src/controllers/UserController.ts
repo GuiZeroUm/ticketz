@@ -161,13 +161,17 @@ export const groupOptions = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  if (req.user.profile !== "admin") {
+  const requestUser = await User.findOne({
+    where: { id: req.user.id, companyId: req.user.companyId },
+    attributes: ["profile", "super"]
+  });
+  if (requestUser?.profile !== "admin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
   const requestedCompanyId = Number(req.query.companyId || req.user.companyId);
   if (
     !Number.isSafeInteger(requestedCompanyId) ||
-    (requestedCompanyId !== req.user.companyId && !req.user.isSuper)
+    (requestedCompanyId !== req.user.companyId && !requestUser.super)
   ) {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }

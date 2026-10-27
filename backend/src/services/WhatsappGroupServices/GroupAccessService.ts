@@ -25,7 +25,8 @@ export const getUserGroupScope = async (userId: number, companyId: number) => {
   if (!user) throw new AppError("ERR_NO_PERMISSION", 403);
   return {
     queueIds: user.queues?.map(queue => queue.id) || [],
-    groupAccessIds: user.groupAccessIds
+    groupAccessIds: user.groupAccessIds,
+    profile: user.profile
   };
 };
 
@@ -62,14 +63,11 @@ export const assertGroupAccess = async (
   if (!ticket) {
     throw new AppError("ERR_NO_TICKET_FOUND", 404);
   }
-  if (user.profile === "admin") {
-    return ticket;
-  }
-
-  const { queueIds, groupAccessIds } = await getUserGroupScope(
+  const { queueIds, groupAccessIds, profile } = await getUserGroupScope(
     Number(user.id),
     user.companyId
   );
+  if (profile === "admin") return ticket;
   const allowed = await hasGroupAccess(
     ticket.contactId,
     user.companyId,

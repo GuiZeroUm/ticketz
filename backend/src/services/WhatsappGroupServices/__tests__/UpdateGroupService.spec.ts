@@ -10,6 +10,7 @@ import FindOrCreateATicketTrakingService from "../../TicketServices/FindOrCreate
 import ShowTicketService from "../../TicketServices/ShowTicketService";
 import {
   assertGroupAccess,
+  getUserGroupScope,
   listGroupRecipientIds
 } from "../GroupAccessService";
 import UpdateGroupService from "../UpdateGroupService";
@@ -68,6 +69,7 @@ const makeTicket = (mode: "conversation" | "ticket") => {
 };
 
 beforeEach(() => {
+  (getUserGroupScope as jest.Mock).mockResolvedValue({ profile: "admin" });
   (listGroupRecipientIds as jest.Mock).mockResolvedValue([]);
   transaction.mockImplementation(async (...args) => {
     const callback = args[args.length - 1];
@@ -87,6 +89,7 @@ beforeEach(() => {
 });
 
 it("requires an administrator to configure a company-wide group", async () => {
+  (getUserGroupScope as jest.Mock).mockResolvedValue({ profile: "user" });
   assertAccess.mockResolvedValue(makeTicket("conversation"));
   findGroupQueues.mockResolvedValue([]);
 

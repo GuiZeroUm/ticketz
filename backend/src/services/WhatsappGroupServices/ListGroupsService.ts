@@ -13,7 +13,6 @@ import AppError from "../../errors/AppError";
 interface Request {
   companyId: number;
   userId: number;
-  profile: string;
   mode?: "conversation" | "ticket";
   status?: string;
   searchParam?: string;
@@ -26,7 +25,6 @@ interface Request {
 const ListGroupsService = async ({
   companyId,
   userId,
-  profile,
   mode = "conversation",
   status,
   searchParam = "",
@@ -36,11 +34,12 @@ const ListGroupsService = async ({
   minUpdatedAt
 }: Request) => {
   let contactIds: number[] | undefined;
+  const {
+    queueIds: userQueueIds,
+    groupAccessIds,
+    profile
+  } = await getUserGroupScope(userId, companyId);
   if (profile !== "admin") {
-    const { queueIds: userQueueIds, groupAccessIds } = await getUserGroupScope(
-      userId,
-      companyId
-    );
     if (mode === "conversation" && Array.isArray(groupAccessIds)) {
       contactIds = groupAccessIds;
       if (!contactIds.length) return { groups: [], count: 0, hasMore: false };

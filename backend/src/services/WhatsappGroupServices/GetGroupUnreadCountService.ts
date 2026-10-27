@@ -1,13 +1,19 @@
 import { QueryTypes } from "sequelize";
 import sequelize from "../../database";
+import AppError from "../../errors/AppError";
+import User from "../../models/User";
 
 const GetGroupUnreadCountService = async (
   userId: number,
-  companyId: number,
-  profile: string
+  companyId: number
 ): Promise<number> => {
+  const user = await User.findOne({
+    where: { id: userId, companyId },
+    attributes: ["profile"]
+  });
+  if (!user) throw new AppError("ERR_NO_PERMISSION", 403);
   const accessCondition =
-    profile === "admin"
+    user.profile === "admin"
       ? ""
       : `
         AND (CASE

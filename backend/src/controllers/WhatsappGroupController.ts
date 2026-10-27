@@ -11,7 +11,6 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
   const result = await ListGroupsService({
     companyId: req.user.companyId,
     userId: Number(req.user.id),
-    profile: req.user.profile,
     mode,
     status: String(req.query.status || "") || undefined,
     searchParam: String(req.query.searchParam || ""),
@@ -50,8 +49,7 @@ export const unreadCount = async (
 ): Promise<Response> => {
   const count = await GetGroupUnreadCountService(
     Number(req.user.id),
-    req.user.companyId,
-    req.user.profile
+    req.user.companyId
   );
   return res.json({ count });
 };

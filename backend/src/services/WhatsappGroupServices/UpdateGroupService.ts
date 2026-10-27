@@ -9,7 +9,11 @@ import TicketTraking from "../../models/TicketTraking";
 import FindOrCreateATicketTrakingService from "../TicketServices/FindOrCreateATicketTrakingService";
 import { incrementCounter } from "../CounterServices/IncrementCounter";
 import { getIO } from "../../libs/socket";
-import { assertGroupAccess, listGroupRecipientIds } from "./GroupAccessService";
+import {
+  assertGroupAccess,
+  getUserGroupScope,
+  listGroupRecipientIds
+} from "./GroupAccessService";
 import ShowTicketService from "../TicketServices/ShowTicketService";
 
 interface Request {
@@ -30,7 +34,8 @@ const UpdateGroupService = async ({
   if (!["conversation", "ticket"].includes(mode)) {
     throw new AppError("ERR_INVALID_GROUP_MODE", 400);
   }
-  if (user.profile !== "admin") {
+  const currentScope = await getUserGroupScope(Number(user.id), user.companyId);
+  if (currentScope.profile !== "admin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
   const ticket = await assertGroupAccess(ticketId, user);
