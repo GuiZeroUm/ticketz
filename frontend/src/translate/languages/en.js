@@ -557,6 +557,7 @@ const messages = {
       },
       connections: {
         title: "Connections",
+        errors: { load: "Could not load connections." },
         toasts: {
           deleted: "WhatsApp connection successfully deleted!"
         },

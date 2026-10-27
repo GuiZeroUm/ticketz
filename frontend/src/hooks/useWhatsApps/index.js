@@ -1,6 +1,7 @@
 import { useState, useEffect, useReducer, useContext } from "react";
 import api from "../../services/api";
 import { SocketContext } from "../../context/Socket/SocketContext";
+import { AuthContext } from "../../context/Auth/AuthContext";
 
 const reducer = (state, action) => {
   if (action.type === "LOAD_WHATSAPPS") {
@@ -54,25 +55,45 @@ const reducer = (state, action) => {
 const useWhatsApps = () => {
   const [whatsApps, dispatch] = useReducer(reducer, []);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadVersion, setReloadVersion] = useState(0);
 
   const socketManager = useContext(SocketContext);
+  const { isAuth, loading: authLoading, user } = useContext(AuthContext);
+  const companyId = user?.companyId ?? user?.company?.id;
 
   useEffect(() => {
+    if (authLoading || !isAuth || !companyId) {
+      dispatch({ type: "RESET" });
+      setLoadError(false);
+      setLoading(authLoading);
+      return undefined;
+    }
+
+    let active = true;
     setLoading(true);
+    setLoadError(false);
     const fetchSession = async () => {
       try {
         const { data } = await api.get("/whatsapp");
-        dispatch({ type: "LOAD_WHATSAPPS", payload: data });
-        setLoading(false);
+        if (active) dispatch({ type: "LOAD_WHATSAPPS", payload: data });
       } catch (_) {
-        setLoading(false);
+        if (active) {
+          dispatch({ type: "RESET" });
+          setLoadError(true);
+        }
+      } finally {
+        if (active) setLoading(false);
       }
     };
     fetchSession();
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [authLoading, isAuth, companyId, reloadVersion]);
 
   useEffect(() => {
-    const companyId = localStorage.getItem("companyId");
+    if (authLoading || !isAuth || !companyId) return undefined;
     const socket = socketManager.GetSocket(companyId);
 
     const onCompanyWhatsapp = data => {
@@ -96,9 +117,14 @@ const useWhatsApps = () => {
     return () => {
       socket.disconnect();
     };
-  }, [socketManager]);
+  }, [socketManager, authLoading, isAuth, companyId]);
 
-  return { whatsApps, loading };
+  return {
+    whatsApps,
+    loading,
+    loadError,
+    reload: () => setReloadVersion(version => version + 1)
+  };
 };
 
 export default useWhatsApps;

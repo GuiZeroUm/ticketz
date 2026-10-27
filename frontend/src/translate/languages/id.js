@@ -440,6 +440,7 @@ const messages = {
         }
       },
       connections: {
+        errors: { load: "Koneksi tidak dapat dimuat." },
         title: "Koneksi",
         toasts: {
           deleted: "Koneksi WhatsApp berhasil dihapus!"

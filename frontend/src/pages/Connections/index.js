@@ -121,7 +121,8 @@ const Connections = () => {
   const classes = useStyles();
   const theme = useTheme();
 
-  const { whatsApps, loading } = useContext(WhatsAppsContext);
+  const { whatsApps, loading, loadError, reload } =
+    useContext(WhatsAppsContext);
   const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);
   const [privacyModalOpen, setPrivacyModalOpen] = useState(false);
   const [qrModalOpen, setQrModalOpen] = useState(false);
@@ -586,6 +587,15 @@ const Connections = () => {
           <TableBody>
             {loading ? (
               <TableRowSkeleton columns={7} />
+            ) : loadError ? (
+              <TableRow>
+                <TableCell colSpan={7} align="center">
+                  <Typography>{i18n.t("connections.errors.load")}</Typography>
+                  <Button onClick={reload}>
+                    {i18n.t("connections.buttons.tryAgain")}
+                  </Button>
+                </TableCell>
+              </TableRow>
             ) : (
               <>
                 {whatsApps?.length > 0 &&
