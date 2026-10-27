@@ -32,9 +32,7 @@ const TicketOptionsMenu = ({
   const [groupConfigOpen, setGroupConfigOpen] = useState(false);
   const isGroupConversation =
     ticket.isGroup && ticket.contact?.groupMode !== "ticket";
-  const canConfigureGroup =
-    user.profile === "admin" ||
-    Boolean(ticket.queueIds?.length || ticket.contact?.groupQueues?.length);
+  const canConfigureGroup = user.profile === "admin";
 
   useEffect(() => {
     return () => {

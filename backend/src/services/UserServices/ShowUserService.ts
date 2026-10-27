@@ -18,6 +18,7 @@ const ShowUserService = async (
       "companyId",
       "profile",
       "visibleScreens",
+      "groupAccessIds",
       "super",
       "tokenVersion"
     ],

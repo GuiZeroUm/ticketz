@@ -65,6 +65,10 @@ class User extends Model<User> {
   @Column(DataType.JSONB)
   visibleScreens: string[] | null;
 
+  // null keeps legacy queue access; an array is an explicit allowlist.
+  @Column(DataType.JSONB)
+  groupAccessIds: number[] | null;
+
   @Column
   super: boolean;
 

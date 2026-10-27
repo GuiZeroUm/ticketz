@@ -39,7 +39,7 @@ const SyncTicketTags = async ({
   }
 
   await ticket.reload();
-  websocketUpdateTicket(ticket);
+  await websocketUpdateTicket(ticket);
 
   return ticket;
 };

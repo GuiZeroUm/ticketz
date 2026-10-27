@@ -1,10 +1,8 @@
 import { Op } from "sequelize";
-import GroupQueue from "../../models/GroupQueue";
 import GroupReadState from "../../models/GroupReadState";
-import Queue from "../../models/Queue";
-import User from "../../models/User";
 import Ticket from "../../models/Ticket";
 import { getIO } from "../../libs/socket";
+import { listGroupRecipientIds } from "./GroupAccessService";
 
 export const incrementGroupUnread = async (
   ticket: Ticket,
@@ -12,33 +10,20 @@ export const incrementGroupUnread = async (
 ): Promise<void> => {
   if (!ticket.isGroup || ticket.contact?.groupMode === "ticket") return;
 
-  const groupQueues = await GroupQueue.findAll({
-    where: { groupContactId: ticket.contactId, companyId: ticket.companyId },
-    attributes: ["queueId"]
-  });
-  const queueIds = groupQueues.map(item => item.queueId);
-  const users = await User.findAll({
-    where: { companyId: ticket.companyId },
-    include: [
-      { model: Queue, as: "queues", required: false, attributes: ["id"] }
-    ]
-  });
-  const eligible = users.filter(
-    user =>
-      user.profile === "admin" ||
-      (!queueIds.length && ticket.contact?.groupMode === "conversation") ||
-      user.queues?.some(queue => queueIds.includes(queue.id))
+  const recipientIds = await listGroupRecipientIds(
+    ticket.contactId,
+    ticket.companyId,
+    ticket.contact?.groupMode
   );
-
   await Promise.all(
-    eligible
-      .filter(user => user.id !== senderUserId)
-      .map(async user => {
+    recipientIds
+      .filter(id => id !== senderUserId)
+      .map(async id => {
         const [state] = await GroupReadState.findOrCreate({
-          where: { ticketId: ticket.id, userId: user.id },
+          where: { ticketId: ticket.id, userId: id },
           defaults: {
             ticketId: ticket.id,
-            userId: user.id,
+            userId: id,
             companyId: ticket.companyId,
             unreadCount: 0
           }

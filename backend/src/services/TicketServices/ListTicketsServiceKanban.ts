@@ -213,6 +213,32 @@ const ListTicketsServiceKanban = async ({
     companyId
   };
 
+  const user = await ShowUserService(userId);
+  if (user.profile !== "admin" && Array.isArray(user.groupAccessIds)) {
+    const serviceGroups = await Contact.findAll({
+      where: { companyId, isGroup: true, groupMode: "ticket" },
+      attributes: ["id"]
+    });
+    whereCondition = {
+      [Op.and]: [
+        whereCondition,
+        {
+          [Op.or]: [
+            { isGroup: false },
+            {
+              contactId: {
+                [Op.in]: [
+                  ...user.groupAccessIds,
+                  ...serviceGroups.map(group => group.id)
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    };
+  }
+
   const { count, rows: tickets } = await Ticket.findAndCountAll({
     where: whereCondition,
     include: includeCondition,

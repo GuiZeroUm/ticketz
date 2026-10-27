@@ -6,6 +6,7 @@ import Company from "../../models/Company";
 import User from "../../models/User";
 import { revokeUserMcpGrants } from "../McpServices/RevokeMcpGrantsService";
 import { validateVisibleScreens } from "../../helpers/screenAccess";
+import validateGroupAccessIds from "../WhatsappGroupServices/ValidateGroupAccessIds";
 
 interface UserData {
   email?: string;
@@ -15,6 +16,7 @@ interface UserData {
   companyId?: number;
   queueIds?: number[];
   visibleScreens?: string[] | null;
+  groupAccessIds?: number[] | null;
 }
 
 interface Request {
@@ -62,7 +64,8 @@ const UpdateUserService = async ({
     profile,
     name,
     queueIds = [],
-    visibleScreens
+    visibleScreens,
+    groupAccessIds
   } = userData;
   const securityIdentityChanged =
     Boolean(password) || (profile !== undefined && profile !== user.profile);
@@ -82,6 +85,10 @@ const UpdateUserService = async ({
         visibleScreens === undefined
           ? undefined
           : validateVisibleScreens(visibleScreens),
+      groupAccessIds:
+        groupAccessIds === undefined
+          ? undefined
+          : await validateGroupAccessIds(groupAccessIds, user.companyId),
       name
     });
     await user.$set("queues", queueIds);
@@ -109,6 +116,7 @@ const UpdateUserService = async ({
     super: user.super,
     profile: user.profile,
     visibleScreens: user.visibleScreens,
+    groupAccessIds: user.groupAccessIds,
     companyId: user.companyId,
     company,
     queues: user.queues

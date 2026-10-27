@@ -78,6 +78,10 @@ describePg("Agent SQL isolation on PostgreSQL temporary fixtures", () => {
       'CREATE TEMP TABLE "GroupQueues" (id int,"companyId" int,"groupContactId" int,"queueId" int) ON COMMIT DROP'
     );
     await exec(
+      'CREATE TEMP TABLE "Users" (id int,"companyId" int,"groupAccessIds" jsonb) ON COMMIT DROP'
+    );
+    await exec('INSERT INTO "Users" VALUES (10,1,NULL),(30,2,NULL)');
+    await exec(
       'CREATE TEMP TABLE "QueueOptions" (id int,title text,message text,"queueId" int,"parentId" int) ON COMMIT DROP'
     );
     await exec(

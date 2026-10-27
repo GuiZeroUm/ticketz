@@ -25,6 +25,8 @@ userRoutes.get("/users", isAuth, UserController.index);
 
 userRoutes.get("/users/list", isAuth, UserController.list);
 
+userRoutes.get("/users/group-options", isAuth, UserController.groupOptions);
+
 userRoutes.post("/users", isAuth, UserController.store);
 
 userRoutes.put("/users/:userId", isAuth, UserController.update);

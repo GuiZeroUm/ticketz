@@ -354,6 +354,31 @@ const ListTicketsService = async ({
     companyId
   };
 
+  if (user.profile !== "admin" && Array.isArray(user.groupAccessIds)) {
+    const serviceGroups = await Contact.findAll({
+      where: { companyId, isGroup: true, groupMode: "ticket" },
+      attributes: ["id"]
+    });
+    whereCondition = {
+      [Op.and]: [
+        whereCondition,
+        {
+          [Op.or]: [
+            { isGroup: false },
+            {
+              contactId: {
+                [Op.in]: [
+                  ...user.groupAccessIds,
+                  ...serviceGroups.map(group => group.id)
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    };
+  }
+
   const tickets = await Ticket.findAll({
     where: whereCondition,
     include: includeCondition,

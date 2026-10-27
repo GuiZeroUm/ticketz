@@ -6,6 +6,7 @@ import User from "../../models/User";
 import Plan from "../../models/Plan";
 import Company from "../../models/Company";
 import { validateVisibleScreens } from "../../helpers/screenAccess";
+import validateGroupAccessIds from "../WhatsappGroupServices/ValidateGroupAccessIds";
 
 interface Request {
   email: string;
@@ -15,6 +16,7 @@ interface Request {
   companyId?: number;
   profile?: string;
   visibleScreens?: string[] | null;
+  groupAccessIds?: number[] | null;
 }
 
 interface Response {
@@ -32,7 +34,8 @@ const CreateUserService = async ({
   queueIds = [],
   companyId,
   profile = "admin",
-  visibleScreens = null
+  visibleScreens = null,
+  groupAccessIds = null
 }: Request): Promise<Response> => {
   if (companyId !== undefined) {
     const company = await Company.findOne({
@@ -89,7 +92,8 @@ const CreateUserService = async ({
       name,
       companyId,
       profile,
-      visibleScreens: validateVisibleScreens(visibleScreens)
+      visibleScreens: validateVisibleScreens(visibleScreens),
+      groupAccessIds: await validateGroupAccessIds(groupAccessIds, companyId)
     },
     { include: ["queues", "company"] }
   );

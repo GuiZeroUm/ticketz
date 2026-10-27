@@ -21,6 +21,7 @@ import { _t } from "../TranslationServices/i18nService";
 import ResolveTicketTransferService from "./ResolveTicketTransferService";
 import GroupQueue from "../../models/GroupQueue";
 import { isActiveTicketUniqueConflict } from "./ActiveTicketConflict";
+import { listGroupRecipientIds } from "../WhatsappGroupServices/GroupAccessService";
 
 export interface UpdateTicketData {
   status?: string;
@@ -63,9 +64,24 @@ const sendFormattedMessage = async (
   await verifyMessage(queueChangedMessage, ticket, ticket.contact);
 };
 
-export function websocketUpdateTicket(ticket: Ticket, moreChannels?: string[]) {
+export async function websocketUpdateTicket(
+  ticket: Ticket,
+  moreChannels?: string[]
+) {
   const io = getIO();
   if (ticket.isGroup || ticket.contact?.isGroup) {
+    if (ticket.contact?.groupMode === "conversation") {
+      const userIds = await listGroupRecipientIds(
+        ticket.contactId,
+        ticket.companyId,
+        ticket.contact.groupMode
+      );
+      io.to(userIds.map(id => `user-${id}`)).emit(
+        `company-${ticket.companyId}-ticket`,
+        { action: "update", ticket }
+      );
+      return;
+    }
     let groupRecipients = io
       .to(ticket.id.toString())
       .to(`company-${ticket.companyId}-admin`);
@@ -496,7 +512,7 @@ const UpdateTicketService = async ({
         });
     }
 
-    websocketUpdateTicket(ticket, [
+    await websocketUpdateTicket(ticket, [
       `user-${oldUserId}`,
       `queue-${oldQueueId}-${oldStatus}`
     ]);

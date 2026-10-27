@@ -1888,6 +1888,12 @@ const messages = {
           password: "Senha",
           profile: "Perfil",
           visibleScreens: "Telas visíveis",
+          groupAccess: "Acesso aos grupos de conversa",
+          groupAccessHint:
+            "Escolha grupos específicos para este usuário. Sem personalização, vale o acesso pelas filas. Administradores visualizam todos os grupos.",
+          customGroupAccess: "Selecionar grupos para este usuário",
+          allowedGroups: "Grupos permitidos",
+          searchGroups: "Buscar grupo",
           screenAccessHint:
             "Usuários comuns podem visualizar as telas selecionadas. Ações administrativas continuam reservadas aos administradores."
         },

@@ -256,14 +256,25 @@ export const initIO = (httpServer: Server): SocketIO => {
           }
 
           let allowed = ticket.userId === user.id || user.profile === "admin";
-          if (ticket.isGroup && user.profile !== "admin") {
-            const userQueueIds = user.queues.map(queue => queue.id);
-            allowed = await hasGroupAccess(
-              ticket.contactId,
-              user.companyId,
-              ticket.contact?.groupMode,
-              userQueueIds
-            );
+          if (ticket.isGroup) {
+            const currentUser = await User.findByPk(user.id, {
+              include: [Queue]
+            });
+            if (!currentUser || currentUser.companyId !== user.companyId) {
+              return;
+            }
+            allowed = currentUser.profile === "admin";
+            const userQueueIds =
+              currentUser?.queues?.map(queue => queue.id) || [];
+            if (!allowed) {
+              allowed = await hasGroupAccess(
+                ticket.contactId,
+                user.companyId,
+                ticket.contact?.groupMode,
+                userQueueIds,
+                currentUser.groupAccessIds
+              );
+            }
           }
 
           if (allowed) {

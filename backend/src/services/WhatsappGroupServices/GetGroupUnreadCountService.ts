@@ -10,7 +10,14 @@ const GetGroupUnreadCountService = async (
     profile === "admin"
       ? ""
       : `
-        AND (
+        AND (CASE
+          WHEN (SELECT "groupAccessIds" FROM "Users" WHERE id=:userId AND "companyId"=:companyId) IS NOT NULL
+          THEN EXISTS (
+            SELECT 1 FROM "Users" access_user
+            WHERE access_user.id=:userId AND access_user."companyId"=:companyId
+              AND access_user."groupAccessIds" @> jsonb_build_array(ticket."contactId")
+          )
+          ELSE (
           NOT EXISTS (
             SELECT 1 FROM "GroupQueues" group_queue
             WHERE group_queue."groupContactId" = ticket."contactId"
@@ -25,7 +32,7 @@ const GetGroupUnreadCountService = async (
               AND group_queue."companyId" = :companyId
               AND user_queue."userId" = :userId
           )
-        )
+          ) END)
       `;
 
   const [result] = await sequelize.query<{ count: number }>(

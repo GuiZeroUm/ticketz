@@ -10,6 +10,7 @@ import GroupQueue from "../../models/GroupQueue";
 import { incrementGroupUnread } from "../WhatsappGroupServices/GroupUnreadService";
 import { emitContact } from "../ContactServices/CreateOrUpdateContactService";
 import NotifyNewMessageService from "../PushNotificationServices/NotifyNewMessageService";
+import { listGroupRecipientIds } from "../WhatsappGroupServices/GroupAccessService";
 
 interface MessageData {
   id: string;
@@ -49,6 +50,19 @@ export const websocketCreateMessage = async (message: Message) => {
     message.ticket.isGroup &&
     message.ticket.contact?.groupMode !== "ticket"
   ) {
+    const recipientIds = await listGroupRecipientIds(
+      message.ticket.contactId,
+      message.companyId,
+      message.ticket.contact?.groupMode
+    );
+    io.to(recipientIds.map(id => `user-${id}`)).emit(
+      `company-${message.companyId}-appMessage`,
+      payload
+    );
+  } else if (
+    message.ticket.isGroup &&
+    message.ticket.contact?.groupMode === "ticket"
+  ) {
     const queues = await GroupQueue.findAll({
       where: {
         groupContactId: message.ticket.contactId,
@@ -59,12 +73,6 @@ export const websocketCreateMessage = async (message: Message) => {
     let recipients = io
       .to(message.ticketId.toString())
       .to(`company-${message.companyId}-admin`);
-    if (
-      !queues.length &&
-      message.ticket.contact?.groupMode === "conversation"
-    ) {
-      recipients = recipients.to(`company-${message.companyId}-mainchannel`);
-    }
     queues.forEach(item => {
       recipients = recipients.to(`queue-${item.queueId}-notification`);
     });

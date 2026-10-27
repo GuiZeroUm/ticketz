@@ -244,6 +244,7 @@ const TicketsManagerTabs = () => {
     socketManager.onConnect(onConnect);
     socket.on(`company-${companyId}-appMessage`, onMessage);
     socket.on(`company-${companyId}-ticket`, onTicket);
+    socket.on("groupAccessChanged", refreshGroupUnreadCount);
     socket.on("wsRefreshRequired", onRefresh);
 
     return () => socket.disconnect();

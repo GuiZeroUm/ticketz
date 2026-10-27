@@ -9,7 +9,7 @@ import TicketTraking from "../../models/TicketTraking";
 import FindOrCreateATicketTrakingService from "../TicketServices/FindOrCreateATicketTrakingService";
 import { incrementCounter } from "../CounterServices/IncrementCounter";
 import { getIO } from "../../libs/socket";
-import { assertGroupAccess } from "./GroupAccessService";
+import { assertGroupAccess, listGroupRecipientIds } from "./GroupAccessService";
 import ShowTicketService from "../TicketServices/ShowTicketService";
 
 interface Request {
@@ -29,6 +29,9 @@ const UpdateGroupService = async ({
 }: Request): Promise<Ticket> => {
   if (!["conversation", "ticket"].includes(mode)) {
     throw new AppError("ERR_INVALID_GROUP_MODE", 400);
+  }
+  if (user.profile !== "admin") {
+    throw new AppError("ERR_NO_PERMISSION", 403);
   }
   const ticket = await assertGroupAccess(ticketId, user);
   const uniqueQueueIds = [...new Set(queueIds.map(Number).filter(Boolean))];
@@ -51,6 +54,10 @@ const UpdateGroupService = async ({
     attributes: ["queueId"]
   });
   const previousQueueIds = previousQueues.map(item => item.queueId);
+  const previousRecipientIds =
+    oldMode === "conversation"
+      ? await listGroupRecipientIds(ticket.contactId, user.companyId, oldMode)
+      : [];
   if (!previousQueueIds.length && user.profile !== "admin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
@@ -132,6 +139,10 @@ const UpdateGroupService = async ({
   }
 
   const updatedTicket = await ShowTicketService(ticket.id, user.companyId);
+  const currentRecipientIds =
+    mode === "conversation"
+      ? await listGroupRecipientIds(ticket.contactId, user.companyId, mode)
+      : [];
   const io = getIO();
   const ticketRoom = updatedTicket.id.toString();
   const connectedSockets = await io.in(ticketRoom).fetchSockets();
@@ -146,31 +157,42 @@ const UpdateGroupService = async ({
     })
   );
 
-  let removedRecipients = io.to(
-    previousQueueIds
-      .filter(queueId => !uniqueQueueIds.includes(queueId))
-      .map(queueId => `queue-${queueId}-notification`)
-  );
-  removedRecipients.emit(`company-${user.companyId}-ticket`, {
-    action: "delete",
-    ticketId: updatedTicket.id
-  });
-  if (!previousQueueIds.length && oldMode !== "ticket") {
-    const companyRecipients = io.to(`company-${user.companyId}-mainchannel`);
-    companyRecipients.emit(`company-${user.companyId}-ticket`, {
+  if (oldMode === "ticket") {
+    const removedRecipients = io.to(
+      previousQueueIds
+        .filter(queueId =>
+          mode === "conversation" ? true : !uniqueQueueIds.includes(queueId)
+        )
+        .map(queueId => `queue-${queueId}-notification`)
+    );
+    removedRecipients.emit(`company-${user.companyId}-ticket`, {
       action: "delete",
       ticketId: updatedTicket.id
     });
-    companyRecipients.emit(`company-${user.companyId}-ticket`, {
+  }
+  if (oldMode === "conversation") {
+    const previousRecipients = io.to(
+      previousRecipientIds.map(id => `user-${id}`)
+    );
+    previousRecipients.emit(`company-${user.companyId}-ticket`, {
+      action: "delete",
+      ticketId: updatedTicket.id
+    });
+    previousRecipients.emit(`company-${user.companyId}-ticket`, {
       action: "updateUnread",
       ticketId: updatedTicket.id
     });
   }
 
-  let recipients = io.to(ticketRoom).to(`company-${user.companyId}-admin`);
-  uniqueQueueIds.forEach(queueId => {
-    recipients = recipients.to(`queue-${queueId}-notification`);
-  });
+  let recipients =
+    mode === "conversation"
+      ? io.to(currentRecipientIds.map(id => `user-${id}`))
+      : io.to(ticketRoom).to(`company-${user.companyId}-admin`);
+  if (mode === "ticket") {
+    uniqueQueueIds.forEach(queueId => {
+      recipients = recipients.to(`queue-${queueId}-notification`);
+    });
+  }
   recipients.emit(`company-${user.companyId}-ticket`, {
     action: "update",
     ticket: updatedTicket

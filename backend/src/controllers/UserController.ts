@@ -10,6 +10,7 @@ import ShowUserService from "../services/UserServices/ShowUserService";
 import DeleteUserService from "../services/UserServices/DeleteUserService";
 import SimpleListService from "../services/UserServices/SimpleListService";
 import User from "../models/User";
+import Contact from "../models/Contact";
 
 type IndexQuery = {
   searchParam: string;
@@ -42,7 +43,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     profile,
     companyId: bodyCompanyId,
     queueIds,
-    visibleScreens
+    visibleScreens,
+    groupAccessIds
   } = req.body;
   let userCompanyId: number | null = null;
 
@@ -69,7 +71,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     profile,
     companyId: newUserCompanyId,
     queueIds,
-    visibleScreens
+    visibleScreens,
+    groupAccessIds
   });
 
   const io = getIO();
@@ -108,6 +111,7 @@ export const update = async (
     action: "update",
     user
   });
+  io.to(`user-${user.id}`).emit("groupAccessChanged");
 
   return res.status(200).json(user);
 };
@@ -151,4 +155,30 @@ export const list = async (req: Request, res: Response): Promise<Response> => {
   });
 
   return res.status(200).json(users);
+};
+
+export const groupOptions = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  if (req.user.profile !== "admin") {
+    throw new AppError("ERR_NO_PERMISSION", 403);
+  }
+  const requestedCompanyId = Number(req.query.companyId || req.user.companyId);
+  if (
+    !Number.isSafeInteger(requestedCompanyId) ||
+    (requestedCompanyId !== req.user.companyId && !req.user.isSuper)
+  ) {
+    throw new AppError("ERR_NO_PERMISSION", 403);
+  }
+  const groups = await Contact.findAll({
+    where: {
+      companyId: requestedCompanyId,
+      isGroup: true,
+      groupMode: "conversation"
+    },
+    attributes: ["id", "name"],
+    order: [["name", "ASC"]]
+  });
+  return res.json(groups);
 };
