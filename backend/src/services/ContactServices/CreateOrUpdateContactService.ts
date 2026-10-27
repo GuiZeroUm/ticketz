@@ -40,9 +40,12 @@ export const emitContact = async (
     : io.to(`company-${contact.companyId}-mainchannel`);
   if (contact.isGroup) {
     const groupQueues = await GroupQueue.findAll({
-      where: { groupContactId: contact.id },
+      where: { groupContactId: contact.id, companyId: contact.companyId },
       attributes: ["queueId"]
     });
+    if (!groupQueues.length && contact.groupMode === "conversation") {
+      recipients = recipients.to(`company-${contact.companyId}-mainchannel`);
+    }
     groupQueues.forEach(groupQueue => {
       recipients = recipients.to(`queue-${groupQueue.queueId}-notification`);
     });

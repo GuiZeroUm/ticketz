@@ -54,9 +54,16 @@ const resolveRecipients = async (message: Message): Promise<number[]> => {
 
   if (ticket.isGroup && ticket.contact?.groupMode !== "ticket") {
     const groupQueues = await GroupQueue.findAll({
-      where: { groupContactId: ticket.contactId },
+      where: { groupContactId: ticket.contactId, companyId: message.companyId },
       attributes: ["queueId"]
     });
+    if (!groupQueues.length && ticket.contact?.groupMode === "conversation") {
+      const users = await User.findAll({
+        where: { companyId: message.companyId },
+        attributes: ["id"]
+      });
+      return users.map(user => user.id);
+    }
     const queueUserIds = await listQueueUserIds(
       message.companyId,
       groupQueues.map(item => item.queueId)

@@ -82,6 +82,22 @@ beforeEach(() => {
   });
 });
 
+it("requires an administrator to configure a company-wide group", async () => {
+  assertAccess.mockResolvedValue(makeTicket("conversation"));
+  findGroupQueues.mockResolvedValue([]);
+
+  await expect(
+    UpdateGroupService({
+      ticketId: 20,
+      mode: "conversation",
+      queueIds: [4, 5],
+      user: { id: 2, companyId: 7, profile: "user" }
+    })
+  ).rejects.toMatchObject({ message: "ERR_NO_PERMISSION", statusCode: 403 });
+
+  expect(transaction).not.toHaveBeenCalled();
+});
+
 it("starts tracking only when a conversation becomes an attendance", async () => {
   const ticket = makeTicket("conversation");
   assertAccess.mockResolvedValue(ticket);

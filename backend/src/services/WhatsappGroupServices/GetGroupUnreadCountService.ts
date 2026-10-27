@@ -10,14 +10,21 @@ const GetGroupUnreadCountService = async (
     profile === "admin"
       ? ""
       : `
-        AND EXISTS (
-          SELECT 1
-          FROM "GroupQueues" group_queue
-          INNER JOIN "UserQueues" user_queue
-            ON user_queue."queueId" = group_queue."queueId"
-          WHERE group_queue."groupContactId" = ticket."contactId"
-            AND group_queue."companyId" = :companyId
-            AND user_queue."userId" = :userId
+        AND (
+          NOT EXISTS (
+            SELECT 1 FROM "GroupQueues" group_queue
+            WHERE group_queue."groupContactId" = ticket."contactId"
+              AND group_queue."companyId" = :companyId
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM "GroupQueues" group_queue
+            INNER JOIN "UserQueues" user_queue
+              ON user_queue."queueId" = group_queue."queueId"
+            WHERE group_queue."groupContactId" = ticket."contactId"
+              AND group_queue."companyId" = :companyId
+              AND user_queue."userId" = :userId
+          )
         )
       `;
 
@@ -30,6 +37,7 @@ const GetGroupUnreadCountService = async (
       WHERE read_state."userId" = :userId
         AND read_state."companyId" = :companyId
         AND ticket."companyId" = :companyId
+        AND contact."companyId" = :companyId
         AND ticket."isGroup" = true
         AND contact."isGroup" = true
         AND contact."groupMode" = 'conversation'

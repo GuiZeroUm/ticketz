@@ -37,12 +37,35 @@ const ListGroupsService = async ({
 }: Request) => {
   let contactIds: number[] | undefined;
   if (profile !== "admin") {
-    const userQueueIds = await getUserQueueIds(userId);
+    const userQueueIds = await getUserQueueIds(userId, companyId);
     const access = await GroupQueue.findAll({
       where: { companyId, queueId: userQueueIds },
       attributes: ["groupContactId"]
     });
-    contactIds = [...new Set(access.map(item => item.groupContactId))];
+    const companyWideGroups =
+      mode === "conversation"
+        ? await sequelize.query<{ id: number }>(
+            `
+              SELECT contact.id
+              FROM "Contacts" contact
+              WHERE contact."companyId" = :companyId
+                AND contact."isGroup" = true
+                AND contact."groupMode" = 'conversation'
+                AND NOT EXISTS (
+                  SELECT 1 FROM "GroupQueues" group_queue
+                  WHERE group_queue."groupContactId" = contact.id
+                    AND group_queue."companyId" = :companyId
+                )
+            `,
+            { replacements: { companyId }, type: QueryTypes.SELECT }
+          )
+        : [];
+    contactIds = [
+      ...new Set([
+        ...access.map(item => item.groupContactId),
+        ...companyWideGroups.map(item => item.id)
+      ])
+    ];
     if (!contactIds.length) return { groups: [], count: 0, hasMore: false };
   }
 

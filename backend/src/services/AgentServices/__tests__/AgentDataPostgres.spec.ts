@@ -69,7 +69,7 @@ describePg("Agent SQL isolation on PostgreSQL temporary fixtures", () => {
     const exec = (sql: string, replacements: Record<string, unknown> = {}) =>
       db.query(sql, { transaction, replacements });
     await exec(
-      'CREATE TEMP TABLE "Contacts" (id int,"companyId" int,name text,email text) ON COMMIT DROP'
+      'CREATE TEMP TABLE "Contacts" (id int,"companyId" int,name text,email text,"groupMode" text DEFAULT \'conversation\') ON COMMIT DROP'
     );
     await exec(
       'CREATE TEMP TABLE "Queues" (id int,"companyId" int) ON COMMIT DROP'
@@ -99,7 +99,7 @@ describePg("Agent SQL isolation on PostgreSQL temporary fixtures", () => {
       'CREATE TEMP TABLE "TaskBoardTasks" (id int,"companyId" int,title text,"targetType" text,"assignedUserId" int,"assignedQueueId" int) ON COMMIT DROP'
     );
     await exec(
-      "INSERT INTO \"Contacts\" VALUES (1,1,'Tenant Alpha','a@example.test'),(2,2,'Tenant Beta private','b@example.test')"
+      "INSERT INTO \"Contacts\" (id,\"companyId\",name,email) VALUES (1,1,'Tenant Alpha','a@example.test'),(2,2,'Tenant Beta private','b@example.test')"
     );
     await exec('INSERT INTO "Queues" VALUES (7,1),(8,1),(20,2)');
     await exec(

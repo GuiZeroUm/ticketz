@@ -47,10 +47,13 @@ const UpdateGroupService = async ({
 
   const oldMode = ticket.contact.groupMode || "conversation";
   const previousQueues = await GroupQueue.findAll({
-    where: { groupContactId: ticket.contactId },
+    where: { groupContactId: ticket.contactId, companyId: user.companyId },
     attributes: ["queueId"]
   });
   const previousQueueIds = previousQueues.map(item => item.queueId);
+  if (!previousQueueIds.length && user.profile !== "admin") {
+    throw new AppError("ERR_NO_PERMISSION", 403);
+  }
   await sequelize.transaction(async transaction => {
     await GroupQueue.destroy({
       where: { groupContactId: ticket.contactId },
@@ -152,6 +155,17 @@ const UpdateGroupService = async ({
     action: "delete",
     ticketId: updatedTicket.id
   });
+  if (!previousQueueIds.length && oldMode !== "ticket") {
+    const companyRecipients = io.to(`company-${user.companyId}-mainchannel`);
+    companyRecipients.emit(`company-${user.companyId}-ticket`, {
+      action: "delete",
+      ticketId: updatedTicket.id
+    });
+    companyRecipients.emit(`company-${user.companyId}-ticket`, {
+      action: "updateUnread",
+      ticketId: updatedTicket.id
+    });
+  }
 
   let recipients = io.to(ticketRoom).to(`company-${user.companyId}-admin`);
   uniqueQueueIds.forEach(queueId => {

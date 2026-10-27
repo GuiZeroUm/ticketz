@@ -5,11 +5,33 @@ import Ticket from "../../models/Ticket";
 import User from "../../models/User";
 import Contact from "../../models/Contact";
 
-export const getUserQueueIds = async (userId: number): Promise<number[]> => {
-  const user = await User.findByPk(userId, {
+export const getUserQueueIds = async (
+  userId: number,
+  companyId: number
+): Promise<number[]> => {
+  const user = await User.findOne({
+    where: { id: userId, companyId },
     include: [{ model: Queue, as: "queues", attributes: ["id"] }]
   });
-  return user?.queues?.map(queue => queue.id) || [];
+  if (!user) throw new AppError("ERR_NO_PERMISSION", 403);
+  return user.queues?.map(queue => queue.id) || [];
+};
+
+// A conversation without configured queues is visible to its company. Once
+// queues are configured, only their members may access it. Service-mode groups
+// always require an explicit queue.
+export const hasGroupAccess = async (
+  groupContactId: number,
+  companyId: number,
+  groupMode: string | null | undefined,
+  userQueueIds: number[]
+): Promise<boolean> => {
+  const groupQueues = await GroupQueue.findAll({
+    where: { groupContactId, companyId },
+    attributes: ["queueId"]
+  });
+  if (!groupQueues.length) return groupMode === "conversation";
+  return groupQueues.some(item => userQueueIds.includes(item.queueId));
 };
 
 export const assertGroupAccess = async (
@@ -28,10 +50,13 @@ export const assertGroupAccess = async (
     return ticket;
   }
 
-  const queueIds = await getUserQueueIds(Number(user.id));
-  const allowed = await GroupQueue.count({
-    where: { groupContactId: ticket.contactId, queueId: queueIds }
-  });
+  const queueIds = await getUserQueueIds(Number(user.id), user.companyId);
+  const allowed = await hasGroupAccess(
+    ticket.contactId,
+    user.companyId,
+    ticket.contact?.groupMode,
+    queueIds
+  );
   if (!allowed) {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }

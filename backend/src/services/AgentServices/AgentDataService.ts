@@ -13,7 +13,7 @@ const ticketScope = (actor: AgentActor, alias: string) => {
   const group =
     actor.profile === "admin"
       ? "true"
-      : `EXISTS (SELECT 1 FROM "GroupQueues" gq JOIN "Queues" gqq ON gqq.id=gq."queueId" AND gqq."companyId"=:companyId WHERE gq."companyId"=:companyId AND gq."groupContactId"=${alias}."contactId" AND gq."queueId" IN (:queueIds))`;
+      : `(EXISTS (SELECT 1 FROM "GroupQueues" gq JOIN "Queues" gqq ON gqq.id=gq."queueId" AND gqq."companyId"=:companyId WHERE gq."companyId"=:companyId AND gq."groupContactId"=${alias}."contactId" AND gq."queueId" IN (:queueIds)) OR EXISTS (SELECT 1 FROM "Contacts" gc WHERE gc.id=${alias}."contactId" AND gc."companyId"=:companyId AND gc."groupMode"='conversation' AND NOT EXISTS (SELECT 1 FROM "GroupQueues" gq WHERE gq."groupContactId"=gc.id AND gq."companyId"=:companyId)))`;
   return `${tenant(alias)} AND ((${alias}."isGroup"=false AND (${individual})) OR (${alias}."isGroup"=true AND (${group})))`;
 };
 const taskScope = (actor: AgentActor, alias: string) =>

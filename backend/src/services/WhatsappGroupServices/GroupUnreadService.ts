@@ -13,7 +13,7 @@ export const incrementGroupUnread = async (
   if (!ticket.isGroup || ticket.contact?.groupMode === "ticket") return;
 
   const groupQueues = await GroupQueue.findAll({
-    where: { groupContactId: ticket.contactId },
+    where: { groupContactId: ticket.contactId, companyId: ticket.companyId },
     attributes: ["queueId"]
   });
   const queueIds = groupQueues.map(item => item.queueId);
@@ -26,6 +26,7 @@ export const incrementGroupUnread = async (
   const eligible = users.filter(
     user =>
       user.profile === "admin" ||
+      (!queueIds.length && ticket.contact?.groupMode === "conversation") ||
       user.queues?.some(queue => queueIds.includes(queue.id))
   );
 

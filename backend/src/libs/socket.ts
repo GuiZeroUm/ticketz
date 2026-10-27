@@ -48,10 +48,11 @@ import { logger, setSocketIo, socketSendBuffer } from "../utils/logger";
 import User from "../models/User";
 import Queue from "../models/Queue";
 import Ticket from "../models/Ticket";
+import Contact from "../models/Contact";
 import authConfig from "../config/auth";
 import { CounterManager } from "./counter";
 import UserSocketSession from "../models/UserSocketSession";
-import GroupQueue from "../models/GroupQueue";
+import { hasGroupAccess } from "../services/WhatsappGroupServices/GroupAccessService";
 import { DecoupledDriverServices } from "../services/DecoupledDriverServices/DecoupledDriverServices";
 import { corsOrigin } from "../helpers/corsOrigin";
 import Company from "../models/Company";
@@ -243,7 +244,9 @@ export const initIO = (httpServer: Server): SocketIO => {
       if (!ticketId || ticketId === "undefined") {
         return;
       }
-      Ticket.findByPk(ticketId).then(
+      Ticket.findByPk(ticketId, {
+        include: [{ model: Contact, as: "contact", attributes: ["groupMode"] }]
+      }).then(
         async ticket => {
           if (!ticket || ticket.companyId !== user.companyId) {
             logger.info(
@@ -253,15 +256,13 @@ export const initIO = (httpServer: Server): SocketIO => {
           }
 
           let allowed = ticket.userId === user.id || user.profile === "admin";
-          if (!allowed && ticket.isGroup) {
+          if (ticket.isGroup && user.profile !== "admin") {
             const userQueueIds = user.queues.map(queue => queue.id);
-            allowed = Boolean(
-              await GroupQueue.count({
-                where: {
-                  groupContactId: ticket.contactId,
-                  queueId: userQueueIds
-                }
-              })
+            allowed = await hasGroupAccess(
+              ticket.contactId,
+              user.companyId,
+              ticket.contact?.groupMode,
+              userQueueIds
             );
           }
 

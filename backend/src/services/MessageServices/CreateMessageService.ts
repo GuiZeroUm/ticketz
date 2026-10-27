@@ -50,12 +50,21 @@ export const websocketCreateMessage = async (message: Message) => {
     message.ticket.contact?.groupMode !== "ticket"
   ) {
     const queues = await GroupQueue.findAll({
-      where: { groupContactId: message.ticket.contactId },
+      where: {
+        groupContactId: message.ticket.contactId,
+        companyId: message.companyId
+      },
       attributes: ["queueId"]
     });
     let recipients = io
       .to(message.ticketId.toString())
       .to(`company-${message.companyId}-admin`);
+    if (
+      !queues.length &&
+      message.ticket.contact?.groupMode === "conversation"
+    ) {
+      recipients = recipients.to(`company-${message.companyId}-mainchannel`);
+    }
     queues.forEach(item => {
       recipients = recipients.to(`queue-${item.queueId}-notification`);
     });

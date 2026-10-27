@@ -33,7 +33,7 @@ it("inherits every queue from the receiving WhatsApp connection", async () => {
   );
 });
 
-it("keeps a group administrator-only when its connection has no queues", async () => {
+it("leaves a conversation unassigned when its connection has no queues", async () => {
   countGroupQueues.mockResolvedValue(0);
   findWhatsapp.mockResolvedValue({ queues: [] } as unknown as Whatsapp);
 
