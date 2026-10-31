@@ -441,13 +441,6 @@ const TicketsListCustom = props => {
     socket.on(`company-${companyId}-ticket`, onCompanyTicket);
     socket.on(`company-${companyId}-appMessage`, onCompanyAppMessage);
     socket.on(`company-${companyId}-contact`, onCompanyContact);
-    if (groups) {
-      socket.on("groupAccessChanged", () => {
-        dispatch({ type: "RESET" });
-        setPaginationCursor({ nextUpdatedAt: null, nextTicketId: null });
-        refetchTickets();
-      });
-    }
     socket.on("wsRefreshRequired", refreshRequired => {
       if (refreshRequired) {
         const currentList = ticketsListRef.current;

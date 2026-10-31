@@ -13,7 +13,7 @@ const ticketScope = (actor: AgentActor, alias: string) => {
   const group =
     actor.profile === "admin"
       ? "true"
-      : `(CASE WHEN EXISTS (SELECT 1 FROM "Contacts" gc JOIN "Users" gu ON gu.id=:userId AND gu."companyId"=:companyId WHERE gc.id=${alias}."contactId" AND gc."companyId"=:companyId AND gc."groupMode"='conversation' AND gu."groupAccessIds" IS NOT NULL) THEN EXISTS (SELECT 1 FROM "Users" gu WHERE gu.id=:userId AND gu."companyId"=:companyId AND gu."groupAccessIds" @> jsonb_build_array(${alias}."contactId")) ELSE (EXISTS (SELECT 1 FROM "GroupQueues" gq JOIN "Queues" gqq ON gqq.id=gq."queueId" AND gqq."companyId"=:companyId WHERE gq."companyId"=:companyId AND gq."groupContactId"=${alias}."contactId" AND gq."queueId" IN (:queueIds)) OR EXISTS (SELECT 1 FROM "Contacts" gc WHERE gc.id=${alias}."contactId" AND gc."companyId"=:companyId AND gc."groupMode"='conversation' AND NOT EXISTS (SELECT 1 FROM "GroupQueues" gq WHERE gq."groupContactId"=gc.id AND gq."companyId"=:companyId))) END)`;
+      : `EXISTS (SELECT 1 FROM "GroupQueues" gq JOIN "Queues" gqq ON gqq.id=gq."queueId" AND gqq."companyId"=:companyId WHERE gq."companyId"=:companyId AND gq."groupContactId"=${alias}."contactId" AND gq."queueId" IN (:queueIds))`;
   return `${tenant(alias)} AND ((${alias}."isGroup"=false AND (${individual})) OR (${alias}."isGroup"=true AND (${group})))`;
 };
 const taskScope = (actor: AgentActor, alias: string) =>

@@ -20,7 +20,6 @@ import FormControl from "@material-ui/core/FormControl";
 import Checkbox from "@material-ui/core/Checkbox";
 import FormControlLabel from "@material-ui/core/FormControlLabel";
 import Typography from "@material-ui/core/Typography";
-import Autocomplete from "@material-ui/lab/Autocomplete";
 
 import { i18n } from "../../translate/i18n";
 
@@ -98,25 +97,6 @@ const UserModal = ({ open, onClose, userId }) => {
   const [user, setUser] = useState(initialState);
   const [selectedQueueIds, setSelectedQueueIds] = useState([]);
   const [selectedScreens, setSelectedScreens] = useState(defaultUserScreens);
-  const [groupOptions, setGroupOptions] = useState([]);
-  const [customGroupAccess, setCustomGroupAccess] = useState(false);
-  const [selectedGroupIds, setSelectedGroupIds] = useState([]);
-
-  useEffect(() => {
-    if (!open || loggedInUser.profile !== "admin") return;
-    let active = true;
-    api
-      .get("/users/group-options", {
-        params: { companyId: user.companyId || loggedInUser.companyId }
-      })
-      .then(({ data }) => {
-        if (active) setGroupOptions(data);
-      })
-      .catch(toastError);
-    return () => {
-      active = false;
-    };
-  }, [open, loggedInUser.profile, loggedInUser.companyId, user.companyId]);
 
   useEffect(() => {
     let ativo = true;
@@ -130,8 +110,6 @@ const UserModal = ({ open, onClose, userId }) => {
         });
         const userQueueIds = data.queues?.map(queue => queue.id);
         setSelectedQueueIds(userQueueIds);
-        setCustomGroupAccess(Array.isArray(data.groupAccessIds));
-        setSelectedGroupIds(data.groupAccessIds || []);
         setSelectedScreens(
           Array.isArray(data.visibleScreens)
             ? data.visibleScreens
@@ -155,17 +133,13 @@ const UserModal = ({ open, onClose, userId }) => {
     setUser(initialState);
     setSelectedQueueIds([]);
     setSelectedScreens(defaultUserScreens);
-    setCustomGroupAccess(false);
-    setSelectedGroupIds([]);
-    setGroupOptions([]);
   };
 
   const handleSaveUser = async values => {
     const userData = {
       ...values,
       queueIds: selectedQueueIds,
-      visibleScreens: selectedScreens,
-      groupAccessIds: customGroupAccess ? selectedGroupIds : null
+      visibleScreens: selectedScreens
     };
     try {
       if (usuarioSalvo.current) {
@@ -214,7 +188,7 @@ const UserModal = ({ open, onClose, userId }) => {
             actions.setSubmitting(false);
           }}
         >
-          {({ values, touched, errors, isSubmitting, setFieldValue }) => (
+          {({ touched, errors, isSubmitting, setFieldValue }) => (
             <Form>
               <DialogContent dividers>
                 <FotoUsuario
@@ -293,10 +267,6 @@ const UserModal = ({ open, onClose, userId }) => {
                             onChange={event => {
                               const profile = event.target.value;
                               setFieldValue("profile", profile);
-                              if (profile === "admin") {
-                                setCustomGroupAccess(false);
-                                setSelectedGroupIds([]);
-                              }
                               setSelectedScreens(
                                 profile === "admin"
                                   ? screenOptions.map(screen => screen.id)
@@ -357,71 +327,6 @@ const UserModal = ({ open, onClose, userId }) => {
                     />
                   ))}
                 </div>
-                <Typography variant="subtitle1" style={{ marginTop: 20 }}>
-                  {i18n.t("userModal.form.groupAccess", {
-                    defaultValue: "Acesso aos grupos de conversa"
-                  })}
-                </Typography>
-                <Typography
-                  variant="caption"
-                  color="textSecondary"
-                  display="block"
-                >
-                  {i18n.t("userModal.form.groupAccessHint", {
-                    defaultValue:
-                      "Escolha grupos específicos para este usuário. Sem personalização, vale o acesso pelas filas. Administradores visualizam todos os grupos."
-                  })}
-                </Typography>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={customGroupAccess}
-                      onChange={event =>
-                        setCustomGroupAccess(event.target.checked)
-                      }
-                      disabled={
-                        loggedInUser.profile !== "admin" ||
-                        values.profile === "admin"
-                      }
-                    />
-                  }
-                  label={i18n.t("userModal.form.customGroupAccess", {
-                    defaultValue: "Selecionar grupos para este usuário"
-                  })}
-                />
-                {customGroupAccess && (
-                  <Autocomplete
-                    multiple
-                    options={groupOptions}
-                    getOptionLabel={option => option.name || String(option.id)}
-                    getOptionSelected={(option, value) =>
-                      option.id === value.id
-                    }
-                    value={groupOptions.filter(group =>
-                      selectedGroupIds.includes(group.id)
-                    )}
-                    onChange={(_, groups) =>
-                      setSelectedGroupIds(groups.map(group => group.id))
-                    }
-                    disabled={
-                      loggedInUser.profile !== "admin" ||
-                      values.profile === "admin"
-                    }
-                    renderInput={params => (
-                      <TextField
-                        {...params}
-                        variant="outlined"
-                        margin="dense"
-                        label={i18n.t("userModal.form.allowedGroups", {
-                          defaultValue: "Grupos permitidos"
-                        })}
-                        placeholder={i18n.t("userModal.form.searchGroups", {
-                          defaultValue: "Buscar grupo"
-                        })}
-                      />
-                    )}
-                  />
-                )}
               </DialogContent>
               <DialogActions>
                 <Button

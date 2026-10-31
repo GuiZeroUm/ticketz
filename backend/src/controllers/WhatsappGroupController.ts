@@ -7,17 +7,15 @@ import ListGroupParticipantsService from "../services/WhatsappGroupServices/List
 import GetGroupUnreadCountService from "../services/WhatsappGroupServices/GetGroupUnreadCountService";
 import parseConnectionFilter from "../helpers/parseConnectionFilter";
 
-// The supplier portal is a read-only view where every user sees all groups.
-// Everywhere else the services read the user's current role from the database.
-const supplierPortalSeesAllGroups = (): boolean =>
-  process.env.ACNORTE_SUPPLIER_SSO_ROLE === "target";
-
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const mode = req.query.mode === "ticket" ? "ticket" : "conversation";
   const result = await ListGroupsService({
     companyId: req.user.companyId,
     userId: Number(req.user.id),
-    treatAsAdmin: supplierPortalSeesAllGroups(),
+    profile:
+      process.env.ACNORTE_SUPPLIER_SSO_ROLE === "target"
+        ? "admin"
+        : req.user.profile,
     mode,
     status: String(req.query.status || "") || undefined,
     searchParam: String(req.query.searchParam || ""),
@@ -58,8 +56,10 @@ export const unreadCount = async (
   const count = await GetGroupUnreadCountService(
     Number(req.user.id),
     req.user.companyId,
-    parseConnectionFilter(req.query.whatsappId),
-    supplierPortalSeesAllGroups()
+    process.env.ACNORTE_SUPPLIER_SSO_ROLE === "target"
+      ? "admin"
+      : req.user.profile,
+    parseConnectionFilter(req.query.whatsappId)
   );
   return res.json({ count });
 };

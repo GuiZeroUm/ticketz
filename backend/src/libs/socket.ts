@@ -48,12 +48,11 @@ import { logger, setSocketIo, socketSendBuffer } from "../utils/logger";
 import User from "../models/User";
 import Queue from "../models/Queue";
 import Ticket from "../models/Ticket";
-import Contact from "../models/Contact";
 import authConfig from "../config/auth";
 import { CounterManager } from "./counter";
 import UserSocketSession from "../models/UserSocketSession";
+import GroupQueue from "../models/GroupQueue";
 import { unassignedTicketRoom } from "../helpers/TicketSocketRooms";
-import { hasGroupAccess } from "../services/WhatsappGroupServices/GroupAccessService";
 import { DecoupledDriverServices } from "../services/DecoupledDriverServices/DecoupledDriverServices";
 import { corsOrigin } from "../helpers/corsOrigin";
 import Company from "../models/Company";
@@ -247,9 +246,7 @@ export const initIO = (httpServer: Server): SocketIO => {
       if (!ticketId || ticketId === "undefined") {
         return;
       }
-      Ticket.findByPk(ticketId, {
-        include: [{ model: Contact, as: "contact", attributes: ["groupMode"] }]
-      }).then(
+      Ticket.findByPk(ticketId).then(
         async ticket => {
           if (!ticket || ticket.companyId !== user.companyId) {
             logger.info(
@@ -258,34 +255,26 @@ export const initIO = (httpServer: Server): SocketIO => {
             return;
           }
 
-          let allowed = false;
-          if (ticket.isGroup) {
-            const currentUser = await User.findByPk(user.id, {
-              include: [Queue]
-            });
-            if (!currentUser || currentUser.companyId !== user.companyId) {
-              return;
-            }
-            allowed = currentUser.profile === "admin";
-            const userQueueIds =
-              currentUser?.queues?.map(queue => queue.id) || [];
-            if (!allowed) {
-              allowed = await hasGroupAccess(
-                ticket.contactId,
-                user.companyId,
-                ticket.contact?.groupMode,
-                userQueueIds,
-                currentUser.groupAccessIds
-              );
-            }
-          } else {
-            const accessMode = await getTicketAccessMode(ticket.companyId);
-            allowed = canUserSeeTicket(
-              user.profile,
-              user.id,
-              user.queues.map(queue => queue.id),
-              ticket,
-              accessMode
+          const userQueueIds = user.queues.map(queue => queue.id);
+          const accessMode = await getTicketAccessMode(ticket.companyId);
+          let allowed = canUserSeeTicket(
+            user.profile,
+            user.id,
+            userQueueIds,
+            ticket,
+            accessMode
+          );
+          if (!allowed && !ticket.isGroup) {
+            allowed = false;
+          }
+          if (!allowed && ticket.isGroup) {
+            allowed = Boolean(
+              await GroupQueue.count({
+                where: {
+                  groupContactId: ticket.contactId,
+                  queueId: userQueueIds
+                }
+              })
             );
           }
 

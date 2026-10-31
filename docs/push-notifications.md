@@ -32,9 +32,8 @@ antes. O push cobre justamente quem está com o app fechado.
 - Ticket atribuído: só o responsável.
 - Sem responsável, com fila: os usuários da fila.
 - Sem responsável e sem fila: os admins da empresa.
-- Grupo: usuários das filas do grupo mais os admins; se a conversa não tiver
-  filas configuradas, todos os usuários da empresa. Em ambos os casos, apenas
-  se `soundGroupNotifications` estiver `enabled`.
+- Grupo: usuários das filas do grupo mais os admins, e apenas se
+  `soundGroupNotifications` estiver `enabled`.
 
 Mensagem `fromMe` ou já lida não gera push.
 

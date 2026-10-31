@@ -59,31 +59,6 @@ it("increments unread only for eligible users and not for the sender", async () 
   expect(increment).toHaveBeenCalledTimes(2);
 });
 
-it("increments unread for every company user when a conversation has no queues", async () => {
-  const increment = jest.fn().mockResolvedValue(undefined);
-  findGroupQueues.mockResolvedValue([]);
-  findUsers.mockResolvedValue([
-    { id: 1, profile: "admin", queues: [] },
-    { id: 2, profile: "user", queues: [] },
-    { id: 3, profile: "user", queues: [{ id: 9 }] }
-  ] as User[]);
-  findOrCreateState.mockResolvedValue([
-    { increment } as unknown as GroupReadState,
-    true
-  ]);
-
-  await incrementGroupUnread({
-    id: 20,
-    companyId: 7,
-    contactId: 31,
-    isGroup: true,
-    contact: { groupMode: "conversation" }
-  } as Ticket);
-
-  expect(findOrCreateState).toHaveBeenCalledTimes(3);
-  expect(increment).toHaveBeenCalledTimes(3);
-});
-
 it("does not maintain individual unread for service-mode groups", async () => {
   await incrementGroupUnread({
     isGroup: true,
