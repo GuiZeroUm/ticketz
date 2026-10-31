@@ -30,7 +30,11 @@ describe("extractHelpImages", () => {
   });
 
   afterEach(async () => {
-    process.env.BACKEND_URL = previousBackendUrl;
+    if (previousBackendUrl === undefined) {
+      delete process.env.BACKEND_URL;
+    } else {
+      process.env.BACKEND_URL = previousBackendUrl;
+    }
     await fs.rm(path.dirname(dir), { recursive: true, force: true });
   });
 
