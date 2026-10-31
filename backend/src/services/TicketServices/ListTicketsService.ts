@@ -23,6 +23,7 @@ import Whatsapp from "../../models/Whatsapp";
 import { GetCompanySetting } from "../../helpers/CheckSettings";
 import ContactTag from "../../models/ContactTag";
 import { shouldApplyQueueFilter } from "./TicketQueueAccess";
+import loadTicketPage from "./loadTicketPage";
 
 interface Request {
   isSearch?: boolean;
@@ -120,9 +121,10 @@ const ListTicketsService = async ({
   if (groupsTab) {
     whereCondition = { ...whereCondition, isGroup: groups === "true" };
   }
-  let includeCondition: Includeable[];
-
-  includeCondition = [
+  // Associações que o `where` referencia (ex.: "$contact.name$"). Vão só na
+  // consulta de ids, sem atributos, para a paginação ser por ticket.
+  let filterInclude: Includeable[] = [];
+  const includeCondition: Includeable[] = [
     {
       model: Contact,
       as: "contact",
@@ -177,12 +179,14 @@ const ListTicketsService = async ({
   if (searchParam) {
     const sanitizedSearchParam = searchParam.toLocaleLowerCase().trim();
 
-    includeCondition = [
-      ...includeCondition,
+    // TEMPORÁRIO: o filtro `$message.body$` abaixo ainda depende do join com
+    // Message, que multiplica linhas; loadTicketPage deduplica os ids.
+    filterInclude = [
+      { model: Contact, as: "contact", attributes: [] },
       {
         model: Message,
         as: "messages",
-        attributes: ["id", "body"],
+        attributes: [],
         where: {
           body: where(
             fn("LOWER", col("body")),
@@ -379,15 +383,11 @@ const ListTicketsService = async ({
     };
   }
 
-  const tickets = await Ticket.findAll({
+  const tickets = await loadTicketPage({
     where: whereCondition,
     include: includeCondition,
-    limit,
-    order: [
-      ["updatedAt", "DESC"],
-      ["id", "DESC"]
-    ],
-    subQuery: false
+    filterInclude,
+    limit
   });
 
   return {

@@ -11,6 +11,7 @@ import Tag from "../../models/Tag";
 import TicketTag from "../../models/TicketTag";
 import { intersection } from "lodash";
 import Whatsapp from "../../models/Whatsapp";
+import loadTicketPage from "./loadTicketPage";
 
 interface Request {
   searchParam?: string;
@@ -51,9 +52,10 @@ const ListTicketsServiceKanban = async ({
     [Op.or]: [{ userId }, { status: "pending" }],
     queueId: { [Op.or]: [queueIds, null] }
   };
-  let includeCondition: Includeable[];
-
-  includeCondition = [
+  // Associações que o `where` referencia (ex.: "$contact.name$"). Vão só na
+  // consulta de ids, sem atributos, para a paginação ser por ticket.
+  let filterInclude: Includeable[] = [];
+  const includeCondition: Includeable[] = [
     {
       model: Contact,
       as: "contact",
@@ -93,12 +95,14 @@ const ListTicketsServiceKanban = async ({
   if (searchParam) {
     const sanitizedSearchParam = searchParam.toLocaleLowerCase().trim();
 
-    includeCondition = [
-      ...includeCondition,
+    // TEMPORÁRIO: o filtro `$message.body$` abaixo ainda depende do join com
+    // Message, que multiplica linhas; loadTicketPage deduplica os ids.
+    filterInclude = [
+      { model: Contact, as: "contact", attributes: [] },
       {
         model: Message,
         as: "messages",
-        attributes: ["id", "body"],
+        attributes: [],
         where: {
           body: where(
             fn("LOWER", col("body")),
@@ -239,14 +243,18 @@ const ListTicketsServiceKanban = async ({
     };
   }
 
-  const { count, rows: tickets } = await Ticket.findAndCountAll({
+  const count = await Ticket.count({
+    where: whereCondition,
+    include: filterInclude,
+    distinct: true,
+    col: "id"
+  });
+  const tickets = await loadTicketPage({
     where: whereCondition,
     include: includeCondition,
-    distinct: true,
+    filterInclude,
     limit,
-    offset,
-    order: [["updatedAt", "DESC"]],
-    subQuery: false
+    offset
   });
   const hasMore = count > offset + tickets.length;
 
