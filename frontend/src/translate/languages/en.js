@@ -382,6 +382,12 @@ const messages = {
       date: {
         yesterday: "Yesterday"
       },
+      chunkError: {
+        message:
+          "This screen could not be loaded. The connection may have failed or the system was updated.",
+        reload: "Reload",
+        emoji: "Emojis could not be loaded. Reload the page."
+      },
       common: {
         search: "Search",
         filter: "Filter",

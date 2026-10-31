@@ -1465,6 +1465,12 @@ const messages = {
       date: {
         yesterday: "Ontem"
       },
+      chunkError: {
+        message:
+          "Não foi possível carregar esta tela. A conexão pode ter falhado ou o sistema foi atualizado.",
+        reload: "Recarregar",
+        emoji: "Não foi possível carregar os emojis. Recarregue a página."
+      },
       common: {
         search: "Buscar",
         filter: "Filtrar",

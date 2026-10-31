@@ -3,7 +3,7 @@ import { lazy } from "react";
 const RELOAD_KEY = "chunk-reload-at";
 const RECENT_RELOAD_MS = 30000;
 
-const isChunkError = error =>
+export const isChunkLoadError = error =>
   Boolean(error) &&
   (error.name === "ChunkLoadError" ||
     /Loading chunk/i.test(String(error.message || "")));
@@ -30,7 +30,7 @@ const markReload = () => {
 // React does not render the error. A second failure inside the window rethrows.
 export const loadWithReload = factory =>
   factory().catch(error => {
-    if (isChunkError(error) && !reloadedRecently()) {
+    if (isChunkLoadError(error) && !reloadedRecently()) {
       markReload();
       window.location.reload();
       return new Promise(() => {});
