@@ -12,8 +12,10 @@
 // Two scenarios, each in a fresh browser context (cold cache):
 //   desktop-fibra: normal connection, no CPU throttle
 //   celular-4G:    1.6 Mbps down, 750 kbps up, 150 ms latency, CPU slowed 4x
-// Navigation waits for "load" plus 4 s: the socket keeps the network active, so
-// "networkidle" never fires.
+// Navigation waits for "load", then up to 60 s for the login form to render
+// (the socket keeps the network active, so "networkidle" never fires). LCP is
+// read after that wait; if the form never rendered the line says
+// "rendered: false" and the numbers are not a valid login measurement.
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
@@ -24,6 +26,9 @@ if (!url || !chromium) {
   console.error("usage: node measure-login.js <url> <chromium-binary>");
   process.exit(2);
 }
+
+const FORM_SELECTOR = 'input[name="email"], input[type="password"]';
+const RENDER_TIMEOUT_MS = 60000;
 
 const scenarios = [
   { name: "desktop-fibra", network: null, cpu: 1 },
@@ -59,15 +64,28 @@ async function measure(browser, { name, network, cpu }) {
         for (const entry of list.getEntries()) window.__lcp = entry.startTime;
       }).observe({ type: "largest-contentful-paint", buffered: true });
     });
-    await page.goto(url, { waitUntil: "load", timeout: 90000 });
-    await new Promise(resolve => setTimeout(resolve, 4000));
+    const response = await page.goto(url, {
+      waitUntil: "load",
+      timeout: 90000
+    });
+    const status = response ? response.status() : "n/a";
+    let rendered = true;
+    try {
+      await page.waitForSelector(FORM_SELECTOR, {
+        timeout: RENDER_TIMEOUT_MS
+      });
+    } catch (e) {
+      rendered = false;
+    }
+    // Let late paints (fonts, images) settle before reading LCP.
+    await new Promise(resolve => setTimeout(resolve, 1000));
     const m = await page.evaluate(() => ({
       fcp: performance.getEntriesByName("first-contentful-paint")[0]?.startTime,
       lcp: window.__lcp
     }));
     const ms = v => (v == null ? "n/a" : `${Math.round(v)} ms`);
     console.log(
-      `${name}: FCP ${ms(m.fcp)}, LCP ${ms(m.lcp)}, requests ${requests}, ${Math.round(bytes / 1024)} KB`
+      `${name}: HTTP ${status}, rendered: ${rendered}, FCP ${ms(m.fcp)}, LCP ${ms(m.lcp)}, requests ${requests}, ${Math.round(bytes / 1024)} KB`
     );
   } finally {
     await context.close();
