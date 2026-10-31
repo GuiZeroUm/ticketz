@@ -1,9 +1,8 @@
-import { Op, fn, where, col, Filterable, Includeable } from "sequelize";
+import { Op, Filterable, Includeable } from "sequelize";
 import { startOfDay, endOfDay, parseISO } from "date-fns";
 
 import Ticket from "../../models/Ticket";
 import Contact from "../../models/Contact";
-import Message from "../../models/Message";
 import Queue from "../../models/Queue";
 import User from "../../models/User";
 import ShowUserService from "../UserServices/ShowUserService";
@@ -12,6 +11,7 @@ import TicketTag from "../../models/TicketTag";
 import { intersection } from "lodash";
 import Whatsapp from "../../models/Whatsapp";
 import loadTicketPage from "./loadTicketPage";
+import { buildTicketSearchFilter } from "./ticketSearchFilter";
 
 interface Request {
   searchParam?: string;
@@ -93,47 +93,11 @@ const ListTicketsServiceKanban = async ({
   };
 
   if (searchParam) {
-    const sanitizedSearchParam = searchParam.toLocaleLowerCase().trim();
-
-    // TEMPORÁRIO: o filtro `$message.body$` abaixo ainda depende do join com
-    // Message, que multiplica linhas; loadTicketPage deduplica os ids.
-    filterInclude = [
-      { model: Contact, as: "contact", attributes: [] },
-      {
-        model: Message,
-        as: "messages",
-        attributes: [],
-        where: {
-          body: where(
-            fn("LOWER", col("body")),
-            "LIKE",
-            `%${sanitizedSearchParam}%`
-          )
-        },
-        required: false,
-        duplicating: false
-      }
-    ];
+    filterInclude = [{ model: Contact, as: "contact", attributes: [] }];
 
     whereCondition = {
       ...whereCondition,
-      [Op.or]: [
-        {
-          "$contact.name$": where(
-            fn("LOWER", col("contact.name")),
-            "LIKE",
-            `%${sanitizedSearchParam}%`
-          )
-        },
-        { "$contact.number$": { [Op.like]: `%${sanitizedSearchParam}%` } },
-        {
-          "$message.body$": where(
-            fn("LOWER", col("body")),
-            "LIKE",
-            `%${sanitizedSearchParam}%`
-          )
-        }
-      ]
+      ...buildTicketSearchFilter(searchParam, companyId)
     };
   }
 

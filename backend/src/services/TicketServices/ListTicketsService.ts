@@ -1,19 +1,10 @@
-import {
-  Op,
-  fn,
-  where,
-  col,
-  Filterable,
-  Includeable,
-  WhereOptions
-} from "sequelize";
+import { Op, Filterable, Includeable, WhereOptions } from "sequelize";
 import { startOfDay, endOfDay, parseISO } from "date-fns";
 
 import { intersection } from "lodash";
 import AppError from "../../errors/AppError";
 import Ticket from "../../models/Ticket";
 import Contact from "../../models/Contact";
-import Message from "../../models/Message";
 import Queue from "../../models/Queue";
 import User from "../../models/User";
 import ShowUserService from "../UserServices/ShowUserService";
@@ -24,6 +15,7 @@ import { GetCompanySetting } from "../../helpers/CheckSettings";
 import ContactTag from "../../models/ContactTag";
 import { shouldApplyQueueFilter } from "./TicketQueueAccess";
 import loadTicketPage from "./loadTicketPage";
+import { buildTicketSearchFilter } from "./ticketSearchFilter";
 
 interface Request {
   isSearch?: boolean;
@@ -177,47 +169,9 @@ const ListTicketsService = async ({
   }
 
   if (searchParam) {
-    const sanitizedSearchParam = searchParam.toLocaleLowerCase().trim();
+    filterInclude = [{ model: Contact, as: "contact", attributes: [] }];
 
-    // TEMPORÁRIO: o filtro `$message.body$` abaixo ainda depende do join com
-    // Message, que multiplica linhas; loadTicketPage deduplica os ids.
-    filterInclude = [
-      { model: Contact, as: "contact", attributes: [] },
-      {
-        model: Message,
-        as: "messages",
-        attributes: [],
-        where: {
-          body: where(
-            fn("LOWER", col("body")),
-            "LIKE",
-            `%${sanitizedSearchParam}%`
-          )
-        },
-        required: false,
-        duplicating: false
-      }
-    ];
-
-    andedOrs.push({
-      [Op.or]: [
-        {
-          "$contact.name$": where(
-            fn("LOWER", col("contact.name")),
-            "LIKE",
-            `%${sanitizedSearchParam}%`
-          )
-        },
-        { "$contact.number$": { [Op.like]: `%${sanitizedSearchParam}%` } },
-        {
-          "$message.body$": where(
-            fn("LOWER", col("body")),
-            "LIKE",
-            `%${sanitizedSearchParam}%`
-          )
-        }
-      ]
-    });
+    andedOrs.push(buildTicketSearchFilter(searchParam, companyId));
   }
 
   if (date) {
