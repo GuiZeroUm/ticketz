@@ -75,6 +75,8 @@ Avance `dev` para esse commit, por fast-forward ou merge. Aguarde o deploy autom
 
 - [ ] **Step 1: Run the release workflow**
 
+Confirme antes, no ambiente de testes (Task 3): `nginx -t` no frontend publicado e os fluxos logados.
+
 Run: `gh workflow run release-production.yml -R GuiZeroUm/ticketz -f release_sha=$(git rev-parse origin/main)`
 Expected: `deploy` avança e o Dokploy inicia o deploy automaticamente. O Postgres é recriado por causa do plano 2.
 
@@ -88,11 +90,18 @@ Expected: todos `healthy` em até 5 minutos, inclusive o backend da AC Norte, se
 Run: `docker exec -i espaco-whats-7oyzgd-postgres-1 sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "CREATE EXTENSION IF NOT EXISTS pg_stat_statements"'` e `docker inspect espaco-whats-7oyzgd-backend-1 --format '{{.HostConfig.Memory}} {{.HostConfig.RestartPolicy.Name}}'`
 Expected: `CREATE EXTENSION` e `2147483648 on-failure`.
 
-- [ ] **Step 4: Smoke test**
+- [ ] **Step 4: Check the trigram indexes are valid**
+
+Run: `SELECT indexrelid::regclass, indisvalid FROM pg_index WHERE indexrelid::regclass::text IN ('messages_body_lower_trgm','contacts_name_lower_trgm','contacts_number_trgm')`
+Expected: as três com `t`. Se alguma estiver inválida, `DROP INDEX CONCURRENTLY` e recriar com o comando da migration, pois um novo `IF NOT EXISTS` a ignoraria.
+
+- [ ] **Step 5: Smoke test**
 
 Confira: `https://espacowhats.com.br/backend/api/platform/v1/health` responde 200; login carrega; o log do frontend mostra `$request_time`. Se algo crítico falhar, reverta com o rollback da Task 7.
 
 ### Task 5: Migrar as imagens da Ajuda
+
+Rode logo depois da Task 4: até aqui a tabela `Helps` segue com 116 MB, já sob o novo limite de memória. Depois do `VACUUM FULL`, o volume `backend_public` é a única cópia viva das imagens, então guarde o `postgres-before.dump`.
 
 - [ ] **Step 1: Dry run**
 
@@ -109,7 +118,12 @@ Expected: `bytesAfter` abaixo de 1 MB.
 Pegue uma URL em `SELECT substring(content from 'https://[^"]+/public/help/[^"]+') FROM "Helps" WHERE id = 23` e confira com `curl -sI`.
 Expected: `200` e `content-type: image/png`.
 
-- [ ] **Step 4: Reclaim disk**
+- [ ] **Step 4: Confirm every extracted file exists**
+
+Extraia todas as URLs de `/public/help/` do conteúdo de `Helps` e confira cada arquivo dentro do volume do backend.
+Expected: nenhum arquivo ausente. Se faltar algum, não execute o próximo passo.
+
+- [ ] **Step 5: Reclaim disk**
 
 Run: `VACUUM (FULL, ANALYZE) "Helps"` via `psql`. O bloqueio dura segundos e afeta só a Ajuda.
 Expected: `pg_total_relation_size('"Helps"')` abaixo de 2 MB.

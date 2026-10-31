@@ -34,7 +34,7 @@ Os planos 1 a 5 não compartilham arquivos. Cada um roda em uma worktree própri
 | Tirar testes da VPS e trocar de plano | Decisão sua | Envolve custo e contrato de hospedagem. Nenhuma mudança de código |
 | Cache de `Company` no `isAuth` | Cortado | 8 leituras por minuto. Atrasaria o bloqueio de empresa suspensa |
 | Endpoint único de configurações | Cortado por enquanto | O frontend já tem cache. Reavaliar com a medição depois do plano 4 |
-| Virtualização completa da conversa | Trocada | Rolagem e paginação do `MessagesList` tornam o risco alto. O plano 4 usa `content-visibility`, reversível em um commit |
+| Virtualização completa da conversa | Cortada | Rolagem e paginação do `MessagesList` tornam o risco alto. O `content-visibility` previsto como alternativa falhou no teste de rolagem (a conversa abriu 2.749 px acima do fim) e foi removido |
 | Índice em `TicketTraking` | Adiado | 2,5 ms hoje. Decidir com os dados do `pg_stat_statements` |
 | Refatorar `UpdateTicketService` e `handleMessage` | Fora | Não é performance. Merece um plano próprio com testes de caracterização |
 | Migração para Go | Fora | Decisão do relatório |
