@@ -1,45 +1,57 @@
-import React, { lazy, Suspense, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { BrowserRouter, Route as RouterRoute, Switch } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 
-import LoggedInLayout from "../layout";
-import Dashboard from "../pages/Dashboard/";
-import TicketResponsiveContainer from "../pages/TicketResponsiveContainer";
-import Signup from "../pages/Signup/";
-import Login from "../pages/Login/";
-import MobileLogin from "../pages/MobileLogin";
-import Connections from "../pages/Connections/";
-import SettingsCustom from "../pages/SettingsCustom/";
-import Financeiro from "../pages/Financeiro/";
-import CentralCobranca from "../pages/CentralCobranca/";
-import Prospeccao from "../pages/Prospeccao/";
-import Users from "../pages/Users";
-import Contacts from "../pages/Contacts/";
-import Queues from "../pages/Queues/";
-import Tags from "../pages/Tags/";
-import ChatGPT from "../pages/ChatGPT/";
-import Helps from "../pages/Helps/";
-import ContactLists from "../pages/ContactLists/";
-import ContactListItems from "../pages/ContactListItems/";
 // import Companies from "../pages/Companies/";
-import QuickMessages from "../pages/QuickMessages/";
 import { AuthProvider } from "../context/Auth/AuthContext";
 import { TicketsContextProvider } from "../context/Tickets/TicketsContext";
 import { WhatsAppsProvider } from "../context/WhatsApp/WhatsAppsContext";
+import BackdropLoading from "../components/BackdropLoading";
+import lazyWithReload from "../helpers/lazyWithReload";
 import Route from "./Route";
 import PartnerRoutes from "./PartnerRoutes";
-import Schedules from "../pages/Schedules";
-import Campaigns from "../pages/Campaigns";
-import CampaignsConfig from "../pages/CampaignsConfig";
-import CampaignReport from "../pages/CampaignReport";
-import Annoucements from "../pages/Annoucements";
-import Chat from "../pages/Chat";
-import ToDoList from "../pages/ToDoList/";
-import Subscription from "../pages/Subscription/";
-import PlatformAccess from "../pages/PlatformAccess";
-import PlatformActivation from "../pages/PlatformActivation";
 
-const Fluxos = lazy(() => import("../pages/Fluxos"));
+const LoggedInLayout = lazyWithReload(() => import("../layout"));
+const Dashboard = lazyWithReload(() => import("../pages/Dashboard/"));
+const TicketResponsiveContainer = lazyWithReload(
+  () => import("../pages/TicketResponsiveContainer")
+);
+const Signup = lazyWithReload(() => import("../pages/Signup/"));
+const Login = lazyWithReload(() => import("../pages/Login/"));
+const MobileLogin = lazyWithReload(() => import("../pages/MobileLogin"));
+const Connections = lazyWithReload(() => import("../pages/Connections/"));
+const SettingsCustom = lazyWithReload(() => import("../pages/SettingsCustom/"));
+const Financeiro = lazyWithReload(() => import("../pages/Financeiro/"));
+const CentralCobranca = lazyWithReload(
+  () => import("../pages/CentralCobranca/")
+);
+const Prospeccao = lazyWithReload(() => import("../pages/Prospeccao/"));
+const Users = lazyWithReload(() => import("../pages/Users"));
+const Contacts = lazyWithReload(() => import("../pages/Contacts/"));
+const Queues = lazyWithReload(() => import("../pages/Queues/"));
+const Tags = lazyWithReload(() => import("../pages/Tags/"));
+const ChatGPT = lazyWithReload(() => import("../pages/ChatGPT/"));
+const Helps = lazyWithReload(() => import("../pages/Helps/"));
+const ContactLists = lazyWithReload(() => import("../pages/ContactLists/"));
+const ContactListItems = lazyWithReload(
+  () => import("../pages/ContactListItems/")
+);
+const QuickMessages = lazyWithReload(() => import("../pages/QuickMessages/"));
+const Schedules = lazyWithReload(() => import("../pages/Schedules"));
+const Campaigns = lazyWithReload(() => import("../pages/Campaigns"));
+const CampaignsConfig = lazyWithReload(
+  () => import("../pages/CampaignsConfig")
+);
+const CampaignReport = lazyWithReload(() => import("../pages/CampaignReport"));
+const Annoucements = lazyWithReload(() => import("../pages/Annoucements"));
+const Chat = lazyWithReload(() => import("../pages/Chat"));
+const ToDoList = lazyWithReload(() => import("../pages/ToDoList/"));
+const Subscription = lazyWithReload(() => import("../pages/Subscription/"));
+const PlatformAccess = lazyWithReload(() => import("../pages/PlatformAccess"));
+const PlatformActivation = lazyWithReload(
+  () => import("../pages/PlatformActivation")
+);
+const Fluxos = lazyWithReload(() => import("../pages/Fluxos"));
 
 const Routes = () => {
   const [showCampaigns, setShowCampaigns] = useState(false);
@@ -55,151 +67,177 @@ const Routes = () => {
     <BrowserRouter>
       <AuthProvider>
         <TicketsContextProvider>
-          <Switch>
-            <RouterRoute path="/login/mobile" component={MobileLogin} />
-            <RouterRoute path="/login/google/:stage" component={Login} />
-            <Route exact path="/login" component={Login} />
-            <Route exact path="/signup" component={Signup} />
-            <RouterRoute exact path="/sso/:token" component={PlatformAccess} />
-            <RouterRoute
-              exact
-              path="/ativar/:token"
-              component={PlatformActivation}
-            />
-            {/* <Route exact path="/create-company" component={Companies} /> */}
-            {/* Portal de parceiros: sessao propria, fora do AuthProvider do
+          <Suspense fallback={<BackdropLoading />}>
+            <Switch>
+              <RouterRoute path="/login/mobile" component={MobileLogin} />
+              <RouterRoute path="/login/google/:stage" component={Login} />
+              <Route exact path="/login" component={Login} />
+              <Route exact path="/signup" component={Signup} />
+              <RouterRoute
+                exact
+                path="/sso/:token"
+                component={PlatformAccess}
+              />
+              <RouterRoute
+                exact
+                path="/ativar/:token"
+                component={PlatformActivation}
+              />
+              {/* <Route exact path="/create-company" component={Companies} /> */}
+              {/* Portal de parceiros: sessao propria, fora do AuthProvider do
                 tenant. Route nativo porque o wrapper local redireciona quem ja
                 esta logado e quebraria a tela de convite. */}
-            <RouterRoute path="/parceiros" component={PartnerRoutes} />
-            <WhatsAppsProvider>
-              <LoggedInLayout>
-                <Route exact path="/" component={Dashboard} isPrivate />
-                <Route
-                  exact
-                  path="/tickets/:ticketId?"
-                  component={TicketResponsiveContainer}
-                  isPrivate
-                />
-                <Route
-                  exact
-                  path="/connections"
-                  component={Connections}
-                  isPrivate
-                />
-                <Route
-                  exact
-                  path="/quick-messages"
-                  component={QuickMessages}
-                  isPrivate
-                />
-                <Route
-                  exact
-                  path="/schedules"
-                  component={Schedules}
-                  isPrivate
-                />
-                <Route exact path="/todolist" component={ToDoList} isPrivate />
-                <Route exact path="/tags" component={Tags} isPrivate />
-                <Route exact path="/contacts" component={Contacts} isPrivate />
-                <Route exact path="/helps" component={Helps} isPrivate />
-                <Route
-                  exact
-                  path="/helps/:groupId"
-                  component={Helps}
-                  isPrivate
-                />
-                <Route
-                  exact
-                  path="/helps/:groupId/:contentId"
-                  component={Helps}
-                  isPrivate
-                />
-                <Route exact path="/users" component={Users} isPrivate />
-                <Route exact path="/chatgpt" component={ChatGPT} isPrivate />
-                <Route
-                  exact
-                  path="/settings"
-                  component={SettingsCustom}
-                  isPrivate
-                />
-                <Route
-                  exact
-                  path="/financeiro"
-                  component={Financeiro}
-                  isPrivate
-                />
-                <Route
-                  exact
-                  path="/cobranca"
-                  component={CentralCobranca}
-                  isPrivate
-                />
-                <Route
-                  exact
-                  path="/prospeccao"
-                  component={Prospeccao}
-                  isPrivate
-                />
-                <Route exact path="/queues" component={Queues} isPrivate />
-                <Suspense fallback={null}>
-                  <Route
-                    exact
-                    path="/fluxos/:queueId?"
-                    component={Fluxos}
-                    isPrivate
-                  />
-                </Suspense>
-                <Route
-                  exact
-                  path="/announcements"
-                  component={Annoucements}
-                  isPrivate
-                />
-                <Route
-                  exact
-                  path="/subscription"
-                  component={Subscription}
-                  isPrivate
-                />
+              <RouterRoute path="/parceiros" component={PartnerRoutes} />
+              <WhatsAppsProvider>
+                <LoggedInLayout>
+                  <Suspense fallback={<BackdropLoading />}>
+                    <Route exact path="/" component={Dashboard} isPrivate />
+                    <Route
+                      exact
+                      path="/tickets/:ticketId?"
+                      component={TicketResponsiveContainer}
+                      isPrivate
+                    />
+                    <Route
+                      exact
+                      path="/connections"
+                      component={Connections}
+                      isPrivate
+                    />
+                    <Route
+                      exact
+                      path="/quick-messages"
+                      component={QuickMessages}
+                      isPrivate
+                    />
+                    <Route
+                      exact
+                      path="/schedules"
+                      component={Schedules}
+                      isPrivate
+                    />
+                    <Route
+                      exact
+                      path="/todolist"
+                      component={ToDoList}
+                      isPrivate
+                    />
+                    <Route exact path="/tags" component={Tags} isPrivate />
+                    <Route
+                      exact
+                      path="/contacts"
+                      component={Contacts}
+                      isPrivate
+                    />
+                    <Route exact path="/helps" component={Helps} isPrivate />
+                    <Route
+                      exact
+                      path="/helps/:groupId"
+                      component={Helps}
+                      isPrivate
+                    />
+                    <Route
+                      exact
+                      path="/helps/:groupId/:contentId"
+                      component={Helps}
+                      isPrivate
+                    />
+                    <Route exact path="/users" component={Users} isPrivate />
+                    <Route
+                      exact
+                      path="/chatgpt"
+                      component={ChatGPT}
+                      isPrivate
+                    />
+                    <Route
+                      exact
+                      path="/settings"
+                      component={SettingsCustom}
+                      isPrivate
+                    />
+                    <Route
+                      exact
+                      path="/financeiro"
+                      component={Financeiro}
+                      isPrivate
+                    />
+                    <Route
+                      exact
+                      path="/cobranca"
+                      component={CentralCobranca}
+                      isPrivate
+                    />
+                    <Route
+                      exact
+                      path="/prospeccao"
+                      component={Prospeccao}
+                      isPrivate
+                    />
+                    <Route exact path="/queues" component={Queues} isPrivate />
+                    <Route
+                      exact
+                      path="/fluxos/:queueId?"
+                      component={Fluxos}
+                      isPrivate
+                    />
+                    <Route
+                      exact
+                      path="/announcements"
+                      component={Annoucements}
+                      isPrivate
+                    />
+                    <Route
+                      exact
+                      path="/subscription"
+                      component={Subscription}
+                      isPrivate
+                    />
 
-                <Route exact path="/chats/:id?" component={Chat} isPrivate />
-                {showCampaigns && (
-                  <>
                     <Route
                       exact
-                      path="/contact-lists"
-                      component={ContactLists}
+                      path="/chats/:id?"
+                      component={Chat}
                       isPrivate
                     />
-                    <Route
-                      exact
-                      path="/contact-lists/:contactListId/contacts"
-                      component={ContactListItems}
-                      isPrivate
-                    />
-                    <Route
-                      exact
-                      path="/campaigns"
-                      component={Campaigns}
-                      isPrivate
-                    />
-                    <Route
-                      exact
-                      path="/campaign/:campaignId/report"
-                      component={CampaignReport}
-                      isPrivate
-                    />
-                    <Route
-                      exact
-                      path="/campaigns-config"
-                      component={CampaignsConfig}
-                      isPrivate
-                    />
-                  </>
-                )}
-              </LoggedInLayout>
-            </WhatsAppsProvider>
-          </Switch>
+                    {showCampaigns && (
+                      <>
+                        <Route
+                          exact
+                          path="/contact-lists"
+                          component={ContactLists}
+                          isPrivate
+                        />
+                        <Route
+                          exact
+                          path="/contact-lists/:contactListId/contacts"
+                          component={ContactListItems}
+                          isPrivate
+                        />
+                        <Route
+                          exact
+                          path="/campaigns"
+                          component={Campaigns}
+                          isPrivate
+                        />
+                        <Route
+                          exact
+                          path="/campaign/:campaignId/report"
+                          component={CampaignReport}
+                          isPrivate
+                        />
+                        <Route
+                          exact
+                          path="/campaigns-config"
+                          component={CampaignsConfig}
+                          isPrivate
+                        />
+                      </>
+                    )}
+                  </Suspense>
+                </LoggedInLayout>
+              </WhatsAppsProvider>
+            </Switch>
+          </Suspense>
           <ToastContainer autoClose={3000} />
         </TicketsContextProvider>
       </AuthProvider>
