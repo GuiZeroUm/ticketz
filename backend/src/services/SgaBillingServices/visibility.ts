@@ -11,7 +11,7 @@ import FindOrCreateATicketTrakingService from "../TicketServices/FindOrCreateATi
 import { websocketUpdateTicket } from "../TicketServices/UpdateTicketService";
 import { digits } from "../SgaServices/normalize";
 import sequelize from "../../database";
-import { Op } from "sequelize";
+import { Op, QueryTypes } from "sequelize";
 import { isActiveTicketUniqueConflict } from "../TicketServices/ActiveTicketConflict";
 
 export type BillingDelivery = {
@@ -106,8 +106,8 @@ export const syncBillingDeliveryVisibility = async (
     }
   });
 
-  const project = () => sequelize.transaction(
-    async transaction => {
+  const project = () =>
+    sequelize.transaction(async transaction => {
       await sequelize.query(
         "SELECT pg_advisory_xact_lock(:companyId, :contactId)",
         {
@@ -226,8 +226,7 @@ export const syncBillingDeliveryVisibility = async (
         );
       }
       return { ticket: selected, createdMessage: created };
-    }
-  );
+    });
 
   let projection: Awaited<ReturnType<typeof project>>;
   try {
@@ -269,6 +268,25 @@ export const syncBillingDeliveryVisibility = async (
   await websocketUpdateTicket(ticket);
 };
 
+/** Records that a delivery was projected, so the cycle stops re-reading it. */
+export const markBillingVisibilitySynced = async (
+  delivery: Pick<BillingDelivery, "id" | "companyId">
+): Promise<void> => {
+  await sequelize.query(
+    'UPDATE "SgaBillingDeliveries" SET "visibilitySyncedAt" = clock_timestamp() WHERE id = :id AND "companyId" = :companyId',
+    { replacements: { id: delivery.id, companyId: delivery.companyId } }
+  );
+};
+
+/** Sent deliveries that have not been projected into a conversation yet. */
+export const listPendingBillingVisibility = (
+  companyId: number
+): Promise<BillingDelivery[]> =>
+  sequelize.query<BillingDelivery>(
+    'SELECT id,"companyId","contactId","whatsappId","messageId",body,stage,status FROM "SgaBillingDeliveries" WHERE "companyId"=:companyId AND status=\'SENT\' AND "messageId" IS NOT NULL AND "contactId" IS NOT NULL AND "visibilitySyncedAt" IS NULL ORDER BY id DESC LIMIT 500',
+    { replacements: { companyId }, type: QueryTypes.SELECT }
+  );
+
 export const syncSentBillingVisibility = async (
   deliveries: BillingDelivery[]
 ): Promise<void> => {
@@ -276,9 +294,10 @@ export const syncSentBillingVisibility = async (
     await previous;
     try {
       await syncBillingDeliveryVisibility(delivery);
+      await markBillingVisibilitySynced(delivery);
     } catch (error) {
       // Projection is deliberately best-effort: the WhatsApp send is already
-      // committed and the next reconciliation cycle will retry this row.
+      // committed. The delivery stays unmarked, so the next cycle retries it.
       console.error(
         "Unable to project SGA billing delivery",
         delivery.id,

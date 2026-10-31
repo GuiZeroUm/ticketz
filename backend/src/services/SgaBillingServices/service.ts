@@ -42,9 +42,10 @@ import {
   toTemplateBody
 } from "../MetaWhatsAppServices/MetaTemplateFormat";
 import {
+  listPendingBillingVisibility,
+  markBillingVisibilitySynced,
   syncBillingDeliveryVisibility,
-  syncSentBillingVisibility,
-  BillingDelivery
+  syncSentBillingVisibility
 } from "./visibility";
 import {
   approvedBillingOffsets,
@@ -571,6 +572,7 @@ export const processBilling = async (
           stage: step.offset,
           status: "SENT"
         });
+        await markBillingVisibilitySynced({ id: delivery.id, companyId });
       } catch (error) {
         logger.warn(
           { error, deliveryId: delivery.id },
@@ -780,10 +782,7 @@ export const startSgaBilling = (): void => {
     if (running) return;
     running = true;
     try {
-      const sent = await query<BillingDelivery>(
-        'SELECT id,"companyId","contactId","whatsappId","messageId",body,stage,status FROM "SgaBillingDeliveries" WHERE "companyId"=:companyId AND status=\'SENT\' AND "messageId" IS NOT NULL AND "contactId" IS NOT NULL ORDER BY id DESC LIMIT 500',
-        { companyId }
-      );
+      const sent = await listPendingBillingVisibility(companyId);
       await syncSentBillingVisibility(sent);
       await processBilling(companyId);
     } catch {
