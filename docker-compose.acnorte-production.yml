@@ -16,6 +16,7 @@ services:
         required: false
     environment:
       NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=1200
       CLERK_ENVIRONMENT: production
       CLERK_TENANT_BASE_DOMAIN: espacowhats.com.br
       CLERK_ISSUER: https://clerk.espacowhats.com.br
