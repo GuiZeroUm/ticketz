@@ -67,6 +67,25 @@ describe("GetCompanySetting cache", () => {
     expect(Setting.findOne).toHaveBeenCalledTimes(2);
   });
 
+  it("does not cache a read that raced an invalidation", async () => {
+    let resolveStale: (row: { value: string }) => void;
+    (Setting.findOne as jest.Mock)
+      .mockReturnValueOnce(
+        new Promise(resolve => {
+          resolveStale = resolve;
+        })
+      )
+      .mockResolvedValueOnce({ value: "new" });
+
+    const pending = GetCompanySetting(9, "k", "d");
+    invalidateCompanySetting(9, "k");
+    resolveStale({ value: "old" });
+
+    expect(await pending).toBe("old");
+    expect(await GetCompanySetting(9, "k", "d")).toBe("new");
+    expect(Setting.findOne).toHaveBeenCalledTimes(2);
+  });
+
   it("does not cache a failed lookup", async () => {
     (Setting.findOne as jest.Mock)
       .mockRejectedValueOnce(new Error("db down"))

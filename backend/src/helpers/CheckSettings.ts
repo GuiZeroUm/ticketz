@@ -30,6 +30,10 @@ interface CachedCompanySetting {
 
 const companySettingCache = new Map<string, CachedCompanySetting>();
 
+// Bumped on every invalidation so a read that was already in flight when a
+// write was committed does not store the value it read before that write.
+let companySettingGeneration = 0;
+
 const companySettingCacheKey = (companyId: number, key: string): string =>
   `${companyId}:${key}`;
 
@@ -41,6 +45,7 @@ export const invalidateCompanySetting = (
   companyId: number,
   key: string
 ): void => {
+  companySettingGeneration += 1;
   companySettingCache.delete(companySettingCacheKey(companyId, key));
 };
 
@@ -48,6 +53,7 @@ export const invalidateCompanySetting = (
  * Drops every cached company setting.
  */
 export const clearCompanySettingCache = (): void => {
+  companySettingGeneration += 1;
   companySettingCache.clear();
 };
 
@@ -77,6 +83,7 @@ export const GetCompanySetting = async (
   }
 
   if (!entry) {
+    const generation = companySettingGeneration;
     const setting = await Setting.findOne({
       where: {
         companyId,
@@ -90,10 +97,12 @@ export const GetCompanySetting = async (
       expiresAt: now + COMPANY_SETTING_TTL_MS
     };
 
-    if (companySettingCache.size >= COMPANY_SETTING_MAX_ENTRIES) {
-      companySettingCache.clear();
+    if (generation === companySettingGeneration) {
+      if (companySettingCache.size >= COMPANY_SETTING_MAX_ENTRIES) {
+        companySettingCache.clear();
+      }
+      companySettingCache.set(cacheKey, entry);
     }
-    companySettingCache.set(cacheKey, entry);
   }
 
   if (!entry.found && defaultValue === undefined) {
