@@ -17,6 +17,7 @@ import {
   assertManageableGroup
 } from "../services/HelpGroupServices/scope";
 import sanitizeHelpContent from "../helpers/sanitizeHelpContent";
+import extractHelpImages from "../helpers/extractHelpImages";
 import parseYoutubeId from "../helpers/parseYoutubeId";
 import HelpGroup from "../models/HelpGroup";
 
@@ -132,6 +133,14 @@ const validate = async (data: StoreData): Promise<StoreData> => {
   return { ...data, type, video, content };
 };
 
+// Grava arquivos em disco, entao so roda depois das checagens de permissao:
+// uma requisicao negada nao pode deixar arquivo publico para tras. O conteudo
+// ja chega sanitizado de validate.
+const withExtractedImages = async (data: StoreData): Promise<StoreData> =>
+  data.type === "article"
+    ? { ...data, content: await extractHelpImages(data.content) }
+    : data;
+
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const { searchParam, groupId } = req.query as IndexQuery;
 
@@ -148,6 +157,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   const data = await validate(req.body as StoreData);
 
   const group = await findManageableGroup(data.groupId, req);
+  const { content } = await withExtractedImages(data);
 
   const record = await CreateService({
     ...pickFields(data),
@@ -155,7 +165,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     groupId: group.id,
     type: data.type,
     video: data.video,
-    content: data.content,
+    content,
     adminOnly: group.audience === "company" ? !!data.adminOnly : false
   });
 
@@ -187,6 +197,7 @@ export const update = async (
   // seria possivel mover conteudo para fora (ou para dentro) do proprio tenant.
   const origin = await findManageableGroup(current.groupId, req);
   const group = await findManageableGroup(data.groupId, req);
+  const { content } = await withExtractedImages(data);
 
   const record = await UpdateService({
     ...pickFields(data),
@@ -194,7 +205,7 @@ export const update = async (
     groupId: group.id,
     type: data.type,
     video: data.video,
-    content: data.content,
+    content,
     adminOnly: group.audience === "company" ? !!data.adminOnly : false
   });
 

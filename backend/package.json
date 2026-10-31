@@ -18,7 +18,8 @@
     "mark-seeds": "node dist/database/markSeedsAsExecuted.js",
     "generate:i18nkeys": "ts-node src/scripts/extractTranslationKeys.ts",
     "groups:activate": "node dist/scripts/ActivateWhatsappGroups.js activate",
-    "groups:rollback": "node dist/scripts/ActivateWhatsappGroups.js rollback"
+    "groups:rollback": "node dist/scripts/ActivateWhatsappGroups.js rollback",
+    "help:extract-images": "node dist/scripts/ExtractHelpImages.js"
   },
   "author": "",
   "license": "MIT",
