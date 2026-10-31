@@ -1,9 +1,18 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Avatar from "@material-ui/core/Avatar";
 import api from "../../services/api";
 import { avatarIlustrado } from "../../helpers/avatarIlustrado";
 import AvatarPreview from "../AvatarPreview";
 import OneWorksMotion from "../OneWorksMotion";
+
+// Contacts whose picture was already requested in this session. Many avatars
+// of the same contact can be on screen (lists, headers, messages) and the
+// refresh must not be repeated for each one.
+const requestedPictures = new Set();
+
+export function resetPictureRefreshAttempts() {
+  requestedPictures.clear();
+}
 
 function Foto({
   contact,
@@ -19,7 +28,6 @@ function Foto({
   const [failed, setFailed] = useState([]);
   const [fallbackFailed, setFallbackFailed] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const attempted = useRef(false);
   const src = [pictures.profilePicUrl, pictures.profileHiresPictureUrl].find(
     url => url && !failed.includes(url)
   );
@@ -38,11 +46,11 @@ function Foto({
     if (
       src ||
       !contact.id ||
-      attempted.current ||
+      requestedPictures.has(contact.id) ||
       (contact.channel && contact.channel !== "whatsapp")
     )
       return;
-    attempted.current = true;
+    requestedPictures.add(contact.id);
     let active = true;
     Promise.resolve()
       .then(() => api.post(`/contacts/${contact.id}/picture/refresh`))
