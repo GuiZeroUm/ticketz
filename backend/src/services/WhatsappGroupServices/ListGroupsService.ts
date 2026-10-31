@@ -7,13 +7,13 @@ import Queue from "../../models/Queue";
 import Ticket from "../../models/Ticket";
 import User from "../../models/User";
 import Whatsapp from "../../models/Whatsapp";
-import { getUserQueueIds } from "./GroupAccessService";
+import { getUserGroupScope } from "./GroupAccessService";
 import AppError from "../../errors/AppError";
 
 interface Request {
   companyId: number;
   userId: number;
-  profile: string;
+  treatAsAdmin?: boolean;
   mode?: "conversation" | "ticket";
   status?: string;
   searchParam?: string;
@@ -27,7 +27,7 @@ interface Request {
 const ListGroupsService = async ({
   companyId,
   userId,
-  profile,
+  treatAsAdmin = false,
   mode = "conversation",
   status,
   searchParam = "",
@@ -38,13 +38,45 @@ const ListGroupsService = async ({
   whatsappId
 }: Request) => {
   let contactIds: number[] | undefined;
-  if (profile !== "admin") {
-    const userQueueIds = await getUserQueueIds(userId);
-    const access = await GroupQueue.findAll({
-      where: { companyId, queueId: userQueueIds },
-      attributes: ["groupContactId"]
-    });
-    contactIds = [...new Set(access.map(item => item.groupContactId))];
+  const {
+    queueIds: userQueueIds,
+    groupAccessIds,
+    profile
+  } = await getUserGroupScope(userId, companyId);
+  if (!treatAsAdmin && profile !== "admin") {
+    if (mode === "conversation" && Array.isArray(groupAccessIds)) {
+      contactIds = groupAccessIds;
+      if (!contactIds.length) return { groups: [], count: 0, hasMore: false };
+    } else {
+      const access = await GroupQueue.findAll({
+        where: { companyId, queueId: userQueueIds },
+        attributes: ["groupContactId"]
+      });
+      const companyWideGroups =
+        mode === "conversation"
+          ? await sequelize.query<{ id: number }>(
+              `
+              SELECT contact.id
+              FROM "Contacts" contact
+              WHERE contact."companyId" = :companyId
+                AND contact."isGroup" = true
+                AND contact."groupMode" = 'conversation'
+                AND NOT EXISTS (
+                  SELECT 1 FROM "GroupQueues" group_queue
+                  WHERE group_queue."groupContactId" = contact.id
+                    AND group_queue."companyId" = :companyId
+                )
+            `,
+              { replacements: { companyId }, type: QueryTypes.SELECT }
+            )
+          : [];
+      contactIds = [
+        ...new Set([
+          ...access.map(item => item.groupContactId),
+          ...companyWideGroups.map(item => item.id)
+        ])
+      ];
+    }
     if (!contactIds.length) return { groups: [], count: 0, hasMore: false };
   }
 

@@ -382,6 +382,12 @@ const messages = {
       date: {
         yesterday: "Yesterday"
       },
+      chunkError: {
+        message:
+          "This screen could not be loaded. The connection may have failed or the system was updated.",
+        reload: "Reload",
+        emoji: "Emojis could not be loaded. Reload the page."
+      },
       common: {
         search: "Search",
         filter: "Filter",
@@ -557,6 +563,7 @@ const messages = {
       },
       connections: {
         title: "Connections",
+        errors: { load: "Could not load connections." },
         toasts: {
           deleted: "WhatsApp connection successfully deleted!"
         },
@@ -805,6 +812,12 @@ const messages = {
           password: "Password",
           profile: "Profile",
           visibleScreens: "Visible screens",
+          groupAccess: "Conversation group access",
+          groupAccessHint:
+            "Choose specific groups for this user. Without a custom selection, queue access applies. Administrators can see all groups.",
+          customGroupAccess: "Select groups for this user",
+          allowedGroups: "Allowed groups",
+          searchGroups: "Search groups",
           screenAccessHint:
             "Regular users can view selected screens. Administrative actions remain limited to administrators."
         },

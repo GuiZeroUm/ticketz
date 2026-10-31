@@ -1,19 +1,10 @@
-import {
-  Op,
-  fn,
-  where,
-  col,
-  Filterable,
-  Includeable,
-  WhereOptions
-} from "sequelize";
+import { Op, Filterable, Includeable, WhereOptions } from "sequelize";
 import { startOfDay, endOfDay, parseISO } from "date-fns";
 
 import { intersection } from "lodash";
 import AppError from "../../errors/AppError";
 import Ticket from "../../models/Ticket";
 import Contact from "../../models/Contact";
-import Message from "../../models/Message";
 import Queue from "../../models/Queue";
 import User from "../../models/User";
 import ShowUserService from "../UserServices/ShowUserService";
@@ -25,6 +16,8 @@ import ContactTag from "../../models/ContactTag";
 import { shouldApplyQueueFilter, ticketQueueScope } from "./TicketQueueAccess";
 import { getTicketAccessMode } from "./TicketAccessPolicy";
 import { serializeClaimOnlyTicket } from "./ClaimOnlyTicket";
+import loadTicketPage from "./loadTicketPage";
+import { buildTicketSearchFilter } from "./ticketSearchFilter";
 
 interface Request {
   isSearch?: boolean;
@@ -144,9 +137,10 @@ const ListTicketsService = async ({
   if (groupsTab) {
     whereCondition = { ...whereCondition, isGroup: groups === "true" };
   }
-  let includeCondition: Includeable[];
-
-  includeCondition = [
+  // Associações que o `where` referencia (ex.: "$contact.name$"). Vão só na
+  // consulta de ids, sem atributos, para a paginação ser por ticket.
+  let filterInclude: Includeable[] = [];
+  const includeCondition: Includeable[] = [
     {
       model: Contact,
       as: "contact",
@@ -205,45 +199,9 @@ const ListTicketsService = async ({
     if (ownerOnly) {
       andedOrs.push({ userId });
     }
-    const sanitizedSearchParam = searchParam.toLocaleLowerCase().trim();
+    filterInclude = [{ model: Contact, as: "contact", attributes: [] }];
 
-    includeCondition = [
-      ...includeCondition,
-      {
-        model: Message,
-        as: "messages",
-        attributes: ["id", "body"],
-        where: {
-          body: where(
-            fn("LOWER", col("body")),
-            "LIKE",
-            `%${sanitizedSearchParam}%`
-          )
-        },
-        required: false,
-        duplicating: false
-      }
-    ];
-
-    andedOrs.push({
-      [Op.or]: [
-        {
-          "$contact.name$": where(
-            fn("LOWER", col("contact.name")),
-            "LIKE",
-            `%${sanitizedSearchParam}%`
-          )
-        },
-        { "$contact.number$": { [Op.like]: `%${sanitizedSearchParam}%` } },
-        {
-          "$message.body$": where(
-            fn("LOWER", col("body")),
-            "LIKE",
-            `%${sanitizedSearchParam}%`
-          )
-        }
-      ]
-    });
+    andedOrs.push(buildTicketSearchFilter(searchParam, companyId));
   }
 
   // Estes dois filtros reatribuiam `whereCondition` do zero e levavam junto o
@@ -394,15 +352,36 @@ const ListTicketsService = async ({
     companyId
   };
 
-  const tickets = await Ticket.findAll({
+  if (profile !== "admin" && Array.isArray(user.groupAccessIds)) {
+    const serviceGroups = await Contact.findAll({
+      where: { companyId, isGroup: true, groupMode: "ticket" },
+      attributes: ["id"]
+    });
+    whereCondition = {
+      [Op.and]: [
+        whereCondition,
+        {
+          [Op.or]: [
+            { isGroup: false },
+            {
+              contactId: {
+                [Op.in]: [
+                  ...user.groupAccessIds,
+                  ...serviceGroups.map(group => group.id)
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  const tickets = await loadTicketPage({
     where: whereCondition,
     include: includeCondition,
-    limit,
-    order: [
-      ["updatedAt", "DESC"],
-      ["id", "DESC"]
-    ],
-    subQuery: false
+    filterInclude,
+    limit
   });
 
   const visibleTickets = ownerOnly

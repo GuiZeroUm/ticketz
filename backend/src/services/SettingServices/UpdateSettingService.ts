@@ -3,6 +3,7 @@ import {
   removerArquivoBranding
 } from "../../helpers/brandingFiles";
 import AppError from "../../errors/AppError";
+import { invalidateCompanySetting } from "../../helpers/CheckSettings";
 import validateLoginBranding from "../../helpers/validateLoginBranding";
 import { getIO } from "../../libs/socket";
 import Setting from "../../models/Setting";
@@ -61,6 +62,7 @@ const UpdateSettingService = async ({
     if (arquivoNovo) await removerArquivoBranding(companyId, key, value);
     throw erro;
   }
+  invalidateCompanySetting(companyId, key);
   if (
     isBrandingKey(key) &&
     anterior &&

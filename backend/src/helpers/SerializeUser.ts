@@ -9,6 +9,7 @@ interface SerializedUser {
   profilePicUrl: string | null;
   profile: string;
   visibleScreens: string[] | null;
+  groupAccessIds: number[] | null;
   companyId: number;
   company: Company | null;
   super: boolean;
@@ -23,6 +24,7 @@ export const SerializeUser = async (user: User): Promise<SerializedUser> => {
     profilePicUrl: user.profilePicUrl,
     profile: user.profile,
     visibleScreens: user.visibleScreens,
+    groupAccessIds: user.groupAccessIds,
     companyId: user.companyId,
     company: user.company,
     super: user.super,

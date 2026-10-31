@@ -9,6 +9,11 @@ jest.mock("../../../models/Ticket", () => ({
     count: jest.fn().mockResolvedValue(3)
   }
 }));
+// ticketSearchFilter imports the real database module, which cannot register
+// the mocked Ticket model; these tests do not search.
+jest.mock("../ticketSearchFilter", () => ({
+  buildTicketSearchFilter: jest.fn()
+}));
 jest.mock("../../UserServices/ShowUserService", () => ({
   __esModule: true,
   default: jest.fn().mockResolvedValue({ profile: "admin" })

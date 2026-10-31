@@ -8,7 +8,11 @@ import TicketTraking from "../../../models/TicketTraking";
 import { incrementCounter } from "../../CounterServices/IncrementCounter";
 import FindOrCreateATicketTrakingService from "../../TicketServices/FindOrCreateATicketTrakingService";
 import ShowTicketService from "../../TicketServices/ShowTicketService";
-import { assertGroupAccess } from "../GroupAccessService";
+import {
+  assertGroupAccess,
+  getUserGroupScope,
+  listGroupRecipientIds
+} from "../GroupAccessService";
 import UpdateGroupService from "../UpdateGroupService";
 
 jest.mock("../../../database", () => ({
@@ -65,6 +69,8 @@ const makeTicket = (mode: "conversation" | "ticket") => {
 };
 
 beforeEach(() => {
+  (getUserGroupScope as jest.Mock).mockResolvedValue({ profile: "admin" });
+  (listGroupRecipientIds as jest.Mock).mockResolvedValue([]);
   transaction.mockImplementation(async (...args) => {
     const callback = args[args.length - 1];
     return callback({});
@@ -82,6 +88,23 @@ beforeEach(() => {
   });
 });
 
+it("requires an administrator to configure a company-wide group", async () => {
+  (getUserGroupScope as jest.Mock).mockResolvedValue({ profile: "user" });
+  assertAccess.mockResolvedValue(makeTicket("conversation"));
+  findGroupQueues.mockResolvedValue([]);
+
+  await expect(
+    UpdateGroupService({
+      ticketId: 20,
+      mode: "conversation",
+      queueIds: [4, 5],
+      user: { id: 2, companyId: 7, profile: "user" }
+    })
+  ).rejects.toMatchObject({ message: "ERR_NO_PERMISSION", statusCode: 403 });
+
+  expect(transaction).not.toHaveBeenCalled();
+});
+
 it("starts tracking only when a conversation becomes an attendance", async () => {
   const ticket = makeTicket("conversation");
   assertAccess.mockResolvedValue(ticket);
@@ -93,7 +116,7 @@ it("starts tracking only when a conversation becomes an attendance", async () =>
     mode: "ticket",
     queueIds: [4, 5],
     serviceQueueId: 4,
-    user: { id: 2, companyId: 7, profile: "user" }
+    user: { id: 2, companyId: 7, profile: "admin" }
   });
 
   expect(ticket.update).toHaveBeenCalledWith(
@@ -121,7 +144,7 @@ it("ends active tracking and clears operational state when returning to conversa
     ticketId: 20,
     mode: "conversation",
     queueIds: [4, 5],
-    user: { id: 2, companyId: 7, profile: "user" }
+    user: { id: 2, companyId: 7, profile: "admin" }
   });
 
   expect(TicketTraking.update).toHaveBeenCalledWith(

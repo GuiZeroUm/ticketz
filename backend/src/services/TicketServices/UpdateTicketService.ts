@@ -23,6 +23,7 @@ import Whatsapp from "../../models/Whatsapp";
 import { usesOwnerTicketAccess } from "./TicketAccessPolicy";
 import { serializeClaimOnlyTicket } from "./ClaimOnlyTicket";
 import { isActiveTicketUniqueConflict } from "./ActiveTicketConflict";
+import { listGroupRecipientIds } from "../WhatsappGroupServices/GroupAccessService";
 
 export interface UpdateTicketData {
   status?: string;
@@ -69,6 +70,18 @@ export async function websocketUpdateTicket(
 ) {
   const io = getIO();
   if (ticket.isGroup || ticket.contact?.isGroup) {
+    if (ticket.contact?.groupMode === "conversation") {
+      const userIds = await listGroupRecipientIds(
+        ticket.contactId,
+        ticket.companyId,
+        ticket.contact.groupMode
+      );
+      io.to(userIds.map(id => `user-${id}`)).emit(
+        `company-${ticket.companyId}-ticket`,
+        { action: "update", ticket }
+      );
+      return;
+    }
     let groupRecipients = io
       .to(ticket.id.toString())
       .to(`company-${ticket.companyId}-admin`);

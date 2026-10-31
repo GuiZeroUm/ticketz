@@ -2,7 +2,6 @@ import { Op } from "sequelize";
 import { isWebPushConfigured } from "../../config/webPush";
 import { GetCompanySetting } from "../../helpers/CheckSettings";
 import Contact from "../../models/Contact";
-import GroupQueue from "../../models/GroupQueue";
 import Message from "../../models/Message";
 import Ticket from "../../models/Ticket";
 import User from "../../models/User";
@@ -10,6 +9,7 @@ import UserQueue from "../../models/UserQueue";
 import { logger } from "../../utils/logger";
 import SendPushNotificationService from "./SendPushNotificationService";
 import { usesOwnerTicketAccess } from "../TicketServices/TicketAccessPolicy";
+import { listGroupRecipientIds } from "../WhatsappGroupServices/GroupAccessService";
 
 const MAX_BODY_LENGTH = 180;
 
@@ -67,16 +67,11 @@ const resolveRecipients = async (
   const { ticket } = message;
 
   if (ticket.isGroup && ticket.contact?.groupMode !== "ticket") {
-    const groupQueues = await GroupQueue.findAll({
-      where: { groupContactId: ticket.contactId },
-      attributes: ["queueId"]
-    });
-    const queueUserIds = await listQueueUserIds(
+    return listGroupRecipientIds(
+      ticket.contactId,
       message.companyId,
-      groupQueues.map(item => item.queueId)
+      ticket.contact?.groupMode
     );
-    const adminIds = await listCompanyAdminIds(message.companyId);
-    return [...new Set([...queueUserIds, ...adminIds])];
   }
 
   if (ticket.userId) {

@@ -6,7 +6,7 @@ import {
   waitFor,
   act
 } from "@testing-library/react";
-import AvatarContato from "./index";
+import AvatarContato, { resetPictureRefreshAttempts } from "./index";
 import api from "../../services/api";
 import { avatarIlustrado } from "../../helpers/avatarIlustrado";
 jest.mock("../../services/api", () => ({ post: jest.fn() }));
@@ -14,6 +14,7 @@ jest.mock("../OneWorksMotion", () => ({ src, alt, onError }) => (
   <img src={src} alt={alt} onError={onError} />
 ));
 beforeEach(() => {
+  resetPictureRefreshAttempts();
   api.post.mockReset();
   api.post.mockResolvedValue({ data: {} });
 });
@@ -113,4 +114,11 @@ it("opens the image actually displayed after a broken contact photo", () => {
   expect(
     screen.getByRole("dialog").querySelector("img").getAttribute("src")
   ).toBe(avatarIlustrado("contato", 9));
+});
+
+it("requests a contact picture only once per session", async () => {
+  render(<AvatarContato contact={{ id: 40 }} />);
+  render(<AvatarContato contact={{ id: 40 }} />);
+  await act(async () => {});
+  expect(api.post).toHaveBeenCalledTimes(1);
 });

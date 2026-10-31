@@ -33,6 +33,7 @@ import { Box } from "@material-ui/core";
 import { TagsFilter } from "../TagsFilter";
 import { UsersFilter } from "../UsersFilter";
 import useSettings from "../../hooks/useSettings";
+import useTrailingCallback from "../../hooks/useTrailingCallback";
 import { ContactSelect } from "../ContactSelect";
 import api from "../../services/api";
 import { SocketContext } from "../../context/Socket/SocketContext";
@@ -277,6 +278,12 @@ const TicketsManagerTabs = () => {
     }
   }, [connectionId]);
 
+  // Socket events arrive in bursts; one count request per second is enough.
+  const refreshGroupUnreadCountSoon = useTrailingCallback(
+    refreshGroupUnreadCount,
+    1000
+  );
+
   useEffect(() => {
     Promise.all([getSetting("CheckMsgIsGroup"), getSetting("groupsTab")]).then(
       ([ignoreGroups, groupsTab]) => {
@@ -297,7 +304,7 @@ const TicketsManagerTabs = () => {
     const onConnect = () => socket.emit("joinNotification");
     const onMessage = data => {
       if (data.action === "create" && data.ticket?.isGroup) {
-        refreshGroupUnreadCount();
+        refreshGroupUnreadCountSoon();
       }
     };
     const onTicket = data => {
@@ -305,20 +312,26 @@ const TicketsManagerTabs = () => {
         data.action === "updateUnread" ||
         (data.action === "update" && data.ticket?.isGroup)
       ) {
-        refreshGroupUnreadCount();
+        refreshGroupUnreadCountSoon();
       }
     };
     const onRefresh = refreshRequired => {
-      if (refreshRequired) refreshGroupUnreadCount();
+      if (refreshRequired) refreshGroupUnreadCountSoon();
     };
 
     socketManager.onConnect(onConnect);
     socket.on(`company-${companyId}-appMessage`, onMessage);
     socket.on(`company-${companyId}-ticket`, onTicket);
+    socket.on("groupAccessChanged", refreshGroupUnreadCountSoon);
     socket.on("wsRefreshRequired", onRefresh);
 
     return () => socket.disconnect();
-  }, [showTabGroups, socketManager, refreshGroupUnreadCount]);
+  }, [
+    showTabGroups,
+    socketManager,
+    refreshGroupUnreadCount,
+    refreshGroupUnreadCountSoon
+  ]);
 
   useEffect(() => {
     if (isSupplierPortal() || user.profile.toUpperCase() === "ADMIN") {

@@ -1465,6 +1465,12 @@ const messages = {
       date: {
         yesterday: "Ontem"
       },
+      chunkError: {
+        message:
+          "Não foi possível carregar esta tela. A conexão pode ter falhado ou o sistema foi atualizado.",
+        reload: "Recarregar",
+        emoji: "Não foi possível carregar os emojis. Recarregue a página."
+      },
       common: {
         search: "Buscar",
         filter: "Filtrar",
@@ -1640,6 +1646,7 @@ const messages = {
       },
       connections: {
         title: "Conexões",
+        errors: { load: "Não foi possível carregar as conexões." },
         toasts: {
           deleted: "Conexão com o WhatsApp excluída com sucesso!"
         },
@@ -1888,6 +1895,12 @@ const messages = {
           password: "Senha",
           profile: "Perfil",
           visibleScreens: "Telas visíveis",
+          groupAccess: "Acesso aos grupos de conversa",
+          groupAccessHint:
+            "Escolha grupos específicos para este usuário. Sem personalização, vale o acesso pelas filas. Administradores visualizam todos os grupos.",
+          customGroupAccess: "Selecionar grupos para este usuário",
+          allowedGroups: "Grupos permitidos",
+          searchGroups: "Buscar grupo",
           screenAccessHint:
             "Usuários comuns podem visualizar as telas selecionadas. Ações administrativas continuam reservadas aos administradores."
         },

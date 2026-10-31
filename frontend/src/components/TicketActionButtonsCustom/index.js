@@ -240,7 +240,7 @@ const TicketActionButtonsCustom = ({
                       <ArrowRightLeft size={18} />
                     </BotaoIcone>
                   )}
-                  {ticket.isGroup && (
+                  {ticket.isGroup && acoes.canConfigureGroup && (
                     <BotaoIcone
                       titulo={i18n.t("whatsappGroups.configure")}
                       onClick={acoes.configurarGrupo}

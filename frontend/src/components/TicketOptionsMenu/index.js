@@ -33,6 +33,7 @@ const TicketOptionsMenu = ({
   const [groupConfigOpen, setGroupConfigOpen] = useState(false);
   const isGroupConversation =
     ticket.isGroup && ticket.contact?.groupMode !== "ticket";
+  const canConfigureGroup = user.profile === "admin";
 
   useEffect(() => {
     return () => {
@@ -80,7 +81,8 @@ const TicketOptionsMenu = ({
       {children?.({
         transferir: handleOpenTransferModal,
         agendar: handleOpenScheduleModal,
-        configurarGrupo: () => setGroupConfigOpen(true)
+        configurarGrupo: () => setGroupConfigOpen(true),
+        canConfigureGroup
       })}
       <Menu
         className="conversa-menu"
@@ -99,7 +101,7 @@ const TicketOptionsMenu = ({
         open={menuOpen}
         onClose={handleClose}
       >
-        {ticket.isGroup && (
+        {ticket.isGroup && canConfigureGroup && (
           <MenuItem
             onClick={() => {
               handleClose();

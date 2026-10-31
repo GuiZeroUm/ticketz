@@ -442,6 +442,7 @@ const messages = {
         }
       },
       connections: {
+        errors: { load: "Impossibile caricare le connessioni." },
         title: "Connessioni",
         toasts: {
           deleted: "Connessione con WhatsApp eliminata con successo!"

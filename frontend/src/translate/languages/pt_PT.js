@@ -520,6 +520,7 @@ const messages = {
         }
       },
       connections: {
+        errors: { load: "Não foi possível carregar as ligações." },
         title: "Conexões",
         toasts: {
           deleted: "Conexão com o WhatsApp excluída com sucesso!"

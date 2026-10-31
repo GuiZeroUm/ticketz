@@ -2,6 +2,7 @@ import { getIO } from "../../libs/socket";
 import Contact from "../../models/Contact";
 import ContactCustomField from "../../models/ContactCustomField";
 import GroupQueue from "../../models/GroupQueue";
+import { listGroupRecipientIds } from "../WhatsappGroupServices/GroupAccessService";
 import {
   contactNameLockOnCreate,
   ContactNameSource,
@@ -35,14 +36,29 @@ export const emitContact = async (
   action: "create" | "update"
 ): Promise<void> => {
   const io = getIO();
+  if (contact.isGroup && contact.groupMode === "conversation") {
+    const userIds = await listGroupRecipientIds(
+      contact.id,
+      contact.companyId,
+      contact.groupMode
+    );
+    io.to(userIds.map(id => `user-${id}`)).emit(
+      `company-${contact.companyId}-contact`,
+      { action, contact }
+    );
+    return;
+  }
   let recipients = contact.isGroup
     ? io.to(`company-${contact.companyId}-admin`)
     : io.to(`company-${contact.companyId}-mainchannel`);
   if (contact.isGroup) {
     const groupQueues = await GroupQueue.findAll({
-      where: { groupContactId: contact.id },
+      where: { groupContactId: contact.id, companyId: contact.companyId },
       attributes: ["queueId"]
     });
+    if (!groupQueues.length && contact.groupMode === "conversation") {
+      recipients = recipients.to(`company-${contact.companyId}-mainchannel`);
+    }
     groupQueues.forEach(groupQueue => {
       recipients = recipients.to(`queue-${groupQueue.queueId}-notification`);
     });

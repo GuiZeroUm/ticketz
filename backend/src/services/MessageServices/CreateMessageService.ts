@@ -13,6 +13,7 @@ import { unassignedTicketRoom } from "../../helpers/TicketSocketRooms";
 import NotifyNewMessageService from "../PushNotificationServices/NotifyNewMessageService";
 import { usesOwnerTicketAccess } from "../TicketServices/TicketAccessPolicy";
 import { serializeClaimOnlyTicket } from "../TicketServices/ClaimOnlyTicket";
+import { listGroupRecipientIds } from "../WhatsappGroupServices/GroupAccessService";
 
 interface MessageData {
   id: string;
@@ -51,8 +52,24 @@ export const websocketCreateMessage = async (message: Message) => {
     message.ticket.isGroup &&
     message.ticket.contact?.groupMode !== "ticket"
   ) {
+    const recipientIds = await listGroupRecipientIds(
+      message.ticket.contactId,
+      message.companyId,
+      message.ticket.contact?.groupMode
+    );
+    io.to(recipientIds.map(id => `user-${id}`)).emit(
+      `company-${message.companyId}-appMessage`,
+      payload
+    );
+  } else if (
+    message.ticket.isGroup &&
+    message.ticket.contact?.groupMode === "ticket"
+  ) {
     const queues = await GroupQueue.findAll({
-      where: { groupContactId: message.ticket.contactId },
+      where: {
+        groupContactId: message.ticket.contactId,
+        companyId: message.companyId
+      },
       attributes: ["queueId"]
     });
     let recipients = io

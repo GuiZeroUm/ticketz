@@ -1,17 +1,8 @@
-import {
-  Op,
-  fn,
-  where,
-  col,
-  Filterable,
-  Includeable,
-  WhereOptions
-} from "sequelize";
+import { Op, Filterable, Includeable, WhereOptions } from "sequelize";
 import { startOfDay, endOfDay, parseISO } from "date-fns";
 
 import Ticket from "../../models/Ticket";
 import Contact from "../../models/Contact";
-import Message from "../../models/Message";
 import Queue from "../../models/Queue";
 import User from "../../models/User";
 import ShowUserService from "../UserServices/ShowUserService";
@@ -22,6 +13,8 @@ import Whatsapp from "../../models/Whatsapp";
 import { getTicketAccessMode } from "./TicketAccessPolicy";
 import { ticketQueueScope } from "./TicketQueueAccess";
 import { serializeClaimOnlyTicket } from "./ClaimOnlyTicket";
+import loadTicketPage from "./loadTicketPage";
+import { buildTicketSearchFilter } from "./ticketSearchFilter";
 
 interface Request {
   searchParam?: string;
@@ -83,9 +76,10 @@ const ListTicketsServiceKanban = async ({
         }
       ];
   let whereCondition: Filterable["where"] = { [Op.and]: accessConditions };
-  let includeCondition: Includeable[];
-
-  includeCondition = [
+  // Associações que o `where` referencia (ex.: "$contact.name$"). Vão só na
+  // consulta de ids, sem atributos, para a paginação ser por ticket.
+  let filterInclude: Includeable[] = [];
+  const includeCondition: Includeable[] = [
     {
       model: Contact,
       as: "contact",
@@ -126,45 +120,11 @@ const ListTicketsServiceKanban = async ({
     if (ownerOnly) {
       accessConditions.push({ userId });
     }
-    const sanitizedSearchParam = searchParam.toLocaleLowerCase().trim();
-
-    includeCondition = [
-      ...includeCondition,
-      {
-        model: Message,
-        as: "messages",
-        attributes: ["id", "body"],
-        where: {
-          body: where(
-            fn("LOWER", col("body")),
-            "LIKE",
-            `%${sanitizedSearchParam}%`
-          )
-        },
-        required: false,
-        duplicating: false
-      }
-    ];
+    filterInclude = [{ model: Contact, as: "contact", attributes: [] }];
 
     whereCondition = {
       ...whereCondition,
-      [Op.or]: [
-        {
-          "$contact.name$": where(
-            fn("LOWER", col("contact.name")),
-            "LIKE",
-            `%${sanitizedSearchParam}%`
-          )
-        },
-        { "$contact.number$": { [Op.like]: `%${sanitizedSearchParam}%` } },
-        {
-          "$message.body$": where(
-            fn("LOWER", col("body")),
-            "LIKE",
-            `%${sanitizedSearchParam}%`
-          )
-        }
-      ]
+      ...buildTicketSearchFilter(searchParam, companyId)
     };
   }
 
@@ -242,14 +202,43 @@ const ListTicketsServiceKanban = async ({
     companyId
   };
 
-  const { count, rows: tickets } = await Ticket.findAndCountAll({
+  if (user.profile !== "admin" && Array.isArray(user.groupAccessIds)) {
+    const serviceGroups = await Contact.findAll({
+      where: { companyId, isGroup: true, groupMode: "ticket" },
+      attributes: ["id"]
+    });
+    whereCondition = {
+      [Op.and]: [
+        whereCondition,
+        {
+          [Op.or]: [
+            { isGroup: false },
+            {
+              contactId: {
+                [Op.in]: [
+                  ...user.groupAccessIds,
+                  ...serviceGroups.map(group => group.id)
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  const count = await Ticket.count({
+    where: whereCondition,
+    include: filterInclude,
+    distinct: true,
+    col: "id"
+  });
+  const tickets = await loadTicketPage({
     where: whereCondition,
     include: includeCondition,
-    distinct: true,
+    filterInclude,
     limit,
-    offset,
-    order: [["updatedAt", "DESC"]],
-    subQuery: false
+    offset
   });
   const hasMore = count > offset + tickets.length;
 

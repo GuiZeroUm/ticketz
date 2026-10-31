@@ -1,6 +1,8 @@
 import { alpha } from "@material-ui/core/styles";
 import AudioMessage from "../AudioMessage";
 import React, {
+  Suspense,
+  lazy,
   useState,
   useEffect,
   useReducer,
@@ -46,7 +48,7 @@ import {
 } from "@material-ui/icons";
 
 import WhatsMarked from "../JunimoWhatsMarked";
-import PdfPreview from "../PdfPreview";
+import ChunkErrorBoundary from "../ChunkErrorBoundary";
 import MessageOptionsMenu from "../MessageOptionsMenu";
 import MediaGalleryLightbox, {
   buildMediaGalleryData
@@ -66,6 +68,8 @@ import { AuthContext } from "../../context/Auth/AuthContext";
 import { usesOwnerOnlyTicketAccess } from "../../helpers/ticketAccess";
 
 const loadPageMutex = new Mutex();
+
+const PdfPreview = lazy(() => import("../PdfPreview"));
 
 const BillingPdfDocument = ({ ticketId, message }) => {
   const [source, setSource] = useState("");
@@ -120,7 +124,11 @@ const BillingPdfDocument = ({ ticketId, message }) => {
 
   return (
     <>
-      <PdfPreview url={source} fileName={fileName} />
+      <ChunkErrorBoundary fallback={null}>
+        <Suspense fallback={null}>
+          <PdfPreview url={source} fileName={fileName} />
+        </Suspense>
+      </ChunkErrorBoundary>
       <Button
         startIcon={<Description />}
         endIcon={<GetApp />}
@@ -1357,7 +1365,11 @@ const MessagesList = ({
       return (
         <>
           {isPdf && message.mediaUrl && (
-            <PdfPreview url={message.mediaUrl} fileName={fileName} />
+            <ChunkErrorBoundary fallback={null}>
+              <Suspense fallback={null}>
+                <PdfPreview url={message.mediaUrl} fileName={fileName} />
+              </Suspense>
+            </ChunkErrorBoundary>
           )}
           <div className={classes.downloadMedia}>
             <Button
