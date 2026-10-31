@@ -9,7 +9,11 @@ import Whatsapp from "../../../models/Whatsapp";
 import CreateMessageService from "../../MessageServices/CreateMessageService";
 import FindOrCreateATicketTrakingService from "../../TicketServices/FindOrCreateATicketTrakingService";
 import { websocketUpdateTicket } from "../../TicketServices/UpdateTicketService";
-import { syncBillingDeliveryVisibility } from "../visibility";
+import {
+  listPendingBillingVisibility,
+  syncBillingDeliveryVisibility,
+  syncSentBillingVisibility
+} from "../visibility";
 import sequelize from "../../../database";
 
 jest.mock("../../../database", () => ({
@@ -80,6 +84,10 @@ const ticket = {
   update: jest.fn(),
   reload: jest.fn()
 };
+
+afterEach(() => {
+  jest.restoreAllMocks();
+});
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -188,4 +196,46 @@ it("does not leave a sent cobrança in an unassigned queue when Boletos is absen
     "BOLETOS queue missing for company 9"
   );
   expect(Ticket.create).not.toHaveBeenCalled();
+});
+
+const marks = () =>
+  (sequelize.query as jest.Mock).mock.calls.filter(([sql]) =>
+    String(sql).includes('SET "visibilitySyncedAt"')
+  );
+
+it("marks a delivery after projecting it", async () => {
+  await syncSentBillingVisibility([delivery]);
+  expect(marks()).toHaveLength(1);
+  expect(marks()[0][1].replacements).toEqual({ id: delivery.id, companyId: 9 });
+});
+
+it("does not mark when projection throws", async () => {
+  jest.spyOn(console, "error").mockImplementation(() => undefined);
+  (Tag.findOrCreate as jest.Mock).mockRejectedValueOnce(new Error("db"));
+  await syncSentBillingVisibility([delivery]);
+  expect(marks()).toHaveLength(0);
+});
+
+it("keeps processing after one delivery throws", async () => {
+  jest.spyOn(console, "error").mockImplementation(() => undefined);
+  (Tag.findOrCreate as jest.Mock).mockRejectedValueOnce(new Error("db"));
+  await syncSentBillingVisibility([delivery, { ...delivery, id: "other" }]);
+  expect(marks()).toHaveLength(1);
+  expect(marks()[0][1].replacements.id).toBe("other");
+});
+
+it("marks deliveries whose contact no longer exists", async () => {
+  (Contact.findOne as jest.Mock).mockResolvedValueOnce(null);
+  await syncSentBillingVisibility([delivery]);
+  expect(marks()).toHaveLength(1);
+});
+
+it("lists only deliveries still pending projection", async () => {
+  (sequelize.query as jest.Mock).mockResolvedValueOnce([]);
+  await listPendingBillingVisibility(9);
+  const [sql, options] = (sequelize.query as jest.Mock).mock.calls[0];
+  expect(sql).toContain('"visibilitySyncedAt" IS NULL');
+  expect(sql).toContain("status='SENT'");
+  expect(sql).toContain("LIMIT 500");
+  expect(options.replacements).toEqual({ companyId: 9 });
 });
