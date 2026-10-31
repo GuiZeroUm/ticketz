@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { Suspense, useState, useContext } from "react";
 import PropTypes from "prop-types";
 
 import MenuItem from "@material-ui/core/MenuItem";
@@ -16,7 +16,11 @@ import MessageForwardModal from "../MessageForwardModal";
 import { useStyles } from "./style";
 
 import "emoji-mart/css/emoji-mart.css";
-import { Picker } from "emoji-mart";
+import lazyWithReload from "../../helpers/lazyWithReload";
+
+const Picker = lazyWithReload(() =>
+  import("emoji-mart").then(m => ({ default: m.Picker }))
+);
 
 const mostUsedEmojis = ["👍", "❤️", "😂", "🎉", "😮", "😢", "🙏"];
 
@@ -127,12 +131,14 @@ const MessageOptionsMenu = ({
         open={showEmoji}
         onClose={() => setShowEmoji(false)}
       >
-        <Picker
-          perLine={16}
-          showPreview={false}
-          showSkinTones={false}
-          onSelect={e => handleReact(e.native)}
-        />
+        <Suspense fallback={null}>
+          <Picker
+            perLine={16}
+            showPreview={false}
+            showSkinTones={false}
+            onSelect={e => handleReact(e.native)}
+          />
+        </Suspense>
       </Dialog>
       <Menu
         className="conversa-menu"

@@ -1,6 +1,7 @@
 import { alpha } from "@material-ui/core/styles";
 import AudioMessage from "../AudioMessage";
 import React, {
+  Suspense,
   useState,
   useEffect,
   useReducer,
@@ -46,7 +47,7 @@ import {
 } from "@material-ui/icons";
 
 import WhatsMarked from "../JunimoWhatsMarked";
-import PdfPreview from "../PdfPreview";
+import lazyWithReload from "../../helpers/lazyWithReload";
 import MessageOptionsMenu from "../MessageOptionsMenu";
 import MediaGalleryLightbox, {
   buildMediaGalleryData
@@ -64,6 +65,8 @@ import { Mutex } from "async-mutex";
 import { ReplyMessageContext } from "../../context/ReplyingMessage/ReplyingMessageContext";
 
 const loadPageMutex = new Mutex();
+
+const PdfPreview = lazyWithReload(() => import("../PdfPreview"));
 
 const VoiceRecordingPlayer = ({ message }) => {
   const [source, setSource] = useState("");
@@ -1283,7 +1286,9 @@ const MessagesList = ({
       return (
         <>
           {isPdf && message.mediaUrl && (
-            <PdfPreview url={message.mediaUrl} fileName={fileName} />
+            <Suspense fallback={null}>
+              <PdfPreview url={message.mediaUrl} fileName={fileName} />
+            </Suspense>
           )}
           <div className={classes.downloadMedia}>
             <Button
