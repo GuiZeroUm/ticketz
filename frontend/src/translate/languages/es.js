@@ -338,6 +338,12 @@ const messages = {
       date: {
         yesterday: "Ayer"
       },
+      chunkError: {
+        message:
+          "No se pudo cargar esta pantalla. La conexión pudo fallar o el sistema fue actualizado.",
+        reload: "Recargar",
+        emoji: "No se pudieron cargar los emojis. Recarga la página."
+      },
       common: {
         search: "Buscar",
         filter: "Filtrar",

@@ -1,5 +1,6 @@
 import React, {
   Suspense,
+  lazy,
   useCallback,
   useState,
   useEffect,
@@ -8,7 +9,7 @@ import React, {
 } from "react";
 import withWidth, { isWidthUp } from "@material-ui/core/withWidth";
 import "emoji-mart/css/emoji-mart.css";
-import lazyWithReload from "../../helpers/lazyWithReload";
+import ChunkErrorBoundary from "../ChunkErrorBoundary";
 import MicRecorder from "mic-recorder-to-mp3";
 import clsx from "clsx";
 
@@ -71,7 +72,7 @@ import { faSignature } from "@fortawesome/free-solid-svg-icons";
 import { isMobile } from "../../helpers/isMobile";
 import { SocketContext } from "../../context/Socket/SocketContext";
 
-const Picker = lazyWithReload(() =>
+const Picker = lazy(() =>
   import("emoji-mart").then(m => ({ default: m.Picker }))
 );
 
@@ -293,14 +294,18 @@ const EmojiOptions = props => {
       </IconButton>
       {showEmoji ? (
         <div className={classes.emojiBox}>
-          <Suspense fallback={null}>
-            <Picker
-              perLine={16}
-              showPreview={false}
-              showSkinTones={false}
-              onSelect={handleAddEmoji}
-            />
-          </Suspense>
+          <ChunkErrorBoundary
+            fallback={<span>{i18n.t("chunkError.emoji")}</span>}
+          >
+            <Suspense fallback={null}>
+              <Picker
+                perLine={16}
+                showPreview={false}
+                showSkinTones={false}
+                onSelect={handleAddEmoji}
+              />
+            </Suspense>
+          </ChunkErrorBoundary>
         </div>
       ) : null}
     </>
