@@ -1,19 +1,10 @@
-import {
-  Op,
-  fn,
-  where,
-  col,
-  Filterable,
-  Includeable,
-  WhereOptions
-} from "sequelize";
+import { Op, Filterable, Includeable, WhereOptions } from "sequelize";
 import { startOfDay, endOfDay, parseISO } from "date-fns";
 
 import { intersection } from "lodash";
 import AppError from "../../errors/AppError";
 import Ticket from "../../models/Ticket";
 import Contact from "../../models/Contact";
-import Message from "../../models/Message";
 import Queue from "../../models/Queue";
 import User from "../../models/User";
 import ShowUserService from "../UserServices/ShowUserService";
@@ -23,6 +14,8 @@ import Whatsapp from "../../models/Whatsapp";
 import { GetCompanySetting } from "../../helpers/CheckSettings";
 import ContactTag from "../../models/ContactTag";
 import { shouldApplyQueueFilter } from "./TicketQueueAccess";
+import loadTicketPage from "./loadTicketPage";
+import { buildTicketSearchFilter } from "./ticketSearchFilter";
 
 interface Request {
   isSearch?: boolean;
@@ -120,9 +113,10 @@ const ListTicketsService = async ({
   if (groupsTab) {
     whereCondition = { ...whereCondition, isGroup: groups === "true" };
   }
-  let includeCondition: Includeable[];
-
-  includeCondition = [
+  // Associações que o `where` referencia (ex.: "$contact.name$"). Vão só na
+  // consulta de ids, sem atributos, para a paginação ser por ticket.
+  let filterInclude: Includeable[] = [];
+  const includeCondition: Includeable[] = [
     {
       model: Contact,
       as: "contact",
@@ -175,45 +169,9 @@ const ListTicketsService = async ({
   }
 
   if (searchParam) {
-    const sanitizedSearchParam = searchParam.toLocaleLowerCase().trim();
+    filterInclude = [{ model: Contact, as: "contact", attributes: [] }];
 
-    includeCondition = [
-      ...includeCondition,
-      {
-        model: Message,
-        as: "messages",
-        attributes: ["id", "body"],
-        where: {
-          body: where(
-            fn("LOWER", col("body")),
-            "LIKE",
-            `%${sanitizedSearchParam}%`
-          )
-        },
-        required: false,
-        duplicating: false
-      }
-    ];
-
-    andedOrs.push({
-      [Op.or]: [
-        {
-          "$contact.name$": where(
-            fn("LOWER", col("contact.name")),
-            "LIKE",
-            `%${sanitizedSearchParam}%`
-          )
-        },
-        { "$contact.number$": { [Op.like]: `%${sanitizedSearchParam}%` } },
-        {
-          "$message.body$": where(
-            fn("LOWER", col("body")),
-            "LIKE",
-            `%${sanitizedSearchParam}%`
-          )
-        }
-      ]
-    });
+    andedOrs.push(buildTicketSearchFilter(searchParam, companyId));
   }
 
   if (date) {
@@ -379,15 +337,11 @@ const ListTicketsService = async ({
     };
   }
 
-  const tickets = await Ticket.findAll({
+  const tickets = await loadTicketPage({
     where: whereCondition,
     include: includeCondition,
-    limit,
-    order: [
-      ["updatedAt", "DESC"],
-      ["id", "DESC"]
-    ],
-    subQuery: false
+    filterInclude,
+    limit
   });
 
   return {

@@ -14,7 +14,10 @@ import GetWhatsappWbot from "./helpers/GetWhatsappWbot";
 import User from "./models/User";
 import Company from "./models/Company";
 import TicketTraking from "./models/TicketTraking";
-import { GetCompanySetting } from "./helpers/CheckSettings";
+import {
+  GetCompanySetting,
+  clearCompanySettingCache
+} from "./helpers/CheckSettings";
 import { getWbot } from "./libs/wbot";
 import { buildMetaWbot } from "./services/MetaWhatsAppServices/MetaWbotAdapter";
 import Ticket from "./models/Ticket";
@@ -574,6 +577,7 @@ async function handleNoQueueTimeout(
           }
         }
       });
+      clearCompanySettingCache();
       logger.info(
         { companyId: company.id, action, removed },
         "handleNoQueueTimeout -> removed incorrect setting"
@@ -665,6 +669,7 @@ async function handleChatbotTicketTimeout(
           }
         }
       });
+      clearCompanySettingCache();
       logger.info(
         { companyId: company.id, action, removed },
         "handleChatbotTicketTimeout -> removed incorrect setting"
