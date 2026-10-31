@@ -17,6 +17,7 @@ import {
   assertManageableGroup
 } from "../services/HelpGroupServices/scope";
 import sanitizeHelpContent from "../helpers/sanitizeHelpContent";
+import extractHelpImages from "../helpers/extractHelpImages";
 import parseYoutubeId from "../helpers/parseYoutubeId";
 import HelpGroup from "../models/HelpGroup";
 
@@ -123,7 +124,11 @@ const validate = async (data: StoreData): Promise<StoreData> => {
     throw new AppError("ERR_HELP_INVALID_VIDEO", 400);
   }
 
-  const content = type === "article" ? sanitizeHelpContent(data.content) : null;
+  // Depois de sanitizar: so o HTML ja limpo chega a virar arquivo em disco.
+  const content =
+    type === "article"
+      ? await extractHelpImages(sanitizeHelpContent(data.content))
+      : null;
 
   if (type === "article" && !content.replace(/<[^>]*>/g, "").trim()) {
     throw new AppError("ERR_HELP_CONTENT_REQUIRED", 400);
