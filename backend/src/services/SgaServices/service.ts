@@ -1,5 +1,5 @@
 /* eslint-disable no-restricted-syntax -- Paginated Hinova calls run sequentially to limit upstream load. */
-import { QueryTypes, Transaction } from "sequelize";
+import { Op, QueryTypes, Transaction } from "sequelize";
 import sequelize from "../../database";
 import Company from "../../models/Company";
 import Contact from "../../models/Contact";
@@ -8,6 +8,7 @@ import AppError from "../../errors/AppError";
 import { logger } from "../../utils/logger";
 import { sgaPages, sgaRequest } from "./client";
 import {
+  SGA_FIELD_SOURCE,
   desiredContactFields,
   reconcileContactFields,
   desiredContactEmails,
@@ -57,15 +58,34 @@ export const assertSgaTenant = async (companyId: number): Promise<void> => {
   if (!(await sgaEnabled(companyId)))
     throw new AppError("ERR_SGA_DISABLED", 404);
 };
+// The snapshot data is about 1.8 MB and only changes when a sync publishes it,
+// yet the billing cycle and the SGA screens read it every minute. Postgres sends
+// it again only when "syncedAt" differs from the copy held here. The key is the
+// exact epoch text, because a JS Date would drop the microseconds.
+const cachedData = new Map<number, { key: string; data: SnapshotData }>();
 export const snapshot = async (
   companyId: number,
   transaction?: Transaction
 ): Promise<Snapshot | undefined> => {
-  const rows = await sequelize.query<Snapshot>(
-    'SELECT * FROM "SgaSnapshots" WHERE "companyId" = :companyId',
-    { replacements: { companyId }, type: QueryTypes.SELECT, transaction }
+  const cached = cachedData.get(companyId);
+  const [row] = await sequelize.query<
+    Omit<Snapshot, "data"> & {
+      syncKey: string | null;
+      data: SnapshotData | null;
+    }
+  >(
+    'SELECT "companyId", "syncedAt", "attemptedAt", status, error, EXTRACT(EPOCH FROM "syncedAt")::text AS "syncKey", CASE WHEN EXTRACT(EPOCH FROM "syncedAt")::text = :known THEN NULL ELSE data END AS data FROM "SgaSnapshots" WHERE "companyId" = :companyId',
+    {
+      replacements: { companyId, known: cached?.key || "" },
+      type: QueryTypes.SELECT,
+      transaction
+    }
   );
-  return rows[0];
+  if (!row) return undefined;
+  const { syncKey, data, ...head } = row;
+  if (data === null) return cached && { ...head, data: cached.data };
+  if (syncKey) cachedData.set(companyId, { key: syncKey, data });
+  return { ...head, data };
 };
 export const syncSga = async (companyId: number): Promise<boolean> => {
   await assertSgaTenant(companyId);
@@ -215,7 +235,16 @@ export const loadSga = async (companyId: number, transaction?: Transaction) => {
         {
           model: ContactCustomField,
           as: "extraInfo",
-          attributes: ["name", "value", "managedBy"]
+          attributes: ["name", "value", "managedBy"],
+          // The matcher ignores the fields SGA publishes, and they are about
+          // two thirds of the rows this query returned.
+          required: false,
+          where: {
+            [Op.or]: [
+              { managedBy: null },
+              { managedBy: { [Op.ne]: SGA_FIELD_SOURCE } }
+            ]
+          }
         }
       ]
     })

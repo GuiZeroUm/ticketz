@@ -1,8 +1,16 @@
 import sequelize from "../../../database";
 import Company from "../../../models/Company";
 import Contact from "../../../models/Contact";
-import { assertSgaTenant, syncSga, setSgaLink } from "../service";
+import { Op } from "sequelize";
+import {
+  assertSgaTenant,
+  loadSga,
+  snapshot,
+  syncSga,
+  setSgaLink
+} from "../service";
 import { sgaRequest, sgaPages } from "../client";
+import { SGA_FIELD_SOURCE } from "../contactFields";
 jest.mock("../../../database", () => ({
   __esModule: true,
   default: { query: jest.fn(), transaction: jest.fn() }
@@ -13,7 +21,7 @@ jest.mock("../../../models/Company", () => ({
 }));
 jest.mock("../../../models/Contact", () => ({
   __esModule: true,
-  default: { findOne: jest.fn() }
+  default: { findOne: jest.fn(), findAll: jest.fn() }
 }));
 jest.mock("../../../models/ContactCustomField", () => ({
   __esModule: true,
@@ -84,5 +92,60 @@ describe("SGA tenant isolation and atomic synchronization", () => {
     query.mockResolvedValueOnce([{ locked: false }]);
     await syncSga(9);
     expect(sgaRequest).not.toHaveBeenCalled();
+  });
+  it("reuses the stored snapshot until the synchronization time changes", async () => {
+    const empty = { vehicles: [], bills: [], billStatuses: [] };
+    const first = { ...empty, members: [{ id: "1" }] };
+    const second = { ...empty, members: [{ id: "2" }] };
+    const row = (syncKey: string, status: string, data: unknown) => [
+      {
+        companyId: 41,
+        syncKey,
+        syncedAt: new Date(),
+        status,
+        error: null,
+        data
+      }
+    ];
+    query
+      .mockResolvedValueOnce(row("1793637390.123456", "ready", first))
+      .mockResolvedValueOnce(row("1793637390.123456", "syncing", null))
+      .mockResolvedValueOnce(row("1793641000.654321", "ready", second));
+    expect((await snapshot(41))?.data).toEqual(first);
+    expect(await snapshot(41)).toMatchObject({
+      status: "syncing",
+      data: first
+    });
+    expect(query.mock.calls[1][1].replacements).toEqual({
+      companyId: 41,
+      known: "1793637390.123456"
+    });
+    expect((await snapshot(41))?.data).toEqual(second);
+  });
+  it("matches contacts without loading the fields SGA itself publishes", async () => {
+    query.mockResolvedValueOnce([
+      {
+        companyId: 9,
+        syncKey: "1",
+        syncedAt: new Date(),
+        status: "ready",
+        data: { members: [], vehicles: [], bills: [], billStatuses: [] }
+      }
+    ]);
+    query.mockResolvedValueOnce([]);
+    (Contact.findAll as jest.Mock).mockResolvedValueOnce([]);
+    await loadSga(9);
+    const [{ include }] = (Contact.findAll as jest.Mock).mock.calls[0];
+    // Without required: false the filter would drop every contact that has
+    // no manual field, and those still match by phone and email.
+    expect(include[0]).toMatchObject({
+      required: false,
+      where: {
+        [Op.or]: [
+          { managedBy: null },
+          { managedBy: { [Op.ne]: SGA_FIELD_SOURCE } }
+        ]
+      }
+    });
   });
 });
