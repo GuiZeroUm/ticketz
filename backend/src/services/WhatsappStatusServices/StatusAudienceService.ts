@@ -1,4 +1,5 @@
 import AppError from "../../errors/AppError";
+import BaileysContact from "../../models/BaileysContact";
 import Contact from "../../models/Contact";
 import ContactList from "../../models/ContactList";
 import ContactListItem from "../../models/ContactListItem";
@@ -23,9 +24,30 @@ const maxAudience = (): number => {
   return Number.isFinite(value) && value > 0 ? Math.floor(value) : 5000;
 };
 
+const USER_JID_SUFFIX = "@s.whatsapp.net";
+
+// Address book synced by the QR session (contacts.upsert): only entries the
+// phone owner saved with a name, which are the people who can see their
+// status. Groups, broadcast and LID-only entries are left out.
+const addressBookContacts = async ({
+  whatsappId
+}: AudienceInput): Promise<AudienceSource[]> => {
+  const rows = await BaileysContact.findAll({
+    attributes: ["contactId", "payload"],
+    where: { whatsappId }
+  });
+  return rows
+    .filter(row => row.contactId?.endsWith(USER_JID_SUFFIX))
+    .map(row => ({
+      name: String(row.payload?.name || "").trim(),
+      number: row.contactId.slice(0, -USER_JID_SUFFIX.length)
+    }))
+    .filter(source => source.name && source.number);
+};
+
 // Contacts of the company (never groups) that have at least one ticket on
 // this connection, i.e. people who actually talked to this WhatsApp number.
-const connectionContacts = async ({
+const ticketContacts = async ({
   companyId,
   whatsappId
 }: AudienceInput): Promise<AudienceSource[]> =>
@@ -42,6 +64,20 @@ const connectionContacts = async ({
     ],
     order: [["name", "ASC"]]
   });
+
+// "All contacts" means the WhatsApp contacts of the connection: the phone's
+// address book plus anyone who already talked to it here.
+const connectionContacts = async (
+  input: AudienceInput
+): Promise<AudienceSource[]> => {
+  const [addressBook, talked] = await Promise.all([
+    addressBookContacts(input),
+    ticketContacts(input)
+  ]);
+  return [...addressBook, ...talked].sort((a, b) =>
+    (a.name || "").localeCompare(b.name || "", "pt-BR")
+  );
+};
 
 const contactListItems = async ({
   companyId,

@@ -1,3 +1,4 @@
+import BaileysContact from "../../../models/BaileysContact";
 import Contact from "../../../models/Contact";
 import Ticket from "../../../models/Ticket";
 import ContactList from "../../../models/ContactList";
@@ -8,6 +9,12 @@ import { resolveAudienceJids, previewAudience } from "../StatusAudienceService";
 jest.mock("../../../models/Contact", () => ({
   __esModule: true,
   default: class MockContact {
+    static findAll = jest.fn();
+  }
+}));
+jest.mock("../../../models/BaileysContact", () => ({
+  __esModule: true,
+  default: class MockBaileysContact {
     static findAll = jest.fn();
   }
 }));
@@ -29,6 +36,7 @@ jest.mock("../../../models/ContactListItem", () => ({
 }));
 
 const contactFindAll = Contact.findAll as unknown as jest.Mock;
+const baileysFindAll = BaileysContact.findAll as unknown as jest.Mock;
 const listFindOne = ContactList.findOne as unknown as jest.Mock;
 const itemFindAll = ContactListItem.findAll as unknown as jest.Mock;
 
@@ -37,6 +45,8 @@ describe("StatusAudienceService", () => {
 
   beforeEach(() => {
     contactFindAll.mockReset();
+    baileysFindAll.mockReset();
+    baileysFindAll.mockResolvedValue([]);
     listFindOne.mockReset();
     itemFindAll.mockReset();
   });
@@ -47,6 +57,50 @@ describe("StatusAudienceService", () => {
     } else {
       process.env.WHATSAPP_STATUS_MAX_AUDIENCE = originalMax;
     }
+  });
+
+  it("includes the WhatsApp address book of the connection", async () => {
+    baileysFindAll.mockResolvedValue([
+      {
+        contactId: "14155550103@s.whatsapp.net",
+        payload: { name: "Carla" }
+      },
+      { contactId: "14155550101@s.whatsapp.net", payload: { name: "Ana" } },
+      { contactId: "14155550104@s.whatsapp.net", payload: { notify: "X" } },
+      { contactId: "123456789@lid", payload: { name: "Lid only" } }
+    ]);
+    contactFindAll.mockResolvedValue([
+      { id: 1, name: "Ana", number: "14155550101", isGroup: false },
+      { id: 3, name: "Bruno", number: "14155550102", isGroup: false }
+    ]);
+
+    const jids = await resolveAudienceJids({
+      companyId: 7,
+      whatsappId: 3,
+      audienceMode: "connection_contacts"
+    });
+
+    expect(jids).toEqual([
+      "14155550101@s.whatsapp.net",
+      "14155550102@s.whatsapp.net",
+      "14155550103@s.whatsapp.net"
+    ]);
+    expect(baileysFindAll.mock.calls[0][0].where).toEqual({ whatsappId: 3 });
+  });
+
+  it("previews the address book when nobody opened a ticket yet", async () => {
+    baileysFindAll.mockResolvedValue([
+      { contactId: "14155550103@s.whatsapp.net", payload: { name: "Carla" } }
+    ]);
+    contactFindAll.mockResolvedValue([]);
+
+    await expect(
+      previewAudience({
+        companyId: 7,
+        whatsappId: 3,
+        audienceMode: "connection_contacts"
+      })
+    ).resolves.toEqual({ count: 1, sample: ["Carla"] });
   });
 
   it("builds JIDs only from contacts that talked to this connection", async () => {
