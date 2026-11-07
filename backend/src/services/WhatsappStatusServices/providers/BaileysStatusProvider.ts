@@ -15,9 +15,10 @@ import {
 } from "./types";
 
 // Only versions proven to appear on a recipient's phone belong here.
-// 1.0.0-alpha.16 returned a message id but the story did not appear in the
-// owner's phone test. Dev can opt in with WHATSAPP_STATUS_VERIFIED_LIBS.
-export const VERIFIED_LIBZAPITU_VERSIONS: string[] = [];
+// 1.0.0-alpha.16: a text story sent with LID-addressed recipients was
+// accepted by the server and seen on the owner's phone on 2026-11-07.
+// Dev can opt in other versions with WHATSAPP_STATUS_VERIFIED_LIBS.
+export const VERIFIED_LIBZAPITU_VERSIONS: string[] = ["1.0.0-alpha.16"];
 
 // Kinds that did not show up on the phone in the experiment.
 export const UNVERIFIED_KINDS: StatusKind[] = [];
