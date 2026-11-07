@@ -42,6 +42,25 @@ const post = (overrides = {}) =>
   }) as never;
 
 const OWN = "5568999990000:12@s.whatsapp.net";
+const OWN_LID = "900:12@lid";
+
+// What WhatsApp answers for each phone: its LID, or nothing when the number
+// is not on WhatsApp.
+const LIDS: Record<string, string> = {
+  "5568999990000": "900@lid",
+  "5568911111111": "911@lid",
+  "5568922222222": "922@lid"
+};
+const onWhatsApp = jest.fn(async (...jids: string[]) =>
+  jids
+    .map(jid => jid.split("@")[0])
+    .filter(phone => LIDS[phone])
+    .map(phone => ({
+      jid: `${phone}@s.whatsapp.net`,
+      exists: true,
+      lid: LIDS[phone]
+    }))
+);
 
 const mockSocket = (result: unknown, ackError?: string, emitAck = true) => {
   const ws = new EventEmitter();
@@ -57,7 +76,8 @@ const mockSocket = (result: unknown, ackError?: string, emitAck = true) => {
     return result;
   });
   (getWbot as jest.Mock).mockReturnValue({
-    user: { id: OWN },
+    user: { id: OWN, lid: OWN_LID },
+    onWhatsApp,
     sendMessage,
     ws
   });
@@ -160,15 +180,25 @@ describe("BaileysStatusProvider", () => {
       { text: "Promo de hoje" },
       {
         broadcast: true,
-        statusJidList: [
-          "5568999990000@s.whatsapp.net",
-          "5568911111111@s.whatsapp.net",
-          "5568922222222@s.whatsapp.net"
-        ],
+        statusJidList: ["900@lid", "911@lid", "922@lid"],
         backgroundColor: "#024BF4",
         font: 2
       }
     );
+  });
+
+  it("addresses everyone by LID and leaves out numbers without WhatsApp", async () => {
+    const sendMessage = mockSocket({ key: { id: "LID1" } });
+
+    await BaileysStatusProvider.publish(post(), connection(), [
+      "5568922222222@s.whatsapp.net",
+      "5568933333333@s.whatsapp.net"
+    ]);
+
+    expect(sendMessage.mock.calls[0][2].statusJidList).toEqual([
+      "900@lid",
+      "922@lid"
+    ]);
   });
 
   it("sends image and video by absolute path with the caption", async () => {
@@ -208,10 +238,7 @@ describe("BaileysStatusProvider", () => {
     });
     expect(sendMessage.mock.calls[0][2]).toEqual({
       broadcast: true,
-      statusJidList: [
-        "5568999990000@s.whatsapp.net",
-        "5568911111111@s.whatsapp.net"
-      ]
+      statusJidList: ["900@lid", "911@lid"]
     });
     expect(sendMessage.mock.calls[1][1]).toEqual({
       video: { url: __filename }
