@@ -1,6 +1,6 @@
 # Experimento de Status do WhatsApp (modo QR)
 
-Prova exigida pela spec antes de liberar a publicação automática. **Resultado: aprovado para texto em 07/11/2026** (story "teste" enviado pelo Docker local para 454 contatos, aceito pelo servidor e visto no celular do Guilherme). Destinatários precisam ir todos por LID: com números de telefone misturados ao LID do próprio aparelho, o servidor responde erro 400.
+Prova exigida pela spec antes de liberar a publicação automática. **Resultado: aprovado em 07/11/2026 para texto, imagem e vídeo** (texto: story "teste" enviado pelo Docker local para 454 contatos, aceito pelo servidor e visto no celular do Guilherme; imagem e vídeo testados por ele pela interface, com sucesso). Destinatários precisam ir todos por LID: com números de telefone misturados ao LID do próprio aparelho, o servidor responde erro 400.
 
 ## Ambiente
 
