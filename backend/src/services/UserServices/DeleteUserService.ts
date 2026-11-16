@@ -3,6 +3,7 @@ import AppError from "../../errors/AppError";
 import Ticket from "../../models/Ticket";
 import UpdateDeletedUserOpenTicketsStatus from "../../helpers/UpdateDeletedUserOpenTicketsStatus";
 import { revokeUserMcpGrants } from "../McpServices/RevokeMcpGrantsService";
+import { isPlatformSuper } from "../../helpers/platformSuper";
 
 const DeleteUserService = async (
   id: string | number,
@@ -14,12 +15,23 @@ const DeleteUserService = async (
 
   const requestUser = await User.findByPk(requestUserId);
 
-  if (requestUser.super === false && user.companyId !== requestUser.companyId) {
+  if (!user) {
+    throw new AppError("ERR_NO_USER_FOUND", 404);
+  }
+
+  const requestIsPlatformSuper = isPlatformSuper(requestUser);
+
+  if (
+    !requestUser ||
+    (!requestIsPlatformSuper && user.companyId !== requestUser.companyId)
+  ) {
     throw new AppError("ERR_FORBIDDEN", 403);
   }
 
-  if (!user) {
-    throw new AppError("ERR_NO_USER_FOUND", 404);
+  // Usuarios marcados como super so podem ser removidos pelo super admin da
+  // plataforma.
+  if (user.super && !requestIsPlatformSuper) {
+    throw new AppError("ERR_FORBIDDEN", 403);
   }
 
   const userOpenTickets: Ticket[] = await user.$get("tickets", {
