@@ -1,6 +1,7 @@
 import { sign } from "jsonwebtoken";
 import authConfig from "../config/auth";
 import User from "../models/User";
+import { isPlatformSuper } from "./platformSuper";
 
 interface ImpersonationMetadata {
   impersonated?: boolean;
@@ -20,7 +21,7 @@ export const createAccessToken = (
     {
       username: user.name,
       profile: user.profile,
-      super: user.super,
+      super: isPlatformSuper(user),
       id: user.id,
       companyId: user.companyId,
       impersonated: !!metadata.impersonated,

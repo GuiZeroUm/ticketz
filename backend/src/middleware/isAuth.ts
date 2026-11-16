@@ -5,6 +5,7 @@ import authConfig from "../config/auth";
 import Company from "../models/Company";
 import { assertRuntimeCompany } from "../helpers/tenantRuntime";
 import { initializeCompanyTimezone } from "../services/CompanyService/CompanyTimezoneService";
+import { isPlatformSuper } from "../helpers/platformSuper";
 
 interface TokenPayload {
   id: string;
@@ -58,7 +59,10 @@ const isAuth = async (
     req.user = {
       id: tokenData.id,
       profile: tokenData.profile,
-      isSuper: tokenData.super,
+      isSuper: isPlatformSuper({
+        super: tokenData.super,
+        companyId: tokenData.companyId
+      }),
       companyId: tokenData.companyId
     };
     req.companyId = tokenData.companyId;

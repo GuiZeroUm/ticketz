@@ -24,6 +24,7 @@ import {
   hasCentralizedBillingFields,
   isBillingConsoleCompany
 } from "../helpers/billingConsole";
+import { isPlatformSuper } from "../helpers/platformSuper";
 
 type IndexQuery = {
   searchParam: string;
@@ -192,7 +193,10 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
 
   const requestUser = await User.findByPk(req.user.id);
 
-  if (!requestUser.super && Number.parseInt(id, 10) !== requestUser.companyId) {
+  if (
+    !isPlatformSuper(requestUser) &&
+    Number.parseInt(id, 10) !== requestUser.companyId
+  ) {
     throw new AppError("ERR_FORBIDDEN", 403);
   }
 
@@ -245,7 +249,10 @@ export const updateSchedules = async (
   const { id } = req.params;
   const requestUser = await User.findByPk(req.user.id);
 
-  if (!requestUser.super && Number.parseInt(id, 10) !== requestUser.companyId) {
+  if (
+    !isPlatformSuper(requestUser) &&
+    Number.parseInt(id, 10) !== requestUser.companyId
+  ) {
     throw new AppError("ERR_FORBIDDEN", 403);
   }
 

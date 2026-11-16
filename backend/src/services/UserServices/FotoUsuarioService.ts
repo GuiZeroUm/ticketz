@@ -5,6 +5,7 @@ import sharp from "sharp";
 import User from "../../models/User";
 import AppError from "../../errors/AppError";
 import upload from "../../config/upload";
+import { isPlatformSuper } from "../../helpers/platformSuper";
 
 export const autorizarFotoUsuario = async (
   userId: string | number,
@@ -17,7 +18,7 @@ export const autorizarFotoUsuario = async (
   if (!usuario) throw new AppError("ERR_NO_USER_FOUND", 404);
   if (
     !solicitante ||
-    (!solicitante.super &&
+    (!isPlatformSuper(solicitante) &&
       (usuario.companyId !== solicitante.companyId ||
         (usuario.id !== solicitante.id && solicitante.profile !== "admin")))
   ) {

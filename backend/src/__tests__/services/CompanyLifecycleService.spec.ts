@@ -17,10 +17,6 @@ jest.mock("../../services/McpServices/RevokeMcpGrantsService", () => ({
 jest.mock("../../services/VoiceServices/VoiceService", () => ({
   disableCompanyVoiceConnections: jest.fn().mockResolvedValue(undefined)
 }));
-jest.mock("../../helpers/replicateMasterSuperAdmins", () => ({
-  __esModule: true,
-  default: jest.fn().mockResolvedValue(undefined)
-}));
 jest.mock("../../helpers/GetPublicPath", () => ({
   getPublicPath: jest.fn(() => "/srv/public")
 }));

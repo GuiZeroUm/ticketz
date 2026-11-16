@@ -7,6 +7,7 @@ import User from "../../models/User";
 import { revokeUserMcpGrants } from "../McpServices/RevokeMcpGrantsService";
 import { validateVisibleScreens } from "../../helpers/screenAccess";
 import validateGroupAccessIds from "../WhatsappGroupServices/ValidateGroupAccessIds";
+import { isPlatformSuper } from "../../helpers/platformSuper";
 
 interface UserData {
   email?: string;
@@ -42,12 +43,21 @@ const UpdateUserService = async ({
 
   const requestUser = await User.findByPk(requestUserId);
 
+  const requestIsPlatformSuper = isPlatformSuper(requestUser);
+  const isSelfUpdate = +userId === requestUser.id;
+
   if (
-    !requestUser.super &&
-    +userId !== requestUser.id &&
+    !requestIsPlatformSuper &&
+    !isSelfUpdate &&
     (user.companyId !== requestUser.companyId ||
       requestUser.profile !== "admin")
   ) {
+    throw new AppError("ERR_FORBIDDEN", 403);
+  }
+
+  // Usuarios marcados como super so podem ser alterados por eles mesmos ou
+  // pelo super admin da plataforma.
+  if (user.super && !isSelfUpdate && !requestIsPlatformSuper) {
     throw new AppError("ERR_FORBIDDEN", 403);
   }
 
@@ -113,7 +123,7 @@ const UpdateUserService = async ({
     name: user.name,
     email: user.email,
     profilePicUrl: user.profilePicUrl,
-    super: user.super,
+    super: isPlatformSuper(user),
     profile: user.profile,
     visibleScreens: user.visibleScreens,
     groupAccessIds: user.groupAccessIds,

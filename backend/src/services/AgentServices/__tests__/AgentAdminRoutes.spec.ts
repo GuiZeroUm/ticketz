@@ -69,16 +69,39 @@ describe("Agent administration authority", () => {
     }
   );
   it("requires a super user confirmed inside the authenticated tenant", async () => {
-    (User.findOne as jest.Mock).mockResolvedValue({ id: 9 });
+    (User.findOne as jest.Mock).mockResolvedValue({
+      id: 9,
+      super: true,
+      companyId: 1
+    });
     const response = await request(app).get("/agent/admin/companies");
     expect(response.status).toBe(200);
     expect(User.findOne).toHaveBeenCalledWith({
       where: { id: "9", companyId: 1, super: true },
-      attributes: ["id"]
+      attributes: ["id", "super", "companyId"]
     });
   });
+  it("rejects a super user that does not belong to the master company", async () => {
+    process.env.MASTER_COMPANY_ID = "5";
+    try {
+      (User.findOne as jest.Mock).mockResolvedValue({
+        id: 9,
+        super: true,
+        companyId: 1
+      });
+      const response = await request(app).get("/agent/admin/companies");
+      expect(response.status).toBe(403);
+      expect(AgentController.companies).not.toHaveBeenCalled();
+    } finally {
+      delete process.env.MASTER_COMPANY_ID;
+    }
+  });
   it("sanitizes database errors before the global logger can receive private content", async () => {
-    (User.findOne as jest.Mock).mockResolvedValue({ id: 9 });
+    (User.findOne as jest.Mock).mockResolvedValue({
+      id: 9,
+      super: true,
+      companyId: 1
+    });
     (AgentController.companies as jest.Mock).mockRejectedValueOnce(
       new Error("SELECT private secret")
     );
