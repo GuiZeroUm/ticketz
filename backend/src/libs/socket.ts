@@ -61,6 +61,7 @@ import {
   runtimeOwnsCompany,
   runtimeCompanyWhere
 } from "../helpers/tenantRuntime";
+import { isPlatformSuper } from "../helpers/platformSuper";
 
 const decoupledDriverServices = DecoupledDriverServices.getInstance();
 
@@ -185,7 +186,7 @@ export const initIO = (httpServer: Server): SocketIO => {
     socket.join(`company-${user.companyId}-mainchannel`);
     socket.join(`user-${user.id}`);
 
-    if (user.super) {
+    if (isPlatformSuper(user)) {
       socket.join("super");
     }
 
@@ -193,7 +194,8 @@ export const initIO = (httpServer: Server): SocketIO => {
       socket.join(`company-${user.companyId}-admin`);
     }
 
-    const canAccessBackendlog = user.super || tokenData?.impersonated === true;
+    const canAccessBackendlog =
+      isPlatformSuper(user) || tokenData?.impersonated === true;
 
     socket.on("joinBackendlog", () => {
       if (canAccessBackendlog) {

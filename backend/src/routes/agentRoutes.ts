@@ -4,6 +4,7 @@ import isAuth from "../middleware/isAuth";
 import User from "../models/User";
 import AppError from "../errors/AppError";
 import * as AgentController from "../controllers/AgentController";
+import { isPlatformSuper } from "../helpers/platformSuper";
 
 const routes = Router();
 const safeHandler =
@@ -22,9 +23,10 @@ const safeHandler =
 const agentSuper = async (req, _res, next) => {
   const user = await User.findOne({
     where: { id: req.user.id, companyId: req.user.companyId, super: true },
-    attributes: ["id"]
+    attributes: ["id", "super", "companyId"]
   });
-  if (!user) throw new AppError("ERR_AGENT_PERMISSION_DENIED", 403);
+  if (!isPlatformSuper(user))
+    throw new AppError("ERR_AGENT_PERMISSION_DENIED", 403);
   next();
 };
 const chatLimiter = rateLimit({

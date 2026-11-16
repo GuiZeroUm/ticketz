@@ -3,6 +3,7 @@ import AppError from "../../errors/AppError";
 import Queue from "../../models/Queue";
 import Company from "../../models/Company";
 import Setting from "../../models/Setting";
+import { isPlatformSuper } from "../../helpers/platformSuper";
 
 const ShowUserService = async (
   id: string | number,
@@ -73,7 +74,7 @@ const ShowUserService = async (
 
   if (
     requestUser &&
-    requestUser.super === false &&
+    !isPlatformSuper(requestUser) &&
     user.companyId !== requestUser.companyId
   ) {
     throw new AppError("ERR_FORBIDDEN", 403);

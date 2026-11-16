@@ -18,6 +18,7 @@ import {
   inspectActivation,
   setupInitialPassword
 } from "../services/UserServices/LoginFlowService";
+import { isPlatformSuper } from "../helpers/platformSuper";
 
 export const identify = async (
   req: Request,
@@ -113,7 +114,8 @@ export const update = async (
 export const me = async (req: Request, res: Response): Promise<Response> => {
   const token: string = req.cookies.jrt;
   const user = await FindUserFromToken(token);
-  const { id, profile, email, super: superAdmin, visibleScreens } = user;
+  const { id, profile, email, visibleScreens } = user;
+  const superAdmin = isPlatformSuper(user);
 
   if (!token) {
     throw new AppError("ERR_UNAUTHORIZED", 401);
@@ -140,6 +142,12 @@ export const impersonate = async (
 
   if (!token) {
     throw new AppError("ERR_UNAUTHORIZED", 401);
+  }
+
+  const requestUser = await User.findByPk(req.user.id);
+
+  if (!isPlatformSuper(requestUser)) {
+    throw new AppError("ERR_FORBIDDEN", 403);
   }
 
   const currentRefreshTokenData = decodeRefreshToken(token);
@@ -214,7 +222,7 @@ export const backToSuper = async (
     include: ["queues", { model: Company, include: [{ model: Setting }] }]
   });
 
-  if (!originalUser || !originalUser.super) {
+  if (!originalUser || !isPlatformSuper(originalUser)) {
     throw new AppError("ERR_NO_USER_FOUND", 404);
   }
 

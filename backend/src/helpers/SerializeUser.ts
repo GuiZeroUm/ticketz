@@ -1,6 +1,7 @@
 import Queue from "../models/Queue";
 import Company from "../models/Company";
 import User from "../models/User";
+import { isPlatformSuper } from "./platformSuper";
 
 interface SerializedUser {
   id: number;
@@ -27,7 +28,7 @@ export const SerializeUser = async (user: User): Promise<SerializedUser> => {
     groupAccessIds: user.groupAccessIds,
     companyId: user.companyId,
     company: user.company,
-    super: user.super,
+    super: isPlatformSuper(user),
     queues: user.queues
   };
 };

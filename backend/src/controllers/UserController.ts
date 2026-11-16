@@ -11,6 +11,7 @@ import DeleteUserService from "../services/UserServices/DeleteUserService";
 import SimpleListService from "../services/UserServices/SimpleListService";
 import User from "../models/User";
 import Contact from "../models/Contact";
+import { isPlatformSuper } from "../helpers/platformSuper";
 
 type IndexQuery = {
   searchParam: string;
@@ -60,7 +61,10 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
 
   if (req.user?.profile !== "admin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
-  } else if (newUserCompanyId !== req.user?.companyId && !requestUser?.super) {
+  } else if (
+    newUserCompanyId !== req.user?.companyId &&
+    !isPlatformSuper(requestUser)
+  ) {
     throw new AppError("ERR_NO_SUPER", 403);
   }
 
@@ -163,7 +167,7 @@ export const groupOptions = async (
 ): Promise<Response> => {
   const requestUser = await User.findOne({
     where: { id: req.user.id, companyId: req.user.companyId },
-    attributes: ["profile", "super"]
+    attributes: ["profile", "super", "companyId"]
   });
   if (requestUser?.profile !== "admin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
@@ -171,7 +175,7 @@ export const groupOptions = async (
   const requestedCompanyId = Number(req.query.companyId || req.user.companyId);
   if (
     !Number.isSafeInteger(requestedCompanyId) ||
-    (requestedCompanyId !== req.user.companyId && !requestUser.super)
+    (requestedCompanyId !== req.user.companyId && !isPlatformSuper(requestUser))
   ) {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
