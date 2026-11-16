@@ -5,7 +5,6 @@ import Company from "../../models/Company";
 import User from "../../models/User";
 import Setting from "../../models/Setting";
 import normalizeSlug from "../../helpers/normalizeSlug";
-import replicateMasterSuperAdmins from "../../helpers/replicateMasterSuperAdmins";
 import { Transaction } from "sequelize";
 import moment from "moment";
 import {
@@ -181,10 +180,6 @@ const CreateCompanyService = async (
   if (!created) {
     await user.update({ companyId: company.id }, { transaction });
   }
-
-  // Replica o(s) super admin(s) da empresa master para a nova empresa, para
-  // que o dono da plataforma consiga logar no subdominio de qualquer tenant.
-  await replicateMasterSuperAdmins(company.id, transaction);
 
   await Setting.findOrCreate({
     where: {
