@@ -15,9 +15,10 @@ import {
 } from "./types";
 
 // Only versions proven to appear on a recipient's phone belong here.
-// 1.0.0-alpha.16 returned a message id but the story did not appear in the
-// owner's phone test. Dev can opt in with WHATSAPP_STATUS_VERIFIED_LIBS.
-export const VERIFIED_LIBZAPITU_VERSIONS: string[] = [];
+// 1.0.0-alpha.16: a text story sent with LID-addressed recipients was
+// accepted by the server and seen on the owner's phone on 2026-11-07.
+// Dev can opt in other versions with WHATSAPP_STATUS_VERIFIED_LIBS.
+export const VERIFIED_LIBZAPITU_VERSIONS: string[] = ["1.0.0-alpha.16"];
 
 // Kinds that did not show up on the phone in the experiment.
 export const UNVERIFIED_KINDS: StatusKind[] = [];
@@ -92,6 +93,25 @@ const buildContent = async (
   return post.body ? { ...media, caption: post.body } : media;
 };
 
+type StatusSocket = ReturnType<typeof getWbot>;
+
+// WhatsApp answers 400 to a status whose recipients mix phone JIDs with LIDs
+// (the fork always adds the sender's own LID device). So everyone, the owner
+// first, is addressed by LID; numbers without WhatsApp are left out.
+const lidStatusJidList = async (
+  wbot: StatusSocket,
+  audience: string[]
+): Promise<string[]> => {
+  const ownLid = jidNormalizedUser(wbot.user.lid || wbot.user.id);
+  const phones = Array.from(new Set(audience));
+  const found = phones.length ? (await wbot.onWhatsApp(...phones)) || [] : [];
+  const lids = found
+    .map(entry => entry.lid)
+    .filter((lid): lid is string => typeof lid === "string" && !!lid)
+    .map(lid => jidNormalizedUser(lid));
+  return [ownLid, ...Array.from(new Set(lids)).filter(lid => lid !== ownLid)];
+};
+
 const publish = async (
   post: WhatsappStatusPost,
   connection: Whatsapp,
@@ -115,11 +135,7 @@ const publish = async (
     throw new StatusPublishError("ERR_STATUS_CONNECTION_UNAVAILABLE", false);
   }
 
-  const ownJid = jidNormalizedUser(wbot.user.id);
-  const statusJidList = [
-    ownJid,
-    ...Array.from(new Set(audience)).filter(jid => jid !== ownJid)
-  ];
+  const statusJidList = await lidStatusJidList(wbot, audience);
   const options: Record<string, unknown> = { broadcast: true, statusJidList };
   if (post.kind === "text") {
     if (post.backgroundColor) options.backgroundColor = post.backgroundColor;
