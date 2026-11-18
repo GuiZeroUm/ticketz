@@ -18,6 +18,10 @@ jest.mock("../../../models/BaileysContact", () => ({
     static findAll = jest.fn();
   }
 }));
+jest.mock("../../../models/Whatsapp", () => ({
+  __esModule: true,
+  default: class MockWhatsapp {}
+}));
 jest.mock("../../../models/Ticket", () => ({
   __esModule: true,
   default: class MockTicket {}
@@ -88,6 +92,26 @@ describe("StatusAudienceService", () => {
     expect(baileysFindAll.mock.calls[0][0].where).toEqual({ whatsappId: 3 });
   });
 
+  it("reads the address book only through a connection of the same company", async () => {
+    baileysFindAll.mockResolvedValue([]);
+    contactFindAll.mockResolvedValue([
+      { id: 1, name: "Ana", number: "14155550101", isGroup: false }
+    ]);
+
+    await resolveAudienceJids({
+      companyId: 7,
+      whatsappId: 3,
+      audienceMode: "connection_contacts"
+    });
+
+    expect(baileysFindAll.mock.calls[0][0].include).toEqual([
+      expect.objectContaining({
+        required: true,
+        where: { id: 3, companyId: 7 }
+      })
+    ]);
+  });
+
   it("previews the address book when nobody opened a ticket yet", async () => {
     baileysFindAll.mockResolvedValue([
       { contactId: "14155550103@s.whatsapp.net", payload: { name: "Carla" } }
@@ -100,7 +124,12 @@ describe("StatusAudienceService", () => {
         whatsappId: 3,
         audienceMode: "connection_contacts"
       })
-    ).resolves.toEqual({ count: 1, sample: ["Carla"] });
+    ).resolves.toEqual({
+      count: 1,
+      max: 5000,
+      tooLarge: false,
+      sample: ["Carla"]
+    });
   });
 
   it("builds JIDs only from contacts that talked to this connection", async () => {
@@ -268,8 +297,45 @@ describe("StatusAudienceService", () => {
 
     expect(preview).toEqual({
       count: 7,
+      max: 5000,
+      tooLarge: false,
       sample: ["Ana", "Bruno", "Carla", "Davi", "Eva"]
     });
     expect(JSON.stringify(preview)).not.toMatch(/1415555010/);
+  });
+
+  it("previews an audience above the limit with the count and the maximum", async () => {
+    process.env.WHATSAPP_STATUS_MAX_AUDIENCE = "2";
+    contactFindAll.mockResolvedValue(
+      ["Ana", "Bruno", "Carla"].map((name, index) => ({
+        id: index + 1,
+        name,
+        number: `1415555010${index}`,
+        isGroup: false
+      }))
+    );
+
+    await expect(
+      previewAudience({
+        companyId: 7,
+        whatsappId: 3,
+        audienceMode: "connection_contacts"
+      })
+    ).resolves.toMatchObject({ count: 3, max: 2, tooLarge: true });
+  });
+
+  it("defaults the maximum audience to 5000 when the variable is unset", async () => {
+    delete process.env.WHATSAPP_STATUS_MAX_AUDIENCE;
+    contactFindAll.mockResolvedValue([
+      { id: 1, name: "Ana", number: "14155550101", isGroup: false }
+    ]);
+
+    await expect(
+      previewAudience({
+        companyId: 7,
+        whatsappId: 3,
+        audienceMode: "connection_contacts"
+      })
+    ).resolves.toMatchObject({ max: 5000, tooLarge: false });
   });
 });

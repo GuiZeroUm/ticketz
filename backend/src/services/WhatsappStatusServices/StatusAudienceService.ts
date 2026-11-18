@@ -4,6 +4,7 @@ import Contact from "../../models/Contact";
 import ContactList from "../../models/ContactList";
 import ContactListItem from "../../models/ContactListItem";
 import Ticket from "../../models/Ticket";
+import Whatsapp from "../../models/Whatsapp";
 import { StatusAudienceMode } from "../../models/WhatsappStatusPost";
 import { getJidOf } from "../WbotServices/getJidOf";
 
@@ -19,7 +20,7 @@ type AudienceSource = { name: string; number: string };
 
 const PREVIEW_SAMPLE_SIZE = 5;
 
-const maxAudience = (): number => {
+export const maxAudience = (): number => {
   const value = Number(process.env.WHATSAPP_STATUS_MAX_AUDIENCE);
   return Number.isFinite(value) && value > 0 ? Math.floor(value) : 5000;
 };
@@ -30,11 +31,20 @@ const USER_JID_SUFFIX = "@s.whatsapp.net";
 // phone owner saved with a name, which are the people who can see their
 // status. Groups, broadcast and LID-only entries are left out.
 const addressBookContacts = async ({
+  companyId,
   whatsappId
 }: AudienceInput): Promise<AudienceSource[]> => {
   const rows = await BaileysContact.findAll({
     attributes: ["contactId", "payload"],
-    where: { whatsappId }
+    where: { whatsappId },
+    include: [
+      {
+        model: Whatsapp,
+        attributes: [],
+        required: true,
+        where: { id: whatsappId, companyId }
+      }
+    ]
   });
   return rows
     .filter(row => row.contactId?.endsWith(USER_JID_SUFFIX))
@@ -97,7 +107,7 @@ const contactListItems = async ({
   });
 };
 
-const resolveAudience = async (
+const collectAudience = async (
   input: AudienceInput
 ): Promise<AudienceEntry[]> => {
   const sources =
@@ -123,23 +133,37 @@ const resolveAudience = async (
   if (!entries.length) {
     throw new AppError("ERR_STATUS_AUDIENCE_EMPTY", 400);
   }
-  if (entries.length > maxAudience()) {
-    throw new AppError("ERR_STATUS_AUDIENCE_TOO_LARGE", 400);
-  }
 
   return entries;
 };
 
 export const resolveAudienceJids = async (
   input: AudienceInput
-): Promise<string[]> => (await resolveAudience(input)).map(entry => entry.jid);
+): Promise<string[]> => {
+  const entries = await collectAudience(input);
+  if (entries.length > maxAudience()) {
+    throw new AppError("ERR_STATUS_AUDIENCE_TOO_LARGE", 400);
+  }
+  return entries.map(entry => entry.jid);
+};
 
+// The preview reports an audience above the limit instead of failing, so the
+// screen can show how many contacts there are and what the maximum is.
+// Publishing still refuses it (resolveAudienceJids and StatusPostService).
 export const previewAudience = async (
   input: AudienceInput
-): Promise<{ count: number; sample: string[] }> => {
-  const entries = await resolveAudience(input);
+): Promise<{
+  count: number;
+  max: number;
+  tooLarge: boolean;
+  sample: string[];
+}> => {
+  const entries = await collectAudience(input);
+  const max = maxAudience();
   return {
     count: entries.length,
+    max,
+    tooLarge: entries.length > max,
     sample: entries
       .map(entry => entry.name)
       .filter(Boolean)

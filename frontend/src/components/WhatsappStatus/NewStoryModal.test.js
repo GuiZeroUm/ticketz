@@ -170,6 +170,25 @@ describe("New story modal", () => {
     expect(publishButton()).toBeDisabled();
   });
 
+  it("shows the audience size and the maximum and blocks an audience above it", async () => {
+    mockGets({
+      preview: () =>
+        Promise.resolve({
+          data: { count: 6200, max: 5000, tooLarge: true, sample: ["Ana"] }
+        })
+    });
+    renderModal();
+    expect(
+      await screen.findByText(
+        "Sua audiência tem 6200 contatos; o máximo por story é 5000."
+      )
+    ).toBeVisible();
+    fireEvent.change(screen.getByRole("textbox", { name: "Texto" }), {
+      target: { value: "Promoção" }
+    });
+    expect(publishButton()).toBeDisabled();
+  });
+
   it("sends the same Idempotency-Key when the user clicks publish twice", async () => {
     mockGets();
     let rejectFirst;

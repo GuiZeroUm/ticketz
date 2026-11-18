@@ -361,13 +361,16 @@ export const publishPost = async (
     return post;
   }
 
-  // An empty audience fails now instead of in the worker.
-  const { count } = await previewAudience({
+  // An empty or oversized audience fails now instead of in the worker.
+  const { count, tooLarge } = await previewAudience({
     companyId,
     whatsappId: post.whatsappId,
     audienceMode: post.audienceMode,
     contactListId: post.contactListId ?? null
   });
+  if (tooLarge) {
+    throw new AppError("ERR_STATUS_AUDIENCE_TOO_LARGE", 400);
+  }
 
   await post.update({
     state: "queued",

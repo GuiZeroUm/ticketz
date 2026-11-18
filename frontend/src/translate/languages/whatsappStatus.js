@@ -4,7 +4,9 @@ const ptErrors = {
   ERR_STATUS_AUDIENCE_EMPTY:
     "Nenhum contato pode ver este story. Escolha outra audiência.",
   ERR_STATUS_AUDIENCE_TOO_LARGE:
-    "A audiência passa do limite permitido para um story.",
+    "A audiência passa do máximo de contatos por story. Escolha uma lista menor.",
+  ERR_STATUS_OWN_LID_UNAVAILABLE:
+    "Não foi possível identificar o número da conexão. Reconecte o WhatsApp e tente de novo.",
   ERR_STATUS_BODY_REQUIRED: "Escreva o texto do story.",
   ERR_STATUS_BODY_TOO_LONG: "O texto passa de 700 caracteres.",
   ERR_STATUS_CONNECTION_MISMATCH: "A conexão não pertence mais a esta empresa.",
@@ -43,7 +45,9 @@ const enErrors = {
   ERR_STATUS_AUDIENCE_EMPTY:
     "No contact can see this story. Choose another audience.",
   ERR_STATUS_AUDIENCE_TOO_LARGE:
-    "The audience is above the limit allowed for a story.",
+    "The audience is above the maximum number of contacts per story. Choose a smaller list.",
+  ERR_STATUS_OWN_LID_UNAVAILABLE:
+    "The connection number could not be identified. Reconnect WhatsApp and try again.",
   ERR_STATUS_BODY_REQUIRED: "Write the story text.",
   ERR_STATUS_BODY_TOO_LONG: "The text is longer than 700 characters.",
   ERR_STATUS_CONNECTION_MISMATCH:
@@ -155,6 +159,8 @@ const pt = {
       audienceLoading: "Calculando quem vai ver…",
       audienceCount: "Será visto por {{n}} contatos",
       audienceCountOne: "Será visto por 1 contato",
+      audienceTooLarge:
+        "Sua audiência tem {{n}} contatos; o máximo por story é {{max}}.",
       when: "Quando",
       whenAria: "Quando publicar",
       now: "Agora",
@@ -283,6 +289,8 @@ const en = {
       audienceLoading: "Working out who will see it…",
       audienceCount: "Will be seen by {{n}} contacts",
       audienceCountOne: "Will be seen by 1 contact",
+      audienceTooLarge:
+        "Your audience has {{n}} contacts; the maximum per story is {{max}}.",
       when: "When",
       whenAria: "When to publish",
       now: "Now",

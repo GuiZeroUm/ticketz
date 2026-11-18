@@ -13,6 +13,22 @@ jest.mock("../../../libs/wbot", () => ({ getWbot: jest.fn() }));
 jest.mock("libzapitu-rf", () => ({
   jidNormalizedUser: (jid: string) => jid.replace(/:\d+@/, "@")
 }));
+jest.mock("../../../models/BaileysContact", () => ({
+  __esModule: true,
+  default: { findAll: jest.fn().mockResolvedValue([]) }
+}));
+jest.mock("../../../models/WhatsappLidMap", () => ({
+  __esModule: true,
+  default: { findAll: jest.fn().mockResolvedValue([]) }
+}));
+jest.mock("../../../models/Contact", () => ({
+  __esModule: true,
+  default: class MockContact {}
+}));
+jest.mock("../../../models/Whatsapp", () => ({
+  __esModule: true,
+  default: class MockWhatsapp {}
+}));
 jest.mock("../StatusMediaService", () => ({
   resolveStatusMediaPath: jest.fn()
 }));
@@ -87,10 +103,12 @@ const mockSocket = (result: unknown, ackError?: string, emitAck = true) => {
 beforeEach(() => {
   jest.clearAllMocks();
   process.env.WHATSAPP_STATUS_VERIFIED_LIBS = INSTALLED;
+  process.env.WHATSAPP_STATUS_LID_LOOKUP_PAUSE_MS = "0";
 });
 
 afterAll(() => {
   delete process.env.WHATSAPP_STATUS_VERIFIED_LIBS;
+  delete process.env.WHATSAPP_STATUS_LID_LOOKUP_PAUSE_MS;
 });
 
 describe("BaileysStatusProvider", () => {
@@ -291,7 +309,7 @@ describe("BaileysStatusProvider", () => {
   it("accepts a server ACK that arrives before sendMessage returns", async () => {
     const ws = new EventEmitter();
     (getWbot as jest.Mock).mockReturnValue({
-      user: { id: OWN },
+      user: { id: OWN, lid: OWN_LID },
       ws,
       sendMessage: jest.fn().mockImplementation(async () => {
         ws.emit("CB:ack,class:message", {
@@ -317,9 +335,10 @@ describe("BaileysStatusProvider", () => {
       const result = expect(publishing).rejects.toEqual(
         new StatusPublishError("ERR_STATUS_NO_CONFIRMATION", true)
       );
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+      // Let the recipient lookup finish before the ACK timer is advanced.
+      for (let tick = 0; tick < 20; tick += 1) {
+        await Promise.resolve();
+      }
       jest.advanceTimersByTime(15000);
       await result;
     } finally {

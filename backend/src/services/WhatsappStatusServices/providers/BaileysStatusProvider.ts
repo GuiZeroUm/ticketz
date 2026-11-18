@@ -1,7 +1,11 @@
 import { promises as fs } from "fs";
+import { Op } from "sequelize";
 import { jidNormalizedUser } from "libzapitu-rf";
 import { getWbot } from "../../../libs/wbot";
+import BaileysContact from "../../../models/BaileysContact";
+import Contact from "../../../models/Contact";
 import Whatsapp from "../../../models/Whatsapp";
+import WhatsappLidMap from "../../../models/WhatsappLidMap";
 import WhatsappStatusPost, {
   StatusKind
 } from "../../../models/WhatsappStatusPost";
@@ -95,21 +99,160 @@ const buildContent = async (
 
 type StatusSocket = ReturnType<typeof getWbot>;
 
+const USER_JID_SUFFIX = "@s.whatsapp.net";
+const LID_SUFFIX = "@lid";
+
+// Phones without a known LID are asked to WhatsApp in small batches, with a
+// short pause between them, instead of one query with the whole audience.
+export const LID_LOOKUP_BATCH_SIZE = 50;
+const DEFAULT_LID_LOOKUP_PAUSE_MS = 300;
+const DEFAULT_MAX_LID_LOOKUP = 1000;
+
+const positiveEnv = (name: string, fallback: number): number => {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value >= 0 ? Math.floor(value) : fallback;
+};
+
+const lookupPauseMs = (): number =>
+  positiveEnv(
+    "WHATSAPP_STATUS_LID_LOOKUP_PAUSE_MS",
+    DEFAULT_LID_LOOKUP_PAUSE_MS
+  );
+
+// Upper bound of phones asked to WhatsApp per story. Contacts above it that
+// have no known LID are left out of that story (counted in the log).
+const maxLidLookup = (): number =>
+  positiveEnv("WHATSAPP_STATUS_MAX_LID_LOOKUP", DEFAULT_MAX_LID_LOOKUP);
+
+const sleep = (ms: number): Promise<void> =>
+  ms > 0 ? new Promise(resolve => setTimeout(resolve, ms)) : Promise.resolve();
+
+const asLid = (value: unknown): string | null =>
+  typeof value === "string" && value.endsWith(LID_SUFFIX)
+    ? jidNormalizedUser(value)
+    : null;
+
+const phoneOf = (jid: string): string => jid.split("@")[0].split(":")[0];
+
+// LIDs already stored for these phones: the connection's synced address book
+// first, then the company's LID map. Nothing here talks to WhatsApp.
+const knownLids = async (
+  companyId: number,
+  whatsappId: number,
+  phones: string[]
+): Promise<Map<string, string>> => {
+  const known = new Map<string, string>();
+  if (!phones.length) return known;
+
+  const book = await BaileysContact.findAll({
+    attributes: ["contactId", "payload"],
+    where: { whatsappId, contactId: { [Op.in]: phones } },
+    include: [
+      {
+        model: Whatsapp,
+        attributes: [],
+        required: true,
+        where: { id: whatsappId, companyId }
+      }
+    ]
+  });
+  book.forEach(row => {
+    const lid = asLid(row.payload?.lid);
+    if (lid) known.set(row.contactId, lid);
+  });
+
+  const missing = phones.filter(phone => !known.has(phone));
+  if (!missing.length) return known;
+
+  const mapped = await WhatsappLidMap.findAll({
+    attributes: ["lid"],
+    where: { companyId },
+    include: [
+      {
+        model: Contact,
+        attributes: ["number"],
+        required: true,
+        where: { companyId, number: { [Op.in]: missing.map(phoneOf) } }
+      }
+    ]
+  });
+  mapped.forEach(row => {
+    const lid = asLid(row.lid);
+    const number = row.contact?.number;
+    if (!lid || !number) return;
+    const phone = `${number}${USER_JID_SUFFIX}`;
+    if (!known.has(phone)) known.set(phone, lid);
+  });
+  return known;
+};
+
+// Asks WhatsApp for the LIDs of the remaining phones, batch by batch. A failed
+// batch is skipped and counted; numbers without WhatsApp are left out.
+const lookupLids = async (
+  wbot: StatusSocket,
+  phones: string[]
+): Promise<{ lids: string[]; failedBatches: number }> => {
+  const lids: string[] = [];
+  let failedBatches = 0;
+  for (let start = 0; start < phones.length; start += LID_LOOKUP_BATCH_SIZE) {
+    if (start > 0) {
+      await sleep(lookupPauseMs());
+    }
+    const batch = phones.slice(start, start + LID_LOOKUP_BATCH_SIZE);
+    try {
+      const found = (await wbot.onWhatsApp(...batch)) || [];
+      found.forEach(entry => {
+        const lid = asLid(entry?.lid);
+        if (lid) lids.push(lid);
+      });
+    } catch {
+      failedBatches += 1;
+    }
+  }
+  return { lids, failedBatches };
+};
+
 // WhatsApp answers 400 to a status whose recipients mix phone JIDs with LIDs
 // (the fork always adds the sender's own LID device). So everyone, the owner
 // first, is addressed by LID; numbers without WhatsApp are left out.
 const lidStatusJidList = async (
   wbot: StatusSocket,
+  post: WhatsappStatusPost,
   audience: string[]
 ): Promise<string[]> => {
-  const ownLid = jidNormalizedUser(wbot.user.lid || wbot.user.id);
+  const ownLid = asLid(wbot.user?.lid);
+  if (!ownLid) {
+    throw new StatusPublishError("ERR_STATUS_OWN_LID_UNAVAILABLE", true);
+  }
+
   const phones = Array.from(new Set(audience));
-  const found = phones.length ? (await wbot.onWhatsApp(...phones)) || [] : [];
-  const lids = found
-    .map(entry => entry.lid)
-    .filter((lid): lid is string => typeof lid === "string" && !!lid)
-    .map(lid => jidNormalizedUser(lid));
-  return [ownLid, ...Array.from(new Set(lids)).filter(lid => lid !== ownLid)];
+  const known = await knownLids(post.companyId, post.whatsappId, phones);
+  const unknown = phones.filter(phone => !known.has(phone));
+  const toLookup = unknown.slice(0, maxLidLookup());
+  const { lids: lookedUp, failedBatches } = await lookupLids(wbot, toLookup);
+
+  const recipients = Array.from(
+    new Set([...known.values(), ...lookedUp])
+  ).filter(lid => lid !== ownLid);
+
+  // Counts only: never phone numbers or LIDs.
+  logger.info(
+    {
+      postId: post.id,
+      requested: phones.length,
+      known: known.size,
+      lookedUp: toLookup.length,
+      skipped: unknown.length - toLookup.length,
+      failedBatches,
+      resolved: recipients.length
+    },
+    "Whatsapp status recipients resolved"
+  );
+
+  if (phones.length && !recipients.length) {
+    throw new StatusPublishError("ERR_STATUS_AUDIENCE_EMPTY", true);
+  }
+  return [ownLid, ...recipients];
 };
 
 const publish = async (
@@ -135,7 +278,7 @@ const publish = async (
     throw new StatusPublishError("ERR_STATUS_CONNECTION_UNAVAILABLE", false);
   }
 
-  const statusJidList = await lidStatusJidList(wbot, audience);
+  const statusJidList = await lidStatusJidList(wbot, post, audience);
   const options: Record<string, unknown> = { broadcast: true, statusJidList };
   if (post.kind === "text") {
     if (post.backgroundColor) options.backgroundColor = post.backgroundColor;
