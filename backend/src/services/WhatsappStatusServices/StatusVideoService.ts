@@ -1,4 +1,5 @@
 import { spawn } from "child_process";
+import { constants as fsConstants } from "fs";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
@@ -19,6 +20,9 @@ const AUDIO_KBPS = 96;
 const MIN_VIDEO_KBPS = 300;
 const MAX_VIDEO_KBPS = 2500;
 const FFMPEG_THREADS = "2";
+// Largest width or height accepted before any decoding work.
+export const MAX_VIDEO_SIDE = 4096;
+const PRLIMIT = "/usr/bin/prlimit";
 const STDERR_LIMIT = 64 * 1024;
 
 const envNumber = (name: string, fallback: number): number => {
@@ -43,6 +47,24 @@ const conversionTimeoutMs = (): number =>
 const queueWaitMs = (): number =>
   envNumber("WHATSAPP_STATUS_VIDEO_QUEUE_SECONDS", 60) * 1000;
 
+// Address-space cap for each ffmpeg process (0 turns it off). The static
+// build needs more than 1 GiB of address space to start the H.264 encoder.
+const ffmpegMemoryBytes = (): number => {
+  const value = Number(process.env.WHATSAPP_STATUS_FFMPEG_MAX_MEMORY_MB);
+  return (Number.isFinite(value) && value >= 0 ? value : 2048) * MB;
+};
+
+let prlimitAvailable: boolean | null = null;
+const hasPrlimit = async (): Promise<boolean> => {
+  if (prlimitAvailable === null) {
+    prlimitAvailable = await fs
+      .access(PRLIMIT, fsConstants.X_OK)
+      .then(() => true)
+      .catch(() => false);
+  }
+  return prlimitAvailable;
+};
+
 // Created on first use, so the variable is read after the env is loaded.
 let slots: Semaphore | null = null;
 const conversionSlots = (): Semaphore => {
@@ -52,6 +74,22 @@ const conversionSlots = (): Semaphore => {
     );
   }
   return slots;
+};
+
+// Every heavy media step (video probe, video conversion and image
+// processing) shares the same slots, with a bounded wait for a free one.
+export const withMediaSlot = async <T>(task: () => Promise<T>): Promise<T> => {
+  const busy = new Error("ERR_STATUS_MEDIA_BUSY");
+  try {
+    return await withTimeout(
+      conversionSlots(),
+      queueWaitMs(),
+      busy
+    ).runExclusive(task);
+  } catch (error) {
+    if (error === busy) throw new AppError("ERR_STATUS_MEDIA_BUSY", 503);
+    throw error;
+  }
 };
 
 // Only ISO base media (MP4/MOV) read from a local file reaches ffmpeg: the
@@ -69,9 +107,21 @@ const inputArgs = (file: string): string[] => [
 
 type RunResult = { code: number | null; stderr: string; timedOut: boolean };
 
-const runFfmpeg = (args: string[], limitMs: number): Promise<RunResult> =>
-  new Promise((resolve, reject) => {
-    const child = spawn(ffmpegInstaller.path, args, {
+const runFfmpeg = async (
+  args: string[],
+  limitMs: number
+): Promise<RunResult> => {
+  const memory = ffmpegMemoryBytes();
+  const [command, commandArgs] =
+    memory > 0 && (await hasPrlimit())
+      ? [
+          PRLIMIT,
+          [`--as=${Math.floor(memory)}`, "--", ffmpegInstaller.path, ...args]
+        ]
+      : [ffmpegInstaller.path, args];
+  return new Promise((resolve, reject) => {
+    // prlimit runs ffmpeg in its own process, so the pid is ffmpeg's.
+    const child = spawn(command, commandArgs, {
       stdio: ["ignore", "ignore", "pipe"]
     });
     try {
@@ -98,6 +148,7 @@ const runFfmpeg = (args: string[], limitMs: number): Promise<RunResult> =>
       resolve({ code, stderr, timedOut });
     });
   });
+};
 
 export type VideoInfo = {
   durationSeconds: number;
@@ -136,12 +187,25 @@ export const parseVideoInfo = (stderr: string): VideoInfo | null => {
 
 export const probeStatusVideo = async (file: string): Promise<VideoInfo> => {
   // Without an output ffmpeg exits with an error after printing the input.
-  const { stderr, timedOut } = await runFfmpeg(inputArgs(file), 30000);
+  const { stderr, timedOut } = await withMediaSlot(() =>
+    runFfmpeg(inputArgs(file), 30000)
+  );
   const info = timedOut ? null : parseVideoInfo(stderr);
   if (!info || !info.videoCodec || !info.durationSeconds) {
     throw new AppError("ERR_STATUS_MEDIA_INVALID", 400);
   }
   return info;
+};
+
+// Refuses huge frames before any decoding, so a crafted file cannot make the
+// converter allocate gigabytes.
+export const assertVideoResolution = (info: VideoInfo): void => {
+  if (!info.width || !info.height) {
+    throw new AppError("ERR_STATUS_MEDIA_INVALID", 400);
+  }
+  if (info.width > MAX_VIDEO_SIDE || info.height > MAX_VIDEO_SIDE) {
+    throw new AppError("ERR_STATUS_MEDIA_RESOLUTION_TOO_LARGE", 400);
+  }
 };
 
 export const needsConversion = (info: VideoInfo, size: number): boolean =>
@@ -212,15 +276,16 @@ export const convertStatusVideo = async (
     "+faststart",
     "-threads",
     FFMPEG_THREADS,
+    // Never longer than a story, whatever the header says.
+    "-t",
+    String(maxVideoSeconds()),
     "-y",
     output
   ];
 
-  const busy = new Error("ERR_STATUS_MEDIA_BUSY");
-  const lock = withTimeout(conversionSlots(), queueWaitMs(), busy);
   const started = Date.now();
   try {
-    const result = await lock.runExclusive(() =>
+    const result = await withMediaSlot(() =>
       runFfmpeg(args, conversionTimeoutMs())
     );
     if (result.timedOut) {
@@ -240,7 +305,6 @@ export const convertStatusVideo = async (
     return output;
   } catch (error) {
     await unlinkQuietly(output);
-    if (error === busy) throw new AppError("ERR_STATUS_MEDIA_BUSY", 503);
     throw error;
   }
 };

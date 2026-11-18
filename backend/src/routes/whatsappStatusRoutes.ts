@@ -1,6 +1,7 @@
 import os from "os";
 import { NextFunction, Request, Response, Router } from "express";
 import multer from "multer";
+import { v4 as uuidv4 } from "uuid";
 import isAuth from "../middleware/isAuth";
 import isWhatsappStatusEnabled from "../middleware/isWhatsappStatusEnabled";
 import AppError from "../errors/AppError";
@@ -11,7 +12,12 @@ const routes = Router();
 
 // Coarse ceiling for the temp upload; storeStatusMedia applies the per-kind limit.
 const upload = multer({
-  storage: multer.diskStorage({ destination: os.tmpdir() }),
+  // Fixed prefix and no extension from the client, so leftovers can be
+  // found and removed by cleanupStatusTempFiles.
+  storage: multer.diskStorage({
+    destination: os.tmpdir(),
+    filename: (_req, _file, cb) => cb(null, `status-upload-${uuidv4()}`)
+  }),
   limits: { fileSize: Math.floor(maxUploadBytes()), files: 1 }
 });
 

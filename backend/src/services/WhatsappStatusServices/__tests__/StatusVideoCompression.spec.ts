@@ -7,6 +7,7 @@ import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
 import AppError from "../../../errors/AppError";
 import privateFiles from "../../../config/privateFiles";
 import {
+  cleanupStatusTempFiles,
   storeStatusMedia,
   statusMediaLimits,
   maxVideoUploadBytes
@@ -14,7 +15,8 @@ import {
 import {
   needsConversion,
   parseVideoInfo,
-  probeStatusVideo
+  probeStatusVideo,
+  withMediaSlot
 } from "../StatusVideoService";
 
 jest.setTimeout(120000);
@@ -53,7 +55,9 @@ const ENV_KEYS = [
   "WHATSAPP_STATUS_MAX_VIDEO_MB",
   "WHATSAPP_STATUS_MAX_VIDEO_UPLOAD_MB",
   "WHATSAPP_STATUS_MAX_IMAGE_MB",
-  "WHATSAPP_STATUS_MAX_IMAGE_UPLOAD_MB"
+  "WHATSAPP_STATUS_MAX_IMAGE_UPLOAD_MB",
+  "WHATSAPP_STATUS_VIDEO_QUEUE_SECONDS",
+  "WHATSAPP_STATUS_FFMPEG_MAX_MEMORY_MB"
 ];
 
 const fixtures = fs.mkdtempSync(path.join(os.tmpdir(), "ticketz-video-fx-"));
@@ -108,6 +112,7 @@ const stored = (mediaPath: string): string =>
 let notH264: string;
 let smallH264: string;
 let fourSeconds: string;
+let tooWide: string;
 
 beforeAll(() => {
   notH264 = makeVideo("not-h264.mp4", [
@@ -129,6 +134,13 @@ beforeAll(() => {
     "ultrafast",
     "-pix_fmt",
     "yuv420p"
+  ]);
+  tooWide = makeVideo("too-wide.mp4", [
+    "testsrc=size=4112x64:rate=10",
+    "-t",
+    "0.5",
+    "-c:v",
+    "mpeg4"
   ]);
   fourSeconds = makeVideo("four-seconds.mp4", [
     "testsrc=size=320x240:rate=25",
@@ -276,7 +288,7 @@ describe("story video compression", () => {
   it("reports the default limits with compression on", () => {
     expect(statusMediaLimits()).toEqual({
       imageMb: 30,
-      videoMb: 100,
+      videoMb: 95,
       videoSeconds: 90,
       compression: true
     });
@@ -302,6 +314,123 @@ describe("story video compression", () => {
     const meta = await sharp(output).metadata();
     expect(Math.max(meta.width, meta.height)).toBeLessThanOrEqual(1920);
     expect(fs.statSync(output).size).toBeLessThanOrEqual(limitBytes);
+  });
+});
+
+describe("resource limits", () => {
+  it("refuses a video wider or taller than 4096 pixels right after the probe", async () => {
+    const before = leftovers();
+    const input = upload(tooWide);
+    await expectAppError(
+      storeStatusMedia(7, "video", input),
+      "ERR_STATUS_MEDIA_RESOLUTION_TOO_LARGE",
+      400
+    );
+    expect(fs.existsSync(input)).toBe(false);
+    expect(leftovers()).toEqual(before);
+  });
+
+  it("refuses an image above 40 megapixels before decoding it", async () => {
+    const png = await sharp({
+      create: { width: 6400, height: 6400, channels: 3, background: "#fff" }
+    })
+      .png({ compressionLevel: 9 })
+      .toBuffer();
+    const input = upload(png, ".png");
+    await expectAppError(
+      storeStatusMedia(7, "image", input),
+      "ERR_STATUS_MEDIA_RESOLUTION_TOO_LARGE",
+      400
+    );
+    expect(fs.existsSync(input)).toBe(false);
+  });
+
+  it("makes probes and image work wait for the same slots as conversions", async () => {
+    process.env.WHATSAPP_STATUS_VIDEO_QUEUE_SECONDS = "0.2";
+    const releases: (() => void)[] = [];
+    const held = [1, 2].map(() =>
+      withMediaSlot(() => new Promise<void>(resolve => releases.push(resolve)))
+    );
+    try {
+      const image = upload(
+        await sharp({
+          create: { width: 8, height: 8, channels: 3, background: "#fff" }
+        })
+          .png()
+          .toBuffer(),
+        ".png"
+      );
+      await expectAppError(
+        storeStatusMedia(7, "image", image),
+        "ERR_STATUS_MEDIA_BUSY",
+        503
+      );
+      expect(fs.existsSync(image)).toBe(false);
+
+      const video = upload(smallH264);
+      await expectAppError(
+        storeStatusMedia(7, "video", video),
+        "ERR_STATUS_MEDIA_BUSY",
+        503
+      );
+      expect(fs.existsSync(video)).toBe(false);
+    } finally {
+      releases.forEach(release => release());
+      await Promise.all(held);
+    }
+  });
+
+  it("never converts more than the story duration", async () => {
+    process.env.WHATSAPP_STATUS_MAX_VIDEO_SECONDS = "3.6";
+    process.env.WHATSAPP_STATUS_VIDEO_TARGET_MB = "0.001";
+
+    const result = await storeStatusMedia(7, "video", upload(fourSeconds));
+
+    const info = await probeStatusVideo(stored(result.mediaPath));
+    expect(info.durationSeconds).toBeLessThanOrEqual(3.7);
+  });
+
+  const withPrlimit = fs.existsSync("/usr/bin/prlimit") ? it : it.skip;
+  withPrlimit("runs ffmpeg under the configured memory cap", async () => {
+    process.env.WHATSAPP_STATUS_FFMPEG_MAX_MEMORY_MB = "64";
+    const input = upload(smallH264);
+    await expectAppError(
+      storeStatusMedia(7, "video", input),
+      "ERR_STATUS_MEDIA_INVALID",
+      400
+    );
+    expect(fs.existsSync(input)).toBe(false);
+  });
+});
+
+describe("cleanupStatusTempFiles", () => {
+  it("removes upload and conversion leftovers older than one hour and keeps the rest", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ticketz-temp-sweep-"));
+    const now = new Date("2026-11-19T12:00:00Z");
+    const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+    const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000);
+    const make = (name: string, when: Date) => {
+      const file = path.join(dir, name);
+      fs.writeFileSync(file, "x");
+      fs.utimesSync(file, when, when);
+      return file;
+    };
+    const oldUpload = make("status-upload-old", twoHoursAgo);
+    const oldVideo = make("status-video-old.mp4", twoHoursAgo);
+    const fresh = make("status-upload-fresh", tenMinutesAgo);
+    const unrelated = make("other-file", twoHoursAgo);
+    fs.mkdirSync(path.join(dir, "status-video-dir"));
+
+    try {
+      await expect(cleanupStatusTempFiles(now, dir)).resolves.toBe(2);
+      expect(fs.existsSync(oldUpload)).toBe(false);
+      expect(fs.existsSync(oldVideo)).toBe(false);
+      expect(fs.existsSync(fresh)).toBe(true);
+      expect(fs.existsSync(unrelated)).toBe(true);
+      expect(fs.existsSync(path.join(dir, "status-video-dir"))).toBe(true);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

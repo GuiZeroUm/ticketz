@@ -17,6 +17,7 @@ import { resolveAudienceJids } from "../services/WhatsappStatusServices/StatusAu
 import { isStatusEnabled } from "../services/WhatsappStatusServices/StatusFeatureService";
 import {
   cleanupOrphanStatusMedia,
+  cleanupStatusTempFiles,
   removeStatusMedia
 } from "../services/WhatsappStatusServices/StatusMediaService";
 import { emitStatusPost } from "../services/WhatsappStatusServices/StatusSocket";
@@ -318,6 +319,17 @@ const recoverPendingPosts = async (): Promise<void> => {
 };
 
 export const startWhatsappStatusQueue = async (): Promise<void> => {
+  try {
+    const removed = await cleanupStatusTempFiles();
+    if (removed) {
+      logger.info({ removed }, "Whatsapp status temp files removed at boot");
+    }
+  } catch (error) {
+    logger.warn(
+      { error: error?.message },
+      "Could not clean whatsapp status temp files"
+    );
+  }
   queue.process("Publish", 4, handlePublishStatus);
   queue.process("Cleanup", 1, handleCleanup);
   queue.process("ExpireMedia", 1, handleExpireMedia);

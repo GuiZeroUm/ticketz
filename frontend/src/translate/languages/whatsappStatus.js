@@ -25,6 +25,8 @@ const ptErrors = {
   ERR_STATUS_MEDIA_REQUIRED: "Selecione uma imagem ou um vídeo.",
   ERR_STATUS_MEDIA_TOO_LARGE: "O arquivo passa do tamanho máximo permitido.",
   ERR_STATUS_VIDEO_TOO_LONG: "O vídeo passa da duração máxima de um story.",
+  ERR_STATUS_MEDIA_RESOLUTION_TOO_LARGE:
+    "A resolução do arquivo passa do máximo permitido (vídeo até 4096×4096, imagem até 40 megapixels).",
   ERR_STATUS_MEDIA_TIMEOUT:
     "Não foi possível otimizar o vídeo a tempo. Tente um vídeo menor.",
   ERR_STATUS_MEDIA_BUSY:
@@ -72,6 +74,8 @@ const enErrors = {
   ERR_STATUS_MEDIA_REQUIRED: "Select an image or a video.",
   ERR_STATUS_MEDIA_TOO_LARGE: "The file is above the maximum allowed size.",
   ERR_STATUS_VIDEO_TOO_LONG: "The video is longer than a story allows.",
+  ERR_STATUS_MEDIA_RESOLUTION_TOO_LARGE:
+    "The file resolution is above the maximum (video up to 4096×4096, image up to 40 megapixels).",
   ERR_STATUS_MEDIA_TIMEOUT:
     "The video could not be optimized in time. Try a smaller video.",
   ERR_STATUS_MEDIA_BUSY:

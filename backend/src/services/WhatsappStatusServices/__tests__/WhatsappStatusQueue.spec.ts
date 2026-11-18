@@ -15,6 +15,7 @@ import { resolveAudienceJids } from "../StatusAudienceService";
 import { isStatusEnabled } from "../StatusFeatureService";
 import {
   cleanupOrphanStatusMedia,
+  cleanupStatusTempFiles,
   removeStatusMedia
 } from "../StatusMediaService";
 import { emitStatusPost } from "../StatusSocket";
@@ -43,6 +44,7 @@ jest.mock("../StatusAudienceService", () => ({
 jest.mock("../StatusFeatureService", () => ({ isStatusEnabled: jest.fn() }));
 jest.mock("../StatusMediaService", () => ({
   cleanupOrphanStatusMedia: jest.fn(),
+  cleanupStatusTempFiles: jest.fn().mockResolvedValue(0),
   removeStatusMedia: jest.fn()
 }));
 jest.mock("../StatusSocket", () => ({ emitStatusPost: jest.fn() }));
@@ -526,6 +528,7 @@ describe("whatsappStatus queue", () => {
 
     await startWhatsappStatusQueue();
 
+    expect(cleanupStatusTempFiles).toHaveBeenCalledTimes(1);
     expect(queue.process).toHaveBeenCalledWith(
       "Publish",
       4,

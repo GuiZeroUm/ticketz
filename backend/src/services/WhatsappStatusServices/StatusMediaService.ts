@@ -10,11 +10,13 @@ import AppError from "../../errors/AppError";
 import WhatsappStatusPost from "../../models/WhatsappStatusPost";
 import { logger } from "../../utils/logger";
 import {
+  assertVideoResolution,
   compressionEnabled,
   convertStatusVideo,
   maxVideoSeconds,
   needsConversion,
-  probeStatusVideo
+  probeStatusVideo,
+  withMediaSlot
 } from "./StatusVideoService";
 
 export type StatusMediaMime =
@@ -50,7 +52,8 @@ export const maxImageUploadBytes = (): number =>
 export const maxVideoUploadBytes = (): number =>
   compressionEnabled()
     ? Math.max(
-        envMb("WHATSAPP_STATUS_MAX_VIDEO_UPLOAD_MB", 100) * MB,
+        // 95 MB leaves room for the multipart overhead under the 100 MB proxy.
+        envMb("WHATSAPP_STATUS_MAX_VIDEO_UPLOAD_MB", 95) * MB,
         maxVideoBytes()
       )
     : maxVideoBytes();
@@ -75,6 +78,10 @@ export const statusMediaLimits = (): {
 
 const IMAGE_MAX_SIDE = 1920;
 const IMAGE_QUALITIES = [85, 70];
+// Images above this many pixels are refused before they are decoded.
+export const MAX_IMAGE_PIXELS = 40_000_000;
+const TEMP_PREFIXES = ["status-upload-", "status-video-"];
+const TEMP_MAX_AGE_MS = 60 * 60 * 1000;
 
 // Multer instance for the status API: files land in the OS temp folder and
 // are only moved into private storage by storeStatusMedia after validation.
@@ -132,7 +139,10 @@ const unlinkQuietly = async (filePath: string): Promise<void> => {
 
 // JPEG, rotated as shot. With compression on, the longest side goes to 1920
 // and the quality drops once if the file is still above the stored limit.
-const storeImage = async (
+const storeImage = (tmpFilePath: string, destination: string): Promise<void> =>
+  withMediaSlot(() => encodeImage(tmpFilePath, destination));
+
+const encodeImage = async (
   tmpFilePath: string,
   destination: string
 ): Promise<void> => {
@@ -140,7 +150,9 @@ const storeImage = async (
   // eslint-disable-next-line no-restricted-syntax
   for (const quality of qualities) {
     try {
-      let image = sharp(tmpFilePath).rotate();
+      let image = sharp(tmpFilePath, {
+        limitInputPixels: MAX_IMAGE_PIXELS
+      }).rotate();
       if (compressionEnabled()) {
         image = image.resize({
           width: IMAGE_MAX_SIDE,
@@ -151,8 +163,11 @@ const storeImage = async (
       }
 
       await image.jpeg({ quality }).toFile(destination);
-    } catch {
+    } catch (error) {
       await unlinkQuietly(destination);
+      if (/pixel limit/i.test(error?.message || "")) {
+        throw new AppError("ERR_STATUS_MEDIA_RESOLUTION_TOO_LARGE", 400);
+      }
       throw new AppError("ERR_STATUS_MEDIA_INVALID", 400);
     }
 
@@ -177,6 +192,7 @@ const storeVideo = async (
   }
 
   const info = await probeStatusVideo(tmpFilePath);
+  assertVideoResolution(info);
   if (info.durationSeconds > maxVideoSeconds() + 0.5) {
     throw new AppError("ERR_STATUS_VIDEO_TOO_LONG", 400);
   }
@@ -203,6 +219,33 @@ const storeVideo = async (
   } finally {
     await unlinkQuietly(converted);
   }
+};
+
+// Upload and conversion temp files left behind by a crash or restart. Run at
+// boot; files younger than one hour may still belong to a running request.
+export const cleanupStatusTempFiles = async (
+  now: Date = new Date(),
+  dir: string = os.tmpdir()
+): Promise<number> => {
+  let removed = 0;
+  const names = (await fs.readdir(dir).catch(() => [] as string[])).filter(
+    name => TEMP_PREFIXES.some(prefix => name.startsWith(prefix))
+  );
+  await Promise.all(
+    names.map(async name => {
+      const file = path.join(dir, name);
+      try {
+        const stats = await fs.lstat(file);
+        if (!stats.isFile()) return;
+        if (now.getTime() - stats.mtime.getTime() <= TEMP_MAX_AGE_MS) return;
+        await fs.unlink(file);
+        removed += 1;
+      } catch {
+        // Gone already or not ours to remove.
+      }
+    })
+  );
+  return removed;
 };
 
 const companyRoot = (companyId: number): string =>
