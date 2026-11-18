@@ -9,6 +9,13 @@ import privateFiles from "../../config/privateFiles";
 import AppError from "../../errors/AppError";
 import WhatsappStatusPost from "../../models/WhatsappStatusPost";
 import { logger } from "../../utils/logger";
+import {
+  compressionEnabled,
+  convertStatusVideo,
+  maxVideoSeconds,
+  needsConversion,
+  probeStatusVideo
+} from "./StatusVideoService";
 
 export type StatusMediaMime =
   "image/jpeg" | "image/png" | "image/webp" | "video/mp4";
@@ -30,6 +37,45 @@ export const maxImageBytes = (): number =>
 export const maxVideoBytes = (): number =>
   envMb("WHATSAPP_STATUS_MAX_VIDEO_MB", 20) * MB;
 
+// Largest file accepted from the browser. With compression on, bigger files
+// are accepted and reduced; the stored file still respects the limits above.
+export const maxImageUploadBytes = (): number =>
+  compressionEnabled()
+    ? Math.max(
+        envMb("WHATSAPP_STATUS_MAX_IMAGE_UPLOAD_MB", 30) * MB,
+        maxImageBytes()
+      )
+    : maxImageBytes();
+
+export const maxVideoUploadBytes = (): number =>
+  compressionEnabled()
+    ? Math.max(
+        envMb("WHATSAPP_STATUS_MAX_VIDEO_UPLOAD_MB", 100) * MB,
+        maxVideoBytes()
+      )
+    : maxVideoBytes();
+
+export const maxUploadBytes = (): number =>
+  Math.max(maxImageUploadBytes(), maxVideoUploadBytes());
+
+const toMb = (bytes: number): number => Math.round((bytes / MB) * 10) / 10;
+
+// Limits shown on the story screen.
+export const statusMediaLimits = (): {
+  imageMb: number;
+  videoMb: number;
+  videoSeconds: number | null;
+  compression: boolean;
+} => ({
+  imageMb: toMb(maxImageUploadBytes()),
+  videoMb: toMb(maxVideoUploadBytes()),
+  videoSeconds: compressionEnabled() ? maxVideoSeconds() : null,
+  compression: compressionEnabled()
+});
+
+const IMAGE_MAX_SIDE = 1920;
+const IMAGE_QUALITIES = [85, 70];
+
 // Multer instance for the status API: files land in the OS temp folder and
 // are only moved into private storage by storeStatusMedia after validation.
 export const statusMediaUpload = multer({
@@ -39,7 +85,7 @@ export const statusMediaUpload = multer({
       cb(null, `status-upload-${uuidv4()}${path.extname(file.originalname)}`);
     }
   }),
-  limits: { fileSize: Math.max(maxImageBytes(), maxVideoBytes()) }
+  limits: { fileSize: maxUploadBytes() }
 });
 
 const startsWith = (buffer: Buffer, bytes: number[], offset = 0): boolean =>
@@ -84,6 +130,81 @@ const unlinkQuietly = async (filePath: string): Promise<void> => {
   }
 };
 
+// JPEG, rotated as shot. With compression on, the longest side goes to 1920
+// and the quality drops once if the file is still above the stored limit.
+const storeImage = async (
+  tmpFilePath: string,
+  destination: string
+): Promise<void> => {
+  const qualities = compressionEnabled() ? IMAGE_QUALITIES : [85];
+  // eslint-disable-next-line no-restricted-syntax
+  for (const quality of qualities) {
+    try {
+      let image = sharp(tmpFilePath).rotate();
+      if (compressionEnabled()) {
+        image = image.resize({
+          width: IMAGE_MAX_SIDE,
+          height: IMAGE_MAX_SIDE,
+          fit: "inside",
+          withoutEnlargement: true
+        });
+      }
+
+      await image.jpeg({ quality }).toFile(destination);
+    } catch {
+      await unlinkQuietly(destination);
+      throw new AppError("ERR_STATUS_MEDIA_INVALID", 400);
+    }
+
+    const { size } = await fs.stat(destination);
+    if (size <= maxImageBytes()) return;
+  }
+  await unlinkQuietly(destination);
+  throw new AppError("ERR_STATUS_MEDIA_TOO_LARGE", 413);
+};
+
+// With compression off the upload is stored as sent. With it on, the file is
+// checked by ffmpeg (a real MP4/MOV with a video track, within the status
+// duration) and converted when it is above the target or not H.264/AAC.
+const storeVideo = async (
+  tmpFilePath: string,
+  size: number,
+  destination: string
+): Promise<void> => {
+  if (!compressionEnabled()) {
+    await fs.copyFile(tmpFilePath, destination);
+    return;
+  }
+
+  const info = await probeStatusVideo(tmpFilePath);
+  if (info.durationSeconds > maxVideoSeconds() + 0.5) {
+    throw new AppError("ERR_STATUS_VIDEO_TOO_LONG", 400);
+  }
+
+  if (!needsConversion(info, size)) {
+    if (size > maxVideoBytes()) {
+      throw new AppError("ERR_STATUS_MEDIA_TOO_LARGE", 413);
+    }
+    await fs.copyFile(tmpFilePath, destination);
+    return;
+  }
+
+  const converted = await convertStatusVideo(tmpFilePath, info);
+  try {
+    const { size: convertedSize } = await fs.stat(converted);
+    if (convertedSize > maxVideoBytes()) {
+      throw new AppError("ERR_STATUS_MEDIA_TOO_LARGE", 413);
+    }
+    await fs.copyFile(converted, destination);
+    logger.info(
+      { inputBytes: size, outputBytes: convertedSize },
+      "Whatsapp status video optimized"
+    );
+  } finally {
+    await unlinkQuietly(converted);
+  }
+};
+
 const companyRoot = (companyId: number): string =>
   path.resolve(privateFiles.directory, MEDIA_ROOT, String(companyId));
 
@@ -101,7 +222,8 @@ export const storeStatusMedia = async (
     }
 
     const { size } = await fs.stat(tmpFilePath);
-    const limit = kind === "image" ? maxImageBytes() : maxVideoBytes();
+    const limit =
+      kind === "image" ? maxImageUploadBytes() : maxVideoUploadBytes();
     if (size > limit) {
       throw new AppError("ERR_STATUS_MEDIA_TOO_LARGE", 413);
     }
@@ -112,19 +234,11 @@ export const storeStatusMedia = async (
     await fs.mkdir(companyRoot(companyId), { recursive: true });
 
     if (kind === "image") {
-      try {
-        await sharp(tmpFilePath)
-          .rotate()
-          .jpeg({ quality: 85 })
-          .toFile(destination);
-      } catch {
-        await unlinkQuietly(destination);
-        throw new AppError("ERR_STATUS_MEDIA_INVALID", 400);
-      }
+      await storeImage(tmpFilePath, destination);
       return { mediaPath, mediaMime: "image/jpeg" };
     }
 
-    await fs.copyFile(tmpFilePath, destination);
+    await storeVideo(tmpFilePath, size, destination);
     return { mediaPath, mediaMime: "video/mp4" };
   } finally {
     await unlinkQuietly(tmpFilePath);

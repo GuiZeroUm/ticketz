@@ -189,6 +189,114 @@ describe("New story modal", () => {
     expect(publishButton()).toBeDisabled();
   });
 
+  describe("video size and optimization", () => {
+    const limits = {
+      imageMb: 30,
+      videoMb: 100,
+      videoSeconds: 90,
+      compression: true
+    };
+    const withLimits = { ...baileys, mediaLimits: limits };
+    const videoFile = (megabytes, type = "video/mp4") => {
+      const file = new File(["mp4"], "promo.mp4", { type });
+      Object.defineProperty(file, "size", { value: megabytes * 1024 * 1024 });
+      return file;
+    };
+    const pickVideo = file => {
+      fireEvent.click(screen.getByRole("tab", { name: "Vídeo" }));
+      fireEvent.change(screen.getByLabelText("Selecionar arquivo"), {
+        target: { files: [file] }
+      });
+    };
+
+    it("shows the accepted size and duration of a video", async () => {
+      mockGets({ connections: [withLimits] });
+      renderModal();
+      await waitAudience();
+      fireEvent.click(screen.getByRole("tab", { name: "Vídeo" }));
+      expect(
+        screen.getByText(
+          "MP4 ou MOV, até 100 MB e 90 segundos. Vídeos grandes são otimizados automaticamente."
+        )
+      ).toBeVisible();
+    });
+
+    it("refuses a file above the limit before uploading, with both sizes", async () => {
+      mockGets({ connections: [withLimits] });
+      renderModal();
+      await waitAudience();
+      pickVideo(videoFile(150));
+      expect(
+        screen.getByText("O arquivo tem 150 MB; o máximo é 100 MB.")
+      ).toBeVisible();
+      expect(screen.queryByText("promo.mp4")).toBeNull();
+      expect(api.post).not.toHaveBeenCalled();
+    });
+
+    it("accepts a MOV video", async () => {
+      mockGets({ connections: [withLimits] });
+      renderModal();
+      await waitAudience();
+      pickVideo(videoFile(40, "video/quicktime"));
+      expect(screen.getByText("promo.mp4")).toBeVisible();
+    });
+
+    it("says the video is being optimized after the upload ends", async () => {
+      mockGets({ connections: [withLimits] });
+      let finish;
+      api.post.mockImplementationOnce(
+        (url, form, config) =>
+          new Promise(resolve => {
+            config.onUploadProgress({ loaded: 50, total: 100 });
+            finish = () => {
+              config.onUploadProgress({ loaded: 100, total: 100 });
+            };
+            finish.resolve = resolve;
+          })
+      );
+      renderModal();
+      await waitAudience();
+      pickVideo(videoFile(60));
+      fireEvent.click(publishButton());
+      expect(await screen.findByText("Enviando arquivo…")).toBeVisible();
+      act(() => finish());
+      expect(await screen.findByText("Otimizando vídeo…")).toBeVisible();
+      await act(async () =>
+        finish.resolve({ data: draftPost({ kind: "video" }) })
+      );
+    });
+
+    it("shows the file size and the limit when the server refuses the file", async () => {
+      mockGets({ connections: [withLimits] });
+      api.post.mockRejectedValueOnce({
+        response: { status: 413, data: { error: "ERR_STATUS_MEDIA_TOO_LARGE" } }
+      });
+      renderModal();
+      await waitAudience();
+      pickVideo(videoFile(60));
+      fireEvent.click(publishButton());
+      expect(
+        await screen.findByText("O arquivo tem 60 MB; o máximo é 100 MB.")
+      ).toBeVisible();
+    });
+
+    it("shows the duration limit when the video is too long", async () => {
+      mockGets({ connections: [withLimits] });
+      api.post.mockRejectedValueOnce({
+        response: { status: 400, data: { error: "ERR_STATUS_VIDEO_TOO_LONG" } }
+      });
+      renderModal();
+      await waitAudience();
+      pickVideo(videoFile(10));
+      fireEvent.click(publishButton());
+      expect(
+        await screen.findByText(
+          "O vídeo passa de 90 segundos, o máximo de um story."
+        )
+      ).toBeVisible();
+    });
+  });
+
   it("sends the same Idempotency-Key when the user clicks publish twice", async () => {
     mockGets();
     let rejectFirst;

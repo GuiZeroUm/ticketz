@@ -4,28 +4,15 @@ import multer from "multer";
 import isAuth from "../middleware/isAuth";
 import isWhatsappStatusEnabled from "../middleware/isWhatsappStatusEnabled";
 import AppError from "../errors/AppError";
+import { maxUploadBytes } from "../services/WhatsappStatusServices/StatusMediaService";
 import * as WhatsappStatusController from "../controllers/WhatsappStatusController";
 
 const routes = Router();
 
-const megabytes = (value: string | undefined, fallback: number): number => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-};
-
 // Coarse ceiling for the temp upload; storeStatusMedia applies the per-kind limit.
-const maxUploadBytes = Math.floor(
-  Math.max(
-    megabytes(process.env.WHATSAPP_STATUS_MAX_IMAGE_MB, 5),
-    megabytes(process.env.WHATSAPP_STATUS_MAX_VIDEO_MB, 20)
-  ) *
-    1024 *
-    1024
-);
-
 const upload = multer({
   storage: multer.diskStorage({ destination: os.tmpdir() }),
-  limits: { fileSize: maxUploadBytes, files: 1 }
+  limits: { fileSize: Math.floor(maxUploadBytes()), files: 1 }
 });
 
 const statusMediaUpload = (

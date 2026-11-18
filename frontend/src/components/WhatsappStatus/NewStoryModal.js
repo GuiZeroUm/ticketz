@@ -24,7 +24,19 @@ import {
 const KINDS = ["text", "image", "video"];
 const ACCEPT = {
   image: "image/jpeg,image/png,image/webp",
-  video: "video/mp4"
+  video: "video/mp4,video/quicktime"
+};
+// Used when the server does not send its limits.
+const DEFAULT_MEDIA_LIMITS = {
+  imageMb: 5,
+  videoMb: 20,
+  videoSeconds: null,
+  compression: false
+};
+const MB = 1024 * 1024;
+const formatMb = bytes => {
+  const value = bytes / MB;
+  return value >= 10 ? String(Math.round(value)) : value.toFixed(1);
 };
 const MAX_LIST_PAGES = 10;
 
@@ -43,9 +55,7 @@ const errorText = err => {
 };
 
 const fileMatchesKind = (file, kind) =>
-  kind === "video"
-    ? file.type === "video/mp4"
-    : ACCEPT.image.split(",").includes(file.type);
+  ACCEPT[kind] ? ACCEPT[kind].split(",").includes(file.type) : false;
 
 const pickDefaultConnection = (list, preferredId) => {
   if (preferredId && list.some(item => item.id === preferredId))
@@ -114,6 +124,8 @@ const NewStoryModal = ({
   const [dirty, setDirty] = useState(!editing);
   const [mediaDirty, setMediaDirty] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // null, "uploading" or "optimizing" while a media file is being saved.
+  const [uploadPhase, setUploadPhase] = useState(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -234,6 +246,14 @@ const NewStoryModal = ({
 
   const connection = connections.find(item => item.id === whatsappId) || null;
   const capabilities = connection?.capabilities || {};
+  const mediaLimits = { ...DEFAULT_MEDIA_LIMITS, ...connection?.mediaLimits };
+  const limitMbFor = mediaKind =>
+    mediaKind === "video" ? mediaLimits.videoMb : mediaLimits.imageMb;
+  const tooLargeText = (size, mediaKind) =>
+    t("whatsappStatus.modal.fileTooLarge", {
+      size: formatMb(size),
+      max: limitMbFor(mediaKind)
+    });
   const isText = kind === "text";
   const background = isText ? STORY_COLORS[colorIndex].hex : MEDIA_BACKGROUND;
   const scheduling = when === "schedule";
@@ -300,6 +320,11 @@ const NewStoryModal = ({
       setError(failureMessage("ERR_STATUS_MEDIA_INVALID"));
       return;
     }
+    if (selected.size > limitMbFor(kind) * MB) {
+      setError(tooLargeText(selected.size, kind));
+      return;
+    }
+    setError("");
     setFile(selected);
     setFileUrl(
       typeof URL.createObjectURL === "function"
@@ -325,6 +350,22 @@ const NewStoryModal = ({
 
   // Creates the draft once (same Idempotency-Key on every retry of this
   // form) and updates it afterwards, so a retry never makes a second post.
+  // While the file uploads it says so; once the upload ends the server may
+  // still be optimizing a video before it answers.
+  const uploadConfig = sendsMedia =>
+    sendsMedia && file && !isText
+      ? {
+          onUploadProgress: event => {
+            const done = event.total && event.loaded >= event.total;
+            setUploadPhase(
+              done && kind === "video" && mediaLimits.compression
+                ? "optimizing"
+                : "uploading"
+            );
+          }
+        }
+      : {};
+
   const saveDraft = async () => {
     if (savedPost && !dirty) return savedPost;
     let post;
@@ -332,12 +373,17 @@ const NewStoryModal = ({
       ({ data: post } = await api.post(
         "/whatsapp-status/posts",
         buildForm(true),
-        { headers: { "Idempotency-Key": idempotencyKey.current } }
+        {
+          headers: { "Idempotency-Key": idempotencyKey.current },
+          ...uploadConfig(true)
+        }
       ));
     } else {
+      const config = uploadConfig(mediaDirty);
       ({ data: post } = await api.put(
         `/whatsapp-status/posts/${savedPost.id}`,
-        buildForm(mediaDirty)
+        buildForm(mediaDirty),
+        ...(config.onUploadProgress ? [config] : [])
       ));
     }
     setSavedPost(post);
@@ -353,9 +399,24 @@ const NewStoryModal = ({
     try {
       await task();
     } catch (err) {
-      setError(errorText(err));
+      const code = err?.response?.data?.error;
+      if (code === "ERR_STATUS_MEDIA_TOO_LARGE" && file) {
+        setError(tooLargeText(file.size, kind));
+      } else if (
+        code === "ERR_STATUS_VIDEO_TOO_LONG" &&
+        mediaLimits.videoSeconds
+      ) {
+        setError(
+          t("whatsappStatus.modal.videoTooLong", {
+            max: mediaLimits.videoSeconds
+          })
+        );
+      } else {
+        setError(errorText(err));
+      }
     } finally {
       setSubmitting(false);
+      setUploadPhase(null);
     }
   };
 
@@ -612,12 +673,29 @@ const NewStoryModal = ({
                       ? file.name
                       : existingMedia
                         ? t("whatsappStatus.modal.mediaAttached")
-                        : t(
-                            kind === "video"
-                              ? "whatsappStatus.modal.hintVideo"
-                              : "whatsappStatus.modal.hintImage"
-                          )}
+                        : kind === "video"
+                          ? t(
+                              mediaLimits.videoSeconds
+                                ? "whatsappStatus.modal.hintVideoOptimized"
+                                : "whatsappStatus.modal.hintVideo",
+                              {
+                                mb: mediaLimits.videoMb,
+                                seconds: mediaLimits.videoSeconds
+                              }
+                            )
+                          : t("whatsappStatus.modal.hintImage", {
+                              mb: mediaLimits.imageMb
+                            })}
                   </div>
+                  {uploadPhase && (
+                    <div className="ews-drop-hint" role="status">
+                      {t(
+                        uploadPhase === "optimizing"
+                          ? "whatsappStatus.modal.optimizingVideo"
+                          : "whatsappStatus.modal.uploadingMedia"
+                      )}
+                    </div>
+                  )}
                   <input
                     ref={fileInput}
                     type="file"
