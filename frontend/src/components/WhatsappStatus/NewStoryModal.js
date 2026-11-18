@@ -206,6 +206,8 @@ const NewStoryModal = ({
         setAudience({
           status: "ok",
           count: Number(data?.count) || 0,
+          max: Number(data?.max) || 0,
+          tooLarge: data?.tooLarge === true,
           sample: Array.isArray(data?.sample) ? data.sample : []
         });
       })
@@ -253,7 +255,8 @@ const NewStoryModal = ({
   const contentOk = isText
     ? text.trim().length > 0 && text.length <= TEXT_LIMIT
     : hasMedia;
-  const audienceOk = audience.status === "ok" && audience.count > 0;
+  const audienceOk =
+    audience.status === "ok" && audience.count > 0 && !audience.tooLarge;
   const scheduleOk =
     !scheduling ||
     (Boolean(scheduleValue) && new Date(scheduleValue).getTime() > Date.now());
@@ -412,6 +415,15 @@ const NewStoryModal = ({
       return (
         <span className="ews-hint ews-hint--error" role="alert">
           {failureMessage("ERR_STATUS_AUDIENCE_EMPTY")}
+        </span>
+      );
+    if (audience.tooLarge)
+      return (
+        <span className="ews-hint ews-hint--error" role="alert">
+          {t("whatsappStatus.modal.audienceTooLarge", {
+            n: audience.count,
+            max: audience.max
+          })}
         </span>
       );
     const base =

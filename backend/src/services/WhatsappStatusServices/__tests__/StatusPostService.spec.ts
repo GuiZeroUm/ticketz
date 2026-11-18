@@ -480,6 +480,22 @@ describe("StatusPostService.publishPost", () => {
     });
     expect(enqueueStatusPost).not.toHaveBeenCalled();
   });
+
+  it("refuses to publish an audience above the maximum", async () => {
+    const post = makePost();
+    (WhatsappStatusPost.findOne as jest.Mock).mockResolvedValue(post);
+    (previewAudience as jest.Mock).mockResolvedValue({
+      count: 6000,
+      max: 5000,
+      tooLarge: true,
+      sample: []
+    });
+    await expect(publishPost(7, 5, {})).rejects.toMatchObject({
+      message: "ERR_STATUS_AUDIENCE_TOO_LARGE"
+    });
+    expect(post.update).not.toHaveBeenCalled();
+    expect(enqueueStatusPost).not.toHaveBeenCalled();
+  });
 });
 
 describe("StatusPostService.cancelPost", () => {
