@@ -285,6 +285,20 @@ describe("AcoesNotaPlataforma (Central de Cobrança)", () => {
     expect(screen.getByLabelText("notaFiscal.emEmissao")).toBeTruthy();
   });
 
+  test("emitida, sem permissão de super: menu sem Cancelar", async () => {
+    render(
+      <AcoesNotaPlataforma
+        fatura={fatura({ status: "issued", number: "45", hasXml: true })}
+        dadosFiscaisCompletos
+        aoAtualizar={jest.fn()}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "notaFiscal.baixar" }));
+    await screen.findByText("notaFiscal.baixarPdf");
+    expect(screen.getByText("notaFiscal.baixarXml")).toBeTruthy();
+    expect(screen.queryByText("notaFiscal.cancelar")).toBeNull();
+  });
+
   test("emitida: menu com PDF, XML e cancelar com motivo obrigatório", async () => {
     notaApi.cancelarNotaFiscal.mockResolvedValue({
       id: 1,
@@ -300,6 +314,7 @@ describe("AcoesNotaPlataforma (Central de Cobrança)", () => {
           hasXml: true
         })}
         dadosFiscaisCompletos
+        podeCancelar
         aoAtualizar={aoAtualizar}
       />
     );

@@ -55,7 +55,9 @@ const AcoesNotaPlataforma = ({
   aoAtualizar,
   aoPreencherDados,
   aoRecarregar,
-  aguardandoNota = false
+  aguardandoNota = false,
+  // Cancelar nota é só do super admin da plataforma (o backend repete a regra).
+  podeCancelar = false
 }) => {
   const classes = useStyles();
   const [menuAncora, setMenuAncora] = useState(null);
@@ -123,18 +125,20 @@ const AcoesNotaPlataforma = ({
               {i18n.t("notaFiscal.baixarXml")}
             </MenuItem>
           )}
-          <Divider />
-          <MenuItem
-            onClick={() => {
-              setMenuAncora(null);
-              setCancelando(true);
-            }}
-          >
-            <ListItemIcon>
-              <BlockIcon fontSize="small" />
-            </ListItemIcon>
-            {i18n.t("notaFiscal.cancelar")}
-          </MenuItem>
+          {podeCancelar && <Divider />}
+          {podeCancelar && (
+            <MenuItem
+              onClick={() => {
+                setMenuAncora(null);
+                setCancelando(true);
+              }}
+            >
+              <ListItemIcon>
+                <BlockIcon fontSize="small" />
+              </ListItemIcon>
+              {i18n.t("notaFiscal.cancelar")}
+            </MenuItem>
+          )}
         </Menu>
       </>
     );
@@ -248,7 +252,7 @@ const AcoesNotaPlataforma = ({
           aoRecarregar={aoRecarregar}
         />
       )}
-      {estado === "emitida" && (
+      {estado === "emitida" && podeCancelar && (
         <DialogoCancelarNota
           aberto={cancelando}
           fatura={fatura}

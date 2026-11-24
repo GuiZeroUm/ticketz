@@ -1,5 +1,6 @@
 import React, {
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -62,6 +63,7 @@ import useAtualizacaoNotas from "../../components/NotaFiscal/useAtualizacaoNotas
 import { deveAguardarNota } from "../../components/NotaFiscal/estadoNota";
 
 import CartaoResumo from "./CartaoResumo";
+import { AuthContext } from "../../context/Auth/AuthContext";
 import ModalCliente from "./ModalCliente";
 import ModalCobranca from "./ModalCobranca";
 import ModalLancarCobranca from "./ModalLancarCobranca";
@@ -130,6 +132,9 @@ const FILTROS_SITUACAO = [
 const CentralCobranca = () => {
   const classes = useStyles();
   const theme = useTheme();
+  // `super` já vem do servidor como super admin da plataforma.
+  const { user } = useContext(AuthContext);
+  const ehSuperPlataforma = user?.super === true;
 
   const [aba, setAba] = useState(0);
   const [filtros, setFiltros] = useState({
@@ -702,6 +707,7 @@ const CentralCobranca = () => {
                           }
                           aguardandoNota={!!aguardandoNota[fatura.id]}
                           aoRecarregar={recarregarFaturasSilencioso}
+                          podeCancelar={ehSuperPlataforma}
                           aoAtualizar={nota => atualizarNota(fatura.id, nota)}
                           aoPreencherDados={item =>
                             setDadosFiscaisDe({
