@@ -24,9 +24,15 @@ export const startFiscalNoteQueue = async (): Promise<void> => {
   );
   queue.process("Reconcile", 1, async () => reconcileFiscalNotes());
 
-  if (!notaasConfig().enabled) {
+  const config = notaasConfig();
+  if (!config.enabled) {
     logger.info("[fiscalNote] emissão de NFS-e desligada (NOTAAS_ENABLED)");
     return;
+  }
+  if (config.autoEmitRequested && !config.autoEmitEnabled) {
+    logger.warn(
+      "[fiscalNote] emissão automática desligada: NOTAAS_AUTO_EMIT_SINCE ausente ou inválido"
+    );
   }
   await queue.add(
     "Reconcile",

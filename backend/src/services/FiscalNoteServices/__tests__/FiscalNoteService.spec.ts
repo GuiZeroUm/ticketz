@@ -12,6 +12,7 @@ import {
 } from "../NotaasClient";
 import {
   applyProviderStatus,
+  reconcileFiscalNotes,
   cancelFiscalNote,
   processFiscalNoteEmission,
   requestFiscalNoteEmission,
@@ -82,6 +83,7 @@ const paidInvoice = (overrides: Record<string, any> = {}) =>
     currency: "BRL",
     detail: "Plano Pro",
     competencia: "2026-11",
+    paidAt: new Date(),
     company: { id: 7, slug: "cliente-exemplo" },
     ...overrides
   });
@@ -91,6 +93,8 @@ describe("fiscal note emission (simulated Notaas)", () => {
     jest.clearAllMocks();
     process.env.NOTAAS_ENABLED = "true";
     process.env.NOTAAS_API_KEY = "test-key";
+    process.env.NOTAAS_AUTO_EMIT_ENABLED = "true";
+    process.env.NOTAAS_AUTO_EMIT_SINCE = "2026-11-01T00:00:00Z";
     delete process.env.NOTAAS_SERVICE_CODE;
     delete process.env.NOTAAS_ISS_RATE;
     delete process.env.TENANT_RUNTIME_COMPANY_ID;
@@ -293,6 +297,69 @@ describe("fiscal note emission (simulated Notaas)", () => {
     await requestFiscalNoteEmission({ invoiceId: 28, trigger: "auto" });
     expect(errored.update).not.toHaveBeenCalled();
     expect(enqueueFiscalNoteEmission).not.toHaveBeenCalled();
+  });
+
+  it("emits nothing automatically unless NOTAAS_AUTO_EMIT_ENABLED is on", async () => {
+    delete process.env.NOTAAS_AUTO_EMIT_ENABLED;
+    await expect(
+      requestFiscalNoteEmission({ invoiceId: 28, trigger: "auto" })
+    ).resolves.toBeNull();
+    expect(Invoices.findByPk).not.toHaveBeenCalled();
+
+    process.env.NOTAAS_AUTO_EMIT_ENABLED = "true";
+    delete process.env.NOTAAS_AUTO_EMIT_SINCE;
+    await expect(
+      requestFiscalNoteEmission({ invoiceId: 28, trigger: "auto" })
+    ).resolves.toBeNull();
+    expect(FiscalNote.create).not.toHaveBeenCalled();
+
+    // O botão manual continua funcionando com o automático desligado.
+    (Invoices.findByPk as jest.Mock).mockResolvedValue(paidInvoice());
+    (getFiscalProfile as jest.Mock).mockResolvedValue(completeProfile());
+    await requestFiscalNoteEmission({ invoiceId: 28, trigger: "manual" });
+    expect(enqueueFiscalNoteEmission).toHaveBeenCalled();
+  });
+
+  it("does not emit automatically for invoices paid before the start date", async () => {
+    (Invoices.findByPk as jest.Mock).mockResolvedValue(
+      paidInvoice({ paidAt: new Date("2026-10-15T12:00:00Z") })
+    );
+    await expect(
+      requestFiscalNoteEmission({ invoiceId: 28, trigger: "auto" })
+    ).resolves.toBeNull();
+    expect(FiscalNote.create).not.toHaveBeenCalled();
+  });
+
+  it("reconciles invoices paid in a dedicated runtime (which never emits)", async () => {
+    (FiscalNote.findAll as jest.Mock).mockResolvedValue([]);
+    (Invoices.findAll as jest.Mock).mockResolvedValue([{ id: 30 }]);
+    (Invoices.findByPk as jest.Mock).mockResolvedValue(
+      paidInvoice({
+        id: 30,
+        companyId: 9,
+        company: { id: 9, slug: "dedicado" }
+      })
+    );
+    (getFiscalProfile as jest.Mock).mockResolvedValue(
+      completeProfile({ companyId: 9 })
+    );
+
+    await reconcileFiscalNotes();
+
+    const query = (Invoices.findAll as jest.Mock).mock.calls[0][0];
+    expect(query.where.status).toBe("paid");
+    expect(query.where.paidAt).toBeDefined();
+    expect(FiscalNote.create).toHaveBeenCalledWith(
+      expect.objectContaining({ invoiceId: 30, companyId: 9, trigger: "auto" })
+    );
+    expect(enqueueFiscalNoteEmission).toHaveBeenCalled();
+  });
+
+  it("does not look for missing notes while the automatic mode is off", async () => {
+    delete process.env.NOTAAS_AUTO_EMIT_ENABLED;
+    (FiscalNote.findAll as jest.Mock).mockResolvedValue([]);
+    await reconcileFiscalNotes();
+    expect(Invoices.findAll).not.toHaveBeenCalled();
   });
 
   describe("queue worker", () => {

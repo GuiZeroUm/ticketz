@@ -6,6 +6,10 @@ import axios, { AxiosError, AxiosInstance } from "axios";
 export const notaasConfig = () => {
   const apiKey = process.env.NOTAAS_API_KEY?.trim() || "";
   const issRate = Number(process.env.NOTAAS_ISS_RATE ?? 5);
+  const sinceRaw = process.env.NOTAAS_AUTO_EMIT_SINCE?.trim() || "";
+  const since = sinceRaw ? new Date(sinceRaw) : null;
+  const autoEmitSince =
+    since && Number.isFinite(since.getTime()) ? since : null;
   return {
     enabled: process.env.NOTAAS_ENABLED === "true" && !!apiKey,
     apiKey,
@@ -16,9 +20,13 @@ export const notaasConfig = () => {
     serviceCode: process.env.NOTAAS_SERVICE_CODE?.trim() || "010501",
     issRate: Number.isFinite(issRate) ? issRate : 5,
     webhookSecret: process.env.NOTAAS_WEBHOOK_SECRET || "",
-    // Rede de segurança: faturas pagas desde esta data sem nota são emitidas
-    // pela reconciliação. Vazio = desligada (evita emitir o passado).
-    autoEmitSince: process.env.NOTAAS_AUTO_EMIT_SINCE?.trim() || ""
+    // Emissão automática (gatilho de pagamento e reconciliação). Desligada por
+    // padrão: só o botão manual emite. Exige NOTAAS_AUTO_EMIT_SINCE válido,
+    // que limita o automático às faturas pagas a partir dessa data.
+    autoEmitRequested: process.env.NOTAAS_AUTO_EMIT_ENABLED === "true",
+    autoEmitEnabled:
+      process.env.NOTAAS_AUTO_EMIT_ENABLED === "true" && !!autoEmitSince,
+    autoEmitSince
   };
 };
 

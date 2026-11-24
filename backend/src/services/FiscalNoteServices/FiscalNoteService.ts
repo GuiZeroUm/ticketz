@@ -247,6 +247,8 @@ export const requestFiscalNoteEmission = async ({
 }: EmissionRequest): Promise<FiscalNote | null> => {
   const manual = trigger === "manual";
   if (!assertEmissionRuntime(manual)) return null;
+  const config = notaasConfig();
+  if (!manual && !config.autoEmitEnabled) return null;
 
   const invoice = await loadInvoice(invoiceId);
   if (!invoice || invoice.status === "deleted") {
@@ -255,6 +257,12 @@ export const requestFiscalNoteEmission = async ({
   }
   if (invoice.status !== "paid") {
     if (manual) throw new AppError("ERR_INVOICE_NOT_PAID", 409);
+    return null;
+  }
+  if (
+    !manual &&
+    (!invoice.paidAt || new Date(invoice.paidAt) < config.autoEmitSince)
+  ) {
     return null;
   }
   if (
@@ -565,9 +573,10 @@ export const reconcileFiscalNotes = async (): Promise<void> => {
     await enqueueFiscalNoteEmission(note);
   }
 
-  const { autoEmitSince } = notaasConfig();
-  const since = autoEmitSince ? new Date(autoEmitSince) : null;
-  if (since && Number.isFinite(since.getTime())) {
+  // Pega faturas pagas sem nota, inclusive as confirmadas num runtime
+  // dedicado (que não emite): a reconciliação do runtime principal emite.
+  const { autoEmitEnabled, autoEmitSince: since } = notaasConfig();
+  if (autoEmitEnabled && since) {
     const missing = await Invoices.findAll({
       attributes: ["id"],
       where: {
