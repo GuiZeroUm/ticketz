@@ -592,6 +592,7 @@ export const syncFiscalNote = async (
 
 const STALE_MS = 10 * 60 * 1000;
 const STUCK_QUEUE_MS = 15 * 60 * 1000;
+// Ids de entrega do webhook: bem acima da janela máxima aceita (24 h).
 const DELIVERY_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
 // Reserva do webhook: consulta notas paradas, reenfileira o que ficou na fila

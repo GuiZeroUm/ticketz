@@ -34,9 +34,22 @@ const EVENT_STATUS: Record<string, NotaasStatusResponse["status"]> = {
   "nfse.cancelled": "cancelled"
 };
 
-// Janela de aceitação do carimbo de tempo do envelope assinado. Reentregas
-// mais antigas são recusadas; a reconciliação periódica cobre o que faltar.
-export const WEBHOOK_MAX_AGE_MS = 15 * 60 * 1000;
+// Janela de aceitação do carimbo de tempo do envelope assinado. O provedor
+// reentrega em 1 min, 5 min, 30 min e 2 h, então o padrão é 3 h
+// (NOTAAS_WEBHOOK_MAX_AGE_MINUTES, de 15 min a 24 h). A proteção contra
+// replay é o id de entrega do corpo assinado, guardado por mais tempo que a
+// janela (ver DELIVERY_RETENTION_MS), mais os estados que só avançam.
+const DEFAULT_MAX_AGE_MINUTES = 180;
+const MIN_MAX_AGE_MINUTES = 15;
+const MAX_MAX_AGE_MINUTES = 24 * 60;
+
+export const webhookMaxAgeMs = (): number => {
+  const configured = Number(process.env.NOTAAS_WEBHOOK_MAX_AGE_MINUTES);
+  const minutes = Number.isFinite(configured)
+    ? Math.min(Math.max(configured, MIN_MAX_AGE_MINUTES), MAX_MAX_AGE_MINUTES)
+    : DEFAULT_MAX_AGE_MINUTES;
+  return minutes * 60 * 1000;
+};
 const WEBHOOK_MAX_SKEW_MS = 5 * 60 * 1000;
 
 export const webhookTimestampMs = (value: unknown): number | null => {
@@ -90,7 +103,7 @@ export const handleNotaasWebhook = async ({
   const now = Date.now();
   if (
     sentAt === null ||
-    now - sentAt > WEBHOOK_MAX_AGE_MS ||
+    now - sentAt > webhookMaxAgeMs() ||
     sentAt - now > WEBHOOK_MAX_SKEW_MS
   ) {
     return { status: 400, outcome: "stale" };

@@ -5,7 +5,8 @@ import FiscalNoteWebhookDelivery from "../../../models/FiscalNoteWebhookDelivery
 import { getNfseStatus } from "../NotaasClient";
 import {
   handleNotaasWebhook,
-  isValidNotaasSignature
+  isValidNotaasSignature,
+  webhookMaxAgeMs
 } from "../NotaasWebhookService";
 import { fakeModel } from "./fiscalTestUtils";
 
@@ -136,36 +137,77 @@ describe("Notaas webhook", () => {
     );
   });
 
-  it("refuses envelopes older than 15 minutes or without a timestamp", async () => {
+  it("accepts provider retries up to 3 hours old and refuses older or undated envelopes", async () => {
+    delete process.env.NOTAAS_WEBHOOK_MAX_AGE_MINUTES;
     (FiscalNote.findOne as jest.Mock).mockResolvedValue(
       fakeModel({ id: 5, status: "processing" })
     );
-    const old = new Date(Date.now() - 16 * 60 * 1000).toISOString();
+    const ago = (minutes: number) =>
+      new Date(Date.now() - minutes * 60 * 1000).toISOString();
+    const issued = { event: "nfse.issued", data: { invoiceId: "inv-1" } };
+
+    // Reentregas de 30 min e 2 h do provedor.
     await expect(
-      deliver(
-        { event: "nfse.issued", data: { invoiceId: "inv-1" } },
-        "d1",
-        SECRET,
-        old
-      )
-    ).resolves.toEqual({ status: 400, outcome: "stale" });
+      deliver(issued, "retry-30m", SECRET, ago(30))
+    ).resolves.toEqual({
+      status: 200,
+      outcome: "processed"
+    });
     await expect(
-      deliver(
-        { event: "nfse.issued", data: { invoiceId: "inv-1" } },
-        "d2",
-        SECRET,
-        null
-      )
-    ).resolves.toEqual({ status: 400, outcome: "stale" });
-    const recentSeconds = Math.floor(Date.now() / 1000) - 60;
+      deliver(issued, "retry-2h", SECRET, ago(120))
+    ).resolves.toEqual({
+      status: 200,
+      outcome: "processed"
+    });
+    const twoHoursInSeconds = Math.floor(Date.now() / 1000) - 2 * 60 * 60;
     await expect(
-      deliver(
-        { event: "nfse.issued", data: { invoiceId: "inv-1" } },
-        "d3",
-        SECRET,
-        recentSeconds
-      )
+      deliver(issued, "retry-2h-epoch", SECRET, twoHoursInSeconds)
     ).resolves.toEqual({ status: 200, outcome: "processed" });
+
+    await expect(deliver(issued, "too-old", SECRET, ago(181))).resolves.toEqual(
+      {
+        status: 400,
+        outcome: "stale"
+      }
+    );
+    await expect(deliver(issued, "undated", SECRET, null)).resolves.toEqual({
+      status: 400,
+      outcome: "stale"
+    });
+    const future = new Date(Date.now() + 6 * 60 * 1000).toISOString();
+    await expect(deliver(issued, "future", SECRET, future)).resolves.toEqual({
+      status: 400,
+      outcome: "stale"
+    });
+  });
+
+  it("lets the window be configured, within 15 minutes and 24 hours", () => {
+    process.env.NOTAAS_WEBHOOK_MAX_AGE_MINUTES = "60";
+    expect(webhookMaxAgeMs()).toBe(60 * 60 * 1000);
+    process.env.NOTAAS_WEBHOOK_MAX_AGE_MINUTES = "1";
+    expect(webhookMaxAgeMs()).toBe(15 * 60 * 1000);
+    process.env.NOTAAS_WEBHOOK_MAX_AGE_MINUTES = "100000";
+    expect(webhookMaxAgeMs()).toBe(24 * 60 * 60 * 1000);
+    delete process.env.NOTAAS_WEBHOOK_MAX_AGE_MINUTES;
+    expect(webhookMaxAgeMs()).toBe(180 * 60 * 1000);
+  });
+
+  it("still ignores a 2-hour retry whose delivery was already processed", async () => {
+    (FiscalNote.findOne as jest.Mock).mockResolvedValue(
+      fakeModel({ id: 5, status: "issued" })
+    );
+    (FiscalNoteWebhookDelivery.findByPk as jest.Mock).mockResolvedValue({
+      deliveryId: "dlv-replayed"
+    });
+    const ago2h = new Date(Date.now() - 120 * 60 * 1000).toISOString();
+    await expect(
+      deliver(
+        { event: "nfse.error", data: { invoiceId: "inv-1" } },
+        "dlv-replayed",
+        SECRET,
+        ago2h
+      )
+    ).resolves.toEqual({ status: 200, outcome: "duplicate" });
   });
 
   it("dedupes by the delivery id inside the signed body, not by headers", async () => {
