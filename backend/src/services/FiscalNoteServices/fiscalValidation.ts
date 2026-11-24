@@ -35,8 +35,10 @@ export const isValidCnpj = (value: string): boolean => {
   return check(12) === Number(cnpj[12]) && check(13) === Number(cnpj[13]);
 };
 
+// Só o formato: se o CEP existe, quem diz é a consulta (ex.: 99999999 tem
+// formato válido e volta como "não encontrado").
 export const isValidZipCode = (value: string): boolean =>
-  /^\d{8}$/.test(onlyDigits(value)) && !allSame(onlyDigits(value));
+  /^\d{8}$/.test(onlyDigits(value));
 
 export const isValidEmail = (value: string): boolean =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim()) &&

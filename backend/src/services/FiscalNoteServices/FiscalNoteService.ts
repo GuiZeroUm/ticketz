@@ -120,10 +120,50 @@ export const invoiceCompetencia = (invoice: Invoices): string | null => {
   return found || null;
 };
 
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: " "
+};
+export const DESCRIPTION_DETAIL_MAX = 200;
+const fromCodePoint = (code: number): string =>
+  Number.isInteger(code) && code > 0 && code <= 0x10ffff
+    ? String.fromCodePoint(code)
+    : " ";
+
+// O texto livre da fatura vai para o documento fiscal: sem HTML, sem
+// entidades escapadas (ex.: "&#x2F;"), sem caracteres de controle e curto.
+export const cleanDescriptionText = (value: unknown): string => {
+  const decoded = String(value ?? "")
+    .replace(/&#x([0-9a-f]{1,6});/gi, (_m, hex) =>
+      fromCodePoint(parseInt(hex, 16))
+    )
+    .replace(/&#(\d{1,7});/g, (_m, dec) => fromCodePoint(Number(dec)))
+    .replace(/&#x?[0-9a-f]+;/gi, " ")
+    .replace(
+      /&([a-z]+);/gi,
+      (m, name) => NAMED_ENTITIES[name.toLowerCase()] ?? m
+    );
+  return (
+    decoded
+      .replace(/<[^>]*>/g, " ")
+      .replace(/[<>]/g, " ")
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\u0000-\u001f\u007f]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, DESCRIPTION_DETAIL_MAX)
+      .trim()
+  );
+};
+
 export const fiscalNoteDescription = (invoice: Invoices): string => {
   const competencia = invoiceCompetencia(invoice);
   const parts = ["Licença de uso do software Espaço Whats"];
-  const detail = String(invoice.detail || "").trim();
+  const detail = cleanDescriptionText(invoice.detail);
   if (detail) parts.push(detail);
   if (competencia) {
     const [year, month] = competencia.split("-");
@@ -716,9 +756,10 @@ export const resolveFiscalDocument = async (
     }
   }
   const label = note.number || `fatura-${note.invoiceId}`;
+  // Mesmo nome que a tela usa ao salvar: nfse-<número da nota>.
   return {
     url: assertProviderDocumentUrl(url),
-    filename: `nota-fiscal-${label}.${kind}`,
+    filename: `nfse-${label}.${kind}`,
     contentType: kind === "pdf" ? "application/pdf" : "application/xml"
   };
 };

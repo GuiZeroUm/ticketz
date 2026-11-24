@@ -544,7 +544,7 @@ describe("fiscal note emission (simulated Notaas)", () => {
         resolveFiscalDocument(28, "pdf", { companyId: 7 })
       ).resolves.toEqual(
         expect.objectContaining({
-          filename: "nota-fiscal-12345.pdf",
+          filename: "nfse-12345.pdf",
           contentType: "application/pdf"
         })
       );
