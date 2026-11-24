@@ -34,6 +34,24 @@ const EVENT_STATUS: Record<string, NotaasStatusResponse["status"]> = {
   "nfse.cancelled": "cancelled"
 };
 
+// Janela de aceitação do carimbo de tempo do envelope assinado. Reentregas
+// mais antigas são recusadas; a reconciliação periódica cobre o que faltar.
+export const WEBHOOK_MAX_AGE_MS = 15 * 60 * 1000;
+const WEBHOOK_MAX_SKEW_MS = 5 * 60 * 1000;
+
+export const webhookTimestampMs = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value < 1e12 ? value * 1000 : value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) return webhookTimestampMs(numeric);
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
 export interface WebhookResult {
   status: number;
   outcome:
@@ -41,6 +59,7 @@ export interface WebhookResult {
     | "duplicate"
     | "ignored"
     | "invalid_signature"
+    | "stale"
     | "not_configured"
     | "invalid_payload";
 }
@@ -48,15 +67,11 @@ export interface WebhookResult {
 interface WebhookInput {
   rawBody?: Buffer;
   signature?: string;
-  deliveryHeader?: string;
-  eventHeader?: string;
 }
 
 export const handleNotaasWebhook = async ({
   rawBody,
-  signature,
-  deliveryHeader,
-  eventHeader
+  signature
 }: WebhookInput): Promise<WebhookResult> => {
   const { webhookSecret } = notaasConfig();
   if (!webhookSecret) return { status: 503, outcome: "not_configured" };
@@ -71,11 +86,20 @@ export const handleNotaasWebhook = async ({
     return { status: 400, outcome: "invalid_payload" };
   }
 
-  const event = String(body?.event || eventHeader || "");
-  const deliveryId = String(deliveryHeader || body?.deliveryId || "").slice(
-    0,
-    100
-  );
+  const sentAt = webhookTimestampMs(body?.timestamp);
+  const now = Date.now();
+  if (
+    sentAt === null ||
+    now - sentAt > WEBHOOK_MAX_AGE_MS ||
+    sentAt - now > WEBHOOK_MAX_SKEW_MS
+  ) {
+    return { status: 400, outcome: "stale" };
+  }
+
+  // Evento e id de entrega vêm do corpo assinado; cabeçalhos não são
+  // cobertos pela assinatura e não decidem nada.
+  const event = String(body?.event || "");
+  const deliveryId = String(body?.deliveryId || "").slice(0, 100);
   const data = (body?.data || {}) as Record<string, any>;
   const providerInvoiceId = data.invoiceId ? String(data.invoiceId) : "";
 

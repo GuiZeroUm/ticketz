@@ -217,6 +217,21 @@ const loadInvoice = async (invoiceId: number): Promise<Invoices | null> =>
     include: [{ model: Company, as: "company", attributes: ["id", "slug"] }]
   });
 
+// Antes de nova tentativa sobre uma nota que o provedor conhece, confirma lá
+// (só leitura) que ela não foi emitida nem segue em andamento. Na dúvida,
+// não reemite.
+const assertNotEmittedRemotely = async (note: FiscalNote): Promise<void> => {
+  let remote: NotaasStatusResponse;
+  try {
+    remote = await getNfseStatus(note.providerInvoiceId, 10000);
+  } catch {
+    throw new AppError("ERR_FISCAL_STATUS_CHECK_FAILED", 502);
+  }
+  if (remote.status === "error") return;
+  await applyProviderStatus(note, remote);
+  throw new AppError("ERR_FISCAL_NOTE_EXISTS", 409);
+};
+
 interface EmissionRequest {
   invoiceId: number;
   trigger: FiscalNoteTrigger;
@@ -290,6 +305,9 @@ export const requestFiscalNoteEmission = async ({
     }
   } else {
     const retryFromError = note.status === "error";
+    if (retryFromError && note.providerInvoiceId) {
+      await assertNotEmittedRemotely(note);
+    }
     const reuseKey = note.errorCode === TRANSIENT_FAILURE_CODE;
     await note.update({
       status,
@@ -430,9 +448,26 @@ const PROVIDER_STATUS: Record<string, FiscalNoteStatus> = {
   cancelled: "cancelled"
 };
 
-// Aplica o estado informado pelo provedor (status consultado ou webhook) sem
-// retroceder: uma nota cancelada não volta, e uma emitida não volta a
-// "processando" por causa de um evento atrasado.
+// Transições aceitas a partir do provedor, sempre para frente. Uma nota
+// emitida nunca vira "erro" nem "processando" por causa de um evento atrasado
+// ou forjado: se virasse, o botão de nova tentativa emitiria uma segunda nota.
+// "cancelling" → "issued" é o cancelamento recusado pela prefeitura.
+const PROVIDER_TRANSITIONS: Partial<
+  Record<FiscalNoteStatus, FiscalNoteStatus[]>
+> = {
+  queued: ["processing", "issued", "error", "cancelling", "cancelled"],
+  processing: ["issued", "error", "cancelling", "cancelled"],
+  error: ["issued", "cancelling", "cancelled"],
+  issued: ["cancelling", "cancelled"],
+  cancelling: ["issued", "cancelled"]
+};
+
+export const canApplyProviderStatus = (
+  from: FiscalNoteStatus,
+  to: FiscalNoteStatus
+): boolean => from === to || !!PROVIDER_TRANSITIONS[from]?.includes(to);
+
+// Aplica o estado informado pelo provedor (status consultado ou webhook).
 export const applyProviderStatus = async (
   note: FiscalNote,
   remote: Partial<NotaasStatusResponse> & { documentsReady?: boolean }
@@ -440,9 +475,7 @@ export const applyProviderStatus = async (
   if (note.status === "cancelled") return false;
   const changes: Record<string, any> = { lastSyncedAt: new Date() };
   const mapped = remote.status ? PROVIDER_STATUS[remote.status] : undefined;
-  const regress =
-    mapped === "processing" &&
-    ["issued", "cancelling", "error"].includes(note.status);
+  const regress = !!mapped && !canApplyProviderStatus(note.status, mapped);
 
   if (mapped && !regress) {
     changes.status = mapped;

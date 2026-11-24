@@ -4,7 +4,12 @@ import FiscalNote from "../../../models/FiscalNote";
 import Invoices from "../../../models/Invoices";
 import { enqueueFiscalNoteEmission } from "../fiscalNoteQueue";
 import { getFiscalProfile } from "../FiscalProfileService";
-import { cancelNfse, emitNfse, NotaasApiError } from "../NotaasClient";
+import {
+  cancelNfse,
+  emitNfse,
+  getNfseStatus,
+  NotaasApiError
+} from "../NotaasClient";
 import {
   applyProviderStatus,
   cancelFiscalNote,
@@ -238,9 +243,47 @@ describe("fiscal note emission (simulated Notaas)", () => {
       providerInvoiceId: "inv-err"
     });
     (FiscalNote.findOne as jest.Mock).mockResolvedValue(rejected);
+    (getNfseStatus as jest.Mock).mockResolvedValue({ status: "error" });
     await requestFiscalNoteEmission({ invoiceId: 28, trigger: "manual" });
+    expect(getNfseStatus).toHaveBeenCalledWith("inv-err", expect.any(Number));
     expect(rejected.emissionAttempt).toBe(2);
     expect(rejected.providerInvoiceId).toBeNull();
+  });
+
+  it("checks the provider before retrying and blocks if the note was issued", async () => {
+    (Invoices.findByPk as jest.Mock).mockResolvedValue(paidInvoice());
+    (getFiscalProfile as jest.Mock).mockResolvedValue(completeProfile());
+    const errored = fakeModel({
+      id: 6,
+      invoiceId: 28,
+      status: "error",
+      emissionAttempt: 1,
+      errorCode: "E1",
+      providerInvoiceId: "inv-1"
+    });
+    (FiscalNote.findOne as jest.Mock).mockResolvedValue(errored);
+    (getNfseStatus as jest.Mock).mockResolvedValue({ status: "issued" });
+    await expect(
+      requestFiscalNoteEmission({ invoiceId: 28, trigger: "manual" })
+    ).rejects.toMatchObject({ message: "ERR_FISCAL_NOTE_EXISTS" });
+    expect(errored.status).toBe("issued");
+    expect(errored.emissionAttempt).toBe(1);
+    expect(enqueueFiscalNoteEmission).not.toHaveBeenCalled();
+
+    const inFlight = fakeModel({ ...errored, status: "error" });
+    (FiscalNote.findOne as jest.Mock).mockResolvedValue(inFlight);
+    (getNfseStatus as jest.Mock).mockResolvedValue({ status: "processing" });
+    await expect(
+      requestFiscalNoteEmission({ invoiceId: 28, trigger: "manual" })
+    ).rejects.toMatchObject({ message: "ERR_FISCAL_NOTE_EXISTS" });
+
+    const unknown = fakeModel({ ...errored, status: "error" });
+    (FiscalNote.findOne as jest.Mock).mockResolvedValue(unknown);
+    (getNfseStatus as jest.Mock).mockRejectedValue(new Error("offline"));
+    await expect(
+      requestFiscalNoteEmission({ invoiceId: 28, trigger: "manual" })
+    ).rejects.toMatchObject({ message: "ERR_FISCAL_STATUS_CHECK_FAILED" });
+    expect(enqueueFiscalNoteEmission).not.toHaveBeenCalled();
   });
 
   it("does not retry an errored note automatically", async () => {
@@ -392,6 +435,9 @@ describe("fiscal note emission (simulated Notaas)", () => {
 
       await applyProviderStatus(note, { status: "processing" });
       expect(note.status).toBe("issued");
+      await applyProviderStatus(note, { status: "error", errorCode: "E1" });
+      expect(note.status).toBe("issued");
+      expect(note.errorCode).toBeNull();
 
       const cancelled = fakeModel({ id: 6, status: "cancelled" });
       await applyProviderStatus(cancelled, { status: "issued" });

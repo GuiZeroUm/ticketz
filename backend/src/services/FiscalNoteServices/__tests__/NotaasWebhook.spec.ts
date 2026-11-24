@@ -56,15 +56,13 @@ const sign = (raw: Buffer, secret = SECRET) =>
 const deliver = (
   body: Record<string, any>,
   delivery = "dlv-1",
-  secret = SECRET
+  secret = SECRET,
+  timestamp: unknown = new Date().toISOString()
 ) => {
-  const rawBody = Buffer.from(JSON.stringify(body));
-  return handleNotaasWebhook({
-    rawBody,
-    signature: sign(rawBody, secret),
-    deliveryHeader: delivery,
-    eventHeader: body.event
-  });
+  const rawBody = Buffer.from(
+    JSON.stringify({ deliveryId: delivery, timestamp, ...body })
+  );
+  return handleNotaasWebhook({ rawBody, signature: sign(rawBody, secret) });
 };
 
 const accessKey =
@@ -136,6 +134,83 @@ describe("Notaas webhook", () => {
     expect(FiscalNoteWebhookDelivery.create).toHaveBeenCalledWith(
       expect.objectContaining({ deliveryId: "dlv-1", event: "nfse.issued" })
     );
+  });
+
+  it("refuses envelopes older than 15 minutes or without a timestamp", async () => {
+    (FiscalNote.findOne as jest.Mock).mockResolvedValue(
+      fakeModel({ id: 5, status: "processing" })
+    );
+    const old = new Date(Date.now() - 16 * 60 * 1000).toISOString();
+    await expect(
+      deliver(
+        { event: "nfse.issued", data: { invoiceId: "inv-1" } },
+        "d1",
+        SECRET,
+        old
+      )
+    ).resolves.toEqual({ status: 400, outcome: "stale" });
+    await expect(
+      deliver(
+        { event: "nfse.issued", data: { invoiceId: "inv-1" } },
+        "d2",
+        SECRET,
+        null
+      )
+    ).resolves.toEqual({ status: 400, outcome: "stale" });
+    const recentSeconds = Math.floor(Date.now() / 1000) - 60;
+    await expect(
+      deliver(
+        { event: "nfse.issued", data: { invoiceId: "inv-1" } },
+        "d3",
+        SECRET,
+        recentSeconds
+      )
+    ).resolves.toEqual({ status: 200, outcome: "processed" });
+  });
+
+  it("dedupes by the delivery id inside the signed body, not by headers", async () => {
+    (FiscalNote.findOne as jest.Mock).mockResolvedValue(
+      fakeModel({ id: 5, status: "processing" })
+    );
+    await deliver(
+      { event: "nfse.issued", data: { invoiceId: "inv-1" } },
+      "signed-id"
+    );
+    expect(FiscalNoteWebhookDelivery.findByPk).toHaveBeenCalledWith(
+      "signed-id"
+    );
+    expect(FiscalNoteWebhookDelivery.create).toHaveBeenCalledWith(
+      expect.objectContaining({ deliveryId: "signed-id" })
+    );
+  });
+
+  it("never turns an issued or cancelling note into an error", async () => {
+    const issued = fakeModel({
+      id: 5,
+      status: "issued",
+      accessKey,
+      pdfUrl: "https://storage.notaas.com.br/a.pdf"
+    });
+    (FiscalNote.findOne as jest.Mock).mockResolvedValue(issued);
+    await deliver(
+      { event: "nfse.error", data: { invoiceId: "inv-1", errorCode: "E1" } },
+      "dlv-late-error"
+    );
+    expect(issued.status).toBe("issued");
+    expect(issued.errorCode).toBeUndefined();
+
+    const cancelling = fakeModel({
+      id: 6,
+      status: "cancelling",
+      accessKey,
+      pdfUrl: "https://storage.notaas.com.br/a.pdf"
+    });
+    (FiscalNote.findOne as jest.Mock).mockResolvedValue(cancelling);
+    await deliver(
+      { event: "nfse.error", data: { invoiceId: "inv-2" } },
+      "dlv-late-error-2"
+    );
+    expect(cancelling.status).toBe("cancelling");
   });
 
   it("ignores a repeated delivery", async () => {

@@ -161,9 +161,7 @@ export const webhook = async (
 ): Promise<Response> => {
   const result = await handleNotaasWebhook({
     rawBody: (req as any).rawBody,
-    signature: req.header("x-notaas-signature"),
-    deliveryHeader: req.header("x-notaas-delivery"),
-    eventHeader: req.header("x-notaas-event")
+    signature: req.header("x-notaas-signature")
   });
   if (result.status === 401) {
     logger.warn("[fiscalNote] webhook com assinatura inválida recusado");
