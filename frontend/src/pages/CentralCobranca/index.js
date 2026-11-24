@@ -40,6 +40,7 @@ import RefreshIcon from "@material-ui/icons/Refresh";
 import AddIcon from "@material-ui/icons/Add";
 import ReceiptIcon from "@material-ui/icons/Receipt";
 import EditIcon from "@material-ui/icons/Edit";
+import AccountBalanceOutlinedIcon from "@material-ui/icons/AccountBalanceOutlined";
 
 import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
@@ -48,6 +49,10 @@ import Title from "../../components/Title";
 import TableRowSkeleton from "../../components/TableRowSkeleton";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
+import { i18n } from "../../translate/i18n";
+import AcoesNotaPlataforma from "../../components/NotaFiscal/AcoesNotaPlataforma";
+import DialogoDadosFiscais from "../../components/NotaFiscal/DialogoDadosFiscais";
+import useAtualizacaoNotas from "../../components/NotaFiscal/useAtualizacaoNotas";
 
 import CartaoResumo from "./CartaoResumo";
 import ModalCliente from "./ModalCliente";
@@ -87,6 +92,23 @@ const useStyles = makeStyles(theme => ({
   },
   clienteNome: {
     fontWeight: 600
+  },
+  // No celular a tabela rola na horizontal; a coluna Ações fica sempre visível.
+  colunaAcoes: {
+    [theme.breakpoints.down("sm")]: {
+      position: "sticky",
+      right: 0,
+      zIndex: 1,
+      backgroundColor: theme.palette.background.paper,
+      boxShadow: `-1px 0 0 ${theme.palette.divider}`
+    }
+  },
+  acoes: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: theme.spacing(0.5),
+    flexWrap: "wrap",
+    justifyContent: "center"
   }
 }));
 
@@ -126,6 +148,8 @@ const CentralCobranca = () => {
   const [faturaAberta, setFaturaAberta] = useState(null);
   const [clienteAberto, setClienteAberto] = useState(null);
   const [lancando, setLancando] = useState(false);
+  // { companyId, nome } do cliente cujos dados fiscais estão abertos.
+  const [dadosFiscaisDe, setDadosFiscaisDe] = useState(null);
 
   const params = useMemo(
     () =>
@@ -161,6 +185,32 @@ const CentralCobranca = () => {
     }
     setCarregandoFaturas(false);
   }, [params]);
+
+  // Atualização em segundo plano das notas: sem esqueleto de carregamento.
+  const recarregarFaturasSilencioso = useCallback(async () => {
+    try {
+      const { data } = await api.get("/billing-admin/invoices", {
+        params: { ...params, perPage: 200 }
+      });
+      setFaturas(data.invoices);
+    } catch (err) {
+      // silencioso: a próxima rodada tenta de novo
+    }
+  }, [params]);
+
+  const atualizarNota = useCallback((invoiceId, fiscalNote) => {
+    setFaturas(atual =>
+      atual.map(item =>
+        item.id === invoiceId ? { ...item, fiscalNote } : item
+      )
+    );
+  }, []);
+
+  useAtualizacaoNotas({
+    faturas,
+    recarregar: recarregarFaturasSilencioso,
+    aoAtualizarNota: atualizarNota
+  });
 
   const carregarClientes = useCallback(async () => {
     setCarregandoClientes(true);
@@ -310,6 +360,16 @@ const CentralCobranca = () => {
         gatewayPronto={!!gateway.configured}
         aoAtualizar={aplicarFatura}
         aoExcluir={() => recarregarTudo()}
+      />
+      <DialogoDadosFiscais
+        aberto={!!dadosFiscaisDe}
+        companyId={dadosFiscaisDe?.companyId}
+        nome={dadosFiscaisDe?.nome}
+        aoFechar={() => setDadosFiscaisDe(null)}
+        aoSalvo={() => {
+          recarregarFaturasSilencioso();
+          carregarClientes();
+        }}
       />
       <ModalCliente
         cliente={clienteAberto}
@@ -505,7 +565,9 @@ const CentralCobranca = () => {
                 <TableCell align="center">Situação</TableCell>
                 <TableCell align="center">Forma</TableCell>
                 <TableCell align="center">Pago em</TableCell>
-                <TableCell align="center">Ações</TableCell>
+                <TableCell align="center" className={classes.colunaAcoes}>
+                  Ações
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -565,15 +627,31 @@ const CentralCobranca = () => {
                     <TableCell align="center">
                       {fatura.paidAt ? formatDate(fatura.paidAt) : "-"}
                     </TableCell>
-                    <TableCell align="center">
-                      <Tooltip title="Abrir cobrança">
-                        <IconButton
-                          size="small"
-                          onClick={() => setFaturaAberta(fatura.id)}
-                        >
-                          <ReceiptIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
+                    <TableCell align="center" className={classes.colunaAcoes}>
+                      <span className={classes.acoes}>
+                        <Tooltip title="Abrir cobrança">
+                          <IconButton
+                            size="small"
+                            aria-label="Abrir cobrança"
+                            onClick={() => setFaturaAberta(fatura.id)}
+                          >
+                            <ReceiptIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <AcoesNotaPlataforma
+                          fatura={fatura}
+                          dadosFiscaisCompletos={
+                            fatura.company?.fiscalDataComplete
+                          }
+                          aoAtualizar={nota => atualizarNota(fatura.id, nota)}
+                          aoPreencherDados={item =>
+                            setDadosFiscaisDe({
+                              companyId: item.companyId || item.company?.id,
+                              nome: item.company?.name
+                            })
+                          }
+                        />
+                      </span>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -593,7 +671,9 @@ const CentralCobranca = () => {
                 <TableCell align="right">Em aberto</TableCell>
                 <TableCell align="right">Vencido</TableCell>
                 <TableCell align="center">Último pagamento</TableCell>
-                <TableCell align="center">Ações</TableCell>
+                <TableCell align="center" className={classes.colunaAcoes}>
+                  Ações
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -659,15 +739,34 @@ const CentralCobranca = () => {
                         ? moment(cliente.lastPaidAt).format("DD/MM/YYYY")
                         : "-"}
                     </TableCell>
-                    <TableCell align="center">
-                      <Tooltip title="Plano, mensalidade e teste">
-                        <IconButton
-                          size="small"
-                          onClick={() => setClienteAberto(cliente)}
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
+                    <TableCell align="center" className={classes.colunaAcoes}>
+                      <span className={classes.acoes}>
+                        <Tooltip title="Plano, mensalidade e teste">
+                          <IconButton
+                            size="small"
+                            aria-label="Plano, mensalidade e teste"
+                            onClick={() => setClienteAberto(cliente)}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title={i18n.t("notaFiscal.dados.titulo")}>
+                          <IconButton
+                            size="small"
+                            aria-label={i18n.t("notaFiscal.dados.tituloDe", {
+                              nome: cliente.name
+                            })}
+                            onClick={() =>
+                              setDadosFiscaisDe({
+                                companyId: cliente.id,
+                                nome: cliente.name
+                              })
+                            }
+                          >
+                            <AccountBalanceOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </span>
                     </TableCell>
                   </TableRow>
                 ))}
