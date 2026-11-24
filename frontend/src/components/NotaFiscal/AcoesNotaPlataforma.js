@@ -54,6 +54,7 @@ const AcoesNotaPlataforma = ({
   dadosFiscaisCompletos,
   aoAtualizar,
   aoPreencherDados,
+  aoRecarregar,
   aguardandoNota = false
 }) => {
   const classes = useStyles();
@@ -244,6 +245,7 @@ const AcoesNotaPlataforma = ({
             aoAtualizar(novaNota);
           }}
           aoPreencherDados={aoPreencherDados}
+          aoRecarregar={aoRecarregar}
         />
       )}
       {estado === "emitida" && (

@@ -81,6 +81,10 @@ export const notaFiscalMessages = {
         "Faltam dados fiscais do cliente para emitir a nota.",
       ERR_INVOICE_NOT_PAID: "A nota só pode ser emitida para fatura paga.",
       ERR_FISCAL_NOTE_EXISTS: "Esta fatura já tem nota fiscal.",
+      ERR_FISCAL_NOTE_FAILED:
+        "Não foi possível emitir a nota fiscal. Nossa equipe já foi avisada.",
+      ERR_FISCAL_STATUS_CHECK_FAILED:
+        "Não foi possível confirmar se a nota anterior saiu. Tente de novo em alguns minutos.",
       ERR_FISCAL_NOTE_NOT_FOUND: "Nota fiscal não encontrada.",
       ERR_FISCAL_DOCUMENT_NOT_READY:
         "O arquivo da nota ainda não está disponível. Tente em alguns minutos.",
@@ -178,6 +182,10 @@ export const notaFiscalMessages = {
         "Customer tax details are missing to issue the tax invoice.",
       ERR_INVOICE_NOT_PAID: "Tax invoices can only be issued for paid bills.",
       ERR_FISCAL_NOTE_EXISTS: "This bill already has a tax invoice.",
+      ERR_FISCAL_NOTE_FAILED:
+        "The tax invoice could not be issued. Our team has been notified.",
+      ERR_FISCAL_STATUS_CHECK_FAILED:
+        "Could not confirm whether the previous tax invoice was issued. Try again in a few minutes.",
       ERR_FISCAL_NOTE_NOT_FOUND: "Tax invoice not found.",
       ERR_FISCAL_DOCUMENT_NOT_READY:
         "The tax invoice file is not available yet. Try again in a few minutes.",

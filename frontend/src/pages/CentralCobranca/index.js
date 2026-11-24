@@ -701,6 +701,7 @@ const CentralCobranca = () => {
                             fatura.company?.fiscalDataComplete
                           }
                           aguardandoNota={!!aguardandoNota[fatura.id]}
+                          aoRecarregar={recarregarFaturasSilencioso}
                           aoAtualizar={nota => atualizarNota(fatura.id, nota)}
                           aoPreencherDados={item =>
                             setDadosFiscaisDe({

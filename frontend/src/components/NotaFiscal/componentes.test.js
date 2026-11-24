@@ -231,6 +231,36 @@ describe("AcoesNotaPlataforma (Central de Cobrança)", () => {
     expect(notaApi.emitirNotaFiscal).toHaveBeenCalledWith(28);
   });
 
+  test("tentar de novo com nota já existente (409): recarrega a linha", async () => {
+    notaApi.previaNotaFiscal.mockResolvedValue({
+      tomador: { name: "Cliente Exemplo D" },
+      value: 350
+    });
+    const erro = {
+      response: { status: 409, data: { error: "ERR_FISCAL_NOTE_EXISTS" } }
+    };
+    notaApi.emitirNotaFiscal.mockRejectedValue(erro);
+    const aoRecarregar = jest.fn();
+    render(
+      <AcoesNotaPlataforma
+        fatura={fatura({ status: "error", errorMessage: "Falha" })}
+        dadosFiscaisCompletos
+        aoAtualizar={jest.fn()}
+        aoRecarregar={aoRecarregar}
+      />
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "notaFiscal.tentarDeNovo" })
+    );
+    const dialogo = await screen.findByRole("dialog");
+    await within(dialogo).findByText("Cliente Exemplo D");
+    fireEvent.click(
+      within(dialogo).getByRole("button", { name: "notaFiscal.tentarDeNovo" })
+    );
+    await waitFor(() => expect(aoRecarregar).toHaveBeenCalled());
+    expect(toastError).toHaveBeenCalledWith(erro);
+  });
+
   test("logo após a baixa: mostra preparando em vez de Emitir", () => {
     const { rerender } = render(
       <AcoesNotaPlataforma

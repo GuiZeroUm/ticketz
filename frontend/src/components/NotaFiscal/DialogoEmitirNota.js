@@ -46,6 +46,7 @@ const DialogoEmitirNota = ({
   aoFechar,
   aoEmitido,
   aoPreencherDados,
+  aoRecarregar,
   titulo,
   rotuloConfirmar
 }) => {
@@ -84,10 +85,16 @@ const DialogoEmitirNota = ({
       aoEmitido(nota);
       aoFechar();
     } catch (err) {
-      if (err?.response?.data?.error === "ERR_FISCAL_DATA_INCOMPLETE") {
+      const codigo = err?.response?.data?.error;
+      if (codigo === "ERR_FISCAL_DATA_INCOMPLETE") {
         setFaltamDados(true);
       } else {
         toastError(err);
+        // A nota anterior saiu ou segue em andamento: mostra o estado atual.
+        if (codigo === "ERR_FISCAL_NOTE_EXISTS") {
+          aoRecarregar && aoRecarregar();
+          aoFechar();
+        }
       }
     }
     setEmitindo(false);
