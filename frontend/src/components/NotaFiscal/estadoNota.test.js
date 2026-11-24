@@ -1,4 +1,4 @@
-import { estadoNota, temNotaEmAndamento } from "./estadoNota";
+import { deveAguardarNota, estadoNota, temNotaEmAndamento } from "./estadoNota";
 import {
   documentoValido,
   formatarCep,
@@ -127,4 +127,24 @@ test("nome do arquivo segue o servidor: nfse-<número>", () => {
   expect(nomeArquivoNota({ numero: null, invoiceId: 28, formato: "pdf" })).toBe(
     "nfse-fatura-28.pdf"
   );
+});
+
+test("após a baixa só aguarda a nota com emissão automática ativa", () => {
+  const paga = extra => ({ id: 7, status: "paid", situacao: "paid", ...extra });
+  expect(deveAguardarNota(paga({ fiscalAutoEmit: true }))).toBe(true);
+  expect(deveAguardarNota(paga({ fiscalAutoEmit: false }))).toBe(false);
+  expect(deveAguardarNota(paga({}))).toBe(false);
+  expect(
+    deveAguardarNota(
+      paga({ fiscalAutoEmit: true, fiscalNote: { status: "processing" } })
+    )
+  ).toBe(false);
+  expect(
+    deveAguardarNota(paga({ fiscalAutoEmit: true }), {
+      fiscalNote: { status: "issued" }
+    })
+  ).toBe(false);
+  expect(
+    deveAguardarNota({ id: 7, situacao: "open", fiscalAutoEmit: true })
+  ).toBe(false);
 });

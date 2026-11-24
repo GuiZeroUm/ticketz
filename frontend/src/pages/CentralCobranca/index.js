@@ -59,6 +59,7 @@ import { i18n } from "../../translate/i18n";
 import AcoesNotaPlataforma from "../../components/NotaFiscal/AcoesNotaPlataforma";
 import DialogoDadosFiscais from "../../components/NotaFiscal/DialogoDadosFiscais";
 import useAtualizacaoNotas from "../../components/NotaFiscal/useAtualizacaoNotas";
+import { deveAguardarNota } from "../../components/NotaFiscal/estadoNota";
 
 import CartaoResumo from "./CartaoResumo";
 import ModalCliente from "./ModalCliente";
@@ -346,8 +347,7 @@ const CentralCobranca = () => {
         return { ...item, ...atualizada, fiscalNote };
       })
     );
-    const paga = atualizada.situacao === "paid" || atualizada.status === "paid";
-    if (paga && !atualizada.fiscalNote && !anterior?.fiscalNote) {
+    if (deveAguardarNota(atualizada, anterior)) {
       aguardarNota(atualizada.id);
     }
     carregarResumo();

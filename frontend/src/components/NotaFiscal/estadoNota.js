@@ -42,3 +42,16 @@ export const temNotaEmAndamento = faturas =>
   (faturas || []).some(fatura =>
     ["processing", "cancelling"].includes(fatura?.fiscalNote?.status)
   );
+
+// Depois da baixa, a Central só mostra "Preparando a nota fiscal…" quando o
+// servidor vai gerar a nota sozinho (fiscalAutoEmit). Com a emissão automática
+// desligada, ou campo ausente, "Emitir nota" aparece na hora.
+export const deveAguardarNota = (atualizada, anterior) => {
+  const paga = atualizada?.situacao === "paid" || atualizada?.status === "paid";
+  return (
+    paga &&
+    atualizada.fiscalAutoEmit === true &&
+    !atualizada.fiscalNote &&
+    !anterior?.fiscalNote
+  );
+};
