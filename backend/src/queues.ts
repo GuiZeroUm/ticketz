@@ -64,6 +64,7 @@ import {
 } from "./helpers/tenantRuntime";
 import { startProspeccaoQueue } from "./queues/prospeccao";
 import { startWhatsappStatusQueue } from "./queues/whatsappStatus";
+import { startFiscalNoteQueue } from "./queues/fiscalNotes";
 
 const connection = process.env.REDIS_URI || "";
 export const userMonitor = new Queue(
@@ -903,6 +904,7 @@ export async function startQueueProcess() {
   });
   await startProspeccaoQueue();
   await startWhatsappStatusQueue();
+  await startFiscalNoteQueue();
 
   scheduleMonitor.process("Verify", handleVerifySchedules);
 

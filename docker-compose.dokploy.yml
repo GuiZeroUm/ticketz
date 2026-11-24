@@ -134,6 +134,10 @@ services:
         required: false
       - path: /etc/dokploy/secrets/espaco_whats_meta.env
         required: false
+      # NFS-e (Notaas): NOTAAS_ENABLED, NOTAAS_API_KEY, NOTAAS_WEBHOOK_SECRET...
+      # Só o runtime principal emite; sem o arquivo a emissão fica desligada.
+      - path: /etc/dokploy/secrets/espaco_whats_notaas.env
+        required: false
     # Peak was 748 MB over 7 days; 9 GB in the October incident with no limit.
     mem_limit: 2g
     environment:
