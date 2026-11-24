@@ -58,7 +58,8 @@ describe("BotaoNotaCliente (tela de faturas do cliente)", () => {
       expect(notaApi.baixarNotaFiscal).toHaveBeenCalledWith(
         "cliente",
         28,
-        "pdf"
+        "pdf",
+        "123"
       )
     );
   });
@@ -191,7 +192,12 @@ describe("AcoesNotaPlataforma (Central de Cobrança)", () => {
     );
   });
 
-  test("erro: mostra a mensagem e tenta de novo", async () => {
+  test("erro: mostra a mensagem e tenta de novo só depois de confirmar", async () => {
+    notaApi.previaNotaFiscal.mockResolvedValue({
+      tomador: { name: "Cliente Exemplo D", document: "52998224725" },
+      value: 350,
+      competencia: "2026-11"
+    });
     notaApi.emitirNotaFiscal.mockResolvedValue({ id: 1, status: "processing" });
     const aoAtualizar = jest.fn();
     render(
@@ -210,9 +216,43 @@ describe("AcoesNotaPlataforma (Central de Cobrança)", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "notaFiscal.tentarDeNovo" })
     );
+    const dialogo = await screen.findByRole("dialog");
+    await within(dialogo).findByText("Cliente Exemplo D");
+    expect(
+      within(dialogo).getByText(/notaFiscal.dialogo.tentarTitulo/)
+    ).toBeTruthy();
+    expect(notaApi.emitirNotaFiscal).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(dialogo).getByRole("button", { name: "notaFiscal.tentarDeNovo" })
+    );
     await waitFor(() =>
       expect(aoAtualizar).toHaveBeenCalledWith({ id: 1, status: "processing" })
     );
+    expect(notaApi.emitirNotaFiscal).toHaveBeenCalledWith(28);
+  });
+
+  test("logo após a baixa: mostra preparando em vez de Emitir", () => {
+    const { rerender } = render(
+      <AcoesNotaPlataforma
+        fatura={fatura(null)}
+        dadosFiscaisCompletos
+        aguardandoNota
+        aoAtualizar={jest.fn()}
+      />
+    );
+    expect(screen.getByLabelText("notaFiscal.preparando")).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: /notaFiscal.emitirDe/ })
+    ).toBeNull();
+    rerender(
+      <AcoesNotaPlataforma
+        fatura={fatura({ status: "processing" })}
+        dadosFiscaisCompletos
+        aguardandoNota
+        aoAtualizar={jest.fn()}
+      />
+    );
+    expect(screen.getByLabelText("notaFiscal.emEmissao")).toBeTruthy();
   });
 
   test("emitida: menu com PDF, XML e cancelar com motivo obrigatório", async () => {
@@ -239,7 +279,8 @@ describe("AcoesNotaPlataforma (Central de Cobrança)", () => {
       expect(notaApi.baixarNotaFiscal).toHaveBeenCalledWith(
         "plataforma",
         28,
-        "xml"
+        "xml",
+        "45"
       )
     );
 
@@ -407,5 +448,45 @@ describe("DialogoDadosFiscais", () => {
       await screen.findByText("notaFiscal.dados.documentoInvalido")
     ).toBeTruthy();
     expect(notaApi.salvarDadosFiscais).not.toHaveBeenCalled();
+  });
+
+  test("CEP inexistente: diz não encontrado e impede salvar", async () => {
+    notaApi.carregarDadosFiscais.mockRejectedValue({
+      response: { status: 404 }
+    });
+    notaApi.buscarCep.mockRejectedValue({
+      response: { status: 404, data: { error: "ERR_ZIPCODE_NOT_FOUND" } }
+    });
+    render(<DialogoDadosFiscais aberto aoFechar={jest.fn()} />);
+    await waitFor(() =>
+      expect(campo("notaFiscal.dados.cep").disabled).toBe(false)
+    );
+    fireEvent.change(campo("notaFiscal.dados.cep"), {
+      target: { value: "99999999" }
+    });
+    expect(
+      await screen.findByText("notaFiscal.dados.cepNaoEncontrado")
+    ).toBeTruthy();
+    expect(screen.queryByText("notaFiscal.dados.cepInvalido")).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "notaFiscal.dados.salvar" })
+    );
+    expect(notaApi.salvarDadosFiscais).not.toHaveBeenCalled();
+  });
+
+  test("falha da consulta de CEP só avisa, sem bloquear", async () => {
+    notaApi.carregarDadosFiscais.mockRejectedValue({
+      response: { status: 404 }
+    });
+    notaApi.buscarCep.mockRejectedValue({ response: { status: 502 } });
+    render(<DialogoDadosFiscais aberto aoFechar={jest.fn()} />);
+    await waitFor(() =>
+      expect(campo("notaFiscal.dados.cep").disabled).toBe(false)
+    );
+    fireEvent.change(campo("notaFiscal.dados.cep"), {
+      target: { value: "01310100" }
+    });
+    expect(await screen.findByText("notaFiscal.dados.cepFalhou")).toBeTruthy();
+    expect(screen.queryByText("notaFiscal.dados.cepNaoEncontrado")).toBeNull();
   });
 });

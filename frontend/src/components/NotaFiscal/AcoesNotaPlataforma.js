@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import {
   Button,
-  CircularProgress,
   Divider,
   IconButton,
   ListItemIcon,
@@ -23,7 +22,7 @@ import NoteAddOutlinedIcon from "@material-ui/icons/NoteAddOutlined";
 import { i18n } from "../../translate/i18n";
 import toastError from "../../errors/toastError";
 import { i18nToast } from "../../helpers/i18nToast";
-import { baixarNotaFiscal, emitirNotaFiscal } from "./notaFiscalApi";
+import { baixarNotaFiscal } from "./notaFiscalApi";
 import { estadoNota } from "./estadoNota";
 import DialogoEmitirNota from "./DialogoEmitirNota";
 import DialogoCancelarNota from "./DialogoCancelarNota";
@@ -54,38 +53,30 @@ const AcoesNotaPlataforma = ({
   fatura,
   dadosFiscaisCompletos,
   aoAtualizar,
-  aoPreencherDados
+  aoPreencherDados,
+  aguardandoNota = false
 }) => {
   const classes = useStyles();
   const [menuAncora, setMenuAncora] = useState(null);
   const [emitindo, setEmitindo] = useState(false);
-  const [tentando, setTentando] = useState(false);
   const [cancelando, setCancelando] = useState(false);
   const nota = fatura.fiscalNote;
-  const estado = estadoNota(fatura, { dadosFiscaisCompletos });
+  // Logo após a baixa a nota ainda está sendo criada no servidor: não oferecer
+  // "Emitir" nesse intervalo (evita o 409 de nota duplicada).
+  const estadoBase = estadoNota(fatura, { dadosFiscaisCompletos });
+  const estado =
+    aguardandoNota && !nota && estadoBase === "emitir"
+      ? "preparando"
+      : estadoBase;
+  const tentativa = estado === "erro";
 
   const baixar = async formato => {
     setMenuAncora(null);
     try {
-      await baixarNotaFiscal("plataforma", fatura.id, formato);
+      await baixarNotaFiscal("plataforma", fatura.id, formato, nota?.number);
     } catch (err) {
       toastError(err);
     }
-  };
-
-  const tentarDeNovo = async () => {
-    setTentando(true);
-    try {
-      const atualizada = await emitirNotaFiscal(fatura.id);
-      i18nToast.success("notaFiscal.enviada");
-      aoAtualizar(atualizada);
-    } catch (err) {
-      if (err?.response?.data?.error === "ERR_FISCAL_DATA_INCOMPLETE") {
-        aoPreencherDados && aoPreencherDados(fatura);
-      }
-      toastError(err);
-    }
-    setTentando(false);
   };
 
   let conteudo = null;
@@ -146,9 +137,17 @@ const AcoesNotaPlataforma = ({
         </Menu>
       </>
     );
-  } else if (estado === "emEmissao" || estado === "cancelando") {
+  } else if (
+    estado === "emEmissao" ||
+    estado === "cancelando" ||
+    estado === "preparando"
+  ) {
     const titulo = i18n.t(
-      estado === "emEmissao" ? "notaFiscal.emEmissao" : "notaFiscal.cancelando"
+      {
+        emEmissao: "notaFiscal.emEmissao",
+        cancelando: "notaFiscal.cancelando",
+        preparando: "notaFiscal.preparando"
+      }[estado]
     );
     conteudo = (
       <Desabilitado titulo={titulo}>
@@ -185,14 +184,9 @@ const AcoesNotaPlataforma = ({
             <IconButton
               size="small"
               aria-label={i18n.t("notaFiscal.tentarDeNovo")}
-              onClick={tentarDeNovo}
-              disabled={tentando}
+              onClick={() => setEmitindo(true)}
             >
-              {tentando ? (
-                <CircularProgress size={16} />
-              ) : (
-                <ReplayIcon fontSize="small" />
-              )}
+              <ReplayIcon fontSize="small" />
             </IconButton>
           </span>
         </Tooltip>
@@ -232,10 +226,18 @@ const AcoesNotaPlataforma = ({
   return (
     <span className={classes.grupo} data-estado-nota={estado}>
       {conteudo}
-      {estado === "emitir" && (
+      {(estado === "emitir" || tentativa) && (
         <DialogoEmitirNota
           aberto={emitindo}
           fatura={fatura}
+          titulo={
+            tentativa
+              ? i18n.t("notaFiscal.dialogo.tentarTitulo", { id: fatura.id })
+              : undefined
+          }
+          rotuloConfirmar={
+            tentativa ? i18n.t("notaFiscal.tentarDeNovo") : undefined
+          }
           aoFechar={() => setEmitindo(false)}
           aoEmitido={novaNota => {
             i18nToast.success("notaFiscal.enviada");

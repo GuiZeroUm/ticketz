@@ -45,7 +45,9 @@ const DialogoEmitirNota = ({
   fatura,
   aoFechar,
   aoEmitido,
-  aoPreencherDados
+  aoPreencherDados,
+  titulo,
+  rotuloConfirmar
 }) => {
   const classes = useStyles();
   const [previa, setPrevia] = useState(null);
@@ -102,7 +104,7 @@ const DialogoEmitirNota = ({
       aria-labelledby="dialogo-emitir-nota-titulo"
     >
       <DialogTitle id="dialogo-emitir-nota-titulo">
-        {i18n.t("notaFiscal.emitirDe", { id: fatura?.id })}
+        {titulo || i18n.t("notaFiscal.emitirDe", { id: fatura?.id })}
       </DialogTitle>
       <DialogContent>
         {carregando && (
@@ -181,7 +183,7 @@ const DialogoEmitirNota = ({
           disabled={!previa || faltamDados || emitindo}
           startIcon={emitindo ? <CircularProgress size={14} /> : null}
         >
-          {i18n.t("notaFiscal.dialogo.confirmar")}
+          {rotuloConfirmar || i18n.t("notaFiscal.dialogo.confirmar")}
         </Button>
       </DialogActions>
     </Dialog>

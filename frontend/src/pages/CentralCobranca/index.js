@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react";
 import moment from "moment";
 
 import {
@@ -148,6 +154,36 @@ const CentralCobranca = () => {
   const [faturaAberta, setFaturaAberta] = useState(null);
   const [clienteAberto, setClienteAberto] = useState(null);
   const [lancando, setLancando] = useState(false);
+  // Faturas que acabaram de ser pagas e ainda esperam a nota automática
+  // ({ [invoiceId]: true }). Some quando a nota chega ou após 60 s.
+  const [aguardandoNota, setAguardandoNota] = useState({});
+  const timersAguardando = useRef({});
+  useEffect(() => {
+    const timers = timersAguardando.current;
+    return () => Object.values(timers).forEach(clearTimeout);
+  }, []);
+  const pararDeAguardar = useCallback(invoiceId => {
+    clearTimeout(timersAguardando.current[invoiceId]);
+    delete timersAguardando.current[invoiceId];
+    setAguardandoNota(atual => {
+      if (!atual[invoiceId]) return atual;
+      const resto = { ...atual };
+      delete resto[invoiceId];
+      return resto;
+    });
+  }, []);
+  const aguardarNota = useCallback(
+    invoiceId => {
+      clearTimeout(timersAguardando.current[invoiceId]);
+      timersAguardando.current[invoiceId] = setTimeout(
+        () => pararDeAguardar(invoiceId),
+        60000
+      );
+      setAguardandoNota(atual => ({ ...atual, [invoiceId]: true }));
+    },
+    [pararDeAguardar]
+  );
+
   // { companyId, nome } do cliente cujos dados fiscais estão abertos.
   const [dadosFiscaisDe, setDadosFiscaisDe] = useState(null);
 
@@ -198,18 +234,30 @@ const CentralCobranca = () => {
     }
   }, [params]);
 
-  const atualizarNota = useCallback((invoiceId, fiscalNote) => {
-    setFaturas(atual =>
-      atual.map(item =>
-        item.id === invoiceId ? { ...item, fiscalNote } : item
-      )
-    );
-  }, []);
+  const atualizarNota = useCallback(
+    (invoiceId, fiscalNote) => {
+      setFaturas(atual =>
+        atual.map(item =>
+          item.id === invoiceId ? { ...item, fiscalNote } : item
+        )
+      );
+      if (fiscalNote) pararDeAguardar(invoiceId);
+    },
+    [pararDeAguardar]
+  );
+
+  // A nota chegou por recarga: para de aguardar.
+  useEffect(() => {
+    faturas.forEach(item => {
+      if (aguardandoNota[item.id] && item.fiscalNote) pararDeAguardar(item.id);
+    });
+  }, [faturas, aguardandoNota, pararDeAguardar]);
 
   useAtualizacaoNotas({
     faturas,
     recarregar: recarregarFaturasSilencioso,
-    aoAtualizarNota: atualizarNota
+    aoAtualizarNota: atualizarNota,
+    aguardando: Object.keys(aguardandoNota).length > 0
   });
 
   const carregarClientes = useCallback(async () => {
@@ -288,11 +336,20 @@ const CentralCobranca = () => {
   };
 
   const aplicarFatura = atualizada => {
+    const anterior = faturas.find(item => item.id === atualizada.id);
     setFaturas(atual =>
-      atual.map(item =>
-        item.id === atualizada.id ? { ...item, ...atualizada } : item
-      )
+      atual.map(item => {
+        if (item.id !== atualizada.id) return item;
+        // A resposta da baixa pode chegar depois do evento da nota: não
+        // apagar a nota que o socket já trouxe.
+        const fiscalNote = atualizada.fiscalNote || item.fiscalNote || null;
+        return { ...item, ...atualizada, fiscalNote };
+      })
     );
+    const paga = atualizada.situacao === "paid" || atualizada.status === "paid";
+    if (paga && !atualizada.fiscalNote && !anterior?.fiscalNote) {
+      aguardarNota(atualizada.id);
+    }
     carregarResumo();
   };
 
@@ -643,6 +700,7 @@ const CentralCobranca = () => {
                           dadosFiscaisCompletos={
                             fatura.company?.fiscalDataComplete
                           }
+                          aguardandoNota={!!aguardandoNota[fatura.id]}
                           aoAtualizar={nota => atualizarNota(fatura.id, nota)}
                           aoPreencherDados={item =>
                             setDadosFiscaisDe({

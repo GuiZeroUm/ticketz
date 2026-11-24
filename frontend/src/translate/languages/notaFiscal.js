@@ -7,6 +7,7 @@ export const notaFiscalMessages = {
       baixarPdf: "Baixar PDF",
       baixarXml: "Baixar XML",
       emEmissao: "Nota em emissão",
+      preparando: "Preparando a nota fiscal…",
       emEmissaoDica:
         "A prefeitura está processando a nota. Ela aparece aqui assim que for emitida.",
       cancelada: "Nota fiscal cancelada",
@@ -26,6 +27,7 @@ export const notaFiscalMessages = {
       numero: "Nota nº {{numero}}",
       dialogo: {
         titulo: "Emitir nota fiscal",
+        tentarTitulo: "Tentar de novo a nota da fatura {{id}}",
         aviso:
           "A nota é enviada à prefeitura e não pode ser editada depois. Confira os dados.",
         tomador: "Tomador",
@@ -60,7 +62,8 @@ export const notaFiscalMessages = {
         cep: "CEP",
         cepInvalido: "CEP inválido",
         cepBuscando: "Buscando endereço…",
-        cepNaoEncontrado: "CEP não encontrado. Preencha o endereço.",
+        cepNaoEncontrado: "CEP não encontrado. Confira o número.",
+        cepFalhou: "Não foi possível buscar o CEP agora. Preencha o endereço.",
         rua: "Rua",
         numero: "Número",
         complemento: "Complemento",
@@ -101,6 +104,7 @@ export const notaFiscalMessages = {
       baixarPdf: "Download PDF",
       baixarXml: "Download XML",
       emEmissao: "Tax invoice being issued",
+      preparando: "Preparing the tax invoice…",
       emEmissaoDica:
         "The city hall is processing the tax invoice. It shows up here as soon as it is issued.",
       cancelada: "Tax invoice cancelled",
@@ -119,6 +123,7 @@ export const notaFiscalMessages = {
       numero: "Tax invoice no. {{numero}}",
       dialogo: {
         titulo: "Issue tax invoice",
+        tentarTitulo: "Retry the tax invoice for bill {{id}}",
         aviso:
           "The tax invoice is sent to the city hall and cannot be edited afterwards. Check the details.",
         tomador: "Customer",
@@ -153,7 +158,9 @@ export const notaFiscalMessages = {
         cep: "Postal code (CEP)",
         cepInvalido: "Invalid postal code",
         cepBuscando: "Looking up address…",
-        cepNaoEncontrado: "Postal code not found. Fill in the address.",
+        cepNaoEncontrado: "Postal code not found. Check the number.",
+        cepFalhou:
+          "Could not look up the postal code now. Fill in the address.",
         rua: "Street",
         numero: "Number",
         complemento: "Complement",

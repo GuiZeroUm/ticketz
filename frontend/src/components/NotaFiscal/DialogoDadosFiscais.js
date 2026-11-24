@@ -80,6 +80,9 @@ const DialogoDadosFiscais = ({
   }, [aberto, companyId]);
 
   const erros = validarDadosFiscais(form);
+  if (!erros.zipCode && cepStatus === "naoEncontrado") {
+    erros.zipCode = "notaFiscal.dados.cepNaoEncontrado";
+  }
   const valido = Object.keys(erros).length === 0;
 
   const set = (campo, valor) =>
@@ -93,7 +96,10 @@ const DialogoDadosFiscais = ({
   const tocar = campo => setTocados(atual => ({ ...atual, [campo]: true }));
 
   const erroDe = campo =>
-    (tocados[campo] || tentouSalvar) && erros[campo]
+    (tocados[campo] ||
+      tentouSalvar ||
+      (campo === "zipCode" && cepStatus === "naoEncontrado")) &&
+    erros[campo]
       ? i18n.t(erros[campo])
       : "";
 
@@ -101,6 +107,7 @@ const DialogoDadosFiscais = ({
     const formatado = formatarCep(valor);
     set("zipCode", formatado);
     const digitos = apenasDigitos(formatado);
+    if (digitos !== ultimoCep.current) setCepStatus(null);
     if (digitos.length !== 8 || digitos === ultimoCep.current) return;
     ultimoCep.current = digitos;
     setCepStatus("buscando");
@@ -116,7 +123,12 @@ const DialogoDadosFiscais = ({
       }));
       setCepStatus(null);
     } catch (err) {
-      setCepStatus("naoEncontrado");
+      // 404 (ou 400 de CEP bem formado) = CEP que não existe; o resto é falha
+      // da consulta e não impede preencher o endereço à mão.
+      const status = err?.response?.status;
+      setCepStatus(
+        status === 404 || status === 400 ? "naoEncontrado" : "falhou"
+      );
     }
   };
 
@@ -135,7 +147,7 @@ const DialogoDadosFiscais = ({
     setSalvando(false);
   };
 
-  const campo = (nomeCampo, rotulo, props = {}) => (
+  const campo = (nomeCampo, rotulo, { helperText, ...props } = {}) => (
     <TextField
       fullWidth
       size="small"
@@ -147,7 +159,7 @@ const DialogoDadosFiscais = ({
       onChange={e => set(nomeCampo, e.target.value)}
       onBlur={() => tocar(nomeCampo)}
       error={!!erroDe(nomeCampo)}
-      helperText={erroDe(nomeCampo) || props.helperText}
+      helperText={erroDe(nomeCampo) || helperText}
       disabled={carregando || salvando}
       {...props}
     />
@@ -202,8 +214,8 @@ const DialogoDadosFiscais = ({
               helperText:
                 cepStatus === "buscando"
                   ? i18n.t("notaFiscal.dados.cepBuscando")
-                  : cepStatus === "naoEncontrado"
-                    ? i18n.t("notaFiscal.dados.cepNaoEncontrado")
+                  : cepStatus === "falhou"
+                    ? i18n.t("notaFiscal.dados.cepFalhou")
                     : undefined,
               InputProps:
                 cepStatus === "buscando"

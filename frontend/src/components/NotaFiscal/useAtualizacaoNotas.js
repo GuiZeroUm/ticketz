@@ -8,8 +8,14 @@ const EVENTO = /^company-\d+-invoice$/;
 // Mantém as notas das faturas atualizadas:
 // - evento `company-{id}-invoice` ({ action: "update", invoiceId, fiscalNote });
 //   a plataforma (super) recebe o evento de todas as empresas;
-// - reserva: recarrega a cada 10 s enquanto houver nota em andamento.
-const useAtualizacaoNotas = ({ faturas, aoAtualizarNota, recarregar }) => {
+// - reserva: recarrega a cada 10 s enquanto houver nota em andamento ou uma
+//   baixa recente esperando a nota ser criada (aguardando).
+const useAtualizacaoNotas = ({
+  faturas,
+  aoAtualizarNota,
+  recarregar,
+  aguardando = false
+}) => {
   const socketManager = useContext(SocketContext);
   const aoAtualizarRef = useRef(aoAtualizarNota);
   const recarregarRef = useRef(recarregar);
@@ -30,7 +36,7 @@ const useAtualizacaoNotas = ({ faturas, aoAtualizarNota, recarregar }) => {
     return () => socket.offAny && socket.offAny(ouvinte);
   }, [socketManager]);
 
-  const emAndamento = temNotaEmAndamento(faturas);
+  const emAndamento = temNotaEmAndamento(faturas) || aguardando;
   useEffect(() => {
     if (!emAndamento) return undefined;
     const timer = setInterval(() => {

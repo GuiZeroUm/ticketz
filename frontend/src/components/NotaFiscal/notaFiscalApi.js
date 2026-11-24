@@ -33,13 +33,32 @@ const erroLegivel = async err => {
   return err;
 };
 
-export const baixarNotaFiscal = async (escopo, invoiceId, formato = "pdf") => {
+// Mesmo padrão do servidor: nfse-<número da nota>.<ext>; sem número ainda,
+// nfse-fatura-<id>. O nome do Content-Disposition, quando legível, prevalece.
+export const nomeArquivoNota = ({ numero, invoiceId, formato }) =>
+  `nfse-${numero || `fatura-${invoiceId}`}.${formato}`.replace(/[^\w.-]/g, "_");
+
+const nomeDoCabecalho = cabecalho => {
+  const achado = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(cabecalho || "");
+  return achado ? decodeURIComponent(achado[1]) : null;
+};
+
+export const baixarNotaFiscal = async (
+  escopo,
+  invoiceId,
+  formato = "pdf",
+  numero = null
+) => {
   try {
-    const { data } = await api.get(
+    const { data, headers } = await api.get(
       `${baseFatura(escopo, invoiceId)}/${formato}`,
       { responseType: "blob" }
     );
-    salvarArquivo(data, `nota-fiscal-${invoiceId}.${formato}`);
+    salvarArquivo(
+      data,
+      nomeDoCabecalho(headers?.["content-disposition"]) ||
+        nomeArquivoNota({ numero, invoiceId, formato })
+    );
   } catch (err) {
     throw await erroLegivel(err);
   }

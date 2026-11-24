@@ -19,7 +19,7 @@ const BotaoNotaCliente = ({ fatura }) => {
     const handleBaixar = async () => {
       setBaixando(true);
       try {
-        await baixarNotaFiscal("cliente", fatura.id, "pdf");
+        await baixarNotaFiscal("cliente", fatura.id, "pdf", numero);
       } catch (err) {
         toastError(err);
       }

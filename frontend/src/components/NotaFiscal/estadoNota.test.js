@@ -6,6 +6,9 @@ import {
   validarDadosFiscais
 } from "./validacao";
 import { formatarCompetencia } from "./formatos";
+import { nomeArquivoNota } from "./notaFiscalApi";
+
+jest.mock("../../services/api", () => ({}));
 
 const paga = (fiscalNote = null) => ({ id: 1, status: "paid", fiscalNote });
 
@@ -112,4 +115,16 @@ test("formata CEP e competência", () => {
   expect(formatarCep("0131")).toBe("0131");
   expect(formatarCompetencia("2026-11")).toBe("11/2026");
   expect(formatarCompetencia(null)).toBe("-");
+});
+
+test("nome do arquivo segue o servidor: nfse-<número>", () => {
+  expect(nomeArquivoNota({ numero: "45", invoiceId: 28, formato: "pdf" })).toBe(
+    "nfse-45.pdf"
+  );
+  expect(
+    nomeArquivoNota({ numero: "2026/45", invoiceId: 28, formato: "xml" })
+  ).toBe("nfse-2026_45.xml");
+  expect(nomeArquivoNota({ numero: null, invoiceId: 28, formato: "pdf" })).toBe(
+    "nfse-fatura-28.pdf"
+  );
 });
