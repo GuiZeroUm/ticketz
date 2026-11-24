@@ -402,6 +402,41 @@ export const requestFiscalNoteEmission = async ({
   return note;
 };
 
+// Configuração pública da emissão (sem segredos), para a tela do financeiro.
+export const fiscalNoteSettings = () => {
+  const config = notaasConfig();
+  const active = config.enabled && !isDedicatedRuntime();
+  return {
+    enabled: active,
+    autoEmitEnabled: active && config.autoEmitEnabled,
+    autoEmitSince:
+      active && config.autoEmitEnabled && config.autoEmitSince
+        ? config.autoEmitSince.toISOString()
+        : null
+  };
+};
+
+// A baixa (ou o pagamento já feito) desta fatura gera nota sozinha? Com o
+// automático desligado, a tela oferece "Emitir nota" na hora em vez de
+// esperar uma nota que não virá.
+export const autoEmitAppliesTo = (
+  invoice: Pick<Invoices, "status" | "value" | "paidAt" | "company">,
+  now = new Date()
+): boolean => {
+  const settings = fiscalNoteSettings();
+  if (!settings.autoEmitEnabled || !settings.autoEmitSince) return false;
+  if (!["open", "paid"].includes(invoice.status)) return false;
+  if (!(Number(invoice.value) > 0)) return false;
+  if (invoice.company && isBillingConsoleCompany(invoice.company)) return false;
+  const paidAt =
+    invoice.status === "paid"
+      ? invoice.paidAt
+        ? new Date(invoice.paidAt)
+        : null
+      : now;
+  return !!paidAt && paidAt >= new Date(settings.autoEmitSince);
+};
+
 // Gatilho de "fatura paga": não bloqueia nem derruba o pagamento.
 export const scheduleAutoFiscalNote = (invoiceId: number): void => {
   requestFiscalNoteEmission({ invoiceId, trigger: "auto" }).catch(error => {

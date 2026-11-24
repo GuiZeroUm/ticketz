@@ -85,6 +85,7 @@ export const companyInclude = (filters: BillingFilters) => {
     attributes: [
       "id",
       "name",
+      "slug",
       "email",
       "phone",
       "planId",

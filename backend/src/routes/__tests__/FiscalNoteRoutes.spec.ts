@@ -7,6 +7,7 @@ jest.mock("../../middleware/isAdmin", () => jest.fn());
 jest.mock("../../middleware/isBillingAdmin", () => jest.fn());
 jest.mock("../../controllers/FiscalNoteController", () => ({
   webhook: jest.fn(),
+  settings: jest.fn(),
   showOwnFiscalData: jest.fn(),
   updateOwnFiscalData: jest.fn(),
   zipCode: jest.fn(),

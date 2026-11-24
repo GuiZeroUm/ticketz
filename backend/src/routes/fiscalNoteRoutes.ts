@@ -55,6 +55,12 @@ fiscalNoteRoutes.put(
   FiscalNoteController.updateClientFiscalData
 );
 fiscalNoteRoutes.get(
+  "/billing-admin/fiscal-notes/settings",
+  isAuth,
+  isBillingAdmin,
+  FiscalNoteController.settings
+);
+fiscalNoteRoutes.get(
   "/billing-admin/invoices/:id/fiscal-note/preview",
   isAuth,
   isBillingAdmin,

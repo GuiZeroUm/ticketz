@@ -2,6 +2,7 @@ import Invoices from "../../models/Invoices";
 import { payGatewayReceiptUrl } from "../PaymentGatewayServices/PaymentGatewayServices";
 import { invoiceStatusLabel } from "./BillingAdminQuery";
 import {
+  autoEmitAppliesTo,
   currentFiscalNotesByInvoice,
   FiscalNoteView,
   serializeFiscalNote
@@ -11,6 +12,7 @@ import { fiscalCompletenessByCompany } from "../FiscalNoteServices/FiscalProfile
 export interface BillingInvoiceExtras {
   fiscalNote?: FiscalNoteView | null;
   fiscalDataComplete?: boolean;
+  fiscalAutoEmit?: boolean;
 }
 
 export interface SerializedBillingInvoice {
@@ -33,6 +35,7 @@ export interface SerializedBillingInvoice {
   txId: string;
   paymentLink: string | null;
   receiptUrl: string | null;
+  fiscalAutoEmit: boolean;
   fiscalNote: FiscalNoteView | null;
   company: {
     id: number;
@@ -71,6 +74,7 @@ export const serializeBillingInvoice = (
   paymentLink: invoice.linkPagamento || null,
   receiptUrl: payGatewayReceiptUrl(invoice),
   fiscalNote: extras.fiscalNote ?? null,
+  fiscalAutoEmit: extras.fiscalAutoEmit ?? false,
   company: invoice.company
     ? {
         id: invoice.company.id,
@@ -98,7 +102,8 @@ export const loadBillingInvoiceExtras = async (
       invoice.id,
       {
         fiscalNote: serializeFiscalNote(notes.get(invoice.id)),
-        fiscalDataComplete: completeness.get(invoice.companyId) ?? false
+        fiscalDataComplete: completeness.get(invoice.companyId) ?? false,
+        fiscalAutoEmit: autoEmitAppliesTo(invoice)
       }
     ])
   );

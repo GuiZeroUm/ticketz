@@ -11,6 +11,7 @@ import {
 import {
   assertProviderDocumentUrl,
   cancelFiscalNote,
+  fiscalNoteSettings,
   previewFiscalNote,
   requestFiscalNoteEmission,
   resolveFiscalDocument,
@@ -62,6 +63,11 @@ export const updateClientFiscalData = async (
 
 export const zipCode = async (req: Request, res: Response): Promise<Response> =>
   res.json(await lookupZipCode(req.params.cep));
+
+export const settings = async (
+  _req: Request,
+  res: Response
+): Promise<Response> => res.json(fiscalNoteSettings());
 
 export const preview = async (req: Request, res: Response): Promise<Response> =>
   res.json(await previewFiscalNote(positiveId(req.params.id)));
