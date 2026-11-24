@@ -1,6 +1,17 @@
 import Invoices from "../../models/Invoices";
 import { payGatewayReceiptUrl } from "../PaymentGatewayServices/PaymentGatewayServices";
 import { invoiceStatusLabel } from "./BillingAdminQuery";
+import {
+  currentFiscalNotesByInvoice,
+  FiscalNoteView,
+  serializeFiscalNote
+} from "../FiscalNoteServices/FiscalNoteService";
+import { fiscalCompletenessByCompany } from "../FiscalNoteServices/FiscalProfileService";
+
+export interface BillingInvoiceExtras {
+  fiscalNote?: FiscalNoteView | null;
+  fiscalDataComplete?: boolean;
+}
 
 export interface SerializedBillingInvoice {
   id: number;
@@ -22,6 +33,7 @@ export interface SerializedBillingInvoice {
   txId: string;
   paymentLink: string | null;
   receiptUrl: string | null;
+  fiscalNote: FiscalNoteView | null;
   company: {
     id: number;
     name: string;
@@ -29,11 +41,13 @@ export interface SerializedBillingInvoice {
     phone: string;
     planId: number;
     planName: string | null;
+    fiscalDataComplete: boolean;
   } | null;
 }
 
 export const serializeBillingInvoice = (
-  invoice: Invoices
+  invoice: Invoices,
+  extras: BillingInvoiceExtras = {}
 ): SerializedBillingInvoice => ({
   id: invoice.id,
   companyId: invoice.companyId,
@@ -56,6 +70,7 @@ export const serializeBillingInvoice = (
   txId: invoice.txId,
   paymentLink: invoice.linkPagamento || null,
   receiptUrl: payGatewayReceiptUrl(invoice),
+  fiscalNote: extras.fiscalNote ?? null,
   company: invoice.company
     ? {
         id: invoice.company.id,
@@ -63,7 +78,28 @@ export const serializeBillingInvoice = (
         email: invoice.company.email,
         phone: invoice.company.phone,
         planId: invoice.company.planId,
-        planName: invoice.company.plan?.name || null
+        planName: invoice.company.plan?.name || null,
+        fiscalDataComplete: extras.fiscalDataComplete ?? false
       }
     : null
 });
+
+// Nota fiscal atual e completude dos dados fiscais, em duas consultas para a
+// lista inteira.
+export const loadBillingInvoiceExtras = async (
+  invoices: Invoices[]
+): Promise<Map<number, BillingInvoiceExtras>> => {
+  const [notes, completeness] = await Promise.all([
+    currentFiscalNotesByInvoice(invoices.map(invoice => invoice.id)),
+    fiscalCompletenessByCompany(invoices.map(invoice => invoice.companyId))
+  ]);
+  return new Map(
+    invoices.map(invoice => [
+      invoice.id,
+      {
+        fiscalNote: serializeFiscalNote(notes.get(invoice.id)),
+        fiscalDataComplete: completeness.get(invoice.companyId) ?? false
+      }
+    ])
+  );
+};

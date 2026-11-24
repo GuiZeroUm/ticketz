@@ -58,6 +58,7 @@ import { getIO } from "../../libs/socket";
 import Company from "../../models/Company";
 import AccrualPartnerPayoutService from "../PartnerServices/AccrualPartnerPayoutService";
 import SendPartnerPayoutsService from "../PartnerServices/SendPartnerPayoutsService";
+import { scheduleAutoFiscalNote } from "../FiscalNoteServices/FiscalNoteService";
 import { logger } from "../../utils/logger";
 import sequelize from "../../database";
 import { enqueueWebhook } from "../PlatformServices/PlatformWebhookService";
@@ -134,6 +135,7 @@ export const payGatewayReceiveWebhook = async (
 export const processInvoicePaid = async (invoice: Invoices) => {
   let company: Company | null = null;
   let processedInvoice: Invoices | null = null;
+  let becamePaid = false;
 
   await sequelize.transaction(async transaction => {
     const lockedInvoice = await Invoices.findByPk(invoice.id, {
@@ -171,6 +173,7 @@ export const processInvoicePaid = async (invoice: Invoices) => {
       { status: "paid", paidAt: new Date() },
       { transaction }
     );
+    becamePaid = true;
     processedInvoice = lockedInvoice;
 
     if (["sistema", "manual"].includes(lockedInvoice.origem)) {
@@ -219,6 +222,11 @@ export const processInvoicePaid = async (invoice: Invoices) => {
         company,
         invoiceId: processedInvoice.id
       });
+  }
+
+  // Só na transição para "paga": reenvio do webhook do gateway não reemite.
+  if (becamePaid && processedInvoice) {
+    scheduleAutoFiscalNote((processedInvoice as Invoices).id);
   }
 };
 
