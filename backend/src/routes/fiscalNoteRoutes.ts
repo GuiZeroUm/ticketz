@@ -79,6 +79,19 @@ fiscalNoteRoutes.get(
   FiscalNoteController.clientDocument
 );
 
-fiscalNoteRoutes.post("/webhooks/notaas", FiscalNoteController.webhook);
+// O provedor reenvia no máximo 5 vezes por evento; o limite só corta abuso.
+const webhookLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "rate_limit_exceeded" }
+});
+
+fiscalNoteRoutes.post(
+  "/webhooks/notaas",
+  webhookLimiter,
+  FiscalNoteController.webhook
+);
 
 export default fiscalNoteRoutes;

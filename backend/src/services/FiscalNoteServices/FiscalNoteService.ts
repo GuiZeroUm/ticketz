@@ -59,8 +59,16 @@ export interface FiscalNoteView {
   hasXml: boolean;
 }
 
+// Código genérico que o cliente vê quando a emissão falha. O detalhe do
+// provedor (que pode citar configuração fiscal da plataforma) fica só com o
+// financeiro.
+export const CLIENT_FAILURE_CODE = "ERR_FISCAL_NOTE_FAILED";
+
+export type FiscalNoteAudience = "platform" | "client";
+
 export const serializeFiscalNote = (
-  note?: FiscalNote | null
+  note?: FiscalNote | null,
+  audience: FiscalNoteAudience = "platform"
 ): FiscalNoteView | null => {
   if (!note) return null;
   const documents = DOCUMENT_STATUSES.includes(note.status);
@@ -71,8 +79,13 @@ export const serializeFiscalNote = (
     status: note.status === "queued" ? "processing" : note.status,
     number: note.number || null,
     issuedAt: note.emittedAt || null,
-    errorCode: note.errorCode || null,
-    errorMessage: note.errorMessage || null,
+    errorCode:
+      audience === "client"
+        ? note.status === "error"
+          ? CLIENT_FAILURE_CODE
+          : null
+        : note.errorCode || null,
+    errorMessage: audience === "client" ? null : note.errorMessage || null,
     hasPdf: documents && (!!note.pdfUrl || viaProvider),
     hasXml: documents && (!!note.xmlUrl || viaProvider)
   };
@@ -165,14 +178,18 @@ export const buildEmissionPayload = (
 
 export const emitFiscalNoteUpdate = (note: FiscalNote): void => {
   try {
-    getIO()
-      .to(`company-${note.companyId}-mainchannel`)
-      .to("super")
-      .emit(`company-${note.companyId}-invoice`, {
-        action: "update",
-        invoiceId: note.invoiceId,
-        fiscalNote: serializeFiscalNote(note)
-      });
+    const io = getIO();
+    const event = `company-${note.companyId}-invoice`;
+    io.to(`company-${note.companyId}-mainchannel`).emit(event, {
+      action: "update",
+      invoiceId: note.invoiceId,
+      fiscalNote: serializeFiscalNote(note, "client")
+    });
+    io.to("super").emit(event, {
+      action: "update",
+      invoiceId: note.invoiceId,
+      fiscalNote: serializeFiscalNote(note, "platform")
+    });
   } catch (error) {
     logger.debug({ err: error?.message }, "[fiscalNote] socket indisponível");
   }

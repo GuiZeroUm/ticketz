@@ -50,7 +50,7 @@ export const list = async (req: Request, res: Response): Promise<Response> => {
   return res.status(200).json(
     invoice.map(item => ({
       ...item.toJSON(),
-      fiscalNote: serializeFiscalNote(notes.get(item.id))
+      fiscalNote: serializeFiscalNote(notes.get(item.id), "client")
     }))
   );
 };
