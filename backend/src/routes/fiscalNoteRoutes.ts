@@ -3,6 +3,7 @@ import rateLimit from "express-rate-limit";
 import isAuth from "../middleware/isAuth";
 import isAdmin from "../middleware/isAdmin";
 import isBillingAdmin from "../middleware/isBillingAdmin";
+import requirePlatformSuper from "../middleware/requirePlatformSuper";
 import * as FiscalNoteController from "../controllers/FiscalNoteController";
 
 const fiscalNoteRoutes = express.Router();
@@ -72,10 +73,13 @@ fiscalNoteRoutes.post(
   isBillingAdmin,
   FiscalNoteController.emit
 );
+// Cancelar nota fiscal: só o super admin da plataforma. Emitir, tentar de
+// novo e dados fiscais continuam com o financeiro (isBillingAdmin).
 fiscalNoteRoutes.post(
   "/billing-admin/invoices/:id/fiscal-note/cancel",
   isAuth,
   isBillingAdmin,
+  requirePlatformSuper,
   FiscalNoteController.cancel
 );
 fiscalNoteRoutes.get(
