@@ -15,7 +15,12 @@ import toastError from "../../errors/toastError";
 
 jest.mock("../../translate/i18n", () => ({
   i18n: {
-    t: (key, vars) => (vars ? `${key} ${JSON.stringify(vars)}` : key)
+    t: (key, vars) => {
+      if (!vars) return key;
+      const { interpolation, ...resto } = vars;
+      return `${key} ${JSON.stringify(resto)}`;
+    },
+    exists: key => !key.endsWith(".CANCEL_DESCONHECIDO")
   }
 }));
 jest.mock("../../errors/toastError", () => jest.fn());
@@ -27,6 +32,7 @@ jest.mock("./notaFiscalApi", () => ({
   previaNotaFiscal: jest.fn(),
   emitirNotaFiscal: jest.fn(),
   cancelarNotaFiscal: jest.fn(),
+  corrigirNotaFiscal: jest.fn(),
   carregarDadosFiscais: jest.fn(),
   salvarDadosFiscais: jest.fn(),
   buscarCep: jest.fn()
@@ -533,5 +539,233 @@ describe("DialogoDadosFiscais", () => {
     });
     expect(await screen.findByText("notaFiscal.dados.cepFalhou")).toBeTruthy();
     expect(screen.queryByText("notaFiscal.dados.cepNaoEncontrado")).toBeNull();
+  });
+});
+
+describe("Corrigir nota e nota cancelada (Central de Cobrança)", () => {
+  const emitida = extra =>
+    fatura({
+      status: "issued",
+      number: "45",
+      hasPdf: true,
+      tomador: {
+        name: "Cliente Exemplo Ltda",
+        documentType: "cnpj",
+        documentMasked: "11.***.***/0001-81",
+        email: "nota@exemplo.com.br"
+      },
+      ...extra
+    });
+
+  test("menu mostra o tomador usado na nota e, para super, Corrigir", async () => {
+    render(
+      <AcoesNotaPlataforma
+        fatura={emitida()}
+        dadosFiscaisCompletos
+        podeCancelar
+        aoAtualizar={jest.fn()}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "notaFiscal.baixar" }));
+    expect(
+      await screen.findByText(/notaFiscal.tomadorNota.*Cliente Exemplo Ltda/)
+    ).toBeTruthy();
+    expect(screen.getByText("notaFiscal.corrigir")).toBeTruthy();
+    expect(screen.getByText("notaFiscal.cancelar")).toBeTruthy();
+  });
+
+  test("sem super: nem Corrigir nem Cancelar", async () => {
+    render(
+      <AcoesNotaPlataforma
+        fatura={emitida()}
+        dadosFiscaisCompletos
+        aoAtualizar={jest.fn()}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "notaFiscal.baixar" }));
+    await screen.findByText("notaFiscal.baixarPdf");
+    expect(screen.queryByText("notaFiscal.corrigir")).toBeNull();
+    expect(screen.queryByText("notaFiscal.cancelar")).toBeNull();
+  });
+
+  test("Corrigir: formulário preenchido → salvar → confirmação com motivo padrão → replace", async () => {
+    notaApi.carregarDadosFiscais.mockResolvedValue({
+      document: "11222333000181",
+      legalName: "Cliente Exemplo Ltda",
+      email: "antigo@exemplo.com.br",
+      address: {
+        zipCode: "01310100",
+        street: "Avenida Exemplo",
+        number: "100",
+        district: "Centro",
+        city: "São Paulo",
+        state: "SP"
+      },
+      complete: true
+    });
+    notaApi.salvarDadosFiscais.mockResolvedValue({ complete: true });
+    const atualizada = {
+      id: 1,
+      status: "cancelling",
+      replacementPending: true
+    };
+    notaApi.corrigirNotaFiscal.mockResolvedValue(atualizada);
+    const aoAtualizar = jest.fn();
+    const aoDadosSalvos = jest.fn();
+    render(
+      <AcoesNotaPlataforma
+        fatura={emitida()}
+        dadosFiscaisCompletos
+        podeCancelar
+        aoAtualizar={aoAtualizar}
+        aoDadosSalvos={aoDadosSalvos}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "notaFiscal.baixar" }));
+    fireEvent.click(await screen.findByText("notaFiscal.corrigir"));
+
+    const email = await screen.findByLabelText(/^notaFiscal.dados.email/);
+    await waitFor(() => expect(email.value).toBe("antigo@exemplo.com.br"));
+    expect(notaApi.carregarDadosFiscais).toHaveBeenCalledWith(7);
+    fireEvent.change(email, { target: { value: "novo@exemplo.com.br" } });
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "notaFiscal.dialogo.salvarEContinuar"
+      })
+    );
+    await waitFor(() => expect(notaApi.salvarDadosFiscais).toHaveBeenCalled());
+    expect(notaApi.salvarDadosFiscais.mock.calls[0][1].email).toBe(
+      "novo@exemplo.com.br"
+    );
+    expect(aoDadosSalvos).toHaveBeenCalled();
+
+    const confirmacao = await screen.findByRole("dialog", {
+      name: "notaFiscal.dialogo.corrigirTitulo"
+    });
+    expect(
+      within(confirmacao).getByText(/notaFiscal.dialogo.corrigirPergunta.*45/)
+    ).toBeTruthy();
+    const motivo = within(confirmacao).getByLabelText(
+      "notaFiscal.dialogo.motivoCancelamento"
+    );
+    expect(motivo.value).toBe("notaFiscal.dialogo.corrigirMotivoPadrao");
+    fireEvent.change(motivo, {
+      target: { value: "Substituição por correção de dados do tomador" }
+    });
+    expect(notaApi.corrigirNotaFiscal).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(confirmacao).getByRole("button", {
+        name: "notaFiscal.dialogo.corrigirConfirmar"
+      })
+    );
+    await waitFor(() =>
+      expect(notaApi.corrigirNotaFiscal).toHaveBeenCalledWith(
+        28,
+        "Substituição por correção de dados do tomador"
+      )
+    );
+    expect(aoAtualizar).toHaveBeenCalledWith(atualizada);
+  });
+
+  test("estados da correção: cancelando, emitindo nova e cancelamento recusado", () => {
+    const { rerender } = render(
+      <AcoesNotaPlataforma
+        fatura={fatura({ status: "cancelling", replacementPending: true })}
+        aoAtualizar={jest.fn()}
+      />
+    );
+    expect(screen.getByLabelText("notaFiscal.corrigindo")).toBeTruthy();
+    rerender(
+      <AcoesNotaPlataforma
+        fatura={fatura({ status: "cancelled", replacementPending: true })}
+        aoAtualizar={jest.fn()}
+      />
+    );
+    expect(screen.getByLabelText("notaFiscal.reemitindo")).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: /notaFiscal.emitirNovaDe/ })
+    ).toBeNull();
+    rerender(
+      <AcoesNotaPlataforma
+        fatura={fatura({ status: "processing", replacesNumber: "45" })}
+        aoAtualizar={jest.fn()}
+      />
+    );
+    expect(screen.getByLabelText(/notaFiscal.reemitindoDe.*45/)).toBeTruthy();
+    rerender(
+      <AcoesNotaPlataforma
+        fatura={emitida({ cancelStatusDetail: "CANCEL_REJECTED" })}
+        aoAtualizar={jest.fn()}
+      />
+    );
+    expect(
+      screen.getByLabelText(/notaFiscal.cancelamentoRecusado/)
+    ).toBeTruthy();
+    rerender(
+      <AcoesNotaPlataforma
+        fatura={emitida({ cancelStatusDetail: "CANCEL_PENDING_ANALYSIS" })}
+        aoAtualizar={jest.fn()}
+      />
+    );
+    expect(
+      screen.getByLabelText("notaFiscal.cancelamentoAnalise")
+    ).toBeTruthy();
+  });
+
+  test("nota cancelada: Emitir nova nota com confirmação", async () => {
+    notaApi.previaNotaFiscal.mockResolvedValue({
+      tomador: { name: "Cliente Exemplo Ltda", document: "11222333000181" },
+      value: 1100,
+      competencia: "2026-11"
+    });
+    const nova = { id: 2, status: "processing" };
+    notaApi.emitirNotaFiscal.mockResolvedValue(nova);
+    const aoAtualizar = jest.fn();
+    render(
+      <AcoesNotaPlataforma
+        fatura={fatura({ status: "cancelled", number: "45" })}
+        dadosFiscaisCompletos
+        aoAtualizar={aoAtualizar}
+      />
+    );
+    expect(screen.getByLabelText("notaFiscal.cancelada")).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", { name: /notaFiscal.emitirNovaDe/ })
+    );
+    const dialogo = await screen.findByRole("dialog");
+    await within(dialogo).findByText("Cliente Exemplo Ltda");
+    expect(notaApi.emitirNotaFiscal).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(dialogo).getByRole("button", { name: "notaFiscal.emitirNova" })
+    );
+    await waitFor(() => expect(aoAtualizar).toHaveBeenCalledWith(nova));
+  });
+});
+
+describe("BotaoNotaCliente com nota corrigida", () => {
+  test("nova nota em emissão após a correção e tomador no tooltip da emitida", () => {
+    const { rerender } = render(
+      <BotaoNotaCliente
+        fatura={fatura({ status: "processing", replacesNumber: "45" })}
+      />
+    );
+    expect(
+      screen.getByRole("button", { name: /notaFiscal.emEmissao/ }).disabled
+    ).toBe(true);
+    rerender(
+      <BotaoNotaCliente
+        fatura={fatura({
+          status: "issued",
+          number: "46",
+          tomador: {
+            name: "Cliente Exemplo Ltda",
+            email: "novo@exemplo.com.br"
+          }
+        })}
+      />
+    );
+    expect(
+      screen.getByRole("button", { name: "notaFiscal.baixar" })
+    ).toBeTruthy();
   });
 });

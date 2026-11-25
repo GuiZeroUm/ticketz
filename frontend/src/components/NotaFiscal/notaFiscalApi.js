@@ -76,6 +76,15 @@ export const emitirNotaFiscal = async invoiceId => {
   return data;
 };
 
+// Cancela a nota emitida e reemite com os dados fiscais atuais (só super).
+export const corrigirNotaFiscal = async (invoiceId, reason) => {
+  const { data } = await api.post(
+    `${baseFatura("plataforma", invoiceId)}/replace`,
+    { reason }
+  );
+  return data;
+};
+
 export const cancelarNotaFiscal = async (invoiceId, reason) => {
   const { data } = await api.post(
     `${baseFatura("plataforma", invoiceId)}/cancel`,

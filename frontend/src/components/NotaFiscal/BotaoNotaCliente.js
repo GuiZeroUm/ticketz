@@ -7,6 +7,7 @@ import { i18n } from "../../translate/i18n";
 import toastError from "../../errors/toastError";
 import { baixarNotaFiscal } from "./notaFiscalApi";
 import { estadoNota } from "./estadoNota";
+import { textoTomador } from "./textosNota";
 
 // Fica ao lado do botão PAGO na tela de faturas do cliente. Só aparece quando
 // existe nota emitida ou em emissão; nos outros casos não ocupa espaço.
@@ -28,9 +29,16 @@ const BotaoNotaCliente = ({ fatura }) => {
     return (
       <Tooltip
         title={
-          numero
-            ? i18n.t("notaFiscal.numero", { numero })
-            : i18n.t("notaFiscal.baixar")
+          <span style={{ whiteSpace: "pre-line" }}>
+            {[
+              numero
+                ? i18n.t("notaFiscal.numero", { numero })
+                : i18n.t("notaFiscal.baixar"),
+              textoTomador(fatura.fiscalNote?.tomador)
+            ]
+              .filter(Boolean)
+              .join("\n")}
+          </span>
         }
       >
         <Button

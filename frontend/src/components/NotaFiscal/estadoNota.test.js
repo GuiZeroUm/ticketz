@@ -148,3 +148,19 @@ test("após a baixa só aguarda a nota com emissão automática ativa", () => {
     deveAguardarNota({ id: 7, situacao: "open", fiscalAutoEmit: true })
   ).toBe(false);
 });
+
+test("correção: cancelando para corrigir, reemitindo e cancelada", () => {
+  expect(
+    estadoNota(paga({ status: "cancelling", replacementPending: true }))
+  ).toBe("corrigindo");
+  expect(
+    estadoNota(paga({ status: "cancelled", replacementPending: true }))
+  ).toBe("reemitindo");
+  expect(estadoNota(paga({ status: "cancelled" }))).toBe("cancelada");
+  expect(estadoNota(paga({ status: "queued" }))).toBe("emEmissao");
+  expect(
+    temNotaEmAndamento([
+      paga({ status: "cancelled", replacementPending: true })
+    ])
+  ).toBe(true);
+});
