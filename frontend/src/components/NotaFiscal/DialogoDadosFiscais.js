@@ -42,7 +42,8 @@ const DialogoDadosFiscais = ({
   companyId,
   nome,
   aoFechar,
-  aoSalvo
+  aoSalvo,
+  rotuloSalvar
 }) => {
   const theme = useTheme();
   const telaCheia = useMediaQuery(theme.breakpoints.down("xs"));
@@ -268,7 +269,7 @@ const DialogoDadosFiscais = ({
           disabled={carregando || salvando}
           startIcon={salvando ? <CircularProgress size={14} /> : null}
         >
-          {i18n.t("notaFiscal.dados.salvar")}
+          {rotuloSalvar || i18n.t("notaFiscal.dados.salvar")}
         </Button>
       </DialogActions>
     </Dialog>

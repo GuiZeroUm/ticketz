@@ -82,6 +82,14 @@ fiscalNoteRoutes.post(
   requirePlatformSuper,
   FiscalNoteController.cancel
 );
+// Corrigir nota (cancelar e reemitir com os dados atuais): só o super.
+fiscalNoteRoutes.post(
+  "/billing-admin/invoices/:id/fiscal-note/replace",
+  isAuth,
+  isBillingAdmin,
+  requirePlatformSuper,
+  FiscalNoteController.replace
+);
 fiscalNoteRoutes.get(
   "/billing-admin/invoices/:id/fiscal-note/:kind",
   isAuth,

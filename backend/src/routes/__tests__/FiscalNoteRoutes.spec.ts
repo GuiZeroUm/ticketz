@@ -20,6 +20,7 @@ jest.mock("../../controllers/FiscalNoteController", () => ({
   preview: jest.fn(),
   emit: jest.fn(),
   cancel: jest.fn(),
+  replace: jest.fn(),
   clientDocument: jest.fn()
 }));
 
@@ -65,5 +66,17 @@ describe("fiscal note routes", () => {
     expect(emit).not.toContain(requirePlatformSuper);
     expect(fiscalData).toContain(isBillingAdmin);
     expect(fiscalData).not.toContain(requirePlatformSuper);
+  });
+
+  it("allows correcting a note only to the platform super admin", () => {
+    const replace = routeHandlers(
+      "post",
+      "/billing-admin/invoices/:id/fiscal-note/replace"
+    );
+    expect(replace).toContain(isBillingAdmin);
+    expect(replace).toContain(requirePlatformSuper);
+    expect(replace.indexOf(requirePlatformSuper)).toBeLessThan(
+      replace.indexOf(FiscalNoteController.replace)
+    );
   });
 });

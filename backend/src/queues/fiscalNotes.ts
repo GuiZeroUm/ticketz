@@ -5,6 +5,7 @@ import {
 } from "../services/FiscalNoteServices/fiscalNoteQueue";
 import {
   processFiscalNoteEmission,
+  reconcileFiscalNoteReplacements,
   reconcileFiscalNotes
 } from "../services/FiscalNoteServices/FiscalNoteService";
 import { notaasConfig } from "../services/FiscalNoteServices/NotaasClient";
@@ -23,6 +24,9 @@ export const startFiscalNoteQueue = async (): Promise<void> => {
     })
   );
   queue.process("Reconcile", 1, async () => reconcileFiscalNotes());
+  queue.process("ReconcileReplacements", 1, async () =>
+    reconcileFiscalNoteReplacements()
+  );
 
   const config = notaasConfig();
   if (!config.enabled) {
@@ -38,5 +42,10 @@ export const startFiscalNoteQueue = async (): Promise<void> => {
     "Reconcile",
     {},
     { repeat: { cron: "*/5 * * * *" }, removeOnComplete: true }
+  );
+  await queue.add(
+    "ReconcileReplacements",
+    {},
+    { repeat: { cron: "* * * * *" }, removeOnComplete: true }
   );
 };

@@ -4,6 +4,7 @@ import {
   Divider,
   IconButton,
   ListItemIcon,
+  ListSubheader,
   Menu,
   MenuItem,
   Tooltip
@@ -18,6 +19,7 @@ import ErrorOutlineIcon from "@material-ui/icons/ErrorOutline";
 import ReplayIcon from "@material-ui/icons/Replay";
 import ReportProblemOutlinedIcon from "@material-ui/icons/ReportProblemOutlined";
 import NoteAddOutlinedIcon from "@material-ui/icons/NoteAddOutlined";
+import EditOutlinedIcon from "@material-ui/icons/EditOutlined";
 
 import { i18n } from "../../translate/i18n";
 import toastError from "../../errors/toastError";
@@ -26,6 +28,9 @@ import { baixarNotaFiscal } from "./notaFiscalApi";
 import { estadoNota } from "./estadoNota";
 import DialogoEmitirNota from "./DialogoEmitirNota";
 import DialogoCancelarNota from "./DialogoCancelarNota";
+import DialogoCorrigirNota from "./DialogoCorrigirNota";
+import DialogoDadosFiscais from "./DialogoDadosFiscais";
+import { textoTomador, textoCancelamento } from "./textosNota";
 
 const useStyles = makeStyles(theme => ({
   grupo: {
@@ -36,7 +41,14 @@ const useStyles = makeStyles(theme => ({
   },
   aviso: { color: theme.palette.warning?.main || "#f2994a" },
   erro: { color: theme.palette.error.main },
-  emitir: { whiteSpace: "nowrap", textTransform: "none" }
+  emitir: { whiteSpace: "nowrap", textTransform: "none" },
+  tomador: {
+    whiteSpace: "normal",
+    lineHeight: 1.4,
+    maxWidth: 320,
+    paddingTop: 6,
+    paddingBottom: 6
+  }
 }));
 
 // Tooltip em elemento desabilitado precisa de um wrapper focável.
@@ -56,13 +68,17 @@ const AcoesNotaPlataforma = ({
   aoPreencherDados,
   aoRecarregar,
   aguardandoNota = false,
-  // Cancelar nota é só do super admin da plataforma (o backend repete a regra).
-  podeCancelar = false
+  // Cancelar e corrigir nota é só do super admin da plataforma (o backend
+  // repete a regra).
+  podeCancelar = false,
+  aoDadosSalvos
 }) => {
   const classes = useStyles();
   const [menuAncora, setMenuAncora] = useState(null);
   const [emitindo, setEmitindo] = useState(false);
   const [cancelando, setCancelando] = useState(false);
+  // Corrigir nota: null → "dados" (formulário) → "confirmar" (motivo).
+  const [etapaCorrecao, setEtapaCorrecao] = useState(null);
   const nota = fatura.fiscalNote;
   // Logo após a baixa a nota ainda está sendo criada no servidor: não oferecer
   // "Emitir" nesse intervalo (evita o 409 de nota duplicada).
@@ -72,6 +88,10 @@ const AcoesNotaPlataforma = ({
       ? "preparando"
       : estadoBase;
   const tentativa = estado === "erro";
+  const novaNota = estado === "cancelada";
+  const tomador = textoTomador(nota?.tomador);
+  const avisoCancelamento =
+    estado === "emitida" ? textoCancelamento(nota?.cancelStatusDetail) : null;
 
   const baixar = async formato => {
     setMenuAncora(null);
@@ -85,14 +105,35 @@ const AcoesNotaPlataforma = ({
   let conteudo = null;
 
   if (estado === "emitida") {
-    const titulo = nota?.number
-      ? `${i18n.t("notaFiscal.numero", { numero: nota.number })} — ${i18n.t(
-          "notaFiscal.baixar"
-        )}`
-      : i18n.t("notaFiscal.baixar");
+    const titulo = [
+      nota?.number
+        ? `${i18n.t("notaFiscal.numero", { numero: nota.number })} — ${i18n.t(
+            "notaFiscal.baixar"
+          )}`
+        : i18n.t("notaFiscal.baixar"),
+      nota?.replacesNumber &&
+        i18n.t("notaFiscal.substitui", { numero: nota.replacesNumber }),
+      tomador
+    ]
+      .filter(Boolean)
+      .join("\n");
     conteudo = (
       <>
-        <Tooltip title={titulo}>
+        {avisoCancelamento && (
+          <Tooltip title={avisoCancelamento}>
+            <span
+              tabIndex={0}
+              role="img"
+              aria-label={avisoCancelamento}
+              className={classes.aviso}
+            >
+              <ReportProblemOutlinedIcon fontSize="small" />
+            </span>
+          </Tooltip>
+        )}
+        <Tooltip
+          title={<span style={{ whiteSpace: "pre-line" }}>{titulo}</span>}
+        >
           <IconButton
             size="small"
             color="primary"
@@ -109,6 +150,11 @@ const AcoesNotaPlataforma = ({
           open={!!menuAncora}
           onClose={() => setMenuAncora(null)}
         >
+          {tomador && (
+            <ListSubheader className={classes.tomador} disableSticky>
+              {tomador}
+            </ListSubheader>
+          )}
           {nota?.hasPdf !== false && (
             <MenuItem onClick={() => baixar("pdf")}>
               <ListItemIcon>
@@ -130,6 +176,19 @@ const AcoesNotaPlataforma = ({
             <MenuItem
               onClick={() => {
                 setMenuAncora(null);
+                setEtapaCorrecao("dados");
+              }}
+            >
+              <ListItemIcon>
+                <EditOutlinedIcon fontSize="small" />
+              </ListItemIcon>
+              {i18n.t("notaFiscal.corrigir")}
+            </MenuItem>
+          )}
+          {podeCancelar && (
+            <MenuItem
+              onClick={() => {
+                setMenuAncora(null);
                 setCancelando(true);
               }}
             >
@@ -143,17 +202,29 @@ const AcoesNotaPlataforma = ({
       </>
     );
   } else if (
-    estado === "emEmissao" ||
-    estado === "cancelando" ||
-    estado === "preparando"
+    [
+      "emEmissao",
+      "cancelando",
+      "preparando",
+      "corrigindo",
+      "reemitindo"
+    ].includes(estado)
   ) {
-    const titulo = i18n.t(
-      {
-        emEmissao: "notaFiscal.emEmissao",
-        cancelando: "notaFiscal.cancelando",
-        preparando: "notaFiscal.preparando"
-      }[estado]
-    );
+    const substitui =
+      estado === "emEmissao" && nota?.replacesNumber
+        ? nota.replacesNumber
+        : null;
+    const titulo = substitui
+      ? i18n.t("notaFiscal.reemitindoDe", { numero: substitui })
+      : i18n.t(
+          {
+            emEmissao: "notaFiscal.emEmissao",
+            cancelando: "notaFiscal.cancelando",
+            preparando: "notaFiscal.preparando",
+            corrigindo: "notaFiscal.corrigindo",
+            reemitindo: "notaFiscal.reemitindo"
+          }[estado]
+        );
     conteudo = (
       <Desabilitado titulo={titulo}>
         <IconButton size="small" disabled>
@@ -163,11 +234,24 @@ const AcoesNotaPlataforma = ({
     );
   } else if (estado === "cancelada") {
     conteudo = (
-      <Desabilitado titulo={i18n.t("notaFiscal.cancelada")}>
-        <IconButton size="small" disabled>
-          <BlockIcon fontSize="small" />
-        </IconButton>
-      </Desabilitado>
+      <>
+        <Desabilitado titulo={i18n.t("notaFiscal.cancelada")}>
+          <IconButton size="small" disabled>
+            <BlockIcon fontSize="small" />
+          </IconButton>
+        </Desabilitado>
+        <Button
+          size="small"
+          variant="outlined"
+          color="primary"
+          className={classes.emitir}
+          startIcon={<NoteAddOutlinedIcon fontSize="small" />}
+          onClick={() => setEmitindo(true)}
+          aria-label={i18n.t("notaFiscal.emitirNovaDe", { id: fatura.id })}
+        >
+          {i18n.t("notaFiscal.emitirNova")}
+        </Button>
+      </>
     );
   } else if (estado === "erro") {
     const detalhe = nota?.errorMessage || i18n.t("notaFiscal.erroSemDetalhe");
@@ -231,17 +315,23 @@ const AcoesNotaPlataforma = ({
   return (
     <span className={classes.grupo} data-estado-nota={estado}>
       {conteudo}
-      {(estado === "emitir" || tentativa) && (
+      {(estado === "emitir" || tentativa || novaNota) && (
         <DialogoEmitirNota
           aberto={emitindo}
           fatura={fatura}
           titulo={
             tentativa
               ? i18n.t("notaFiscal.dialogo.tentarTitulo", { id: fatura.id })
-              : undefined
+              : novaNota
+                ? i18n.t("notaFiscal.emitirNovaDe", { id: fatura.id })
+                : undefined
           }
           rotuloConfirmar={
-            tentativa ? i18n.t("notaFiscal.tentarDeNovo") : undefined
+            tentativa
+              ? i18n.t("notaFiscal.tentarDeNovo")
+              : novaNota
+                ? i18n.t("notaFiscal.emitirNova")
+                : undefined
           }
           aoFechar={() => setEmitindo(false)}
           aoEmitido={novaNota => {
@@ -251,6 +341,33 @@ const AcoesNotaPlataforma = ({
           aoPreencherDados={aoPreencherDados}
           aoRecarregar={aoRecarregar}
         />
+      )}
+      {estado === "emitida" && podeCancelar && (
+        <>
+          <DialogoDadosFiscais
+            aberto={etapaCorrecao === "dados"}
+            companyId={fatura.companyId || fatura.company?.id}
+            nome={fatura.company?.name}
+            rotuloSalvar={i18n.t("notaFiscal.dialogo.salvarEContinuar")}
+            aoSalvo={dados => {
+              setEtapaCorrecao("confirmar");
+              aoDadosSalvos && aoDadosSalvos(dados);
+            }}
+            // Depois de salvar o formulário fecha sozinho: mantém "confirmar".
+            aoFechar={() =>
+              setEtapaCorrecao(atual => (atual === "dados" ? null : atual))
+            }
+          />
+          <DialogoCorrigirNota
+            aberto={etapaCorrecao === "confirmar"}
+            fatura={fatura}
+            aoFechar={() => setEtapaCorrecao(null)}
+            aoEnviado={atualizada => {
+              i18nToast.success("notaFiscal.corrigirEnviado");
+              aoAtualizar(atualizada);
+            }}
+          />
+        </>
       )}
       {estado === "emitida" && podeCancelar && (
         <DialogoCancelarNota

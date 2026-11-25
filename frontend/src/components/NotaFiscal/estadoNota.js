@@ -7,7 +7,9 @@
 //   emitida        pronta: PDF/XML disponíveis
 //   erro           a emissão falhou; dá pra tentar de novo
 //   cancelando     pedido de cancelamento em andamento
-//   cancelada      cancelada na prefeitura
+//   corrigindo     cancelamento pedido para reemitir com dados corrigidos
+//   reemitindo     cancelada, com a nota nova já a caminho
+//   cancelada      cancelada na prefeitura (dá pra emitir uma nova)
 export const estadoNota = (fatura, { dadosFiscaisCompletos } = {}) => {
   const nota = fatura?.fiscalNote;
   const paga = fatura?.status === "paid" || fatura?.situacao === "paid";
@@ -17,13 +19,14 @@ export const estadoNota = (fatura, { dadosFiscaisCompletos } = {}) => {
       case "issued":
         return "emitida";
       case "processing":
+      case "queued":
         return "emEmissao";
       case "error":
         return "erro";
       case "cancelling":
-        return "cancelando";
+        return nota.replacementPending ? "corrigindo" : "cancelando";
       case "cancelled":
-        return "cancelada";
+        return nota.replacementPending ? "reemitindo" : "cancelada";
       case "pending_fiscal_data":
         return dadosFiscaisCompletos === true ? "emitir" : "faltamDados";
       default:
@@ -39,8 +42,11 @@ export const estadoNota = (fatura, { dadosFiscaisCompletos } = {}) => {
 // Enquanto houver nota em andamento a tela recarrega de tempos em tempos
 // (reserva do evento de socket).
 export const temNotaEmAndamento = faturas =>
-  (faturas || []).some(fatura =>
-    ["processing", "cancelling"].includes(fatura?.fiscalNote?.status)
+  (faturas || []).some(
+    fatura =>
+      ["processing", "queued", "cancelling"].includes(
+        fatura?.fiscalNote?.status
+      ) || !!fatura?.fiscalNote?.replacementPending
   );
 
 // Depois da baixa, a Central só mostra "Preparando a nota fiscal…" quando o

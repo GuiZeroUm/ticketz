@@ -700,6 +700,23 @@ const CentralCobranca = () => {
                             <ReceiptIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
+                        <Tooltip title={i18n.t("notaFiscal.dadosCliente")}>
+                          <IconButton
+                            size="small"
+                            aria-label={i18n.t("notaFiscal.dados.tituloDe", {
+                              nome: fatura.company?.name || ""
+                            })}
+                            onClick={() =>
+                              setDadosFiscaisDe({
+                                companyId:
+                                  fatura.companyId || fatura.company?.id,
+                                nome: fatura.company?.name
+                              })
+                            }
+                          >
+                            <AccountBalanceOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
                         <AcoesNotaPlataforma
                           fatura={fatura}
                           dadosFiscaisCompletos={
@@ -708,6 +725,7 @@ const CentralCobranca = () => {
                           aguardandoNota={!!aguardandoNota[fatura.id]}
                           aoRecarregar={recarregarFaturasSilencioso}
                           podeCancelar={ehSuperPlataforma}
+                          aoDadosSalvos={() => carregarClientes()}
                           aoAtualizar={nota => atualizarNota(fatura.id, nota)}
                           aoPreencherDados={item =>
                             setDadosFiscaisDe({
@@ -815,12 +833,12 @@ const CentralCobranca = () => {
                             <EditIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title={i18n.t("notaFiscal.dados.titulo")}>
+                        <Tooltip title={i18n.t("notaFiscal.editarDados")}>
                           <IconButton
                             size="small"
-                            aria-label={i18n.t("notaFiscal.dados.tituloDe", {
-                              nome: cliente.name
-                            })}
+                            aria-label={`${i18n.t(
+                              "notaFiscal.editarDados"
+                            )} — ${cliente.name}`}
                             onClick={() =>
                               setDadosFiscaisDe({
                                 companyId: cliente.id,
