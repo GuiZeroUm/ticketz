@@ -21,7 +21,10 @@ import SendBillingChargeService, {
   defaultChargeMessage
 } from "../services/BillingAdminServices/SendBillingChargeService";
 import DeleteBillingInvoiceService from "../services/BillingAdminServices/DeleteBillingInvoiceService";
-import { serializeBillingInvoice } from "../services/BillingAdminServices/SerializeBillingInvoice";
+import {
+  loadBillingInvoiceExtras,
+  serializeBillingInvoice
+} from "../services/BillingAdminServices/SerializeBillingInvoice";
 import { BillingFilters } from "../services/BillingAdminServices/BillingAdminQuery";
 
 const filtersFrom = (req: Request): BillingFilters => {
@@ -68,16 +71,19 @@ export const invoices = async (
 
 // O detalhe sempre viaja com a mensagem sugerida: a tela usa ela no campo de
 // envio, e ela muda junto com o link de pagamento.
-const invoiceDetail = (invoice: Invoices) => ({
-  ...serializeBillingInvoice(invoice),
-  defaultMessage: defaultChargeMessage(invoice)
-});
+const invoiceDetail = async (invoice: Invoices) => {
+  const extras = (await loadBillingInvoiceExtras([invoice])).get(invoice.id);
+  return {
+    ...serializeBillingInvoice(invoice, extras),
+    defaultMessage: defaultChargeMessage(invoice)
+  };
+};
 
 export const showInvoice = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  return res.json(invoiceDetail(await loadInvoice(req.params.id)));
+  return res.json(await invoiceDetail(await loadInvoice(req.params.id)));
 };
 
 export const clients = async (
@@ -130,7 +136,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   }
 
   return res.status(200).json({
-    invoice: invoiceDetail(invoice),
+    invoice: await invoiceDetail(invoice),
     charge
   });
 };
@@ -159,7 +165,7 @@ export const charge = async (
   await invoice.reload();
 
   return res.json({
-    invoice: invoiceDetail(invoice),
+    invoice: await invoiceDetail(invoice),
     charge: result
   });
 };
@@ -199,7 +205,7 @@ export const update = async (
 
   await UpdateInvoiceService({ id: req.params.id, status });
 
-  return res.json(invoiceDetail(await loadInvoice(req.params.id)));
+  return res.json(await invoiceDetail(await loadInvoice(req.params.id)));
 };
 
 export const remove = async (
@@ -222,7 +228,7 @@ export const refresh = async (
     await checkInvoicePayment(invoice);
   }
 
-  return res.json(invoiceDetail(await loadInvoice(req.params.id)));
+  return res.json(await invoiceDetail(await loadInvoice(req.params.id)));
 };
 
 const clientSchema = Yup.object().shape({

@@ -5,6 +5,7 @@ import {
   invoiceWhere
 } from "./BillingAdminQuery";
 import {
+  loadBillingInvoiceExtras,
   serializeBillingInvoice,
   SerializedBillingInvoice
 } from "./SerializeBillingInvoice";
@@ -39,8 +40,12 @@ const ListBillingInvoicesService = async (
     distinct: true
   });
 
+  const extras = await loadBillingInvoiceExtras(rows);
+
   return {
-    invoices: rows.map(serializeBillingInvoice),
+    invoices: rows.map(invoice =>
+      serializeBillingInvoice(invoice, extras.get(invoice.id))
+    ),
     count,
     hasMore: count > offset + rows.length
   };

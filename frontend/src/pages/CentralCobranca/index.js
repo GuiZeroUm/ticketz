@@ -1,4 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react";
 import moment from "moment";
 
 import {
@@ -40,6 +47,7 @@ import RefreshIcon from "@material-ui/icons/Refresh";
 import AddIcon from "@material-ui/icons/Add";
 import ReceiptIcon from "@material-ui/icons/Receipt";
 import EditIcon from "@material-ui/icons/Edit";
+import AccountBalanceOutlinedIcon from "@material-ui/icons/AccountBalanceOutlined";
 
 import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
@@ -48,8 +56,14 @@ import Title from "../../components/Title";
 import TableRowSkeleton from "../../components/TableRowSkeleton";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
+import { i18n } from "../../translate/i18n";
+import AcoesNotaPlataforma from "../../components/NotaFiscal/AcoesNotaPlataforma";
+import DialogoDadosFiscais from "../../components/NotaFiscal/DialogoDadosFiscais";
+import useAtualizacaoNotas from "../../components/NotaFiscal/useAtualizacaoNotas";
+import { deveAguardarNota } from "../../components/NotaFiscal/estadoNota";
 
 import CartaoResumo from "./CartaoResumo";
+import { AuthContext } from "../../context/Auth/AuthContext";
 import ModalCliente from "./ModalCliente";
 import ModalCobranca from "./ModalCobranca";
 import ModalLancarCobranca from "./ModalLancarCobranca";
@@ -87,6 +101,23 @@ const useStyles = makeStyles(theme => ({
   },
   clienteNome: {
     fontWeight: 600
+  },
+  // No celular a tabela rola na horizontal; a coluna Ações fica sempre visível.
+  colunaAcoes: {
+    [theme.breakpoints.down("sm")]: {
+      position: "sticky",
+      right: 0,
+      zIndex: 1,
+      backgroundColor: theme.palette.background.paper,
+      boxShadow: `-1px 0 0 ${theme.palette.divider}`
+    }
+  },
+  acoes: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: theme.spacing(0.5),
+    flexWrap: "wrap",
+    justifyContent: "center"
   }
 }));
 
@@ -101,6 +132,9 @@ const FILTROS_SITUACAO = [
 const CentralCobranca = () => {
   const classes = useStyles();
   const theme = useTheme();
+  // `super` já vem do servidor como super admin da plataforma.
+  const { user } = useContext(AuthContext);
+  const ehSuperPlataforma = user?.super === true;
 
   const [aba, setAba] = useState(0);
   const [filtros, setFiltros] = useState({
@@ -126,6 +160,38 @@ const CentralCobranca = () => {
   const [faturaAberta, setFaturaAberta] = useState(null);
   const [clienteAberto, setClienteAberto] = useState(null);
   const [lancando, setLancando] = useState(false);
+  // Faturas que acabaram de ser pagas e ainda esperam a nota automática
+  // ({ [invoiceId]: true }). Some quando a nota chega ou após 60 s.
+  const [aguardandoNota, setAguardandoNota] = useState({});
+  const timersAguardando = useRef({});
+  useEffect(() => {
+    const timers = timersAguardando.current;
+    return () => Object.values(timers).forEach(clearTimeout);
+  }, []);
+  const pararDeAguardar = useCallback(invoiceId => {
+    clearTimeout(timersAguardando.current[invoiceId]);
+    delete timersAguardando.current[invoiceId];
+    setAguardandoNota(atual => {
+      if (!atual[invoiceId]) return atual;
+      const resto = { ...atual };
+      delete resto[invoiceId];
+      return resto;
+    });
+  }, []);
+  const aguardarNota = useCallback(
+    invoiceId => {
+      clearTimeout(timersAguardando.current[invoiceId]);
+      timersAguardando.current[invoiceId] = setTimeout(
+        () => pararDeAguardar(invoiceId),
+        60000
+      );
+      setAguardandoNota(atual => ({ ...atual, [invoiceId]: true }));
+    },
+    [pararDeAguardar]
+  );
+
+  // { companyId, nome } do cliente cujos dados fiscais estão abertos.
+  const [dadosFiscaisDe, setDadosFiscaisDe] = useState(null);
 
   const params = useMemo(
     () =>
@@ -161,6 +227,44 @@ const CentralCobranca = () => {
     }
     setCarregandoFaturas(false);
   }, [params]);
+
+  // Atualização em segundo plano das notas: sem esqueleto de carregamento.
+  const recarregarFaturasSilencioso = useCallback(async () => {
+    try {
+      const { data } = await api.get("/billing-admin/invoices", {
+        params: { ...params, perPage: 200 }
+      });
+      setFaturas(data.invoices);
+    } catch (err) {
+      // silencioso: a próxima rodada tenta de novo
+    }
+  }, [params]);
+
+  const atualizarNota = useCallback(
+    (invoiceId, fiscalNote) => {
+      setFaturas(atual =>
+        atual.map(item =>
+          item.id === invoiceId ? { ...item, fiscalNote } : item
+        )
+      );
+      if (fiscalNote) pararDeAguardar(invoiceId);
+    },
+    [pararDeAguardar]
+  );
+
+  // A nota chegou por recarga: para de aguardar.
+  useEffect(() => {
+    faturas.forEach(item => {
+      if (aguardandoNota[item.id] && item.fiscalNote) pararDeAguardar(item.id);
+    });
+  }, [faturas, aguardandoNota, pararDeAguardar]);
+
+  useAtualizacaoNotas({
+    faturas,
+    recarregar: recarregarFaturasSilencioso,
+    aoAtualizarNota: atualizarNota,
+    aguardando: Object.keys(aguardandoNota).length > 0
+  });
 
   const carregarClientes = useCallback(async () => {
     setCarregandoClientes(true);
@@ -238,11 +342,19 @@ const CentralCobranca = () => {
   };
 
   const aplicarFatura = atualizada => {
+    const anterior = faturas.find(item => item.id === atualizada.id);
     setFaturas(atual =>
-      atual.map(item =>
-        item.id === atualizada.id ? { ...item, ...atualizada } : item
-      )
+      atual.map(item => {
+        if (item.id !== atualizada.id) return item;
+        // A resposta da baixa pode chegar depois do evento da nota: não
+        // apagar a nota que o socket já trouxe.
+        const fiscalNote = atualizada.fiscalNote || item.fiscalNote || null;
+        return { ...item, ...atualizada, fiscalNote };
+      })
     );
+    if (deveAguardarNota(atualizada, anterior)) {
+      aguardarNota(atualizada.id);
+    }
     carregarResumo();
   };
 
@@ -310,6 +422,16 @@ const CentralCobranca = () => {
         gatewayPronto={!!gateway.configured}
         aoAtualizar={aplicarFatura}
         aoExcluir={() => recarregarTudo()}
+      />
+      <DialogoDadosFiscais
+        aberto={!!dadosFiscaisDe}
+        companyId={dadosFiscaisDe?.companyId}
+        nome={dadosFiscaisDe?.nome}
+        aoFechar={() => setDadosFiscaisDe(null)}
+        aoSalvo={() => {
+          recarregarFaturasSilencioso();
+          carregarClientes();
+        }}
       />
       <ModalCliente
         cliente={clienteAberto}
@@ -505,7 +627,9 @@ const CentralCobranca = () => {
                 <TableCell align="center">Situação</TableCell>
                 <TableCell align="center">Forma</TableCell>
                 <TableCell align="center">Pago em</TableCell>
-                <TableCell align="center">Ações</TableCell>
+                <TableCell align="center" className={classes.colunaAcoes}>
+                  Ações
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -565,15 +689,34 @@ const CentralCobranca = () => {
                     <TableCell align="center">
                       {fatura.paidAt ? formatDate(fatura.paidAt) : "-"}
                     </TableCell>
-                    <TableCell align="center">
-                      <Tooltip title="Abrir cobrança">
-                        <IconButton
-                          size="small"
-                          onClick={() => setFaturaAberta(fatura.id)}
-                        >
-                          <ReceiptIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
+                    <TableCell align="center" className={classes.colunaAcoes}>
+                      <span className={classes.acoes}>
+                        <Tooltip title="Abrir cobrança">
+                          <IconButton
+                            size="small"
+                            aria-label="Abrir cobrança"
+                            onClick={() => setFaturaAberta(fatura.id)}
+                          >
+                            <ReceiptIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <AcoesNotaPlataforma
+                          fatura={fatura}
+                          dadosFiscaisCompletos={
+                            fatura.company?.fiscalDataComplete
+                          }
+                          aguardandoNota={!!aguardandoNota[fatura.id]}
+                          aoRecarregar={recarregarFaturasSilencioso}
+                          podeCancelar={ehSuperPlataforma}
+                          aoAtualizar={nota => atualizarNota(fatura.id, nota)}
+                          aoPreencherDados={item =>
+                            setDadosFiscaisDe({
+                              companyId: item.companyId || item.company?.id,
+                              nome: item.company?.name
+                            })
+                          }
+                        />
+                      </span>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -593,7 +736,9 @@ const CentralCobranca = () => {
                 <TableCell align="right">Em aberto</TableCell>
                 <TableCell align="right">Vencido</TableCell>
                 <TableCell align="center">Último pagamento</TableCell>
-                <TableCell align="center">Ações</TableCell>
+                <TableCell align="center" className={classes.colunaAcoes}>
+                  Ações
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -659,15 +804,34 @@ const CentralCobranca = () => {
                         ? moment(cliente.lastPaidAt).format("DD/MM/YYYY")
                         : "-"}
                     </TableCell>
-                    <TableCell align="center">
-                      <Tooltip title="Plano, mensalidade e teste">
-                        <IconButton
-                          size="small"
-                          onClick={() => setClienteAberto(cliente)}
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
+                    <TableCell align="center" className={classes.colunaAcoes}>
+                      <span className={classes.acoes}>
+                        <Tooltip title="Plano, mensalidade e teste">
+                          <IconButton
+                            size="small"
+                            aria-label="Plano, mensalidade e teste"
+                            onClick={() => setClienteAberto(cliente)}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title={i18n.t("notaFiscal.dados.titulo")}>
+                          <IconButton
+                            size="small"
+                            aria-label={i18n.t("notaFiscal.dados.tituloDe", {
+                              nome: cliente.name
+                            })}
+                            onClick={() =>
+                              setDadosFiscaisDe({
+                                companyId: cliente.id,
+                                nome: cliente.name
+                              })
+                            }
+                          >
+                            <AccountBalanceOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </span>
                     </TableCell>
                   </TableRow>
                 ))}

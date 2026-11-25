@@ -54,9 +54,11 @@ import metaWhatsappRoutes from "./metaWhatsappRoutes";
 import metaWhatsappWebhookRoutes from "./metaWhatsappWebhookRoutes";
 import whatsappStatusAdminRoutes from "./whatsappStatusAdminRoutes";
 import whatsappStatusRoutes from "./whatsappStatusRoutes";
+import fiscalNoteRoutes from "./fiscalNoteRoutes";
 
 const routes = Router();
 routes.use(agentRoutes);
+routes.use(fiscalNoteRoutes);
 
 routes.use(platformRoutes);
 routes.use(billingAdminRoutes);

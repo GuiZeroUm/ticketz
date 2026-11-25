@@ -39,6 +39,7 @@
 
  */
 
+import { createHash, timingSafeEqual } from "crypto";
 import { Request, Response } from "express";
 import axios, { AxiosInstance } from "axios";
 import GetSuperSettingService from "../SettingServices/GetSuperSettingService";
@@ -526,6 +527,18 @@ const findInvoiceForWebhook = async (data: any): Promise<Invoices | null> => {
   return null;
 };
 
+// Comparação em tempo constante, sem vazar o tamanho do segredo.
+const sameSecret = (provided: string, expected: string): boolean => {
+  const digest = (value: string) => createHash("sha256").update(value).digest();
+  return (
+    !!provided &&
+    timingSafeEqual(
+      Uint8Array.from(digest(provided)),
+      Uint8Array.from(digest(expected))
+    )
+  );
+};
+
 export const abacateWebhook = async (
   req: Request,
   res: Response
@@ -537,7 +550,18 @@ export const abacateWebhook = async (
       process.env.ABACATEPAY_WEBHOOK_SECRET ||
       (await GetSuperSettingService({ key: "_abacatePayWebhookSecret" }));
 
-    if (expectedSecret && req.query.webhookSecret !== expectedSecret) {
+    // Falha fechada: o pagamento confirmado aqui libera a empresa e pode gerar
+    // nota fiscal, então sem segredo configurado nenhum aviso é aceito.
+    if (!expectedSecret) {
+      logger.error("abacateWebhook: segredo do webhook não configurado");
+      return res.status(503).json({ error: "webhook secret not configured" });
+    }
+    // Cabeçalho preferido; a query continua aceita por compatibilidade com o
+    // formato cadastrado no gateway.
+    const providedSecret = String(
+      req.header("x-webhook-secret") || req.query.webhookSecret || ""
+    );
+    if (!sameSecret(providedSecret, String(expectedSecret))) {
       logger.warn("abacateWebhook: webhookSecret inválido");
       return res.status(401).json({ error: "invalid webhook secret" });
     }

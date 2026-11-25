@@ -9,6 +9,10 @@ import ListInvoicesServices from "../services/InvoicesService/ListInvoicesServic
 import ShowInvoceService from "../services/InvoicesService/ShowInvoiceService";
 import UpdateInvoiceService from "../services/InvoicesService/UpdateInvoiceService";
 import SubscriptionNoticeService from "../services/InvoicesService/SubscriptionNoticeService";
+import {
+  currentFiscalNotesByInvoice,
+  serializeFiscalNote
+} from "../services/FiscalNoteServices/FiscalNoteService";
 
 type IndexQuery = {
   searchParam: string;
@@ -41,8 +45,14 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
 export const list = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const invoice: Invoices[] = await FindAllInvoiceService(companyId);
+  const notes = await currentFiscalNotesByInvoice(invoice.map(item => item.id));
 
-  return res.status(200).json(invoice);
+  return res.status(200).json(
+    invoice.map(item => ({
+      ...item.toJSON(),
+      fiscalNote: serializeFiscalNote(notes.get(item.id), "client")
+    }))
+  );
 };
 
 export const update = async (
