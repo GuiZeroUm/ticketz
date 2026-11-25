@@ -28,7 +28,7 @@ export type FiscalNoteStatus =
   | "cancelling"
   | "cancelled";
 
-export type FiscalNoteTrigger = "auto" | "manual";
+export type FiscalNoteTrigger = "auto" | "manual" | "replace";
 
 @Table({ tableName: "FiscalNotes" })
 class FiscalNote extends Model<FiscalNote> {
@@ -114,6 +114,36 @@ class FiscalNote extends Model<FiscalNote> {
 
   @Column
   lastSyncedAt: Date | null;
+
+  // Cancelamento pedido para corrigir dados: ao ser confirmado, a fatura é
+  // reemitida com os dados fiscais atuais.
+  @Default(false)
+  @Column
+  replacementPending: boolean;
+
+  @Column
+  replacementRequestedAt: Date | null;
+
+  // Cancelamento recusado ou em análise (ex.: CANCEL_REJECTED).
+  @Column(DataType.STRING(60))
+  cancelStatusDetail: string | null;
+
+  // Dados do tomador usados nesta nota (documento mascarado).
+  @Column(DataType.STRING(150))
+  takerName: string | null;
+
+  @Column(DataType.STRING(4))
+  takerDocumentType: string | null;
+
+  @Column(DataType.STRING(20))
+  takerDocumentMasked: string | null;
+
+  @Column(DataType.STRING(150))
+  takerEmail: string | null;
+
+  // Número da nota cancelada que esta substitui (correção de dados).
+  @Column(DataType.STRING(20))
+  replacesNumber: string | null;
 
   @CreatedAt
   createdAt: Date;

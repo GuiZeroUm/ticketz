@@ -57,6 +57,15 @@ export interface FiscalNoteView {
   errorMessage: string | null;
   hasPdf: boolean;
   hasXml: boolean;
+  replacementPending: boolean;
+  cancelStatusDetail: string | null;
+  replacesNumber: string | null;
+  tomador: {
+    name: string | null;
+    documentType: string | null;
+    documentMasked: string | null;
+    email: string | null;
+  } | null;
 }
 
 // Código genérico que o cliente vê quando a emissão falha. O detalhe do
@@ -87,9 +96,48 @@ export const serializeFiscalNote = (
         : note.errorCode || null,
     errorMessage: audience === "client" ? null : note.errorMessage || null,
     hasPdf: documents && (!!note.pdfUrl || viaProvider),
-    hasXml: documents && (!!note.xmlUrl || viaProvider)
+    hasXml: documents && (!!note.xmlUrl || viaProvider),
+    replacementPending:
+      audience === "client" ? false : !!note.replacementPending,
+    cancelStatusDetail:
+      audience === "client" ? null : note.cancelStatusDetail || null,
+    replacesNumber: note.replacesNumber || null,
+    tomador:
+      note.takerName || note.takerDocumentMasked || note.takerEmail
+        ? {
+            name: note.takerName || null,
+            documentType: note.takerDocumentType || null,
+            documentMasked: note.takerDocumentMasked || null,
+            email: note.takerEmail || null
+          }
+        : null
   };
 };
+
+// Documento do tomador para exibição: só os últimos dígitos.
+export const maskTakerDocument = (
+  documentType?: string | null,
+  document?: string | null
+): string | null => {
+  const digits = String(document || "").replace(/\D/g, "");
+  if (documentType === "cnpj" && digits.length === 14) {
+    return `**.***.***/${digits.slice(8, 12)}-${digits.slice(12)}`;
+  }
+  if (documentType === "cpf" && digits.length === 11) {
+    return `***.***.*${digits.slice(7, 9)}-${digits.slice(9)}`;
+  }
+  return digits ? `***${digits.slice(-2)}` : null;
+};
+
+const takerSnapshot = (profile: CompanyFiscalProfile) => ({
+  takerName: profile.legalName,
+  takerDocumentType: profile.documentType,
+  takerDocumentMasked: maskTakerDocument(
+    profile.documentType,
+    profile.document
+  ),
+  takerEmail: profile.email
+});
 
 export const idempotencyKeyFor = (
   note: Pick<FiscalNote, "invoiceId" | "emissionAttempt">
@@ -302,7 +350,7 @@ export const requestFiscalNoteEmission = async ({
   trigger,
   userId = null
 }: EmissionRequest): Promise<FiscalNote | null> => {
-  const manual = trigger === "manual";
+  const manual = trigger !== "auto";
   if (!assertEmissionRuntime(manual)) return null;
   const config = notaasConfig();
   if (!manual && !config.autoEmitEnabled) return null;
@@ -335,6 +383,14 @@ export const requestFiscalNoteEmission = async ({
     if (manual) throw new AppError("ERR_FISCAL_NOTE_EXISTS", 409);
     return note;
   }
+  if (
+    note?.status === "cancelled" &&
+    note.replacementPending &&
+    trigger !== "replace"
+  ) {
+    if (manual) throw new AppError("ERR_FISCAL_NOTE_EXISTS", 409);
+    return note;
+  }
   if (note?.status === "error" && !manual) return note;
 
   const profile = await getFiscalProfile(invoice.companyId);
@@ -356,6 +412,7 @@ export const requestFiscalNoteEmission = async ({
         companyId: invoice.companyId,
         reference: `EW-${invoice.id}`,
         emissionAttempt: previousAttempt + 1,
+        replacesNumber: trigger === "replace" ? note?.number || null : null,
         status,
         trigger,
         requestedByUserId: userId
@@ -511,7 +568,8 @@ export const processFiscalNoteEmission = async (
       status: "processing",
       submittedAt: new Date(),
       errorCode: null,
-      errorMessage: null
+      errorMessage: null,
+      ...takerSnapshot(profile)
     });
     emitFiscalNoteUpdate(note);
     logger.info(
@@ -579,13 +637,14 @@ export const applyProviderStatus = async (
 
   if (mapped && !regress) {
     changes.status = mapped;
-    if (
-      mapped === "issued" &&
-      note.status === "cancelling" &&
-      remote.cancelOutcome
-    ) {
-      changes.errorCode =
-        `CANCEL_${String(remote.cancelOutcome).toUpperCase()}`.slice(0, 60);
+    if (mapped === "issued" && note.status === "cancelling") {
+      // Cancelamento recusado ou em análise: a nota segue válida e a
+      // reemissão pedida não acontece.
+      changes.cancelStatusDetail = remote.cancelOutcome
+        ? `CANCEL_${String(remote.cancelOutcome).toUpperCase()}`.slice(0, 60)
+        : "CANCEL_NOT_CONFIRMED";
+      changes.replacementPending = false;
+      changes.errorCode = null;
       changes.errorMessage = null;
     } else if (mapped === "error") {
       changes.errorCode = (remote.errorCode || "PROVIDER_ERROR").slice(0, 60);
@@ -612,7 +671,35 @@ export const applyProviderStatus = async (
   );
   await note.update(changes);
   if (meaningful) emitFiscalNoteUpdate(note);
+  if (
+    (note.status as FiscalNoteStatus) === "cancelled" &&
+    note.replacementPending
+  ) {
+    await reissueReplacement(note);
+  }
   return meaningful;
+};
+
+// Cancelamento confirmado de uma nota em correção: emite a nova com os dados
+// fiscais atuais (nova chave de idempotência, -rN). Se não der para criar a
+// nota nova agora, a reemissão fica pendente e a reconciliação tenta de novo.
+export const reissueReplacement = async (note: FiscalNote): Promise<void> => {
+  try {
+    await requestFiscalNoteEmission({
+      invoiceId: note.invoiceId,
+      trigger: "replace",
+      userId: note.requestedByUserId
+    });
+  } catch (error) {
+    logger.warn(
+      { noteId: note.id, invoiceId: note.invoiceId, err: error?.message },
+      "[fiscalNote] reemissão após cancelamento não concluída"
+    );
+  }
+  const current = await currentFiscalNote(note.invoiceId);
+  if (current && current.id !== note.id) {
+    await note.update({ replacementPending: false });
+  }
 };
 
 export const syncFiscalNote = async (
@@ -632,6 +719,44 @@ const DELIVERY_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
 // Reserva do webhook: consulta notas paradas, reenfileira o que ficou na fila
 // e, se configurado, emite faturas pagas que não ganharam nota.
+const REPLACEMENT_FAST_WINDOW_MS = 30 * 60 * 1000;
+
+// A cada minuto: acompanha o cancelamento das notas em correção nos primeiros
+// 30 min (depois, a reconciliação de 5 min continua) e reemite as que tiveram
+// o cancelamento confirmado mas ainda não ganharam nota nova. Não depende do
+// webhook.
+export const reconcileFiscalNoteReplacements = async (): Promise<void> => {
+  if (isDedicatedRuntime() || !notaasConfig().enabled) return;
+  const since = new Date(Date.now() - REPLACEMENT_FAST_WINDOW_MS);
+
+  const cancelling = await FiscalNote.findAll({
+    where: {
+      status: "cancelling",
+      replacementPending: true,
+      replacementRequestedAt: { [Op.gte]: since }
+    },
+    limit: 50
+  });
+  for (const note of cancelling) {
+    try {
+      await syncFiscalNote(note);
+    } catch (error) {
+      logger.warn(
+        { noteId: note.id, code: toNotaasError(error).code },
+        "[fiscalNote] consulta do cancelamento falhou"
+      );
+    }
+  }
+
+  const confirmed = await FiscalNote.findAll({
+    where: { status: "cancelled", replacementPending: true },
+    limit: 20
+  });
+  for (const note of confirmed) {
+    await reissueReplacement(note);
+  }
+};
+
 export const reconcileFiscalNotes = async (): Promise<void> => {
   if (isDedicatedRuntime() || !notaasConfig().enabled) return;
   const now = Date.now();
@@ -702,10 +827,15 @@ export const reconcileFiscalNotes = async (): Promise<void> => {
   });
 };
 
-export const cancelFiscalNote = async (
+interface CancellationOptions {
+  replace: boolean;
+}
+
+const requestCancellation = async (
   invoiceId: number,
   reason: string,
-  userId?: number | null
+  userId: number | null | undefined,
+  { replace }: CancellationOptions
 ): Promise<FiscalNote> => {
   assertEmissionRuntime(true);
   const motivo = String(reason || "").trim();
@@ -716,6 +846,13 @@ export const cancelFiscalNote = async (
   if (!note) throw new AppError("ERR_FISCAL_NOTE_NOT_FOUND", 404);
   if (note.status !== "issued" || !note.providerInvoiceId) {
     throw new AppError("ERR_FISCAL_NOTE_NOT_CANCELLABLE", 409);
+  }
+  if (replace) {
+    // Confere antes de cancelar: sem dados completos a nota nova não sairia.
+    const profile = await getFiscalProfile(note.companyId);
+    if (!isFiscalProfileComplete(profile)) {
+      throw new AppError("ERR_FISCAL_DATA_INCOMPLETE", 422);
+    }
   }
   try {
     await cancelNfse(note.providerInvoiceId, motivo);
@@ -732,11 +869,30 @@ export const cancelFiscalNote = async (
     cancelReason: motivo,
     requestedByUserId: userId ?? note.requestedByUserId,
     errorCode: null,
-    errorMessage: null
+    errorMessage: null,
+    cancelStatusDetail: null,
+    replacementPending: replace,
+    replacementRequestedAt: replace ? new Date() : null
   });
   emitFiscalNoteUpdate(note);
   return note;
 };
+
+export const cancelFiscalNote = async (
+  invoiceId: number,
+  reason: string,
+  userId?: number | null
+): Promise<FiscalNote> =>
+  requestCancellation(invoiceId, reason, userId, { replace: false });
+
+// Corrigir nota: cancela a vigente e reemite com os dados fiscais atuais
+// assim que o cancelamento for confirmado.
+export const replaceFiscalNote = async (
+  invoiceId: number,
+  reason: string,
+  userId?: number | null
+): Promise<FiscalNote> =>
+  requestCancellation(invoiceId, reason, userId, { replace: true });
 
 const ALLOWED_DOCUMENT_HOST = /(^|\.)notaas\.com\.br$/i;
 

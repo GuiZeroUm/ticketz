@@ -11,6 +11,7 @@ import {
 import {
   assertProviderDocumentUrl,
   cancelFiscalNote,
+  replaceFiscalNote,
   fiscalNoteSettings,
   previewFiscalNote,
   requestFiscalNoteEmission,
@@ -80,6 +81,18 @@ export const emit = async (req: Request, res: Response): Promise<Response> => {
     trigger: "manual",
     userId: Number(req.user.id) || null
   });
+  return res.status(202).json(serializeFiscalNote(note));
+};
+
+export const replace = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const note = await replaceFiscalNote(
+    positiveId(req.params.id),
+    req.body?.reason,
+    Number(req.user.id) || null
+  );
   return res.status(202).json(serializeFiscalNote(note));
 };
 
