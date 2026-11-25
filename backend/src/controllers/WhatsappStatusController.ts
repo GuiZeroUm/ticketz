@@ -9,7 +9,8 @@ import { previewAudience } from "../services/WhatsappStatusServices/StatusAudien
 import {
   removeStatusMedia,
   resolveStatusMediaPath,
-  storeStatusMedia
+  storeStatusMedia,
+  statusMediaLimits
 } from "../services/WhatsappStatusServices/StatusMediaService";
 import { getStatusProvider } from "../services/WhatsappStatusServices/providers/index";
 
@@ -120,7 +121,8 @@ export const listConnections = async (
       number: null,
       apiMode: connection.apiMode,
       status: connection.status,
-      capabilities: getStatusProvider(connection).capabilities(connection)
+      capabilities: getStatusProvider(connection).capabilities(connection),
+      mediaLimits: statusMediaLimits()
     }))
   );
 };

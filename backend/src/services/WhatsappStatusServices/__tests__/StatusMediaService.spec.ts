@@ -67,7 +67,14 @@ describe("StatusMediaService", () => {
   const originalImageMb = process.env.WHATSAPP_STATUS_MAX_IMAGE_MB;
   const originalVideoMb = process.env.WHATSAPP_STATUS_MAX_VIDEO_MB;
 
+  // These cases cover storage without compression; the conversion path is
+  // covered by StatusVideoCompression.spec.ts.
+  beforeEach(() => {
+    process.env.WHATSAPP_STATUS_MEDIA_COMPRESSION = "false";
+  });
+
   afterEach(() => {
+    delete process.env.WHATSAPP_STATUS_MEDIA_COMPRESSION;
     if (originalImageMb === undefined) {
       delete process.env.WHATSAPP_STATUS_MAX_IMAGE_MB;
     } else {

@@ -24,6 +24,13 @@ const ptErrors = {
     "Arquivo inválido. Use JPG, PNG ou WEBP para imagens e MP4 para vídeos.",
   ERR_STATUS_MEDIA_REQUIRED: "Selecione uma imagem ou um vídeo.",
   ERR_STATUS_MEDIA_TOO_LARGE: "O arquivo passa do tamanho máximo permitido.",
+  ERR_STATUS_VIDEO_TOO_LONG: "O vídeo passa da duração máxima de um story.",
+  ERR_STATUS_MEDIA_RESOLUTION_TOO_LARGE:
+    "A resolução do arquivo passa do máximo permitido (vídeo até 4096×4096, imagem até 40 megapixels).",
+  ERR_STATUS_MEDIA_TIMEOUT:
+    "Não foi possível otimizar o vídeo a tempo. Tente um vídeo menor.",
+  ERR_STATUS_MEDIA_BUSY:
+    "Há outros vídeos sendo otimizados agora. Tente de novo em instantes.",
   ERR_STATUS_NOT_FOUND: "Story não encontrado.",
   ERR_STATUS_NO_CONFIRMATION:
     "A sessão do WhatsApp não confirmou o envio deste story.",
@@ -66,6 +73,13 @@ const enErrors = {
     "Invalid file. Use JPG, PNG or WEBP for images and MP4 for videos.",
   ERR_STATUS_MEDIA_REQUIRED: "Select an image or a video.",
   ERR_STATUS_MEDIA_TOO_LARGE: "The file is above the maximum allowed size.",
+  ERR_STATUS_VIDEO_TOO_LONG: "The video is longer than a story allows.",
+  ERR_STATUS_MEDIA_RESOLUTION_TOO_LARGE:
+    "The file resolution is above the maximum (video up to 4096×4096, image up to 40 megapixels).",
+  ERR_STATUS_MEDIA_TIMEOUT:
+    "The video could not be optimized in time. Try a smaller video.",
+  ERR_STATUS_MEDIA_BUSY:
+    "Other videos are being optimized right now. Try again in a moment.",
   ERR_STATUS_NOT_FOUND: "Story not found.",
   ERR_STATUS_NO_CONFIRMATION:
     "The WhatsApp session did not confirm this story was sent.",
@@ -144,8 +158,14 @@ const pt = {
       },
       dropImage: "Arraste uma imagem aqui",
       dropVideo: "Arraste um vídeo aqui",
-      hintImage: "Formatos JPG ou PNG, na vertical de preferência.",
-      hintVideo: "Formato MP4. Vídeos curtos funcionam melhor.",
+      hintImage: "JPG, PNG ou WEBP, até {{mb}} MB, na vertical de preferência.",
+      hintVideo: "Formato MP4, até {{mb}} MB. Vídeos curtos funcionam melhor.",
+      hintVideoOptimized:
+        "MP4 ou MOV, até {{mb}} MB e {{seconds}} segundos. Vídeos grandes são otimizados automaticamente.",
+      uploadingMedia: "Enviando arquivo…",
+      optimizingVideo: "Otimizando vídeo…",
+      fileTooLarge: "O arquivo tem {{size}} MB; o máximo é {{max}} MB.",
+      videoTooLong: "O vídeo passa de {{max}} segundos, o máximo de um story.",
       selectFile: "Selecionar arquivo",
       caption: "Legenda",
       optional: "(opcional)",
@@ -274,8 +294,15 @@ const en = {
       },
       dropImage: "Drag an image here",
       dropVideo: "Drag a video here",
-      hintImage: "JPG or PNG, preferably vertical.",
-      hintVideo: "MP4 format. Short videos work best.",
+      hintImage: "JPG, PNG or WEBP, up to {{mb}} MB, preferably vertical.",
+      hintVideo: "MP4 format, up to {{mb}} MB. Short videos work best.",
+      hintVideoOptimized:
+        "MP4 or MOV, up to {{mb}} MB and {{seconds}} seconds. Large videos are optimized automatically.",
+      uploadingMedia: "Uploading file…",
+      optimizingVideo: "Optimizing video…",
+      fileTooLarge: "The file has {{size}} MB; the maximum is {{max}} MB.",
+      videoTooLong:
+        "The video is longer than {{max}} seconds, the story maximum.",
       selectFile: "Select file",
       caption: "Caption",
       optional: "(optional)",

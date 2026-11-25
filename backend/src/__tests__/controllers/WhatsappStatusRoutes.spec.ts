@@ -44,6 +44,14 @@ jest.mock(
   })
 );
 jest.mock("../../services/WhatsappStatusServices/StatusMediaService", () => ({
+  // Same tiny ceiling as the env above, so the 4 KB upload is refused.
+  maxUploadBytes: () => 0.001 * 1024 * 1024,
+  statusMediaLimits: () => ({
+    imageMb: 30,
+    videoMb: 100,
+    videoSeconds: 90,
+    compression: true
+  }),
   storeStatusMedia: jest.fn(),
   resolveStatusMediaPath: jest.fn(),
   removeStatusMedia: jest.fn()
@@ -375,6 +383,12 @@ it("lists only connections of the user's company with capabilities", async () =>
         reason: null,
         manualExport: false,
         ownPostsSync: false
+      },
+      mediaLimits: {
+        imageMb: 30,
+        videoMb: 100,
+        videoSeconds: 90,
+        compression: true
       }
     },
     {
@@ -389,6 +403,12 @@ it("lists only connections of the user's company with capabilities", async () =>
         reason: "OFFICIAL_API",
         manualExport: true,
         ownPostsSync: false
+      },
+      mediaLimits: {
+        imageMb: 30,
+        videoMb: 100,
+        videoSeconds: 90,
+        compression: true
       }
     }
   ]);
