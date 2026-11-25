@@ -18,6 +18,8 @@ import {
   serializeFiscalNote
 } from "../services/FiscalNoteServices/FiscalNoteService";
 import { handleNotaasWebhook } from "../services/FiscalNoteServices/NotaasWebhookService";
+import { logRejectedWebhookDiagnostic } from "../services/FiscalNoteServices/NotaasWebhookDiagnostics";
+import { notaasConfig } from "../services/FiscalNoteServices/NotaasClient";
 
 const positiveId = (value: string): number => {
   const id = Number(value);
@@ -165,12 +167,21 @@ export const webhook = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  const result = await handleNotaasWebhook({
-    rawBody: (req as any).rawBody,
-    signature: req.header("x-notaas-signature")
-  });
+  const rawBody = (req as any).rawBody as Buffer | undefined;
+  const signature = req.header("x-notaas-signature");
+  const result = await handleNotaasWebhook({ rawBody, signature });
   if (result.status === 401) {
     logger.warn("[fiscalNote] webhook com assinatura inválida recusado");
+  }
+  if (result.status === 400 || result.status === 401) {
+    logRejectedWebhookDiagnostic({
+      outcome: result.outcome,
+      status: result.status,
+      headers: req.headers,
+      rawBody,
+      signature,
+      secret: notaasConfig().webhookSecret
+    });
   }
   return res.status(result.status).json({ outcome: result.outcome });
 };
