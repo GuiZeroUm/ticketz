@@ -61,14 +61,29 @@ afterEach(() => {
 });
 
 describe("acesso à Central de Cobrança", () => {
-  it("só libera o tenant dono da plataforma", () => {
-    expect(isBillingConsoleCompany({ slug: "teste" } as Company)).toBe(true);
-    expect(isBillingConsoleCompany({ slug: "TESTE " } as Company)).toBe(true);
-    expect(isBillingConsoleCompany({ slug: "acnorte" } as Company)).toBe(false);
-    expect(isBillingConsoleCompany({ slug: null } as unknown as Company)).toBe(
+  it("só libera a empresa da plataforma com o slug configurado", () => {
+    process.env.BILLING_CONSOLE_SLUGS = "teste";
+    expect(isBillingConsoleCompany({ id: 1, slug: "teste" } as Company)).toBe(
+      true
+    );
+    expect(isBillingConsoleCompany({ id: 1, slug: "TESTE " } as Company)).toBe(
+      true
+    );
+    // Mesmo slug em outra empresa não basta.
+    expect(isBillingConsoleCompany({ id: 5, slug: "teste" } as Company)).toBe(
       false
     );
+    expect(isBillingConsoleCompany({ id: 9, slug: "acnorte" } as Company)).toBe(
+      false
+    );
+    expect(
+      isBillingConsoleCompany({ id: 1, slug: null } as unknown as Company)
+    ).toBe(false);
     expect(isBillingConsoleCompany(null)).toBe(false);
+    delete process.env.BILLING_CONSOLE_SLUGS;
+    expect(isBillingConsoleCompany({ id: 1, slug: "teste" } as Company)).toBe(
+      false
+    );
   });
 
   it("aceita admin do tenant dono sem exigir super", () => {
@@ -209,7 +224,8 @@ describe("CreateBillingInvoiceService", () => {
   it("não deixa cobrar o próprio tenant dono", async () => {
     companyFindByPk.mockResolvedValue({
       ...cliente,
-      slug: "teste"
+      id: 1,
+      slug: "outro-nome"
     } as unknown as Company);
 
     await expect(

@@ -1,11 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, no-restricted-syntax */
 import { Op, UniqueConstraintError, literal } from "sequelize";
 import AppError from "../../errors/AppError";
-import {
-  billingConsoleSlugs,
-  isBillingConsoleCompany
-} from "../../helpers/billingConsole";
+import { isPlatformOwnerCompany } from "../../helpers/billingConsole";
 import { isDedicatedRuntime } from "../../helpers/tenantRuntime";
+import { getPlatformCompanyId } from "../../helpers/platformSuper";
 import { getIO } from "../../libs/socket";
 import Company from "../../models/Company";
 import CompanyFiscalProfile from "../../models/CompanyFiscalProfile";
@@ -370,10 +368,7 @@ export const requestFiscalNoteEmission = async ({
   ) {
     return null;
   }
-  if (
-    !(Number(invoice.value) > 0) ||
-    isBillingConsoleCompany(invoice.company)
-  ) {
+  if (!(Number(invoice.value) > 0) || isPlatformOwnerCompany(invoice.company)) {
     if (manual) throw new AppError("ERR_FISCAL_NOTE_NOT_APPLICABLE", 422);
     return null;
   }
@@ -484,7 +479,7 @@ export const autoEmitAppliesTo = (
   if (!settings.autoEmitEnabled || !settings.autoEmitSince) return false;
   if (!["open", "paid"].includes(invoice.status)) return false;
   if (!(Number(invoice.value) > 0)) return false;
-  if (invoice.company && isBillingConsoleCompany(invoice.company)) return false;
+  if (invoice.company && isPlatformOwnerCompany(invoice.company)) return false;
   const paidAt =
     invoice.status === "paid"
       ? invoice.paidAt
@@ -801,17 +796,9 @@ export const reconcileFiscalNotes = async (): Promise<void> => {
         status: "paid",
         value: { [Op.gt]: 0 },
         paidAt: { [Op.gte]: since },
+        companyId: { [Op.ne]: getPlatformCompanyId() },
         id: { [Op.notIn]: literal('(SELECT "invoiceId" FROM "FiscalNotes")') }
       },
-      include: [
-        {
-          model: Company,
-          as: "company",
-          attributes: [],
-          required: true,
-          where: { slug: { [Op.notIn]: billingConsoleSlugs() } }
-        }
-      ],
       limit: 20
     });
     for (const invoice of missing) {

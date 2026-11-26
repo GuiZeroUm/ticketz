@@ -5,6 +5,7 @@ import Company from "../../models/Company";
 import Invoices from "../../models/Invoices";
 import Setting from "../../models/Setting";
 import normalizeSlug from "../../helpers/normalizeSlug";
+import { assertTenantSlugAllowed } from "../../helpers/tenantSlugPolicy";
 import { revokeCompanyMcpGrants } from "../McpServices/RevokeMcpGrantsService";
 import { assertVoiceCompanyAllowlisted } from "../VoiceServices/VoiceAccessService";
 import { disableCompanyVoiceConnections } from "../VoiceServices/VoiceService";
@@ -137,6 +138,10 @@ const UpdateCompanyService = async (
     : undefined;
 
   if (slug) {
+    assertTenantSlugAllowed(slug, {
+      companyId: company.id,
+      currentSlug: company.slug
+    });
     const companyWithSameSlug = await Company.findOne({
       where: { slug, id: { [Op.ne]: company.id } },
       transaction

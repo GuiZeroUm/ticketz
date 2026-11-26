@@ -5,6 +5,7 @@ import Company from "../../models/Company";
 import User from "../../models/User";
 import Setting from "../../models/Setting";
 import normalizeSlug from "../../helpers/normalizeSlug";
+import { assertTenantSlugAllowed } from "../../helpers/tenantSlugPolicy";
 import { Transaction } from "sequelize";
 import moment from "moment";
 import {
@@ -60,6 +61,7 @@ const CreateCompanyService = async (
 
   const whatsappMode = assertCompanyWhatsAppMode(companyData.whatsappMode);
   const slug = normalizeSlug(companyData.slug);
+  assertTenantSlugAllowed(slug);
   const timezone = assertCompanyTimezone(companyData.timezone);
   const defaultDueDate = new Date();
   defaultDueDate.setUTCDate(defaultDueDate.getUTCDate() + 3);

@@ -1,15 +1,9 @@
-// Espelha `backend/src/helpers/billingConsole.ts`: a Central de Cobrança é a
-// tela do financeiro da operação e só existe no tenant dono da plataforma.
-// O backend decide de verdade (middleware isBillingAdmin); aqui é só pra não
-// mostrar um menu que responderia 401.
-const SLUGS = ["teste"];
-
-export const podeVerCentralCobranca = user => {
-  const slug = String(user?.company?.slug || "")
-    .trim()
-    .toLowerCase();
-  if (!slug || !SLUGS.includes(slug)) return false;
-  return user?.super === true || user?.profile === "admin";
-};
+// A Central de Cobrança é a tela do financeiro da operação e só existe no
+// tenant dono da plataforma. Quem decide é o backend: ele manda
+// `canUseBillingConsole` no usuário (login, /auth/me e refresh) e repete a
+// checagem em toda rota (middleware isBillingAdmin). Aqui é só pra não
+// mostrar um menu que responderia 401, sem lista fixa de slugs.
+export const podeVerCentralCobranca = user =>
+  user?.canUseBillingConsole === true;
 
 export default podeVerCentralCobranca;
