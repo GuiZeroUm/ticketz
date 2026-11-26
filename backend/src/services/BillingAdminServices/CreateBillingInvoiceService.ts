@@ -6,7 +6,7 @@ import Invoices from "../../models/Invoices";
 import Plan from "../../models/Plan";
 import { enqueueWebhook } from "../PlatformServices/PlatformWebhookService";
 import { serializeInvoice } from "../PlatformServices/PlatformSerializers";
-import { isBillingConsoleCompany } from "../../helpers/billingConsole";
+import { isPlatformOwnerCompany } from "../../helpers/billingConsole";
 
 interface Request {
   companyId: number;
@@ -37,7 +37,7 @@ const CreateBillingInvoiceService = async ({
   });
 
   if (!company) throw new AppError("ERR_NO_COMPANY_FOUND", 404);
-  if (isBillingConsoleCompany(company)) {
+  if (isPlatformOwnerCompany(company)) {
     throw new AppError("ERR_CANNOT_BILL_OWNER_TENANT", 400);
   }
 

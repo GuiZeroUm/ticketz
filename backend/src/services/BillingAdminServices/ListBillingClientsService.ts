@@ -3,7 +3,7 @@ import { Op } from "sequelize";
 import Company from "../../models/Company";
 import Invoices from "../../models/Invoices";
 import Plan from "../../models/Plan";
-import { billingConsoleSlugs } from "../../helpers/billingConsole";
+import { getPlatformCompanyId } from "../../helpers/platformSuper";
 import { invoiceStatusLabel, today } from "./BillingAdminQuery";
 
 interface Request {
@@ -26,7 +26,7 @@ const ListBillingClientsService = async (params: Request = {}) => {
 
   if (!params.includeOwner) {
     where[Op.and].push({
-      [Op.or]: [{ slug: null }, { slug: { [Op.notIn]: billingConsoleSlugs() } }]
+      id: { [Op.ne]: getPlatformCompanyId() }
     });
   }
 

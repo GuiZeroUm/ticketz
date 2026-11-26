@@ -2,6 +2,7 @@
 import {
   billingConsoleSlugs,
   isBillingConsoleCompany,
+  isPlatformOwnerCompany,
   userCanUseBillingConsole
 } from "../billingConsole";
 import { SerializeUser } from "../SerializeUser";
@@ -14,58 +15,79 @@ jest.mock("../../models/Company", () => ({
 jest.mock("../../models/User", () => ({ __esModule: true, default: {} }));
 jest.mock("../../models/Queue", () => ({ __esModule: true, default: {} }));
 
-const admin = { profile: "admin", super: false };
-const attendant = { profile: "user", super: false };
+const admin = (companyId: number) => ({
+  profile: "admin",
+  super: false,
+  companyId
+});
+const platform = { id: 1, slug: "somosespaco" };
 
 describe("billing console access", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    delete process.env.BILLING_CONSOLE_SLUGS;
+    process.env.BILLING_CONSOLE_SLUGS = "somosespaco";
+    delete process.env.MASTER_COMPANY_ID;
     delete process.env.TENANT_RUNTIME_COMPANY_ID;
     delete process.env.QUEUE_PREFIX;
   });
 
-  it("keeps working after the owner company is renamed", () => {
-    expect(billingConsoleSlugs()).toEqual(["teste", "somosespaco"]);
-    expect(userCanUseBillingConsole(admin, { slug: "somosespaco" })).toBe(true);
-    expect(userCanUseBillingConsole(admin, { slug: "teste" })).toBe(true);
+  it("opens the console to the platform company admins", () => {
+    expect(userCanUseBillingConsole(admin(1), platform)).toBe(true);
     expect(
       userCanUseBillingConsole(
-        { profile: "user", super: true },
-        { slug: "somosespaco" }
+        { profile: "user", super: true, companyId: 1 },
+        platform
       )
     ).toBe(true);
   });
 
-  it("never opens the console to client companies or non-admin users", () => {
-    expect(userCanUseBillingConsole(admin, { slug: "cliente-exemplo" })).toBe(
-      false
-    );
-    expect(userCanUseBillingConsole(admin, { slug: "acnorte" })).toBe(false);
-    expect(userCanUseBillingConsole(admin, null)).toBe(false);
-    expect(userCanUseBillingConsole(attendant, { slug: "somosespaco" })).toBe(
-      false
-    );
+  it("never opens it to another company using a listed slug (e.g. created by public signup)", () => {
+    process.env.BILLING_CONSOLE_SLUGS = "somosespaco,teste";
+    const impostor = { id: 77, slug: "teste" };
+    expect(isBillingConsoleCompany(impostor)).toBe(false);
+    expect(userCanUseBillingConsole(admin(77), impostor)).toBe(false);
+  });
+
+  it("never opens it to client companies, attendants or users of another company", () => {
+    expect(
+      userCanUseBillingConsole(admin(7), { id: 7, slug: "cliente-exemplo" })
+    ).toBe(false);
+    expect(
+      userCanUseBillingConsole(
+        { profile: "user", super: false, companyId: 1 },
+        platform
+      )
+    ).toBe(false);
+    expect(userCanUseBillingConsole(admin(7), platform)).toBe(false);
+    expect(userCanUseBillingConsole(admin(1), null)).toBe(false);
+  });
+
+  it("follows a rename of the platform company once the environment lists the new slug", () => {
+    const renamed = { id: 1, slug: "nova-marca" };
+    expect(userCanUseBillingConsole(admin(1), renamed)).toBe(false);
+    process.env.BILLING_CONSOLE_SLUGS = "somosespaco,nova-marca";
+    expect(userCanUseBillingConsole(admin(1), renamed)).toBe(true);
+  });
+
+  it("fails closed without BILLING_CONSOLE_SLUGS (documented decision)", () => {
+    delete process.env.BILLING_CONSOLE_SLUGS;
+    expect(billingConsoleSlugs()).toEqual([]);
+    expect(userCanUseBillingConsole(admin(1), platform)).toBe(false);
+    // A exclusão da dona da plataforma nas listas não depende da variável.
+    expect(isPlatformOwnerCompany(platform)).toBe(true);
   });
 
   it("never opens the console in a dedicated runtime", () => {
     process.env.TENANT_RUNTIME_COMPANY_ID = "9";
     process.env.QUEUE_PREFIX = "dedicado";
-    expect(isBillingConsoleCompany({ slug: "somosespaco" })).toBe(false);
-    expect(userCanUseBillingConsole(admin, { slug: "teste" })).toBe(false);
-  });
-
-  it("lets the environment override the slugs", () => {
-    process.env.BILLING_CONSOLE_SLUGS = "outra-plataforma";
-    expect(userCanUseBillingConsole(admin, { slug: "somosespaco" })).toBe(
+    process.env.MASTER_COMPANY_ID = "9";
+    process.env.BILLING_CONSOLE_SLUGS = "acnorte";
+    expect(userCanUseBillingConsole(admin(9), { id: 9, slug: "acnorte" })).toBe(
       false
     );
-    expect(userCanUseBillingConsole(admin, { slug: "outra-plataforma" })).toBe(
-      true
-    );
   });
 
-  it("sends the decision in the serialized user, loading the slug when missing", async () => {
+  it("sends the decision in the serialized user, loading the company when missing", async () => {
     const withCompany = await SerializeUser({
       id: 1,
       companyId: 1,
@@ -78,9 +100,9 @@ describe("billing console access", () => {
 
     (Company.findByPk as jest.Mock).mockResolvedValue({
       id: 7,
-      slug: "cliente-exemplo"
+      slug: "somosespaco"
     });
-    const client = await SerializeUser({
+    const other = await SerializeUser({
       id: 2,
       companyId: 7,
       profile: "admin",
@@ -89,6 +111,6 @@ describe("billing console access", () => {
     expect(Company.findByPk).toHaveBeenCalledWith(7, {
       attributes: ["id", "slug"]
     });
-    expect(client.canUseBillingConsole).toBe(false);
+    expect(other.canUseBillingConsole).toBe(false);
   });
 });

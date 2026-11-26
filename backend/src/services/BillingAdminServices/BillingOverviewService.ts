@@ -11,7 +11,7 @@ import {
   invoiceStatusLabel,
   today
 } from "./BillingAdminQuery";
-import { billingConsoleSlugs } from "../../helpers/billingConsole";
+import { getPlatformCompanyId } from "../../helpers/platformSuper";
 
 interface Bucket {
   billed: number;
@@ -115,12 +115,7 @@ const BillingOverviewService = async (filters: BillingFilters) => {
   // `!=`/`NOT IN` simples descartaria essas linhas silenciosamente.
   const clientWhere: Record<string | symbol, any> = {
     [Op.and]: [
-      {
-        [Op.or]: [
-          { slug: null },
-          { slug: { [Op.notIn]: billingConsoleSlugs() } }
-        ]
-      },
+      { id: { [Op.ne]: getPlatformCompanyId() } },
       {
         [Op.or]: [
           { platformBilling: null },
