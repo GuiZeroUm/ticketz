@@ -2,6 +2,7 @@ import Queue from "../models/Queue";
 import Company from "../models/Company";
 import User from "../models/User";
 import { isPlatformSuper } from "./platformSuper";
+import { userCanUseBillingConsole } from "./billingConsole";
 
 interface SerializedUser {
   id: number;
@@ -14,10 +15,16 @@ interface SerializedUser {
   companyId: number;
   company: Company | null;
   super: boolean;
+  canUseBillingConsole: boolean;
   queues: Queue[];
 }
 
 export const SerializeUser = async (user: User): Promise<SerializedUser> => {
+  // Nem todo chamador carrega o slug da empresa junto com o usuário.
+  const company =
+    user.company?.slug !== undefined
+      ? user.company
+      : await Company.findByPk(user.companyId, { attributes: ["id", "slug"] });
   return {
     id: user.id,
     name: user.name,
@@ -29,6 +36,7 @@ export const SerializeUser = async (user: User): Promise<SerializedUser> => {
     companyId: user.companyId,
     company: user.company,
     super: isPlatformSuper(user),
+    canUseBillingConsole: userCanUseBillingConsole(user, company),
     queues: user.queues
   };
 };

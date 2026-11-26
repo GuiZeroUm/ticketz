@@ -8,6 +8,7 @@ import { RefreshTokenService } from "../services/AuthServices/RefreshTokenServic
 import FindUserFromToken from "../services/AuthServices/FindUserFromToken";
 import User from "../models/User";
 import { SerializeUser } from "../helpers/SerializeUser";
+import { userCanUseBillingConsole } from "../helpers/billingConsole";
 import { createAccessToken, createRefreshToken } from "../helpers/CreateTokens";
 import Company from "../models/Company";
 import Setting from "../models/Setting";
@@ -121,7 +122,18 @@ export const me = async (req: Request, res: Response): Promise<Response> => {
     throw new AppError("ERR_UNAUTHORIZED", 401);
   }
 
-  return res.json({ id, profile, email, super: superAdmin, visibleScreens });
+  const company = await Company.findByPk(user.companyId, {
+    attributes: ["id", "slug"]
+  });
+
+  return res.json({
+    id,
+    profile,
+    email,
+    super: superAdmin,
+    visibleScreens,
+    canUseBillingConsole: userCanUseBillingConsole(user, company)
+  });
 };
 
 export const remove = async (

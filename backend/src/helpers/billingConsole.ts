@@ -1,4 +1,5 @@
 import Company from "../models/Company";
+import { isDedicatedRuntime } from "./tenantRuntime";
 import User from "../models/User";
 
 // A Central de Cobrança é a tela do responsável financeiro da operação: ela
@@ -6,7 +7,11 @@ import User from "../models/User";
 // dono da plataforma. Amarramos ao slug (e não ao id) porque cada instalação
 // tem o seu id 1 — a AC Norte, por exemplo, roda o mesmo código em banco
 // próprio e não pode ganhar a tela.
-const DEFAULT_SLUGS = ["teste"];
+// O slug do tenant dono pode mudar pela tela de empresas: os dois nomes que ele
+// já teve ficam no padrão, e BILLING_CONSOLE_SLUGS continua sobrescrevendo.
+// Não usamos o id da empresa master: outras instalações com banco próprio
+// também têm uma empresa 1.
+const DEFAULT_SLUGS = ["teste", "somosespaco"];
 
 // Estes campos definem o ciclo financeiro do cliente. No tenant dono da
 // Central eles só podem ser alterados pela própria Central de Cobrança; a tela
@@ -44,6 +49,8 @@ export const billingConsoleSlugs = (): string[] => {
 export const isBillingConsoleCompany = (
   company?: Pick<Company, "slug"> | null
 ): boolean => {
+  // Um runtime dedicado (cliente com instância própria) nunca tem a Central.
+  if (isDedicatedRuntime()) return false;
   const slug = clean(company?.slug);
   return !!slug && billingConsoleSlugs().includes(slug);
 };
@@ -53,3 +60,10 @@ export const isBillingConsoleCompany = (
 export const canUseBillingConsole = (
   user?: Pick<User, "profile" | "super"> | null
 ): boolean => !!user && (user.super === true || user.profile === "admin");
+
+// Calculado no backend e enviado no usuário serializado: a tela não decide
+// por conta própria quem vê a Central.
+export const userCanUseBillingConsole = (
+  user?: Pick<User, "profile" | "super"> | null,
+  company?: Pick<Company, "slug"> | null
+): boolean => isBillingConsoleCompany(company) && canUseBillingConsole(user);
