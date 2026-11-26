@@ -16,6 +16,7 @@ import User from "../../models/User";
 import Whatsapp from "../../models/Whatsapp";
 import Setting from "../../models/Setting";
 import normalizeSlug from "../../helpers/normalizeSlug";
+import { isProtectedTenantSlug } from "../../helpers/tenantSlugPolicy";
 import { SerializeUser } from "../../helpers/SerializeUser";
 import {
   createAccessToken,
@@ -116,7 +117,12 @@ export const createPlatformTenant = async (
   const required = ["nome", "slug", "email_admin", "plano_ref"];
   const missing = required.filter(field => !body[field]);
   const slug = normalizeSlug(body.slug);
-  if (missing.length || !slug || !String(body.email_admin).includes("@")) {
+  if (
+    missing.length ||
+    !slug ||
+    isProtectedTenantSlug(slug) ||
+    !String(body.email_admin).includes("@")
+  ) {
     validationError({
       campos: missing.length ? missing : ["slug", "email_admin"]
     });
